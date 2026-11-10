@@ -19,33 +19,29 @@ The shape, trimmed to what is read here::
           <publications><publication id name/>
 
 It becomes one JSON document (:func:`parse_roster`) the army builder reads
-whole. Parsing uses only the standard library. The file is untrusted, so its
-unzipped size is capped, a DOCTYPE or entity declaration (the vector for
-entity expansion) anywhere in it is refused, and the number of selections is
-bounded.
+whole. The file is untrusted, so its unzipped size is capped, it is parsed
+with defusedxml refusing any DOCTYPE (rosters never carry one, so no entity is
+ever declared or expanded, whatever the encoding), and the number of
+selections and the size of the document read from it are bounded.
 """
 from __future__ import annotations
 
 import io
-import re
+import json
 import zipfile
 from typing import Any, Optional
 from xml.etree import ElementTree
+
+import defusedxml.ElementTree as SafeElementTree
 
 #: The largest roster read, unzipped. Real ones are tens of kilobytes; a
 #: thousand-model Apocalypse list is a few megabytes.
 MAX_ROSTER_BYTES = 20 * 1024 * 1024
 #: The most selections read from one roster, nested ones included.
 MAX_SELECTIONS = 10_000
-
-
-#: A DOCTYPE or ENTITY declaration. Rosters never carry one; refusing them
-#: anywhere in the file, not just near the top, shuts out entity expansion.
-_DECLARATION = re.compile(rb"<!\s*(doctype|entity)", re.IGNORECASE)
-
-#: Byte-order marks of the UTF-16/32 encodings, which would hide a declaration
-#: from the byte scan. BattleScribe and New Recruit write UTF-8.
-_WIDE_BOMS = (b"\xff\xfe", b"\xfe\xff", b"\x00\x00\xfe\xff")
+#: The largest document stored for one roster, as JSON. A real roster's is
+#: about the size of its XML.
+MAX_DOCUMENT_BYTES = MAX_ROSTER_BYTES
 
 
 class RosterError(ValueError):
@@ -190,11 +186,10 @@ def parse_roster(xml: bytes) -> dict[str, Any]:
 
     Raises :class:`RosterError` for anything that is not a readable roster.
     """
-    if xml.startswith(_WIDE_BOMS) or _DECLARATION.search(xml):
-        raise RosterError("That file is not a BattleScribe roster")
     try:
-        root = ElementTree.fromstring(xml)
-    except ElementTree.ParseError as exc:
+        root = SafeElementTree.fromstring(xml, forbid_dtd=True)
+    except (ElementTree.ParseError, ValueError) as exc:
+        # defusedxml's refusals (a DOCTYPE, an entity) are ValueErrors.
         raise RosterError("That file is not a BattleScribe roster") from exc
     if _tag(root) != "roster":
         raise RosterError("That file is not a BattleScribe roster")
@@ -205,7 +200,7 @@ def parse_roster(xml: bytes) -> dict[str, Any]:
         if _tag(p) == "publication" and p.get("id")
     }
     reader = _Reader(publications)
-    return {
+    document = {
         "format": "battlescribe",
         "name": root.get("name") or "",
         "game_system_id": root.get("gameSystemId") or "",
@@ -214,6 +209,9 @@ def parse_roster(xml: bytes) -> dict[str, Any]:
         "cost_limits": _costs(_child(root, "costLimits"), "costLimit"),
         "forces": [reader.force(f) for f in _children(_child(root, "forces"), "force")],
     }
+    if len(json.dumps(document)) > MAX_DOCUMENT_BYTES:
+        raise RosterError("That roster is too large")
+    return document
 
 
 def roster_points(data: dict[str, Any], cost_name: str) -> int:

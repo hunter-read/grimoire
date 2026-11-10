@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ...models import Faction, GameSystem
 from ...models.game_types import GAME_TYPE_WARGAME
 from ..access_control import visible_systems
+from ..factions import hidden_faction_ids
 from . import guests
 
 
@@ -30,19 +31,24 @@ def match_system(db: Session, user: Any, system_name: str) -> Optional[GameSyste
     return result
 
 
-def match_faction(db: Session, system_id: Optional[str], catalogue: str) -> Optional[Faction]:
+def match_faction(
+    db: Session, user: Any, system_id: Optional[str], catalogue: str
+) -> Optional[Faction]:
     """The system's faction whose name the roster's catalogue names.
 
     Catalogues are named for their faction with a grouping in front
     ("Xenos - Necrons", "Imperium - Space Marines"), so the faction whose name
     appears in the catalogue name wins - the longest, so "Chaos Space Marines"
-    beats "Space Marines".
+    beats "Space Marines". Only factions ``user`` may know of are matched.
     """
     wanted = (catalogue or "").lower()
     if not system_id or not wanted:
         return None
+    hidden = hidden_faction_ids(db, system_id, user)
     best: Optional[Faction] = None
     for faction in db.query(Faction).filter_by(game_system_id=system_id).all():
+        if faction.id in hidden:
+            continue
         name = faction.name.lower()
         if name and name in wanted and (best is None or len(name) > len(best.name)):
             best = faction

@@ -438,9 +438,12 @@ def list_system_factions(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """The factions the system's folders name; empty for a role-playing system."""
+    """The factions the system's folders name; empty for a role-playing system.
+
+    Only those with a book the caller can see, or with no books at all.
+    """
     system = _load_system(db, system_id, current_user)
-    return {"factions": system_factions(db, system.id)}
+    return {"factions": system_factions(db, system.id, current_user)}
 
 
 def list_system_book_groups(

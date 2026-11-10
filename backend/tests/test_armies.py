@@ -115,7 +115,11 @@ def test_parse_roster():
         b'<!DOCTYPE x [<!ENTITY a "b">]><roster/>',
         # A declaration far from the top is still refused.
         b"<!--" + b"x" * 5000 + b'--><!DOCTYPE roster [<!ENTITY a "b">]><roster/>',
-        "﻿<roster/>".encode("utf-16"),
+        # The same in UTF-16, with a byte-order mark and without one.
+        '<!DOCTYPE x [<!ENTITY a "b">]><roster/>'.encode("utf-16"),
+        '<!DOCTYPE x [<!ENTITY a "b">]><roster/>'.encode("utf-16-le"),
+        '<!DOCTYPE x [<!ENTITY a "b">]><roster/>'.encode("utf-16-be"),
+        b'<!DOCTYPE roster SYSTEM "file:///etc/passwd"><roster/>',
     ],
 )
 def test_parse_refuses_what_is_not_a_roster(xml):
@@ -139,6 +143,14 @@ def test_roster_file_errors():
     with patch.object(battlescribe, "MAX_SELECTIONS", 1):
         with pytest.raises(battlescribe.RosterError):
             battlescribe.parse_roster(_roster())
+    with patch.object(battlescribe, "MAX_DOCUMENT_BYTES", 10):
+        with pytest.raises(battlescribe.RosterError):
+            battlescribe.parse_roster(_roster())
+
+
+def test_parse_reads_a_utf16_roster():
+    xml = _roster().decode("utf-8").replace('encoding="UTF-8"', 'encoding="UTF-16"')
+    assert battlescribe.parse_roster(xml.encode("utf-16"))["name"] == "Dynasty of Bones"
 
 
 def test_limits_and_cost_names():
@@ -509,20 +521,21 @@ def test_links_helpers():
         assert links.suggest(db, admin, None, "") == []
         assert links.search_books(db, admin, "x") == []
         assert matching.match_system(db, admin, "") is None
-        assert matching.match_faction(db, None, "Necrons") is None
+        assert matching.match_faction(db, admin, None, "Necrons") is None
     finally:
         db.close()
 
 
 def test_faction_matching_prefers_the_longest_name(necrons):
     system, _faction = necrons
+    admin = auth.CurrentUser("x", "x", "admin")
     db = SessionLocal()
     try:
         db.add(Faction(game_system_id=system.id, name="Chaos Space Marines", slug="csm"))
         db.commit()
-        best = matching.match_faction(db, system.id, "Chaos - Chaos Space Marines")
+        best = matching.match_faction(db, admin, system.id, "Chaos - Chaos Space Marines")
         assert best is not None and best.name == "Chaos Space Marines"
-        assert matching.match_faction(db, system.id, "Orks") is None
+        assert matching.match_faction(db, admin, system.id, "Orks") is None
     finally:
         db.close()
 

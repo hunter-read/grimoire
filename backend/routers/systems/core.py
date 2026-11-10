@@ -384,6 +384,26 @@ def _require_owned_folder_path(db: Session, system_id: str, path: str, user: Any
         )
 
 
+def _folder_kept_from(
+    db: Session, resolver: tag_service.FolderResolver, path: str, user: Any
+) -> bool:
+    """Whether the book folder at ``path`` holds books, none of which ``user`` can see.
+
+    Such a folder is not shown or changed for them, as the book groups leave it
+    out. A folder holding no books hides nothing.
+    """
+    if access_control.sees_everything(user):
+        return False
+    scope = resolver.scope("book", path)
+    if scope is None:
+        return False
+    _model, criteria = scope
+    books = db.query(Book.id).filter(*criteria)
+    if books.first() is None:
+        return False
+    return access_control.visible_books(db, books, user).first() is None
+
+
 def list_book_folders(
     system_id: str,
     current_user: CurrentUser = Depends(get_current_user),
@@ -391,10 +411,12 @@ def list_book_folders(
 ):
     load_browsable_system(db, system_id, current_user)
     folders = db.query(BookFolder).filter(path_under(BookFolder.path, f"{system_id}/")).all()
+    resolver = tag_service.FolderResolver(db)
     return {
         "folders": [
             {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
             for f in folders
+            if not _folder_kept_from(db, resolver, f.path, current_user)
         ]
     }
 
@@ -409,6 +431,8 @@ def update_book_folder(
     # system (or to none) silently created a row the matching GET — which filters
     # on ``{system_id}/`` — could never return (issue #357).
     _require_owned_folder_path(db, system_id, data.path, current_user)
+    if _folder_kept_from(db, tag_service.FolderResolver(db), data.path, current_user):
+        raise HTTPException(404, "Book folder not found")
     internals = tag_service.upsert_folder_tags(
         db, BookFolder, data.path, data.tags, category="book"
     )
@@ -429,7 +453,7 @@ def delete_book_folder(
     """
     _require_owned_folder_path(db, system_id, path, current_user)
     folder = db.query(BookFolder).filter_by(path=path).first()
-    if not folder:
+    if not folder or _folder_kept_from(db, tag_service.FolderResolver(db), path, current_user):
         raise HTTPException(404, "Book folder not found")
     db.delete(folder)
     db.commit()

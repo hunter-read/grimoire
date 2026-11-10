@@ -151,6 +151,9 @@ def create_user(
     db: Session = Depends(get_db),
 ):
     _assert_session_for_credentials(current_user, data.password, data.role)
+    # The address OIDC can match sign-ins on.
+    if data.email:
+        api_keys.assert_session(current_user)
     if username_taken(db, data.username):
         raise HTTPException(400, "Username already exists")
     if data.email and db.query(User).filter_by(email=data.email).first():
@@ -202,8 +205,10 @@ def update_user(
     _assert_session_for_credentials(
         current_user, data.password, data.role if data.role != user.role else None
     )
-    # The address OIDC can match sign-ins on.
+    # The address OIDC can match sign-ins on, and any change of role.
     if data.email is not None and (data.email or None) != user.email:
+        api_keys.assert_session(current_user)
+    if data.role and data.role != user.role:
         api_keys.assert_session(current_user)
 
     if data.role and data.role != user.role and user.is_guest:
