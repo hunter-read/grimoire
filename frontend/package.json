@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.26",
-    "i18next": "^26.7.2",
+    "i18next": "^27.0.1",
     "mermaid": "^12.3.0",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
