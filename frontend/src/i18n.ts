@@ -14,8 +14,14 @@ const loaders = import.meta.glob<ResourceKey>(['./locales/*.json', '!./locales/e
 /**
  * The slice of i18next's `t` that plain helpers need. Both react-i18next's `t`
  * and a test's stub translate fit it, unlike the full overloaded `TFunction`.
+ * Two overloads rather than one optional `opts`: since i18next 27, `t` types
+ * "key alone" and "key and options" as separate signatures, and a single
+ * `(key, opts?)` signature matches neither.
  */
-export type Translate = (key: string, opts?: Record<string, unknown>) => string
+export type Translate = {
+  (key: string): string
+  (key: string, opts: Record<string, unknown>): string
+}
 
 export const AVAILABLE_LANGUAGES = Object.entries(LANGUAGE_NAMES)
   .map(([value, label]) => ({ value, label }))
