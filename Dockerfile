@@ -65,7 +65,7 @@ RUN grep -v '^pymupdf==' requirements.txt > requirements-rest.txt \
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
 # *encoder* needs it, and without it the build silently produces a binary that
 # demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
-FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS ffmpeg-builder
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS ffmpeg-builder
 
 # Bumping the version means bumping the checksum with it. Take it from a tarball
 # whose signature checks out against the FFmpeg release key
