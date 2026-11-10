@@ -159,18 +159,15 @@
    `data-theme`. Grimoire is the default; Codex suits a library that leans to
    wargames, but nothing selects it automatically.
 
-   Palette from the Codex logo (frontend/static/codex-logo.svg): gunmetal ink
-   #14171B, steel #9AA4AE, crimson #B22B33. It takes Grimoire's approach to
-   highlights: muted surfaces with one saturated accent that stands out
-   against them. Grimoire sets warm gold on brown; Codex sets crimson on cool
-   gunmetal, where the complementary pairing does the work. Steel is the
-   quieter second accent. The accent tokens are still named for Grimoire's
-   gold - they carry the *role*, not the hue - so every component reskins
-   without a change.
+   Palette derived from the Codex logo (frontend/static/codex-logo.svg): gunmetal
+   ink #14171B, steel #9AA4AE, crimson #B22B33. Steel is the accent and crimson
+   the second accent; Codex Red, in the community themes, swaps them. The accent
+   tokens are still named for Grimoire's gold — they carry the *role*, not the
+   hue — so every component reskins without a single change.
 
-   Danger and warning sit off crimson - on vermilion and amber - so a
-   destructive button never looks like the primary one. Every text and accent
-   pairing clears 4.5:1, as Grimoire's do.
+   The reference mockup was not contrast-checked: its crimson sat at 2.54:1 on
+   the dark surfaces, with three more tokens under AA. These keep the hues and
+   lift the luminance until every pairing clears 4.5:1.
    --------------------------------------------------------------------------- */
 :root[data-app-mode='codex'],
 :root[data-app-mode='codex'][data-theme='dark'] {
@@ -185,36 +182,32 @@
   --p-border-light: #3c4551;
   --p-border-control: #717a85;
 
-  /* Crimson lifted until it clears AA on every surface (the logo's #b22b33
-     sits near 2.5:1 on these) and under dark text when it fills a button.
-     Held a little short of full saturation, as Grimoire's gold is, so it reads
-     as crimson rather than pink. */
-  --p-accent: #ea646b;
-  --p-accent-dim: #e55f66;
-  --p-accent-bright: #f38285;
-  --p-accent-alt: #b8c4cf;
+  --p-accent: #9aa4ae;
+  --p-accent-dim: #8b95a0;
+  --p-accent-bright: #c3ccd4;
+  --p-accent-alt: #e86e76;
   --p-on-accent: #0b0d10;
 
   --p-text: #dfe4ea;
   --p-text-dim: #aeb6bf;
   --p-text-muted: #949ea8;
 
-  --p-red: #f47f4e;
+  --p-red: #e86e76;
   --p-green: #63ab88;
   --p-blue: #6ba3c7;
 
-  --p-danger: #f47f4e;
-  --p-danger-fill: #9e3d1a;
+  --p-danger: #e86e76;
+  --p-danger-fill: #9e2129;
   --p-on-danger: #fdf6f4;
   --p-on-media: #ffffff;
   --p-on-media-border: rgba(255, 255, 255, 0.15);
-  --p-warning: #e0ac52;
+  --p-warning: #d8a15c;
   --p-success: #63ab88;
 
   --p-tag-bg: #1f252c;
   --p-tag-border: #39424d;
-  --p-mark-bg: rgba(234, 100, 107, 0.32);
-  --p-invite-bg: rgba(234, 100, 107, 0.12);
+  --p-mark-bg: rgba(178, 43, 51, 0.4);
+  --p-invite-bg: rgba(154, 164, 174, 0.12);
 
   --p-overlay: rgba(0, 0, 0, 0.65);
   --p-shadow: rgba(0, 0, 0, 0.5);
@@ -224,7 +217,7 @@
   --p-type-book: #b9a7f0;
   --p-type-map: #6ba3c7;
   --p-type-token: #63ab88;
-  --p-type-audio: #e0ac52;
+  --p-type-audio: #d8a15c;
   --p-type-model: #b18ae0;
   --p-type-file: #c3ccd4;
   /* Variant grouping badge (issues #304, #306): an entry that collapses
@@ -233,9 +226,8 @@
   --p-variant: #7fd4cc;
 }
 
-/* Codex, light. Crimson can be the logo's exact #b22b33 here, where it reads
-   at 5.6:1 on the page background; steel darkens to slate as the second
-   accent. */
+/* Codex, light. Steel darkens to hold contrast on pale surfaces; crimson can
+   stay the logo's exact #b22b33 here, where it reads at 5.6:1. */
 :root[data-app-mode='codex'][data-theme='light'] {
   color-scheme: light;
 
@@ -248,32 +240,32 @@
   --p-border-light: #aab3bd;
   --p-border-control: #7b8590;
 
-  --p-accent: #b22b33;
-  --p-accent-dim: #96202a;
-  --p-accent-bright: #c2303b;
-  --p-accent-alt: #4a5661;
+  --p-accent: #4a5661;
+  --p-accent-dim: #39434d;
+  --p-accent-bright: #5d6975;
+  --p-accent-alt: #b22b33;
   --p-on-accent: #f7f9fb;
 
   --p-text: #141a20;
   --p-text-dim: #3f4954;
   --p-text-muted: #5b6672;
 
-  --p-red: #a63d12;
+  --p-red: #b22b33;
   --p-green: #1f6b4d;
   --p-blue: #1f5878;
 
-  --p-danger: #a63d12;
-  --p-danger-fill: #a63d12;
+  --p-danger: #9e2129;
+  --p-danger-fill: #9e2129;
   --p-on-danger: #fdf6f4;
   --p-on-media: #ffffff;
   --p-on-media-border: rgba(255, 255, 255, 0.15);
-  --p-warning: #7d5a06;
+  --p-warning: #8a4b06;
   --p-success: #1f6b4d;
 
   --p-tag-bg: #e7ebef;
   --p-tag-border: #b9c2cb;
-  --p-mark-bg: rgba(178, 43, 51, 0.2);
-  --p-invite-bg: rgba(178, 43, 51, 0.08);
+  --p-mark-bg: rgba(178, 43, 51, 0.25);
+  --p-invite-bg: rgba(74, 86, 97, 0.1);
 
   --p-overlay: rgba(20, 26, 32, 0.45);
   --p-shadow: rgba(20, 26, 32, 0.18);
@@ -283,7 +275,7 @@
   --p-type-book: #5b3fb8;
   --p-type-map: #1f5878;
   --p-type-token: #1f6b4d;
-  --p-type-audio: #7d5a06;
+  --p-type-audio: #8a4b06;
   --p-type-model: #5b1d92;
   --p-type-file: #4a5661;
   /* Variant grouping badge (issues #304, #306): an entry that collapses

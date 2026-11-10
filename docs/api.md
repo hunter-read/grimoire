@@ -2201,7 +2201,7 @@ duplicates that variant. A theme sent with only `tokens` is read as covering its
 one `mode`, so the older shape keeps working.
 
 **App modes** are the built-in palettes - `grimoire` (gold on brown, the default) and
-`codex` (crimson on gunmetal, picked from the theme list) - a second axis
+`codex` (steel on gunmetal, picked from the theme list) - a second axis
 alongside the light/dark colour `mode`. Selection is stored per app mode, so
 switching restores what was chosen there. `built_in[]` lists the bundled themes
 - their colours live in the stylesheet, so they carry no `tokens` and can be

@@ -37,7 +37,7 @@ export const DEFAULT_MODE = 'dark'
 /**
  * App modes — which side of the product you are in.
  *
- * `codex` is the crimson-on-gunmetal palette, suited to a library that leans to
+ * `codex` is the steel-on-gunmetal palette, suited to a library that leans to
  * wargames. It is reached by picking the Codex theme in Appearance; nothing
  * selects it by default, and there is no separate mode switch.
  */
