@@ -7,6 +7,7 @@ retried request never errors or duplicates.
 from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -44,13 +45,17 @@ def add_pin(
     db: Session = Depends(get_db),
 ):
     """Pin a folder or system; returns the existing pin if it is already pinned."""
-    existing = (
-        db.query(Pin)
-        .filter_by(user_id=user.id, collection=body.collection, target=body.target)
-        .first()
-    )
-    if existing:
-        return _serialize(existing)
+
+    def existing() -> Optional[Pin]:
+        return (
+            db.query(Pin)
+            .filter_by(user_id=user.id, collection=body.collection, target=body.target)
+            .first()
+        )
+
+    found = existing()
+    if found:
+        return _serialize(found)
     count = db.query(Pin).filter_by(user_id=user.id, collection=body.collection).count()
     if count >= MAX_PINS_PER_COLLECTION:
         raise HTTPException(
@@ -58,7 +63,15 @@ def add_pin(
         )
     pin = Pin(user_id=user.id, collection=body.collection, target=body.target)
     db.add(pin)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same pin made by a request at the same moment: that one stands.
+        db.rollback()
+        found = existing()
+        if found is None:
+            raise
+        return _serialize(found)
     return _serialize(pin)
 
 

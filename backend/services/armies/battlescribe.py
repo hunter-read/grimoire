@@ -28,7 +28,9 @@ from __future__ import annotations
 
 import io
 import json
+import lzma
 import zipfile
+import zlib
 from typing import Any, Optional
 from xml.etree import ElementTree
 
@@ -39,6 +41,12 @@ import defusedxml.ElementTree as SafeElementTree
 MAX_ROSTER_BYTES = 20 * 1024 * 1024
 #: The most selections read from one roster, nested ones included.
 MAX_SELECTIONS = 10_000
+#: How deep selections and forces may nest. Real rosters go a handful deep.
+MAX_DEPTH = 50
+#: The largest cost, count or limit read, either way. Real ones are thousands.
+MAX_NUMBER = 1_000_000
+#: The largest total points worked out from a roster's units.
+MAX_TOTAL = 1_000_000_000
 #: The largest document stored for one roster, as JSON. A real roster's is
 #: about the size of its XML.
 MAX_DOCUMENT_BYTES = MAX_ROSTER_BYTES
@@ -64,7 +72,19 @@ def roster_xml(raw: bytes) -> bytes:
                 raise RosterError("That roster is too large")
             with archive.open(member) as handle:
                 data = handle.read(MAX_ROSTER_BYTES + 1)
-    except zipfile.BadZipFile as exc:
+    except RosterError:
+        raise
+    except (
+        zipfile.BadZipFile,
+        zlib.error,
+        lzma.LZMAError,
+        EOFError,
+        OSError,
+        ValueError,
+        # An encrypted member, or a compression method zipfile cannot read.
+        RuntimeError,
+        NotImplementedError,
+    ) as exc:
         raise RosterError("That .rosz file is damaged") from exc
     if len(data) > MAX_ROSTER_BYTES:
         raise RosterError("That roster is too large")
@@ -89,11 +109,16 @@ def _children(element: Optional[ElementTree.Element], name: str) -> list[Element
 
 
 def _number(raw: Optional[str]) -> int:
-    """A cost or count as stored (``"85.0"``), as a whole number."""
+    """A cost or count as stored (``"85.0"``), as a whole number.
+
+    Clamped to :data:`MAX_NUMBER` either way; anything that is not a finite
+    number reads as 0.
+    """
     try:
-        return int(round(float(raw or 0)))
-    except ValueError:
+        value = int(round(float(raw or 0)))
+    except (ValueError, OverflowError):
         return 0
+    return max(-MAX_NUMBER, min(MAX_NUMBER, value))
 
 
 def _costs(element: Optional[ElementTree.Element], tag: str = "cost") -> list[dict[str, Any]]:
@@ -140,10 +165,12 @@ class _Reader:
             **self._source(element),
         }
 
-    def selection(self, element: ElementTree.Element) -> dict[str, Any]:
+    def selection(self, element: ElementTree.Element, depth: int = 0) -> dict[str, Any]:
         self.selections += 1
         if self.selections > MAX_SELECTIONS:
             raise RosterError("That roster has too many entries to read")
+        if depth > MAX_DEPTH:
+            raise RosterError("That roster nests its entries too deeply to read")
         categories = _children(_child(element, "categories"), "category")
         primary = next((c for c in categories if c.get("primary") == "true"), None)
         return {
@@ -164,20 +191,26 @@ class _Reader:
             ],
             **self._source(element),
             "children": [
-                self.selection(s) for s in _children(_child(element, "selections"), "selection")
+                self.selection(s, depth + 1)
+                for s in _children(_child(element, "selections"), "selection")
             ],
         }
 
-    def force(self, element: ElementTree.Element) -> dict[str, Any]:
+    def force(self, element: ElementTree.Element, depth: int = 0) -> dict[str, Any]:
+        if depth > MAX_DEPTH:
+            raise RosterError("That roster nests its forces too deeply to read")
         return {
             "id": element.get("id") or "",
             "name": element.get("name") or "",
             "catalogue": element.get("catalogueName") or "",
             "catalogue_id": element.get("catalogueId") or "",
             "units": [
-                self.selection(s) for s in _children(_child(element, "selections"), "selection")
+                self.selection(s, depth + 1)
+                for s in _children(_child(element, "selections"), "selection")
             ],
-            "forces": [self.force(f) for f in _children(_child(element, "forces"), "force")],
+            "forces": [
+                self.force(f, depth + 1) for f in _children(_child(element, "forces"), "force")
+            ],
         }
 
 
@@ -215,10 +248,13 @@ def parse_roster(xml: bytes) -> dict[str, Any]:
 
 
 def roster_points(data: dict[str, Any], cost_name: str) -> int:
-    """The army's total in ``cost_name``: the roster's own total, or the sum of its units."""
+    """The army's total in ``cost_name``: the roster's own total, or the sum of its units.
+
+    Clamped to :data:`MAX_TOTAL`, so it always fits the database column.
+    """
     for cost in data.get("costs") or []:
         if cost.get("name") == cost_name:
-            return int(cost.get("value") or 0)
+            return max(-MAX_TOTAL, min(MAX_TOTAL, int(cost.get("value") or 0)))
 
     def unit_total(unit: dict[str, Any]) -> int:
         own = sum(c.get("value", 0) for c in unit.get("costs") or [] if c.get("name") == cost_name)
@@ -229,7 +265,8 @@ def roster_points(data: dict[str, Any], cost_name: str) -> int:
             force_total(f) for f in force.get("forces") or []
         )
 
-    return sum(force_total(f) for f in data.get("forces") or [])
+    total = sum(force_total(f) for f in data.get("forces") or [])
+    return max(-MAX_TOTAL, min(MAX_TOTAL, total))
 
 
 def roster_limit(data: dict[str, Any], cost_name: str) -> Optional[int]:

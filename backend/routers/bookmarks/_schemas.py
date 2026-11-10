@@ -1,11 +1,11 @@
 """Pydantic schemas for the bookmarks API."""
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BookmarkCreate(BaseModel):
     book_id: str
-    page_number: int
+    page_number: int = Field(ge=0, le=1000000)
     label: Optional[str] = ""
     notes: Optional[str] = ""
     selected_text: Optional[str] = None

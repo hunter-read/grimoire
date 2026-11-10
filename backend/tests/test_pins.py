@@ -101,3 +101,38 @@ class TestPinLifecycle:
             assert db.query(Pin).filter_by(user_id=user.id).count() == 0
         finally:
             db.close()
+
+
+def _miss_once(monkeypatch, model):
+    """Make the next lookup of ``model`` miss, as when another request has
+    inserted the row in the moment since it looked."""
+    from sqlalchemy.orm import Query
+
+    real = Query.first
+    missed = []
+
+    def first(self):
+        if not missed and self.column_descriptions[0]["entity"] is model:
+            missed.append(True)
+            return None
+        return real(self)
+
+    monkeypatch.setattr(Query, "first", first)
+    return missed
+
+
+def test_a_pin_made_at_the_same_moment_is_returned(monkeypatch, gm_id):
+    from backend.auth import CurrentUser
+    from backend.routers.pins._schemas import PinIn
+
+    user = CurrentUser(gm_id, "gm", "gm")
+    body = PinIn(collection="tokens", target="Race/Twice")
+    db = SessionLocal()
+    try:
+        made = pins_core.add_pin(body, user=user, db=db)
+        missed = _miss_once(monkeypatch, Pin)
+        again = pins_core.add_pin(body, user=user, db=db)
+        assert missed and again == made
+        assert db.query(Pin).filter_by(user_id=gm_id, target="Race/Twice").count() == 1
+    finally:
+        db.close()

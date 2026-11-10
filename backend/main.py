@@ -16,6 +16,7 @@ from . import backup_scheduler, config, library_watch, scheduler, session_creato
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .log_context import LogUserMiddleware
+from .unicode_guard import LoneSurrogateMiddleware
 from .validation_errors import request_validation_handler
 from .security import (
     RateLimitExceeded,
@@ -375,6 +376,10 @@ app.state.limiter = limiter
 # Exception; Starlette only ever passes it that exception type.
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, request_validation_handler)
+# A JSON body with a lone surrogate ("\ud800") is a 422 before any handler
+# reads it, rather than a UnicodeEncodeError wherever the text is used. Added
+# before the security headers so its answer carries them too.
+app.add_middleware(LoneSurrogateMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 # Attributes each request's log lines to the user it authenticates as, for the
 # log viewer's user filter (issue #576).
@@ -498,6 +503,9 @@ app.include_router(api)
 
 @app.get("/{full_path:path}")
 def serve_frontend(full_path: str, _: Request):
+    if "\x00" in full_path:
+        # No file has a NUL in its name, and os.path refuses one with a ValueError.
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
     frontend_real = os.path.realpath(FRONTEND_DIR)
     candidate = os.path.realpath(os.path.join(FRONTEND_DIR, full_path))
     if full_path and candidate.startswith(frontend_real + os.sep) and os.path.isfile(candidate):

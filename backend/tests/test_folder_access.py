@@ -417,3 +417,34 @@ class TestRecategorising:
 
         assert _moved_relative_path(db, Book(filepath="", filename="x.pdf")) == ""
         assert _moved_relative_path(db, Book(filepath="/elsewhere/x.pdf", filename="x.pdf")) == ""
+
+
+def test_a_rule_saved_at_the_same_moment_is_replaced(db, shelf, monkeypatch):
+    from backend.routers.settings import folder_access as rules_core
+    from backend.routers.settings._schemas import FolderAccessRuleIn
+    from sqlalchemy.orm import Query
+
+    path = f"{shelf['rel']}/Core/GM"
+    _rule(db, path, LEVEL_GM)
+    real = Query.first
+    missed = []
+
+    def first(self):
+        if not missed and self.column_descriptions[0]["entity"] is FolderAccessRule:
+            missed.append(True)
+            return None  # as if another request inserted it since we looked
+        return real(self)
+
+    monkeypatch.setattr(Query, "first", first)
+    session = SessionLocal()
+    try:
+        out = rules_core.save_folder_access_rule(
+            FolderAccessRuleIn(path=path, level=LEVEL_ADMIN), None, session
+        )
+    finally:
+        session.close()
+    assert missed and out["level"] == LEVEL_ADMIN
+    db.expire_all()
+    assert [(r.path, r.level) for r in db.query(FolderAccessRule).filter_by(path=path)] == [
+        (path, LEVEL_ADMIN)
+    ]

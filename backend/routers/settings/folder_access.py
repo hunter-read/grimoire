@@ -7,6 +7,7 @@ and keeps campaign shares in step.
 """
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
@@ -112,6 +113,14 @@ def save_folder_access_rule(
     if row is None:
         row = FolderAccessRule(path=path, level=level)
         db.add(row)
+        try:
+            db.flush()
+        except IntegrityError:
+            # The same folder restricted by a request at the same moment: this
+            # level replaces that one's, as it would have a moment later.
+            db.rollback()
+            row = db.query(FolderAccessRule).filter_by(path=path).one()
+            row.level = level
     else:
         row.level = level
     _demote_campaign_shares(db, path)
