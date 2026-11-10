@@ -367,3 +367,35 @@ class TestAccountLimits:
             self._attempt(client, "admin", "wrongpassword", i)
         client.cookies.set("grimoire_device", device, path="/api/auth")
         assert self._attempt(client, "admin", "adminpass123", 99).status_code == 429
+
+    def test_every_spelling_that_reaches_an_account_shares_its_count(
+        self, client, admin_setup, rate_limited, monkeypatch
+    ):
+        """The count follows the account the name matched, not the text typed."""
+        from backend.routers.auth import core
+        from backend.usernames import find_by_username
+
+        def reach_admin(db, username):
+            return find_by_username(db, "admin" if username.startswith("admin") else username)
+
+        monkeypatch.setattr(core, "find_by_username", reach_admin)
+        for i in range(25):
+            self._attempt(client, "admin", "wrongpassword", i)
+        for i, name in enumerate(["admin-1", "admin-2", "admin-3"]):
+            assert self._attempt(client, name, "wrongpassword", 30 + i).status_code == 429
+        assert self._attempt(client, "admin-4", "adminpass123", 40).status_code == 429
+
+    @pytest.mark.parametrize("name", ["admin\x00", "ad\x00min", "admin\n", "admin\x7f", "admin\x85"])
+    def test_a_username_with_a_control_character_is_refused(self, client, admin_setup, name):
+        resp = client.post("/api/auth/login", json={"username": name, "password": "adminpass123"})
+        assert resp.status_code == 422
+
+    @pytest.mark.postgres_only
+    def test_a_nul_cannot_get_round_a_limited_account(self, client, admin_setup, rate_limited):
+        """PostgreSQL drops a NUL from the name it is sent, so it would match the account."""
+        for i in range(25):
+            self._attempt(client, "admin", "wrongpassword", i)
+        assert self._attempt(client, "admin", "adminpass123", 50).status_code == 429
+        for i, name in enumerate(["admin\x00", "ad\x00min"]):
+            resp = self._attempt(client, name, "adminpass123", 60 + i)
+            assert resp.status_code != 200 and "token" not in resp.text

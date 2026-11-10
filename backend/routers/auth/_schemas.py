@@ -1,14 +1,27 @@
 """Pydantic schemas for the auth API."""
+import re
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
 from ...passwords import check_account_password
 
+# C0 controls and DEL, plus C1 controls.
+_CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
+
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+    @field_validator("username")
+    @classmethod
+    def username_printable(cls, v):
+        # PostgreSQL drops a NUL from every string it is sent, so on that
+        # database such a name would reach an account it doesn't spell.
+        if _CONTROL.search(v):
+            raise ValueError("Username must not contain control characters")
+        return v
 
 
 class GuestLoginRequest(BaseModel):
