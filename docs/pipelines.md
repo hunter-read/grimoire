@@ -86,8 +86,9 @@ layers cached in the GitHub Actions cache) and runs
 That generates a tiny library (a PDF, a CBR and an image map, from the standard library
 alone), starts the image on it with an empty `/data`, and checks through the API that it
 comes up healthy as a non-root user, first-run setup works, the scan indexes everything, the
-PDF is searchable and renders, thumbnails are made, and `unar`, `ffmpeg` and (OCR only)
-`tesseract` run. It then makes `/data` root-owned, as an install upgraded from the old
+PDF is searchable and renders, thumbnails are made, `unar` extracts a file with an accented
+name, `ffmpeg` runs, (OCR only) `tesseract` reads a rendered page, and PyMuPDF's
+layout-analysis packages are absent. It then makes `/data` root-owned, as an install upgraded from the old
 root-run image has it, restarts, and checks the data is handed over. Every push to
 `main` runs it; a PR does when it touches the Dockerfile, dependencies, backend code or
 `ci.yml`. Not a required check, but it is the only one that builds `slim` before a release.
@@ -200,14 +201,15 @@ to build and run on the same runtimes `ci.yml` tests with, so a runtime move is 
 changing the `Dockerfile` and `ci.yml` in the same PR. Patch and digest bumps of those images,
 and bumps of the other base images, still come through.
 
-PyMuPDF is held on 1.x. Version 2 makes onnxruntime, numpy, networkx and its layout packages
-hard dependencies and loads the layout model on every `import fitz`, which adds about 120 MB
-to every process that opens a PDF (the server and each render worker) and about 135 MB to the
-image. 1.x minor and patch releases still come through. **Watch its security advisories by
-hand:** a PyMuPDF or MuPDF advisory still raises a Dependabot alert, but a fix released only
-on 2.x gets no PR, because the ignore applies to security updates too. Check the alert and
-decide whether to take 2.x then (and how to keep the layout model out), rather than letting it
-sit. Lift the ignore if a later release makes the layout packages optional again.
+PyMuPDF 2 folded its layout analysis into the main package and names onnxruntime, numpy,
+networkx and more as dependencies: about 135 MB of image for a feature Grimoire never calls.
+Since 2.1 `import pymupdf` loads none of it unless it is used, so the `Dockerfile` installs
+PyMuPDF on its own with `--no-deps` and deletes the layout package and its models; the image
+smoke test fails if any of those packages turn up. A plain `pip install -r
+backend/requirements.txt`, as CI and a source install run it, does bring them in, unused.
+**When a PyMuPDF bump comes through, check the image build**: a release that starts importing
+one of those packages for ordinary rendering or text extraction fails the Docker image job
+(the build imports the app), not the unit tests, which have the packages installed.
 
 Each PR runs the normal CI, including the per-changed-file coverage gate, so a green grouped
 bump is usually safe to merge as is.

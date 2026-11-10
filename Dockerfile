@@ -22,15 +22,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
+# PyMuPDF 2 folded its layout analysis into the main package: 50 MB of ONNX
+# models, with onnxruntime, numpy, networkx and more as hard dependencies
+# (~135 MB of image in all). Grimoire renders pages and extracts text, which
+# needs none of it, and since 2.1 `import pymupdf` loads none of it either: the
+# layout code is imported on first use and skipped when absent. So PyMuPDF is
+# installed on its own with --no-deps, and the layout package, the pymupdf4llm
+# wrapper around it and the MuPDF headers are deleted. The smoke test checks
+# that none of those packages reached the image.
+#
+# psycopg's binary wheel ships the 7 MB of generated C its extension was
+# compiled from; nothing reads it.
+#
 # Strip debug symbols from the compiled extensions (pymupdf, uvloop, cryptography
 # and friends ship them unstripped). --strip-unneeded leaves the dynamic symbols
 # needed for linking, so this is a pure size win: ~40 MB off the runtime image.
 # `strip` comes from binutils, already present as a dependency of gcc/g++ above.
 # Only the strip is allowed to fail (the parentheses matter: a bare `|| true`
 # would also swallow a failed pip install).
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
+RUN grep -v '^pymupdf==' requirements.txt > requirements-rest.txt \
+    && pip install --no-cache-dir --prefix=/install -r requirements-rest.txt \
+    && pip install --no-cache-dir --prefix=/install --no-deps "$(grep '^pymupdf==' requirements.txt)" \
+    && cd /install/lib/python3.12/site-packages \
+    && rm -rf pymupdf/layout pymupdf4llm pymupdf/mupdf-devel \
+    && find psycopg_binary -name '*.c' -delete \
     && (find /install -name '*.so*' -type f -exec strip --strip-unneeded {} + || true) \
-    && rm -rf /install/lib/python3.12/site-packages/pymupdf/mupdf-devel \
     && find /install -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Stage 3: Build a decode-only ffmpeg for animated-map thumbnails
@@ -103,13 +119,68 @@ RUN ./configure \
     && make -j"$(nproc)" \
     && strip ffmpeg
 
-# Stage 4: Runtime base shared by both variants (no build toolchain)
+# Stage 4: unar and tesseract, cut down to what they load
+#
+# `unar` provides RAR extraction for rarfile (compressed .cbr comics: covers and
+# pages); without it those archives are listed but cannot be read. It is the
+# only tool in Debian main that can actually decompress RAR: p7zip-full parses
+# RAR headers but fails to extract ("Unsupported Method" - the codec is in the
+# non-free p7zip-rar), and bsdtar handles RAR5 but exits 1 on solid RAR3, a
+# common CBR layout. Tesseract is the OCR image's engine.
+#
+# Both are tiny next to what their packages depend on. unar's GNUstep runtime
+# hard-Depends on graphviz, which drags in the AV1/HEIF codecs, X11 and pango,
+# plus perl and binutils; tesseract-ocr ships its training tools, and with them
+# cairo, pango and a set of fonts. An `apt-get install` of the three unpacks
+# some 260 MB; `ldd` says the two programs load under 90 MB of libraries, part
+# of that already in the base image. So they are installed here, on the same
+# base as the runtime so every library matches, and bundle_tool.sh copies out
+# each program, its data and the libraries it loads that the base does not
+# already have. The runtime stages copy those bundles in.
+#
+# One of those libraries is ICU's data, 30 MB of mostly locale data that unar
+# never asks for; trim_icu_data.sh rebuilds it without (see the script).
+#
+# The cost: the bundled files belong to no package in the runtime image's dpkg
+# database, so an image scanner does not match them against Debian advisories.
+# Rebuilding picks up whatever Debian has fixed, as before.
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS tools-builder
+
+# /base-files is written first: it is how bundle_tool.sh knows what the runtime
+# image already has. icu-devtools and binutils are for trim_icu_data.sh.
+RUN find /usr /etc ! -type d | sort > /base-files \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        unar \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        icu-devtools \
+        binutils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/scripts/bundle_tool.sh backend/scripts/trim_icu_data.sh /usr/local/bin/
+
+# unar reads GNUstep.conf and the gnustep-base resources at start-up. GNUstep
+# also shells out to dpkg-architecture for one constant string; dpkg-dev (and
+# the perl it runs on) stays behind, so a shell stub answers instead.
+#
+# The tesseract bundle holds only what unar's does not, so the OCR image can
+# lay it over the unar one. osd.traineddata (10.5 MB - larger than the English
+# data itself) is only read for orientation/script detection, i.e.
+# image_to_osd() or --psm 0. Grimoire only ever calls image_to_string() with an
+# explicit lang, so it is never loaded. Mounting your own tessdata for
+# OCR_LANGUAGES is unaffected.
+RUN trim_icu_data.sh \
+    && bundle_tool.sh /bundle/unar /usr/bin/unar /etc/GNUstep /usr/share/GNUstep/Libraries \
+    && printf '#!/bin/sh\necho "%s"\n' "$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
+        > /bundle/unar/usr/bin/dpkg-architecture \
+    && chmod +x /bundle/unar/usr/bin/dpkg-architecture \
+    && rm -f /usr/share/tesseract-ocr/*/tessdata/osd.traineddata \
+    && SKIP_BUNDLES=/bundle/unar bundle_tool.sh /bundle/tesseract /usr/bin/tesseract /usr/share/tesseract-ocr
+
+# Stage 5: Runtime base shared by both variants (no build toolchain)
 FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS runtime-base
 
 WORKDIR /app
-
-# `unar` (RAR extraction for .cbr cover thumbnails) is installed per final stage
-# rather than here — see the comment on the slim stage for why.
 
 # Bring in the pre-built Python packages from the builder stage.
 COPY --from=backend-builder /install /usr/local
@@ -119,14 +190,18 @@ COPY --from=backend-builder /install /usr/local
 # thumbnail" if it is ever absent, so this stays a single self-contained file.
 COPY --from=ffmpeg-builder /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 
+# unar, from the tools stage. Its libraries are new to this image, so the
+# loader's cache is rebuilt below.
+COPY --from=tools-builder /bundle/unar/ /
+
 # tini runs as PID 1 and reaps orphaned processes, such as a tesseract left
 # behind when an OCR worker is killed. The entrypoint starts it once it has
-# switched users (see with_init in backend/container_entrypoint.py). Installed
-# here, ahead of the slim stage's dpkg --force-depends, which stops apt working.
+# switched users (see with_init in backend/container_entrypoint.py).
 # Only the dynamic binary is kept; tini-static is a 650 KB copy of it.
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
     && rm -f /usr/bin/tini-static \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ldconfig
 
 COPY backend/ ./backend/
 COPY alembic.ini ./alembic.ini
@@ -191,79 +266,16 @@ ENV WORKERS=1
 ENTRYPOINT ["python", "-I", "/app/backend/container_entrypoint.py"]
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
 
-# Stage 5a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
+# Stage 6a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only
 # PDFs stay excluded from full-text search, exactly as before OCR was added. Built
 # with `--target slim` and published under the `-slim` tag family.
 FROM runtime-base AS slim
 
-# `unar` provides RAR extraction for rarfile (used to render .cbr cover
-# thumbnails); without it .cbr archives are still served, just without a cover.
-# It is the only tool in Debian main that can actually decompress RAR:
-# p7zip-full parses RAR headers but fails to extract ("Unsupported Method" —
-# the codec is in the non-free p7zip-rar), and bsdtar handles RAR5 but exits 1
-# on solid RAR3, a common CBR layout.
-#
-# Everything after the install undoes the damage its dependency chain does:
-# gnustep-base-runtime hard-Depends on graphviz, which drags in the AV1/HEIF
-# codecs, X11 and pango, and gnustep-common pulls perl. None of it appears in
-# `ldd $(which unar)`. gnustep does shell out to dpkg-architecture for one
-# constant string, so that is replaced with a shell stub before perl goes.
-#
-# This has to be one RUN, and it has to be per final stage:
-#   * install and purge in separate layers leaves the removed files in the
-#     lower layer, so the image does not actually shrink (~50 MB).
-#   * --force-depends leaves the dpkg database inconsistent, so any later
-#     apt-get install in the same image refuses to run — which rules out
-#     sharing this in runtime-base ahead of the OCR stage's tesseract install.
-RUN apt-get update && apt-get install -y --no-install-recommends unar \
-    && ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
-    && dpkg --remove --force-depends \
-        graphviz libgvc6 libgvpr2 libcdt5 libcgraph6 libpathplan4 liblab-gamut1 \
-        libann0 libgts-0.7-5t64 \
-        libaom3 libsvtav1enc2 librav1e0.7 libdav1d7 libgav1-1 libavif16 libheif1 \
-        libheif-plugin-dav1d libheif-plugin-libde265 libde265-0 libyuv0 \
-        binutils binutils-common binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu \
-        libbinutils libgprofng0 libctf0 libctf-nobfd0 libsframe1 \
-        libgd3 libxpm4 libxaw7 libxmu6 libxt6t64 libsm6 libice6 \
-        perl perl-modules-5.40 libperl5.40 libgdbm-compat4t64 dpkg-dev libdpkg-perl \
-        2>/dev/null || true \
-    && rm -rf /usr/share/perl /usr/share/perl5 /usr/lib/*/perl \
-    && printf '#!/bin/sh\necho "%s"\n' "$ARCH" > /usr/bin/dpkg-architecture \
-    && chmod +x /usr/bin/dpkg-architecture \
-    && rm -rf /var/lib/apt/lists/*
-
-# Stage 5b: Default variant — bundles Tesseract + English language data so image-only
+# Stage 6b: Default variant — bundles Tesseract + English language data so image-only
 # PDFs are OCR'd into the full-text index out of the box. Extra languages can be added
 # at runtime by mounting tessdata and setting OCR_LANGUAGES (see README); no rebuild
 # required. This is the last stage, so a plain `docker build` (no --target) yields it.
 FROM runtime-base AS ocr
 
-# Same unar install + dependency purge as the slim stage (see the comment there
-# for why it is one RUN and repeated per stage), with tesseract added to the
-# same apt transaction so it lands before the dpkg database is made
-# inconsistent.
-#
-# osd.traineddata (10.5 MB — larger than the English data itself) is only read
-# for orientation/script detection, i.e. image_to_osd() or --psm 0. Grimoire
-# only ever calls image_to_string() with an explicit lang, so it is never
-# loaded. Mounting your own tessdata for OCR_LANGUAGES is unaffected.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        unar \
-        tesseract-ocr \
-        tesseract-ocr-eng \
-    && ARCH="$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
-    && rm -f /usr/share/tesseract-ocr/*/tessdata/osd.traineddata \
-    && dpkg --remove --force-depends \
-        graphviz libgvc6 libgvpr2 libcdt5 libcgraph6 libpathplan4 liblab-gamut1 \
-        libann0 libgts-0.7-5t64 \
-        libaom3 libsvtav1enc2 librav1e0.7 libdav1d7 libgav1-1 libavif16 libheif1 \
-        libheif-plugin-dav1d libheif-plugin-libde265 libde265-0 libyuv0 \
-        binutils binutils-common binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu \
-        libbinutils libgprofng0 libctf0 libctf-nobfd0 libsframe1 \
-        libgd3 libxpm4 libxaw7 libxmu6 libxt6t64 libsm6 libice6 \
-        perl perl-modules-5.40 libperl5.40 libgdbm-compat4t64 dpkg-dev libdpkg-perl \
-        2>/dev/null || true \
-    && rm -rf /usr/share/perl /usr/share/perl5 /usr/lib/*/perl \
-    && printf '#!/bin/sh\necho "%s"\n' "$ARCH" > /usr/bin/dpkg-architecture \
-    && chmod +x /usr/bin/dpkg-architecture \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=tools-builder /bundle/tesseract/ /
+RUN ldconfig
