@@ -1,7 +1,7 @@
 # Themes
 
 A **theme** is a set of colours that overrides Grimoire's palette. Grimoire ships
-two palettes of its own - its gold **Grimoire** default and the crimson **Codex**
+two palettes of its own - its gold **Grimoire** default and the steel **Codex**
 (see [App modes](#app-modes)) - each in light and dark, and a user can install
 more from the community catalogue or paste one in.
 
@@ -47,12 +47,15 @@ interface itself, which no change of colour can provide.
 ### App modes
 
 Grimoire ships two built-in palettes. **Grimoire**, the default, sets warm gold
-on brown; **Codex** sets crimson on cool gunmetal, from the Codex logo, and suits
-a library that leans to wargames. Pick either under **Settings → Preferences →
-Theme**, like an installed theme - nothing switches to Codex on its own.
-Both clear 4.5:1 for every text and accent pairing, in light and dark, and
-Codex keeps danger and warning off crimson (on vermilion and amber) so a
-destructive button never looks like the primary one.
+on brown; **Codex** sets steel on cool gunmetal, with crimson as its second
+accent, from the Codex logo, and suits a library that leans to wargames. Pick
+either under **Settings → Preferences → Theme**, like an installed theme -
+nothing switches to Codex on its own. Both clear 4.5:1 for every text and
+accent pairing, in light and dark.
+
+For crimson as the main accent, install **Codex Red** from the community
+catalogue. It is made for Codex and keeps danger and warning off crimson (on
+vermilion and amber) so a destructive button never looks like the primary one.
 
 Under the hood each built-in palette is an **app mode**, a second axis
 alongside light/dark stamped on `<html data-app-mode>`. Highlights that tint
