@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
+  clearRecentBooks,
   getBookPrefs,
+  removeRecentBook,
+  setRecentAccount,
   saveBookPrefs,
   getRecentBooks,
   getRecentLimit,
@@ -20,6 +23,11 @@ function makeBook(id: string) {
 describe('useBookPrefs', () => {
   beforeEach(() => {
     localStorage.clear()
+    setRecentAccount('user-a')
+  })
+
+  afterEach(() => {
+    setRecentAccount(null)
   })
 
   it('returns empty object for an unknown book', () => {
@@ -98,6 +106,60 @@ describe('useBookPrefs', () => {
       saveRecentBook(makeBook('a'))
       setRecentLimit(0)
       expect(getRecentBooks()).toEqual([])
+    })
+  })
+
+  describe('recently opened, per account', () => {
+    it('keeps a separate list for each account', () => {
+      saveRecentBook(makeBook('a1'))
+      setRecentAccount('user-b')
+      expect(getRecentBooks()).toEqual([])
+      saveRecentBook(makeBook('b1'))
+      expect(getRecentBooks().map((b) => b.id)).toEqual(['b1'])
+      setRecentAccount('user-a')
+      expect(getRecentBooks().map((b) => b.id)).toEqual(['a1'])
+      expect(localStorage.getItem('grimoire:recently-opened:user-a')).toContain('a1')
+    })
+
+    it('neither records nor shows anything while nobody is signed in', () => {
+      saveRecentBook(makeBook('a1'))
+      setRecentAccount(null)
+      saveRecentBook(makeBook('x'))
+      expect(getRecentBooks()).toEqual([])
+      removeRecentBook('a1')
+      setRecentAccount('user-a')
+      expect(getRecentBooks().map((b) => b.id)).toEqual(['a1'])
+    })
+
+    it('drops the old list that was shared by the whole browser', () => {
+      localStorage.setItem(
+        'grimoire:recently-opened',
+        JSON.stringify([{ ...makeBook('old'), openedAt: 1 }])
+      )
+      setRecentAccount('user-b')
+      expect(getRecentBooks()).toEqual([])
+      expect(localStorage.getItem('grimoire:recently-opened')).toBeNull()
+    })
+
+    it('removes one book from the current list', () => {
+      saveRecentBook(makeBook('a1'))
+      saveRecentBook(makeBook('a2'))
+      removeRecentBook('a1')
+      expect(getRecentBooks().map((b) => b.id)).toEqual(['a2'])
+    })
+
+    it('clears every account list, and nothing else', () => {
+      saveRecentBook(makeBook('a1'))
+      setRecentAccount('user-b')
+      saveRecentBook(makeBook('b1'))
+      localStorage.setItem('grimoire:recently-opened', '[]')
+      saveBookPrefs('a1', { page: 3 })
+      clearRecentBooks()
+      expect(getRecentBooks()).toEqual([])
+      setRecentAccount('user-a')
+      expect(getRecentBooks()).toEqual([])
+      expect(localStorage.getItem('grimoire:recently-opened')).toBeNull()
+      expect(getBookPrefs('a1')).toEqual({ page: 3 })
     })
   })
 })

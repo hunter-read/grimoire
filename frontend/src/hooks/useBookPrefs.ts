@@ -44,7 +44,35 @@ export function saveBookPrefs(bookId: string, updates: Partial<BookPrefs>): void
   write(bookId, updates)
 }
 
-const RECENT_KEY = 'grimoire:recently-opened'
+// The recently-opened list belongs to an account, so it is stored under the
+// signed-in user's id and emptied on sign-out (see AuthContext). Older builds
+// kept one shared list under the bare prefix; nobody can tell whose it was, so
+// it is dropped rather than handed to whichever account signs in next.
+const RECENT_PREFIX = 'grimoire:recently-opened'
+
+let recentAccount: string | null = null
+
+const recentKey = (): string | null => (recentAccount ? `${RECENT_PREFIX}:${recentAccount}` : null)
+
+/** Point the recently-opened list at an account (null: nobody is signed in). */
+export function setRecentAccount(userId: string | null | undefined): void {
+  recentAccount = userId || null
+  try {
+    localStorage.removeItem(RECENT_PREFIX)
+  } catch {}
+}
+
+/** Forget every account's recently-opened list kept in this browser. */
+export function clearRecentBooks(): void {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k === RECENT_PREFIX || k?.startsWith(`${RECENT_PREFIX}:`)) keys.push(k)
+    }
+    keys.forEach((k) => localStorage.removeItem(k))
+  } catch {}
+}
 
 export const RECENT_DEFAULT = 5
 export const RECENT_MAX = 100
@@ -65,7 +93,8 @@ export function getRecentLimit(): number {
 
 export function saveRecentBook(book: Omit<RecentBook, 'openedAt'>): void {
   const limit = getRecentLimit()
-  if (limit <= 0) return
+  const storageKey = recentKey()
+  if (limit <= 0 || !storageKey) return
   try {
     const list = getRecentBooks().filter((b) => b.id !== book.id)
     list.unshift({
@@ -75,15 +104,16 @@ export function saveRecentBook(book: Omit<RecentBook, 'openedAt'>): void {
       page_count: book.page_count,
       openedAt: Date.now(),
     })
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, limit)))
+    localStorage.setItem(storageKey, JSON.stringify(list.slice(0, limit)))
   } catch {}
 }
 
 export function getRecentBooks(): RecentBook[] {
   const limit = getRecentLimit()
-  if (limit <= 0) return []
+  const storageKey = recentKey()
+  if (limit <= 0 || !storageKey) return []
   try {
-    const raw = localStorage.getItem(RECENT_KEY)
+    const raw = localStorage.getItem(storageKey)
     const list: RecentBook[] = raw ? JSON.parse(raw) : []
     return list.slice(0, limit)
   } catch {
@@ -92,8 +122,10 @@ export function getRecentBooks(): RecentBook[] {
 }
 
 export function removeRecentBook(bookId: string): void {
+  const storageKey = recentKey()
+  if (!storageKey) return
   try {
     const list = getRecentBooks().filter((b) => b.id !== bookId)
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list))
+    localStorage.setItem(storageKey, JSON.stringify(list))
   } catch {}
 }

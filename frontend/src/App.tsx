@@ -12,7 +12,7 @@ import ShareView from './views/ShareView'
 
 export default function App() {
   // App is always rendered inside AuthProvider (see main.tsx).
-  const { status, login } = useAuth()!
+  const { status, user, login } = useAuth()!
   const { pathname } = useLocation()
 
   // A share link's page is public (issue #541): it renders for anyone, signed
@@ -23,8 +23,10 @@ export default function App() {
   if (status === 'loading') return <LoadingScreen />
   if (status === 'uninitialized') return <SetupView onSetup={login} />
   if (status === 'unauthenticated') return <LoginView onLogin={login} />
+  // Keyed by account: if a different user signs in without a page load, every
+  // provider below starts over and reads that user's own stored state.
   return (
-    <ThemeProvider>
+    <ThemeProvider key={user?.id}>
       <FavoritesProvider>
         <AudioPlayerProvider>
           <SoundboardProvider>

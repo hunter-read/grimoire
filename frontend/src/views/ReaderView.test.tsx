@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ReaderView from './ReaderView'
 import api from '../api'
-import { getRecentBooks } from '../hooks/useBookPrefs'
+import { getRecentBooks, setRecentAccount } from '../hooks/useBookPrefs'
 
 const mockGet = vi.mocked(api.get) as unknown as Mock
 
@@ -803,6 +803,7 @@ describe('ReaderView — a book that fails to load', () => {
   })
 
   it('does not record a book as recent when its load lands after the reader closed', async () => {
+    setRecentAccount('user-1')
     let resolveBook!: (value: unknown) => void
     mockGet.mockImplementation((url) =>
       url === '/books/book-1'
@@ -816,6 +817,7 @@ describe('ReaderView — a book that fails to load', () => {
       resolveBook(BOOK)
     })
     expect(getRecentBooks()).toEqual([])
+    setRecentAccount(null)
   })
 })
 

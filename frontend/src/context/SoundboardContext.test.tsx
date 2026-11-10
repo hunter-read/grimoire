@@ -14,6 +14,9 @@ vi.mock('../api', () => ({
   mediaUrl: (path: string) => `http://test${path}`,
 }))
 
+const auth = vi.hoisted(() => ({ user: null as { id: string } | null }))
+vi.mock('./AuthContext', () => ({ useAuth: () => ({ user: auth.user }) }))
+
 import api from '../api'
 
 const mockGet = vi.mocked(api.get) as unknown as Mock
@@ -104,6 +107,7 @@ describe('SoundboardContext', () => {
     globalThis.Audio = FakeAudio as unknown as typeof Audio
     mockGet.mockReset()
     mockGet.mockResolvedValue({})
+    auth.user = null
   })
 
   it('starts empty with the default layout and closed panel', () => {
@@ -292,6 +296,31 @@ describe('SoundboardContext', () => {
     expect(screen.getByTestId('count')).toHaveTextContent('1')
     expect(screen.getByTestId('layout')).toHaveTextContent('3x8')
     expect(board.position).toEqual({ left: 40, top: 60 })
+  })
+
+  it("keeps each account's pads apart and drops the old shared board", async () => {
+    localStorage.setItem(
+      'grimoire:soundboard:pads',
+      JSON.stringify([{ id: 'old', title: 'Someone Else' }])
+    )
+    auth.user = { id: 'u1' }
+    const first = renderBoard()
+    expect(screen.getByTestId('count')).toHaveTextContent('0')
+    expect(localStorage.getItem('grimoire:soundboard:pads')).toBeNull()
+    act(() => board.addPads({ id: 'a', title: 'Thunder' }))
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem('grimoire:soundboard:pads:u1')!)).toHaveLength(1)
+    )
+    first.unmount()
+
+    auth.user = { id: 'u2' }
+    const second = renderBoard()
+    expect(screen.getByTestId('count')).toHaveTextContent('0')
+    second.unmount()
+
+    auth.user = { id: 'u1' }
+    renderBoard()
+    expect(screen.getByTestId('pad-a')).toHaveTextContent('Thunder')
   })
 
   it('survives corrupt stored state', () => {

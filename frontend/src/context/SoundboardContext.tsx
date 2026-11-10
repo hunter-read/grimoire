@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from 'react'
 import api, { mediaUrl, type Schema } from '../api'
+import { useAuth } from './AuthContext'
 
 /** One pad on the board. */
 export interface SoundboardPad {
@@ -73,6 +74,9 @@ export interface SoundboardContextValue {
 
 const SoundboardContext = createContext<SoundboardContextValue | null>(null)
 
+// Pads name the user's own tracks, so each account keeps its own board under
+// `PADS_KEY:<user id>`. Layout and position are about the screen, not the
+// account, and stay shared by the browser.
 const PADS_KEY = 'grimoire:soundboard:pads'
 const LAYOUT_KEY = 'grimoire:soundboard:layout'
 const POSITION_KEY = 'grimoire:soundboard:position'
@@ -151,7 +155,17 @@ const needsHydration = (p: SoundboardPad | null | undefined) =>
  * Pads, grid size, and panel position all persist in localStorage.
  */
 export function SoundboardProvider({ children }: { children?: ReactNode }) {
-  const [pads, setPads] = usePersistentState<SoundboardPad[]>(PADS_KEY, [], (v) =>
+  const userId = useAuth()?.user?.id
+  // Older builds kept one board for the whole browser; whose pads those were
+  // can't be told, so a signed-in account starts from its own (empty) board.
+  const padsKey = userId ? `${PADS_KEY}:${userId}` : PADS_KEY
+  useEffect(() => {
+    if (!userId) return
+    try {
+      localStorage.removeItem(PADS_KEY)
+    } catch {}
+  }, [userId])
+  const [pads, setPads] = usePersistentState<SoundboardPad[]>(padsKey, [], (v) =>
     Array.isArray(v) ? v : []
   )
   const [layout, setLayout] = usePersistentState(
