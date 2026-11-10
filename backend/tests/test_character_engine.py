@@ -285,6 +285,115 @@ class TestStyles:
         with pytest.raises(svc.StylesError):
             svc.scope_styles(".a { color: red }" * 20000, "gc-x")
 
+    @pytest.mark.parametrize(
+        "css",
+        [
+            # A value that is really a nested rule reaching the whole page.
+            ".a { color:not(q), :root:has(&) #root > * { position: fixed } }",
+            ".a { color: red; & ~ * { display: none } }",
+            # Sibling combinators applied to the sheet itself.
+            "& ~ * { display: none }",
+            "&~* { display: none }",
+            "&.wide + div { display: none }",
+            "~ * { display: none }",
+            "+ div { display: none }",
+            # `&` anywhere but the start, including inside a selector function.
+            ":is(.a, & ~ *) { display: none }",
+            ":is(.x,&) ~ * { display: none }",
+            ".a & { color: red }",
+            "a } b { color: red }",
+        ],
+    )
+    def test_keeps_every_selector_inside_the_sheet(self, css):
+        with pytest.raises(svc.StylesError):
+            svc.scope_styles(css, "gc-x")
+
+    @pytest.mark.parametrize(
+        "css",
+        [
+            ".a { background: image-set('https://example.test/i.png' 1x) }",
+            ".a { background: -webkit-image-set('https://example.test/i.png' 1x) }",
+            ".a { background: image('https://example.test/i.png') }",
+            ".a { background: cross-fade(red, blue) }",
+            ".a { width: attr(data-w px) }",
+            # Escapes spell `url(` as far as the browser is concerned.
+            ".a { background: u\\rl(https://example.test/i.png) }",
+            ".a { background: \\75 rl(https://example.test/i.png) }",
+            # A custom property cannot hold what a property could not.
+            ".a { --img: url(https://example.test/i.png) }",
+            ".a { --img: image-set('https://example.test/i.png' 1x) }",
+            ".a { --block: { color: red } }",
+            ".a { color: @import }",
+        ],
+    )
+    def test_rejects_values_that_reach_out(self, css):
+        with pytest.raises(svc.StylesError):
+            svc.scope_styles(css, "gc-x")
+
+    def test_reads_an_escaped_property_name_as_the_browser_does(self):
+        with pytest.raises(svc.StylesError, match="'position'"):
+            svc.scope_styles(".a { p\\osition: fixed }", "gc-x")
+
+    @pytest.mark.parametrize(
+        "css, expected",
+        [
+            ("& { color: red }", ".gc-x { color: red }"),
+            ("&.wide > .a { color: red }", ".gc-x.wide > .a { color: red }"),
+            ("& .a ~ .b { color: red }", ".gc-x .a ~ .b { color: red }"),
+            ("> .a { color: red }", ".gc-x > .a { color: red }"),
+            (".a ~ .b, .c + .d { color: red }", ".gc-x .a ~ .b, .gc-x .c + .d { color: red }"),
+            (".a:not(.b, .c) { color: red }", ".gc-x .a:not(.b, .c) { color: red }"),
+        ],
+    )
+    def test_allows_selectors_that_stay_inside_the_sheet(self, css, expected):
+        assert svc.scope_styles(css, "gc-x") == expected
+
+    @pytest.mark.parametrize(
+        "css, expected",
+        [
+            (".a { color: red !important }", ".gc-x .a { color: red !important }"),
+            (
+                '.a { font-family: "Odd; Name}", serif }',
+                '.gc-x .a { font-family: "Odd; Name}", serif }',
+            ),
+            (
+                ".a { background: linear-gradient(rgba(0, 0, 0, .5), transparent) }",
+                ".gc-x .a { background: linear-gradient(rgba(0, 0, 0, .5), transparent) }",
+            ),
+            (
+                ".a { grid-template-columns: repeat(2, minmax(0, 1fr)) }",
+                ".gc-x .a { grid-template-columns: repeat(2, minmax(0, 1fr)) }",
+            ),
+            (".a { width: calc(var(--w) * 2) }", ".gc-x .a { width: calc(var(--w) * 2) }"),
+            (".a { --Ink: #333 }", ".gc-x .a { --Ink: #333 }"),
+        ],
+    )
+    def test_keeps_ordinary_values(self, css, expected):
+        assert svc.scope_styles(css, "gc-x") == expected
+
+    def test_scopes_inside_layers_and_supports(self):
+        out = svc.scope_styles(
+            "@layer { @supports (display: grid) { .a { display: grid } } }", "gc-x"
+        )
+        assert out == "@layer {\n@supports (display: grid) {\n.gc-x .a { display: grid }\n}\n}"
+
+    @pytest.mark.parametrize(
+        "css, message",
+        [
+            (".a { color: red } junk", "Malformed stylesheet"),
+            (".a { color red }", "Malformed declaration"),
+            ("{ color: red }", "Empty selector"),
+            (".a, { color: red }", "Empty selector"),
+            ("@media screen;", "needs a block"),
+            ("@media a {" * 10 + "}" * 10, "nested too deeply"),
+            (".a { width: calc(" + "(" * 1000 + ") }", "nested too deeply"),
+            (".a" + ":is(" * 1000 + ")" * 1000 + " { color: red }", "nested too deeply"),
+        ],
+    )
+    def test_rejects_malformed_styles(self, css, message):
+        with pytest.raises(svc.StylesError, match=message):
+            svc.scope_styles(css, "gc-x")
+
 
 # ---------------------------------------------------------------------------
 # Schema validation and evaluation

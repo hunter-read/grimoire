@@ -30,3 +30,4 @@ PyYAML==6.0.3
 mcp==2.3.0
 cryptography==50.0.2
 defusedxml==0.7.1
+tinycss2==1.5.1
