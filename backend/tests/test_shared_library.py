@@ -26,7 +26,7 @@ from backend.services import tag_service
 from .conftest import make_book, make_game_system
 
 
-def _uid() -> str:
+def _stamp() -> str:
     return uuid.uuid4().hex[:8]
 
 
@@ -96,7 +96,7 @@ class TestHelpers:
 
 class TestScan:
     def test_shared_books_sit_on_the_container(self):
-        name = f"Shared DnD {_uid()}"
+        name = f"Shared DnD {_stamp()}"
         tmp, lib, root = _library(name)
         _touch(root / "shared-library" / "core" / "realms.pdf")
         _touch(root / "shared-library" / "adventures" / "Sword Coast" / "mod.pdf")
@@ -117,7 +117,7 @@ class TestScan:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_the_shelf_is_never_a_system(self):
-        name = f"Shared NoSys {_uid()}"
+        name = f"Shared NoSys {_stamp()}"
         tmp, lib, root = _library(name)
         _touch(root / "shared-library" / "core" / "realms.pdf")
         try:
@@ -129,7 +129,7 @@ class TestScan:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_a_family_container_has_one_too(self):
-        name = f"Shared Fam {_uid()}"
+        name = f"Shared Fam {_stamp()}"
         tmp, lib, root = _library(name, marker=".system-family-container")
         _touch(root / "shared-library" / "core" / "srd.pdf")
         try:
@@ -140,7 +140,7 @@ class TestScan:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_a_one_page_collection_keeps_it_as_a_game(self):
-        name = f"Shared OnePage {_uid()}"
+        name = f"Shared OnePage {_stamp()}"
         tmp, lib, root = _library(name, marker=".one-page-container")
         _touch(root / "shared-library" / "game.pdf")
         try:
@@ -154,7 +154,7 @@ class TestScan:
 
         Its books re-home onto the container and the empty row is pruned.
         """
-        name = f"Shared Upgrade {_uid()}"
+        name = f"Shared Upgrade {_stamp()}"
         tmp, lib, root = _library(name)
         _touch(root / "shared-library" / "core" / "realms.pdf")
         slug = _slug(name)
@@ -182,7 +182,7 @@ class TestScan:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def test_a_rescan_scoped_to_the_shelf_reaches_its_books(self):
-        name = f"Shared Scoped {_uid()}"
+        name = f"Shared Scoped {_stamp()}"
         tmp, lib, root = _library(name)
         try:
             _scan(lib, tmp)
@@ -198,9 +198,9 @@ class TestScan:
 class TestDepth:
     def test_a_container_reads_its_categories_inside_the_shelf(self):
         container = make_game_system(
-            name=f"Depth {_uid()}", slug=f"depth-{_uid()}", container_kind="parent"
+            name=f"Depth {_stamp()}", slug=f"depth-{_stamp()}", container_kind="parent"
         )
-        child = make_game_system(name=f"Child {_uid()}", slug=f"child-{_uid()}", parent_id=container.id)
+        child = make_game_system(name=f"Child {_stamp()}", slug=f"child-{_stamp()}", parent_id=container.id)
         db = SessionLocal()
         try:
             assert tag_service.system_category_depth(db, container.id) == 3
@@ -211,9 +211,9 @@ class TestDepth:
             db.close()
 
     def test_shared_books_group_by_their_folders_below_the_shelf(self, client, admin_headers):
-        name = f"Shelf {_uid()}"
-        container = make_game_system(name=name, slug=f"shelf-{_uid()}", container_kind="parent")
-        make_game_system(name=f"{name} 5e", slug=f"shelf-5e-{_uid()}", parent_id=container.id)
+        name = f"Shelf {_stamp()}"
+        container = make_game_system(name=name, slug=f"shelf-{_stamp()}", container_kind="parent")
+        make_game_system(name=f"{name} 5e", slug=f"shelf-5e-{_stamp()}", parent_id=container.id)
         make_book(
             container.id,
             title="Realms",
@@ -236,7 +236,7 @@ class TestDepth:
 
 class TestFileManager:
     def _tree(self) -> tuple[str, str]:
-        stamp = _uid()
+        stamp = _stamp()
         container = f"FM Shared {stamp}"
         root = os.path.join(LIBRARY_PATH, "books", container)
         os.makedirs(os.path.join(root, "shared-library", "Rulebooks"), exist_ok=True)
