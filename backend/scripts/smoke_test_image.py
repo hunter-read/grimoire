@@ -14,8 +14,10 @@ empty data folder, and checks, through the HTTP API: the container comes up
 healthy as a non-root user, first-run setup works, the scan indexes all three,
 the PDF is searchable and its page renders, the CBR gets a cover thumbnail
 (which needs unar), and the map gets one (Pillow). Then the tools the image
-bundles: ffmpeg runs, and tesseract does in the OCR image and is absent in
-slim. On failure it prints the container's log.
+bundles: unar extracts a file with an accented name, ffmpeg runs, and tesseract
+reads a rendered page in the OCR image and is absent in slim. Last, that
+PyMuPDF's layout-analysis packages stayed out. On failure it prints the
+container's log.
 
 Standard library only, so it runs on a bare CI runner. Exits non-zero on the
 first failed check.
@@ -43,6 +45,30 @@ from typing import Any
 PHRASE = "quixotic basilisk lantern"
 SYSTEM = "Smoke System"
 ADMIN = {"username": "smoke-admin", "password": "smoke-test-password-1"}
+# A second comic page whose name is not ASCII. unar turns archive names into
+# file names through ICU's converters, and the image carries a cut-down copy of
+# ICU's data (backend/scripts/trim_icu_data.sh): cut too far, this is the file
+# unar can no longer write.
+ACCENTED_PAGE = "p\u00e1gina02.png"
+
+# Run inside the OCR image: draw a line of text on a page, render it, and read
+# it back with tesseract, the way the indexer OCRs an image-only PDF.
+OCR_PROBE = """
+import pymupdf, pytesseract
+from PIL import Image
+page = pymupdf.open().new_page()
+page.insert_text((72, 120), "{phrase}", fontsize=28)
+page.get_pixmap(dpi=200).save("/tmp/smoke-ocr.png")
+print(pytesseract.image_to_string(Image.open("/tmp/smoke-ocr.png"), lang="eng"))
+"""
+
+# PyMuPDF 2 bundles layout analysis and names these as dependencies; the image
+# leaves them all out (see the Dockerfile). Prints whichever are importable.
+LAYOUT_PROBE = """
+import importlib.util
+names = ["pymupdf.layout", "pymupdf4llm", "onnxruntime", "numpy", "networkx"]
+print(" ".join(n for n in names if importlib.util.find_spec(n)))
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +163,14 @@ def build_library(root: str) -> None:
     with open(os.path.join(core, "Smoke Rulebook.pdf"), "wb") as fh:
         fh.write(make_pdf(f"The {PHRASE} is lit."))
     with open(os.path.join(core, "Smoke Comic.cbr"), "wb") as fh:
-        fh.write(make_rar({"page01.png": make_png(64, 96, (200, 40, 40))}))
+        fh.write(
+            make_rar(
+                {
+                    "page01.png": make_png(64, 96, (200, 40, 40)),
+                    ACCENTED_PAGE: make_png(64, 96, (40, 200, 40)),
+                }
+            )
+        )
     maps = os.path.join(root, "maps", "Smoke Maps")
     os.makedirs(maps)
     with open(os.path.join(maps, "Smoke Cave.png"), "wb") as fh:
@@ -330,11 +363,14 @@ def run_checks(api: Api, container: str, target: str) -> None:
     # Python, so the thumbnail above doesn't prove unar works. Real CBRs are
     # compressed and need it, so run it directly, and check rarfile finds it.
     comic = f"/library/books/{SYSTEM}/core/Smoke Comic.cbr"
-    docker("exec", container, "unar", "-q", "-f", "-o", "/tmp/smoke-unar", comic)
-    check(
-        "page01.png" in docker("exec", container, "ls", "/tmp/smoke-unar"),
-        "unar extracts a CBR",
+    docker("exec", container, "unar", "-q", "-f", "-D", "-o", "/tmp/smoke-unar", comic)
+    # ascii(): a name unar wrote in the wrong encoding is not valid UTF-8, and
+    # should fail the check rather than the decoding of this command's output.
+    extracted = docker(
+        "exec", container, "python", "-c", "import os; print(ascii(os.listdir('/tmp/smoke-unar')))"
     )
+    check(ascii("page01.png") in extracted, "unar extracts a CBR")
+    check(ascii(ACCENTED_PAGE) in extracted, "unar extracts a file with an accented name")
     docker("exec", container, "python", "-c", "import rarfile; rarfile.tool_setup()")
     check(True, "rarfile finds an extraction tool for compressed RARs")
     check(
@@ -348,8 +384,14 @@ def run_checks(api: Api, container: str, target: str) -> None:
         check(tesseract.returncode == 0, "tesseract runs (OCR image)")
         langs = docker("exec", container, "tesseract", "--list-langs")
         check("eng" in langs.split(), "tesseract has English data")
+        read = docker("exec", container, "python", "-c", OCR_PROBE.format(phrase=PHRASE))
+        check(PHRASE in read, "tesseract reads the text on a rendered page")
     else:
         check(tesseract.returncode != 0, "tesseract is absent (slim image)")
+
+    print("PyMuPDF")
+    present = docker("exec", container, "python", "-c", LAYOUT_PROBE)
+    check(not present, f"the layout-analysis packages are left out ({present or 'none found'})")
 
 
 def check_upgrade(api: Api, container: str, start: Callable[[], str], image: str, data: str) -> None:

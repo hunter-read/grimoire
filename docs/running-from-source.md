@@ -52,6 +52,10 @@ This produces a `frontend/dist/` directory that the backend serves as static fil
 pip install -r backend/requirements.txt
 ```
 
+PyMuPDF 2 lists its layout-analysis packages (onnxruntime, numpy and a few more) as
+dependencies, so they are installed here too. Grimoire never calls them and PyMuPDF only
+loads them on use, so they cost disk space and nothing else. The Docker image leaves them out.
+
 ### 3. Set environment variables
 
 ```bash

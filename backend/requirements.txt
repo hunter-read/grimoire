@@ -7,7 +7,7 @@ aiosqlite==0.22.1
 # PostgreSQL driver (DATABASE_URL). The binary build bundles libpq, so the
 # image needs no system packages for it.
 psycopg[binary]==3.3.8
-pymupdf==1.28.2
+pymupdf==2.1
 python-multipart==0.0.33
 watchdog==7.1.0
 httpx==0.28.1
