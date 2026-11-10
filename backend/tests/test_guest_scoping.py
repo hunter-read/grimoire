@@ -175,6 +175,9 @@ TTRPG_GUEST_REACHABLE = {
     "/api/campaigns/{campaign_id}/wiki/titles": "GET",
     "/api/campaigns/{campaign_id}/wiki/{page_id}": "DELETE GET PATCH",
     "/api/campaigns/{campaign_id}/wiki/{page_id}/hide": "DELETE POST",
+    # Pins on a map page (issue #578): the page's own edit rule, as for its text.
+    "/api/campaigns/{campaign_id}/wiki/{page_id}/pins": "POST",
+    "/api/campaigns/{campaign_id}/wiki/{page_id}/pins/{pin_id}": "DELETE PATCH",
     "/api/characters": "GET POST",
     "/api/characters/import": "POST",
     # Another tool's character, through an admin-installed importer, into the

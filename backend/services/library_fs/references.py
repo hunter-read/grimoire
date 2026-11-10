@@ -29,11 +29,13 @@ from ...models import (
     CampaignResource,
     Favorite,
     GameSystem,
+    GenericMap,
     LeagueResource,
     LeagueResourceShare,
     ResourceTag,
 )
 from ...models.users import Bookmark
+from ..campaigns.map_copies import keep_campaign_copies
 from .moves import _section_for_model
 
 # The polymorphic discriminator each collection uses in `favorites.item_type`,
@@ -107,6 +109,14 @@ def purge_many_references(
     item_type = item_type_for(model)
     if not item_type or not record_ids:
         return
+
+    if model is GenericMap:
+        # Campaigns using a map keep their own copy before its links go, while
+        # the file can still be read (issue #578). A map whose file is already
+        # gone - the cleanup sweep's case - leaves its map pages showing the
+        # missing-map placeholder instead.
+        for chunk in _chunks(record_ids):
+            keep_campaign_copies(db, db.query(GenericMap).filter(GenericMap.id.in_(chunk)).all())
 
     if model is Book:
         # Soft reference: no constraint ties book_pages rows to the book, so

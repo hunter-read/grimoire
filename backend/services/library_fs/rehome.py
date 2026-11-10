@@ -312,9 +312,17 @@ def _embed_pattern(item_type: str, record_id: str) -> re.Pattern[str]:
 
 
 def _notes(db: Session, item_type: str, from_id: str, to_id: str) -> dict[str, int]:
-    """Rewrite ``[[type:ID]]`` embeds in campaign text. Counts documents changed."""
+    """Rewrite ``[[type:ID]]`` embeds in campaign text. Counts documents changed.
+
+    A map's map pages follow it too (issue #578): they hold its id, not an
+    embed, and keep their pins on the surviving copy.
+    """
     pattern = _embed_pattern(item_type, from_id)
     out = _tally()
+    if item_type == "map":
+        for page in db.query(WikiPage).filter(WikiPage.map_id == from_id).all():
+            page.map_id = to_id
+            out["moved"] += 1
     for model, column in _EMBED_COLUMNS:
         attr = getattr(model, column)
         for row in db.query(model).filter(attr.like(f"%{from_id}%")).all():

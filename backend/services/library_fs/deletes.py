@@ -19,6 +19,8 @@ from ...config import logger
 from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
 from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
+from ...models.media import GenericMap
+from ..campaigns.map_copies import PlannedCopy, keep_campaign_copies, plan_map_copies
 from ...sql_paths import path_at_or_under
 from ..filename_rules.folders import purge_rules
 from .. import folder_access
@@ -307,10 +309,15 @@ def _delete_file(db: Session, target: Path) -> dict:
     """Delete one file, its sidecars, and the record that indexed it."""
     affected = _records_under(db, target)
     companions = sidecars_for(target)
+    # The file goes before its row here, so a campaign's copy of a map has to
+    # be taken first: the purge below would find nothing left to copy.
+    keep_campaign_copies(db, [record for model, record, _ in affected if model is GenericMap])
 
     try:
         target.unlink()
     except OSError as e:
+        # Takes back the copies just made, along with their rows.
+        db.rollback()
         if getattr(e, "errno", None) == 30:  # EROFS
             raise LibraryFSError(
                 "The library is mounted read-only, so it cannot be modified.",
@@ -395,6 +402,19 @@ def _delete_folder_tree(db: Session, target: Path) -> dict:
         "Library delete: %s and %d file(s) (%d record(s))", to_relative(target), files, records
     )
     return {"path": to_relative(target), "records": records, "files": files}
+
+
+def campaign_map_copies(db: Session, path: str) -> list[PlannedCopy]:
+    """Which campaigns use a map at or under ``path``, and whether each keeps a copy.
+
+    Asked by the delete dialog before anything goes, so the person deleting can
+    see which campaigns' map pages will keep their map and which will fall back
+    to a placeholder. Read-only. A path that no longer exists has nothing to
+    copy, so it answers with an empty list rather than an error.
+    """
+    target = safe_join(path)
+    maps = [record for model, record, _ in _records_under(db, target) if model is GenericMap]
+    return plan_map_copies(db, maps)
 
 
 def folder_has_content(target: Path) -> bool:

@@ -61,6 +61,7 @@ _USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys", "share_links")
 # than cascaded. Read paths already tolerate a missing author.
 _USER_ATTRIBUTION_COLUMNS = (
     ("wiki_pages", "created_by_id"),
+    ("wiki_map_pins", "created_by_id"),
     ("campaign_files", "uploaded_by_id"),
     # A campaign or server ruleset serves a table, not its author. A personal
     # one is owned through `owner_id` instead, handled below.

@@ -187,6 +187,18 @@ def resolve_link_target(db, campaign_id: str, link: LinkTarget):
     )
 
 
+def _pin_targets(db, page: WikiPage) -> set:
+    """The pages a map page's pins link to, which count as its links too.
+
+    Imported here rather than at the top: ``_wiki_maps`` builds on this module.
+    """
+    from ._wiki_maps import MAP_PAGE_TYPE, pin_link_target_ids
+
+    if page.page_type != MAP_PAGE_TYPE:
+        return set()
+    return pin_link_target_ids(db, page.id) - {page.id}
+
+
 def _rebuild_link_rows(db, campaign_id: str, page: WikiPage) -> None:
     """Recompute a page's outgoing link rows against pages that already exist.
 
@@ -195,7 +207,7 @@ def _rebuild_link_rows(db, campaign_id: str, page: WikiPage) -> None:
     was deleted), where manufacturing a stub would be exactly the wrong response.
     """
     db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
-    target_ids = set()
+    target_ids = _pin_targets(db, page)
     for link in parse_page_links(page.body or ""):
         target = resolve_link_target(db, campaign_id, link)
         if target is not None and target.id != page.id:
@@ -220,7 +232,7 @@ def rebuild_links(db, campaign, page: WikiPage, current_user: CurrentUser) -> No
     """
     db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
 
-    target_ids = set()
+    target_ids = _pin_targets(db, page)
     for link in parse_page_links(page.body or ""):
         target = resolve_link_target(db, campaign.id, link)
         if target is None:

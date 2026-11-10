@@ -346,6 +346,30 @@ export const campaigns = {
     client.delete('/campaigns/{campaign_id}/wiki/{page_id}/hide', {
       path: { campaign_id: id, page_id: pageId },
     }),
+  // Pins on a map page (issue #578).
+  createWikiPin: (
+    id: Id,
+    pageId: Id,
+    data: BodyOf<'/campaigns/{campaign_id}/wiki/{page_id}/pins', 'post'>
+  ) =>
+    client.post('/campaigns/{campaign_id}/wiki/{page_id}/pins', {
+      path: { campaign_id: id, page_id: pageId },
+      body: data,
+    }),
+  updateWikiPin: (
+    id: Id,
+    pageId: Id,
+    pinId: Id,
+    data: BodyOf<'/campaigns/{campaign_id}/wiki/{page_id}/pins/{pin_id}', 'patch'>
+  ) =>
+    client.patch('/campaigns/{campaign_id}/wiki/{page_id}/pins/{pin_id}', {
+      path: { campaign_id: id, page_id: pageId, pin_id: pinId },
+      body: data,
+    }),
+  deleteWikiPin: (id: Id, pageId: Id, pinId: Id) =>
+    client.delete('/campaigns/{campaign_id}/wiki/{page_id}/pins/{pin_id}', {
+      path: { campaign_id: id, page_id: pageId, pin_id: pinId },
+    }),
   searchWiki: (id: Id, q: string) =>
     client.get('/campaigns/{campaign_id}/wiki/search', { path: campaign(id), query: { q } }),
   wikiTitles: (id: Id) =>

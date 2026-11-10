@@ -17,10 +17,11 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
-from ...models import Campaign, CampaignMember
+from ...models import Campaign, CampaignMember, User, WikiPage
 from ...security import INERT_DOCUMENT_HEADERS
 from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
+from ._wiki_helpers import can_view_page
 from ._helpers import (
     assert_can_manage,
     assert_not_archived,
@@ -544,14 +545,14 @@ def delete_member_sheet(
 
 
 def _upload_limits(db):
-    """Return (disabled, max_file_bytes, max_total_bytes); 0 bytes = unlimited."""
-    from ...services.app_settings import get_raw
+    """Return (disabled, max_file_bytes, max_total_bytes); 0 bytes = unlimited.
 
-    raw = get_raw(db)
-    disabled = raw.get("campaign_uploads_disabled") == "true"
-    max_file = int(raw.get("campaign_upload_max_file_mb") or 0) * 1024 * 1024
-    max_total = int(raw.get("campaign_upload_max_total_mb") or 0) * 1024 * 1024
-    return disabled, max_file, max_total
+    Shared with the copies a campaign keeps of a map deleted from the library,
+    which the same settings bound.
+    """
+    from ...services.campaigns.map_copies import upload_limits
+
+    return upload_limits(db)
 
 
 def _resolve_resource_category(
@@ -764,6 +765,11 @@ def can_read_campaign_file(db, campaign: Campaign, user_id: str, file_id: str) -
     resource that links the file in (public, private-and-shared-with-them, or
     gm). A file with no linking resource is the owner's alone. Callers check
     campaign membership first.
+
+    One more way in: the picture of a map page the user can read. Putting a
+    picture on a shared map page is sharing it, and the copy a campaign keeps
+    of a deleted library map starts out GM-only when the map was never linked
+    as a resource (issue #578).
     """
     from ...models import CampaignResource, CampaignResourceShare
 
@@ -774,16 +780,31 @@ def can_read_campaign_file(db, campaign: Campaign, user_id: str, file_id: str) -
         .filter_by(campaign_id=campaign.id, resource_type="file", resource_id=file_id)
         .first()
     )
-    if not res or res.visibility == "gm":
+    if res is not None and res.visibility == "public":
+        return True
+    if (
+        res is not None
+        and res.visibility == "private"
+        and db.query(CampaignResourceShare).filter_by(resource_id=res.id, user_id=user_id).first()
+        is not None
+    ):
+        return True
+    return _shown_on_readable_map_page(db, campaign, user_id, file_id)
+
+
+def _shown_on_readable_map_page(db, campaign: Campaign, user_id: str, file_id: str) -> bool:
+    pages = (
+        db.query(WikiPage)
+        .filter_by(campaign_id=campaign.id, page_type="map", map_file_id=file_id)
+        .all()
+    )
+    if not pages:
         return False
-    if res.visibility == "private":
-        return (
-            db.query(CampaignResourceShare)
-            .filter_by(resource_id=res.id, user_id=user_id)
-            .first()
-            is not None
-        )
-    return True
+    user = db.query(User).filter_by(id=user_id).first()
+    if user is None:
+        return False
+    viewer = CurrentUser(id=user.id, username=user.username, role=user.role)
+    return any(can_view_page(p, campaign, viewer, db) for p in pages)
 
 
 def get_campaign_file(

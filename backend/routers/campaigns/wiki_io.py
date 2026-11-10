@@ -60,6 +60,15 @@ from ._helpers import (
     strip_gm_secrets,
 )
 from ._schemas import clean_icon_color
+from ._wiki_map_io import (
+    apply_imported_map,
+    clean_import_id,
+    clean_import_pins,
+    export_pins,
+    pins_frontmatter,
+    pins_markdown,
+)
+from ._wiki_maps import MAP_PAGE_TYPE
 from .wiki import (
     _ensure_unique_slug,
     _page_summary,
@@ -88,7 +97,9 @@ _MD_LK_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]*?)\.html\)")
 # Frontmatter keys we read/write. Anything else in a foreign file is ignored.
 _FM_KEYS = (
     "title", "visibility", "parent", "icon", "icon_color", "page_type", "session_date",
+    "map", "map_file", "pins",
 )
+_PAGE_TYPES = ("note", "session", MAP_PAGE_TYPE)
 _VALID_VIS = ("gm", "group", "members")
 
 
@@ -107,7 +118,7 @@ def _safe_icon_color(value) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
-def _frontmatter(page: WikiPage, parent_slug) -> str:
+def _frontmatter(page: WikiPage, parent_slug, pins: Optional[list] = None) -> str:
     """A minimal YAML frontmatter block for a markdown export of a page."""
     lines = ["---", f"title: {_yaml_scalar(page.title)}", f"visibility: {page.visibility}"]
     if parent_slug:
@@ -120,6 +131,13 @@ def _frontmatter(page: WikiPage, parent_slug) -> str:
         lines.append(f"page_type: {page.page_type}")
     if page.session_date:
         lines.append(f"session_date: {page.session_date}")
+    if page.page_type == MAP_PAGE_TYPE:
+        if page.map_id:
+            lines.append(f"map: {page.map_id}")
+        if page.map_file_id:
+            lines.append(f"map_file: {page.map_file_id}")
+        if pins:
+            lines.append(f"pins: {pins_frontmatter(pins)}")
     lines.append("---")
     return "\n".join(lines)
 
@@ -185,8 +203,12 @@ def _shift_headings(body: str, by: int) -> str:
     return "\n".join(out)
 
 
-def _combined_markdown(campaign_name: str, ordered: list, body_of) -> str:
-    """One markdown document holding every page, nested by heading level."""
+def _combined_markdown(campaign_name: str, ordered: list, body_of, locations_of=None) -> str:
+    """One markdown document holding every page, nested by heading level.
+
+    ``locations_of`` gives a map page's pins as a markdown list, set under the
+    page's own text.
+    """
     parts = [f"# {campaign_name}\n"]
     for page, depth in ordered:
         # Page titles start at H2 (H1 is the campaign) and follow the tree down
@@ -196,6 +218,9 @@ def _combined_markdown(campaign_name: str, ordered: list, body_of) -> str:
         body = (body_of(page) or "").strip()
         if body:
             parts.append(_shift_headings(body, level) + "\n")
+        locations = locations_of(page) if locations_of else ""
+        if locations:
+            parts.append(locations + "\n")
     return "\n".join(parts)
 
 
@@ -241,6 +266,14 @@ def export_wiki(
     def body_of(p) -> str:
         return (p.body or "") if is_gm else strip_gm_secrets(p.body or "")
 
+    # Map pages' pins, as this reader may see them, with targets as slugs.
+    slug_of = {p.id: p.slug for p in pages}
+    pins_of = {
+        p.id: export_pins(db, c, p, current_user, slug_of)
+        for p in pages
+        if p.page_type == MAP_PAGE_TYPE
+    }
+
     if format == "json":
         bundle = {
             "grimoire_wiki_version": BUNDLE_VERSION,
@@ -256,6 +289,15 @@ def export_wiki(
                     "icon": p.icon,
                     "icon_color": p.icon_color,
                     "parent": parent_slug[p.id],
+                    **(
+                        {
+                            "map_id": p.map_id,
+                            "map_file_id": p.map_file_id,
+                            "pins": pins_of.get(p.id, []),
+                        }
+                        if p.page_type == MAP_PAGE_TYPE
+                        else {}
+                    ),
                 }
                 for p in pages
             ],
@@ -271,7 +313,13 @@ def export_wiki(
         # One document, pages in sidebar order and nested by heading level. Not
         # a round-trip format (no frontmatter, so nothing to re-import from) —
         # it's for reading, printing, or pasting the whole wiki elsewhere.
-        text = _combined_markdown(c.name, _tree_order(pages), body_of)
+        title_by_slug = {p.slug: p.title for p in pages}
+        text = _combined_markdown(
+            c.name,
+            _tree_order(pages),
+            body_of,
+            lambda p: pins_markdown(pins_of.get(p.id, []), title_by_slug.get),
+        )
         return Response(
             content=text.encode("utf-8"),
             media_type="text/markdown; charset=utf-8",
@@ -290,7 +338,7 @@ def export_wiki(
                 fname = f"{name}-{n}.md"
                 n += 1
             used.add(fname)
-            fm = _frontmatter(p, parent_slug[p.id])
+            fm = _frontmatter(p, parent_slug[p.id], pins_of.get(p.id))
             zf.writestr(fname, f"{fm}\n\n{body_of(p)}\n")
     return Response(
         content=buf.getvalue(),
@@ -309,11 +357,13 @@ def export_wiki(
 
 
 def _record(title, body, *, visibility="gm", icon=None, icon_color=None, page_type="note",
-            session_date=None, source_key=None, parent_key=None):
+            session_date=None, source_key=None, parent_key=None, map_id=None,
+            map_file_id=None, pins=None):
     if visibility not in _VALID_VIS:
         visibility = "gm"
-    if page_type not in ("note", "session"):
+    if page_type not in _PAGE_TYPES:
         page_type = "note"
+    is_map = page_type == MAP_PAGE_TYPE
     title = (title or "").strip() or "Untitled"
     return {
         "title": title,
@@ -328,6 +378,10 @@ def _record(title, body, *, visibility="gm", icon=None, icon_color=None, page_ty
         "source_key": source_key if source_key is not None else title,
         # The source_key of the record this one nests under (None = top level).
         "parent_key": parent_key or None,
+        # A map page's picture and pins; see _wiki_map_io.
+        "map_id": clean_import_id(map_id) if is_map else None,
+        "map_file_id": clean_import_id(map_file_id) if is_map else None,
+        "pins": clean_import_pins(pins) if is_map else [],
     }
 
 
@@ -390,6 +444,9 @@ def parse_markdown_file(
         icon_color=fm.get("icon_color"),
         page_type=fm.get("page_type", "note"),
         session_date=fm.get("session_date"),
+        map_id=fm.get("map"),
+        map_file_id=fm.get("map_file"),
+        pins=fm.get("pins"),
     )
 
 
@@ -407,6 +464,9 @@ def parse_grimoire_bundle(obj: dict) -> list:
                 page_type=p.get("page_type", "note"),
                 session_date=p.get("session_date"),
                 source_key=p.get("slug") or p.get("title"),
+                map_id=p.get("map_id"),
+                map_file_id=p.get("map_file_id"),
+                pins=p.get("pins"),
             )
         )
     return records
@@ -1070,6 +1130,7 @@ def import_wiki(
     by_key = _parent_index(records)
     key_to_id: dict = {}
     created = []
+    created_records = []
     for rec in _order_parents_first(records):
         parent = by_key.get(rec["parent_key"]) if rec["parent_key"] else None
         # A page naming its own slug as its parent must not parent itself.
@@ -1095,6 +1156,17 @@ def import_wiki(
         db.flush()
         key_to_id[rec["source_key"]] = page.id
         created.append(page)
+        created_records.append((rec, page))
+
+    # Map pages' pictures and pins, once every page they may point at exists.
+    # A pin's target is a key like `parent:` is, so it resolves the same way.
+    def page_id_for(key: str):
+        rec = by_key.get(key)
+        return key_to_id.get(rec["source_key"]) if rec is not None else None
+
+    for rec, page in created_records:
+        apply_imported_map(db, campaign_id, page, rec, page_id_for, current_user)
+    db.flush()
 
     # Rebuild links after all pages exist so cross-references resolve to real
     # targets instead of spawning stubs.

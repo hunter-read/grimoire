@@ -19,6 +19,7 @@ from .base import BYTES_TYPE, Base, _utcnow, _uuid
 
 if TYPE_CHECKING:
     from .gm_screen import GmScreenPanel
+    from .wiki_maps import WikiMapPin
 
 
 class Campaign(Base):
@@ -298,7 +299,7 @@ class WikiPage(Base):
     slug: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     body: Mapped[Optional[str]] = mapped_column(Text, default="")
     visibility: Mapped[Optional[str]] = mapped_column(String(20), default="gm")  # gm | group | members
-    page_type: Mapped[Optional[str]] = mapped_column(String(20), default="note")  # note | session
+    page_type: Mapped[Optional[str]] = mapped_column(String(20), default="note")  # note | session | map
     session_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD for session pages
     created_by_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     # Parent page for nesting. When null, the page sits at the wiki's top level.
@@ -317,11 +318,27 @@ class WikiPage(Base):
     icon_color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     # Manual ordering within the page list (drag-and-drop).
     sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    # A map page's picture (issue #578): a library map by id, or - once that map
+    # has left the library - the campaign's own copy of it. Neither is a foreign
+    # key. A library map can be deleted outside the app, and a page must survive
+    # that as a "map no longer in library" placeholder that keeps its pins,
+    # rather than block the delete or vanish with it. Never a path: the id is
+    # what survives a move or rename.
+    map_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    map_file_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
 
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="wiki_pages")
+    # A map page's pins go with it. Pins that merely *point at* a page are
+    # unlinked when it is deleted instead (see routers/campaigns/wiki.py).
+    map_pins: Mapped[list["WikiMapPin"]] = relationship(
+        "WikiMapPin",
+        cascade="all, delete-orphan",
+        primaryjoin="WikiPage.id==WikiMapPin.page_id",
+        order_by="WikiMapPin.sort_order",
+    )
     # Orders a legacy-filed page's delete before its category's, as
     # CampaignResource.category does.
     category: Mapped[Optional["CampaignCategory"]] = relationship("CampaignCategory")
@@ -445,7 +462,8 @@ class WikiPageHidden(Base):
 class WikiPageLink(Base):
     """A resolved [[wiki link]] from one page to another, for backlinks.
 
-    Rebuilt from the source page's body on every save.
+    Rebuilt from the source page's body - and, on a map page, its pins - on
+    every save.
     """
 
     __tablename__ = "wiki_page_links"

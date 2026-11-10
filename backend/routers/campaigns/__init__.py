@@ -105,6 +105,7 @@ from .guests import (
     guest_share_template,
 )
 from .wiki_io import export_wiki, import_wiki
+from .wiki_pins import create_pin, delete_pin, update_pin
 from .gm_screen import (
     apply_gm_screen_preset,
     browse_gm_screen_presets,
@@ -181,6 +182,7 @@ from ._response_schemas import (
     SheetSourcesOut,
     SuggestedResourceOut,
     WikiImportOut,
+    WikiMapPinOut,
     WikiPageDetailOut,
     WikiPageHiddenOut,
     WikiPageListItem,
@@ -887,6 +889,28 @@ router.add_api_route(
     delete_page,
     methods=["DELETE"],
     summary="Delete a wiki page",
+    status_code=204,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/{page_id}/pins",
+    create_pin,
+    methods=["POST"],
+    summary="Add a pin to a map page",
+    status_code=201,
+    response_model=WikiMapPinOut,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/{page_id}/pins/{pin_id}",
+    update_pin,
+    methods=["PATCH"],
+    summary="Move or edit a pin on a map page",
+    response_model=WikiMapPinOut,
+)
+router.add_api_route(
+    "/{campaign_id}/wiki/{page_id}/pins/{pin_id}",
+    delete_pin,
+    methods=["DELETE"],
+    summary="Remove a pin from a map page",
     status_code=204,
 )
 router.add_api_route(

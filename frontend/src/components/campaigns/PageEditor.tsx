@@ -6,6 +6,7 @@ import {
   LuEye,
   LuEyeOff,
   LuFileText,
+  LuMap,
   LuBold,
   LuItalic,
   LuStrikethrough,
@@ -19,6 +20,7 @@ import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
 import WikiLinkAutocomplete, { findActiveLinkQuery, linkOptionId } from './WikiLinkAutocomplete'
 import ShareAccessTable from './ShareAccessTable'
+import MapPicker, { type MapChoice } from './wikiMap/MapPicker'
 import { buildTitleTrie, type TitlePage, type TrieEntry } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
 import useFillViewport from './useFillViewport'
@@ -64,6 +66,8 @@ export interface PageEditorProps {
   page: Partial<WikiPageDetail> | null
   allPages: Schema<'WikiPageListItem'>[]
   defaultParentId?: string
+  /** A new page's type: "map" for New map page (issue #578). */
+  defaultPageType?: string
   onSaved: (saved: { id: string }) => void
   onCancel: () => void
 }
@@ -75,6 +79,7 @@ export default function PageEditor({
   page,
   allPages,
   defaultParentId,
+  defaultPageType = 'note',
   onSaved,
   onCancel,
 }: PageEditorProps) {
@@ -90,6 +95,15 @@ export default function PageEditor({
   const [parentId, setParentId] = useState(page?.parent_id ?? defaultParentId ?? '')
   const [icon, setIcon] = useState(page?.icon ?? '')
   const [iconColor, setIconColor] = useState(page?.icon_color ?? '')
+  // A page's type is set when it is made - from New map page, or a template's
+  // defaults - and kept from then on.
+  const pageType = page?.page_type || defaultPageType
+  const isMap = pageType === 'map'
+  // A new map page's picture, chosen here. An existing page changes its map
+  // from the page itself (Replace map), so the editor leaves it alone.
+  const [mapChoice, setMapChoice] = useState<MapChoice | null>(null)
+  const [mapChoiceName, setMapChoiceName] = useState('')
+  const [pickingMap, setPickingMap] = useState(false)
 
   // Pages eligible as a parent: every page except this one and its descendants.
   const excluded = page?.id ? descendantIds(page.id, allPages) : new Set<string>()
@@ -299,6 +313,10 @@ export default function PageEditor({
         icon: icon || '',
         icon_color: iconColor || '',
       }
+      if (isNew) {
+        payload.page_type = pageType
+        if (isMap && mapChoice) Object.assign(payload, mapChoice)
+      }
       // Nesting travels on change only, for the same reason as classification:
       // the server checks write access to the *destination*, so resending the
       // parent a page already sits under would refuse an edit to a child whose
@@ -358,7 +376,13 @@ export default function PageEditor({
           onChange={setIcon}
           color={iconColor}
           onColorChange={setIconColor}
-          fallback={<LuFileText size={16} aria-hidden="true" />}
+          fallback={
+            isMap ? (
+              <LuMap size={16} aria-hidden="true" />
+            ) : (
+              <LuFileText size={16} aria-hidden="true" />
+            )
+          }
           ariaLabel={t('wiki.iconLabel')}
         />
         <input
@@ -380,6 +404,35 @@ export default function PageEditor({
           }}
         />
       </div>
+
+      {/* A new map page picks its map here; an existing one replaces it from
+          the page, where its pins are. */}
+      {isNew && isMap && (
+        <div
+          style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}
+        >
+          <LuMap size={15} aria-hidden="true" style={{ color: 'var(--type-map)' }} />
+          <span style={{ fontSize: 13, color: mapChoice ? 'var(--text)' : 'var(--text-muted)' }}>
+            {mapChoice ? mapChoiceName : t('wikiMap.noMapYet')}
+          </span>
+          <button type="button" onClick={() => setPickingMap(true)} style={ghostBtn}>
+            {mapChoice ? t('wikiMap.replaceMap') : t('wikiMap.chooseMap')}
+          </button>
+        </div>
+      )}
+      {pickingMap && (
+        <MapPicker
+          campaignId={campaign.id}
+          isOwner={isOwner}
+          pageVisibility={visibility}
+          onPick={(choice, name) => {
+            setMapChoice(choice)
+            setMapChoiceName(name)
+            setPickingMap(false)
+          }}
+          onClose={() => setPickingMap(false)}
+        />
+      )}
 
       {/* Toolbar */}
       <div

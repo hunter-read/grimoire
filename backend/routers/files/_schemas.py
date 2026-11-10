@@ -182,6 +182,25 @@ class FolderContentsResponse(BaseModel):
     name: str
 
 
+class CampaignMapCopyOut(BaseModel):
+    """One campaign using a map that a delete would take out of the library.
+
+    ``outcome`` is ``copy`` when the campaign keeps its own copy; otherwise why
+    not (``too_large``, ``uploads_disabled``, ``not_image``, ``file_missing``),
+    in which case its map pages show a placeholder with Replace map.
+    """
+
+    campaign_id: str
+    campaign_name: str
+    map_id: str
+    map_name: str
+    outcome: str
+
+
+class CampaignMapCopiesResponse(BaseModel):
+    campaigns: list[CampaignMapCopyOut]
+
+
 class ScaffoldRequest(BaseModel):
     path: FsText
 
