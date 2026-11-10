@@ -41,6 +41,13 @@ echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 docker compose -f docs/docker/docker-compose.postgres.yml up -d
 ```
 
+The example runs PostgreSQL 18. To run 15, 16 or 17 instead, change the volume as well as
+the image tag: those images keep their data in `/var/lib/postgresql/data`, while 18 and
+newer keep it under `/var/lib/postgresql`, which is what the example mounts. With the wrong
+path the database ends up in an unnamed volume, which a new container (after
+`docker compose down`, say) starts without. The comments in the file show both lines. Moving an existing database to a new major version
+takes a dump and restore (or `pg_upgrade`), not just a new tag.
+
 On first start the log says `Creating the Grimoire schema in a new PostgreSQL database`,
 and you're prompted to create the admin account as usual.
 
