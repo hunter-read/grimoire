@@ -74,11 +74,16 @@ fallback.
    docker compose run --rm grimoire python -m backend.scripts.sqlite_to_postgres
    ```
 
-   It upgrades a snapshot of your database to the current version, creates the schema,
-   copies every table in batches, and then reads both databases back and compares every
-   row. It prints each table as it goes and ends with
+   It upgrades a snapshot of your database to the current version, checks it for data
+   PostgreSQL would refuse (see [Troubleshooting](#troubleshooting)),
+   creates the schema, copies every table in batches, and then reads both databases back
+   and compares every row. It prints each table as it goes and ends with
    `Done: N row(s) in M table(s) copied and verified.` Any difference stops it with an
    error naming the table.
+
+   PostgreSQL text can't hold a NUL character, which turns up in PDF metadata and
+   extracted page text. Those are dropped on the way across, and the check compares the
+   rest.
 
    Outside Docker, run it from the Grimoire directory with the same environment the server
    uses: `python -m backend.scripts.sqlite_to_postgres --postgres postgresql://...`
@@ -156,6 +161,30 @@ isn't empty, but wasn't made by Grimoire (or a copy was interrupted part-way). P
 Grimoire was started against the database before the copy, and created an empty library
 there. If you haven't used that library, drop the database, create it again empty, and
 rerun the command.
+
+**`The SQLite database holds N thing(s) PostgreSQL would refuse`** (from the migration
+command), followed by one line per problem. SQLite accepts some data that PostgreSQL
+doesn't, and the command checks for all of it before writing anything, so the PostgreSQL
+database is still empty and you can rerun the command once they are fixed. Each line names the table, the column and the rows (by id), and what to do:
+
+- **A row points at one that no longer exists** - for example a book whose game system was
+  deleted. The line gives the statement that clears the link, or deletes the rows when the
+  link can't be empty.
+- **Text or a fraction in a whole-number column**, or a **missing required value** - clear
+  or correct the value.
+- **A number too large for its column** on PostgreSQL. Correct it, and please report it so
+  the column can be widened.
+- **Usernames PostgreSQL counts as one** - names that differ only in the case of a letter
+  outside A-Z, such as `Émile` and `émile`. SQLite tells them apart; PostgreSQL doesn't.
+  Rename all but one in **Settings → Users**, with Grimoire started on SQLite (without
+  `DATABASE_URL`).
+
+Fix the rest in the SQLite file with Grimoire stopped, after backing it up. The statements
+run as they are in the `sqlite3` shell:
+
+```bash
+sqlite3 /path/to/grimoire/data/grimoire.db
+```
 
 **`permission denied to create extension "unaccent"`** - the user in `DATABASE_URL` doesn't
 own the database. Make it the owner (`ALTER DATABASE grimoire OWNER TO grimoire;`), or have

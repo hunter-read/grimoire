@@ -324,3 +324,158 @@ def test_cli_reports_success_and_failure(monkeypatch, caplog):
     with caplog.at_level(logging.INFO, logger="grimoire.db"):
         assert mig.main(["--sqlite", "x.db", "--postgres", "postgresql://h/db"]) == 1
     assert "Migration stopped: The PostgreSQL database is not empty" in caplog.text
+
+
+def _raw(path, *statements):
+    """Run ``statements`` on the SQLite file directly, foreign keys unchecked as SQLite does."""
+    conn = sqlite3.connect(path)
+    try:
+        for statement in statements:
+            conn.execute(statement)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@pytest.mark.postgres_only
+def test_nul_characters_are_dropped_and_still_verify():
+    """PDF metadata and page text can hold NULs: PostgreSQL text cannot, so they are dropped."""
+    source, book_id = _sqlite_install()
+    _raw(
+        source,
+        f"UPDATE books SET title = 'Nul' || char(0) || 'Title', "
+        f"genres = '[\"a\\u0000b\"]' WHERE id = '{book_id}'",
+        "UPDATE book_pages SET content = 'goblin' || char(0) || ' warrens' WHERE page_number = 1",
+        "UPDATE content_search SET body = 'bright' || char(0) || ' streak'",
+    )
+    url = scratch_database("nul")
+    counts = mig.migrate(source, url)
+    assert counts["books"] == 1
+    engine = postgres_engine(url)
+    with Session(engine) as db:
+        book = db.get(Book, book_id)
+        assert book.title == "NulTitle"
+        assert book.genres == ["a\x00b"]  # a JSON escape, not a NUL in the text
+        assert db.execute(
+            text("SELECT content FROM book_pages WHERE page_number = 1")
+        ).scalar() == "goblin warrens"
+    engine.dispose()
+
+
+@pytest.mark.postgres_only
+class TestPreflight:
+    """Data SQLite accepts and PostgreSQL refuses stops the copy before anything is written."""
+
+    @pytest.fixture(scope="class")
+    def refused(self):
+        source, book_id = _sqlite_install()
+        _raw(
+            source,
+            # A book whose system was deleted with foreign keys off.
+            f"UPDATE books SET game_system_id = 'gone-system', year = 'nineteen', "
+            f"page_count = {2**31} WHERE id = '{book_id}'",
+            # Child rows of a deleted parent, in a column that cannot be emptied.
+            "INSERT INTO favorites (id, user_id, item_type, item_id) "
+            "VALUES ('f-1', 'gone-user', 'book', 'b')",
+            # One name to PostgreSQL's lower(), two to SQLite's.
+            "INSERT INTO users (id, username, username_folded, role) "
+            "VALUES ('u-e1', 'Émile', 'émile', 'player'), ('u-e2', 'émile', 'émile', 'player')",
+            "UPDATE book_pages SET page_number = 'one' WHERE page_number = 1",
+        )
+        url = scratch_database("preflight")
+        with pytest.raises(mig.MigrationError) as caught:
+            mig.migrate(source, url)
+        return str(caught.value), url, book_id
+
+    def test_nothing_is_written(self, refused):
+        _, url, _ = refused
+        engine = postgres_engine(url)
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("SELECT COUNT(*) FROM information_schema.tables "
+                     "WHERE table_schema = 'public'")
+            ).scalar() == 0
+        engine.dispose()
+        assert "nothing was copied" in refused[0]
+        assert "The PostgreSQL database is still empty." in refused[0]
+
+    def test_an_orphan_row_is_named_with_the_fix(self, refused):
+        message, _, book_id = refused
+        assert (
+            f"books.game_system_id: 1 row(s) (id {book_id!r}) point at a game_systems row "
+            "that no longer exists. Clear the link: UPDATE books SET game_system_id = NULL"
+        ) in message
+        assert "favorites.user_id: 1 row(s) (id 'f-1') point at a users row" in message
+        assert "Delete those rows: DELETE FROM favorites WHERE" in message
+
+    def test_text_in_a_number_column(self, refused):
+        message, _, book_id = refused
+        assert (
+            f"books.year: 1 row(s) (id {book_id!r}) hold something other than a whole number. "
+            "Clear or correct them: UPDATE books SET year = NULL WHERE "
+            "typeof(\"year\") NOT IN ('integer', 'null');"
+        ) in message
+        assert "book_pages.page_number: 1 row(s)" in message
+
+    def test_a_number_too_big_for_its_column(self, refused):
+        message, _, book_id = refused
+        assert (
+            f"books.page_count: 1 row(s) (id {book_id!r}) hold a number outside "
+            "-2147483648 to 2147483647"
+        ) in message
+        # file_size is a BIGINT on PostgreSQL: the 3 GiB in the fixture is fine.
+        assert "books.file_size" not in message
+
+    def test_usernames_postgresql_counts_as_one(self, refused):
+        message, _, _ = refused
+        assert "users.username: 'Émile' (id 'u-e1'), 'émile' (id 'u-e2') are one name" in message
+        assert "Straße" not in message
+
+    def test_the_cli_prints_it_all(self, refused, monkeypatch, caplog):
+        import logging
+
+        message = refused[0]
+
+        def refuse(*_a):
+            raise mig.MigrationError(message)
+
+        monkeypatch.setattr(mig, "migrate", refuse)
+        with caplog.at_level(logging.INFO, logger="grimoire.db"):
+            assert mig.main(["--sqlite", "x.db", "--postgres", "postgresql://h/db"]) == 1
+        assert "Migration stopped: The SQLite database holds 6 thing(s)" in caplog.text
+
+
+@pytest.mark.postgres_only
+def test_preflight_lists_only_the_first_ids_and_a_missing_value():
+    from backend.scripts import _sqlite_checks as checks
+
+    source, _ = _sqlite_install()
+    copy = os.path.join(tempfile.mkdtemp(), "copy.db")
+    mig.snapshot_sqlite(source, copy)
+    src_engine, _ = init_db(copy)
+    user_id = sqlite3.connect(copy).execute("SELECT id FROM users").fetchone()[0]
+    _raw(
+        copy,
+        *(
+            "INSERT INTO favorites (id, user_id, item_type, item_id) "
+            f"VALUES ('f-{i:02d}', 'gone', 'book', 'b{i}')"
+            for i in range(checks.SHOWN + 3)
+        ),
+        # A required column left empty: an older SQLite schema may not say NOT NULL.
+        "DROP TABLE pins",
+        "CREATE TABLE pins (id VARCHAR PRIMARY KEY, user_id VARCHAR, collection VARCHAR, "
+        "target VARCHAR)",
+        f"INSERT INTO pins VALUES ('p-1', '{user_id}', NULL, 'books')",
+    )
+    target = postgres_engine(scratch_database("preflight_ids"))
+    with src_engine.connect() as src, target.connect() as dst:
+        problems = checks.find_problems(src, dst, mig._model_tables())
+    src_engine.dispose()
+    target.dispose()
+    favorites = next(p for p in problems if p.startswith("favorites.user_id"))
+    assert favorites.startswith("favorites.user_id: 13 row(s) (id 'f-00', ")
+    assert "and 3 more" in favorites and "'f-12'" not in favorites
+    assert (
+        "pins.collection: 1 row(s) (id 'p-1') have no value, which PostgreSQL requires there."
+        in problems[problems.index(next(p for p in problems if p.startswith("pins.")))]
+    )

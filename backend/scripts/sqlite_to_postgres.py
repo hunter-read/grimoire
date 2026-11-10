@@ -12,12 +12,17 @@ What it does:
 1. Snapshots the SQLite file (``--sqlite``, default ``DATA_PATH/grimoire.db``)
    to a temporary copy and upgrades the copy to the current schema. The
    original file is only read, never changed, so it stays a complete fallback.
-2. Creates the schema in the PostgreSQL database (``--postgres``, default
+2. Checks the snapshot for data PostgreSQL would refuse - a row pointing at one
+   that no longer exists, text in a number column, a number too big for its
+   column, a missing required value, usernames PostgreSQL counts as one - and
+   stops, listing every one, before anything is written.
+3. Creates the schema in the PostgreSQL database (``--postgres``, default
    ``DATABASE_URL``), which must be empty.
-3. Copies every table, the indexed page text and the character-catalogue index,
+4. Copies every table, the indexed page text and the character-catalogue index,
    in batches, then stamps the database at the current migration.
-4. Reads both databases back and compares every row of every table. Any
-   difference fails the command.
+5. Reads both databases back and compares every row of every table. Any
+   difference fails the command. NUL characters, which PostgreSQL text cannot
+   hold, are dropped from the copy and left out of the comparison.
 
 On success, set DATABASE_URL to the same URL and start Grimoire. Nothing in the
 data folder moves: covers, thumbnails, uploads and the secret key stay where
@@ -189,6 +194,17 @@ def _rows(conn: Connection, query: Any) -> Iterator[tuple]:
         yield tuple(row)
 
 
+def _without_nul(rows: Iterator[tuple]) -> Iterator[tuple]:
+    """``rows`` as PostgreSQL holds them: NUL characters dropped from every string.
+
+    The target engine drops them on the way in (``postgres_engine``), since
+    PostgreSQL text cannot hold one, so the SQLite side is compared without them.
+    A JSON value keeps its ``\\u0000`` escape on both sides and needs nothing.
+    """
+    for row in rows:
+        yield tuple(v.replace("\x00", "") if isinstance(v, str) else v for v in row)
+
+
 def verify(src: Connection, dst: Connection) -> dict[str, int]:
     """Compare every row of every copied table; raise MigrationError on any difference."""
     counts: dict[str, int] = {}
@@ -199,7 +215,9 @@ def verify(src: Connection, dst: Connection) -> dict[str, int]:
         query = select(*columns).order_by(*keys)
         if table.name == "app_settings":
             query = query.where(table.c.key.not_in(_SQLITE_ONLY_SETTINGS))
-        counts[table.name] = _compare(table.name, _rows(src, query), _rows(dst, query))
+        counts[table.name] = _compare(
+            table.name, _without_nul(_rows(src, query)), _rows(dst, query)
+        )
     for name, raw_columns in _RAW_TABLES:
         if not inspect(src).has_table(name):
             continue
@@ -208,11 +226,13 @@ def verify(src: Connection, dst: Connection) -> dict[str, int]:
         if name == "content_search":
             # No key of its own on SQLite; compare as sorted multisets.
             counts[name] = _compare(
-                name, iter(sorted(_rows(src, raw_query), key=repr)),
+                name, iter(sorted(_without_nul(_rows(src, raw_query)), key=repr)),
                 iter(sorted(_rows(dst, raw_query), key=repr)),
             )
         else:
-            counts[name] = _compare(name, _rows(src, raw_query), _rows(dst, raw_query))
+            counts[name] = _compare(
+                name, _without_nul(_rows(src, raw_query)), _rows(dst, raw_query)
+            )
     return counts
 
 
@@ -229,6 +249,23 @@ def _compare(name: str, left: Iterator[tuple], right: Iterator[tuple]) -> int:
         if a != b:
             raise MigrationError(f"{name}: row {count + 1} differs after the copy: {a!r} != {b!r}")
         count += 1
+
+
+def _preflight(src: Connection, dst: Connection, tables: Sequence[Table]) -> None:
+    """Stop, before anything is written, on data PostgreSQL would refuse."""
+    from ._sqlite_checks import find_problems
+
+    problems = find_problems(src, dst, tables)
+    if problems:
+        listed = "\n".join(f"  - {p}" for p in problems)
+        raise MigrationError(
+            f"The SQLite database holds {len(problems)} thing(s) PostgreSQL would refuse, "
+            "so nothing was copied:\n"
+            f"{listed}\n"
+            "Fix them in the SQLite database - with Grimoire stopped, and after backing the "
+            "file up - then run this command again. The statements shown run as they are "
+            "in the sqlite3 shell. The PostgreSQL database is still empty."
+        )
 
 
 def migrate(sqlite_path: str, postgres_url: str) -> dict[str, int]:
@@ -256,9 +293,11 @@ def migrate(sqlite_path: str, postgres_url: str) -> dict[str, int]:
         try:
             with _postgres_migration_lock(target), source.connect() as src, target.connect() as dst:
                 _check_empty(dst)
+                tables = _model_tables()
+                logger.info("Checking the SQLite data for anything PostgreSQL would refuse ...")
+                _preflight(src, dst, tables)
                 logger.info("Creating the schema in PostgreSQL ...")
                 create_schema(dst, seed=False)
-                tables = _model_tables()
                 links = deferred_links(tables)
                 pending: dict[str, list[dict]] = {}
                 for table in tables:
