@@ -7,6 +7,7 @@ import {
   type Schema,
 } from '../api'
 import { rememberAuthStatus } from '../hooks/usePasswordRules'
+import { clearRecentBooks, setRecentAccount } from '../hooks/useBookPrefs'
 
 export type AuthStatus = 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
 
@@ -26,6 +27,25 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/**
+ * Drop what this browser remembers about the account that just signed out, so
+ * the next person to sign in here starts clean: the recently-opened list, and
+ * the per-tab view state (audio queue, searches, scroll positions...) kept in
+ * sessionStorage under the `grimoire:` prefix.
+ */
+function forgetAccount(): void {
+  clearRecentBooks()
+  setRecentAccount(null)
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith('grimoire:')) keys.push(k)
+    }
+    keys.forEach((k) => sessionStorage.removeItem(k))
+  } catch {}
+}
+
 const fetchMe = (token: string): Promise<AuthUser | null> =>
   fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
     .then((r) => (r.ok ? (r.json() as Promise<AuthUser>) : null))
@@ -33,7 +53,14 @@ const fetchMe = (token: string): Promise<AuthUser | null> =>
 
 export function AuthProvider({ children }: { children?: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
-  const [user, setUser] = useState<AuthUser | null>(null)
+  const [user, setUserState] = useState<AuthUser | null>(null)
+
+  // Every account-scoped store follows the signed-in user. Set before the state
+  // update so the views that mount for this user already read their own data.
+  const setUser = useCallback((next: AuthUser | null) => {
+    setRecentAccount(next?.id)
+    setUserState(next)
+  }, [])
 
   useEffect(() => {
     // Normally null: the token lives in memory only, so a fresh page load
@@ -84,31 +111,36 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
 
     const handleUnauthorized = () => {
       setAccessToken(null)
+      forgetAccount()
       setUser(null)
       setStatus('unauthenticated')
     }
     window.addEventListener('grimoire:unauthorized', handleUnauthorized)
     return () => window.removeEventListener('grimoire:unauthorized', handleUnauthorized)
-  }, [])
+  }, [setUser])
 
-  const login = useCallback((token: string, userData: AuthUser) => {
-    setAccessToken(token)
-    sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
-    setUser(userData)
-    setStatus('authenticated')
-  }, [])
+  const login = useCallback(
+    (token: string, userData: AuthUser) => {
+      setAccessToken(token)
+      sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
+      setUser(userData)
+      setStatus('authenticated')
+    },
+    [setUser]
+  )
 
   const logout = useCallback(() => {
     // Clear the server-side session cookie so media/download GETs can no longer
     // authenticate. Best-effort — local state is cleared regardless.
     authApi.logout().catch(() => {})
     setAccessToken(null)
+    forgetAccount()
     // One-shot: prevents the OIDC auto-launch from immediately redirecting
     // the user back to the IdP after they explicitly logged out.
     sessionStorage.setItem('grimoire:suppress_oidc_autolaunch', '1')
     setUser(null)
     setStatus('unauthenticated')
-  }, [])
+  }, [setUser])
 
   const refreshUser = useCallback(async () => {
     // Normally null: the token lives in memory only, so a fresh page load
@@ -119,7 +151,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
       headers: { Authorization: `Bearer ${token}` },
     }).then((r) => (r.ok ? (r.json() as Promise<AuthUser>) : null))
     if (userData) setUser(userData)
-  }, [])
+  }, [setUser])
 
   return (
     <AuthContext.Provider value={{ status, user, login, logout, refreshUser }}>

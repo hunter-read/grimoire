@@ -85,8 +85,8 @@ class BookUpdate(BaseModel):
     @field_validator("genres", mode="before")
     @classmethod
     def strip_genres(cls, v):
-        if v is None:
-            return v
+        if not isinstance(v, list):
+            return v  # None, or left for the type check to refuse
         seen: set[str] = set()
         out: list[str] = []
         for item in v:

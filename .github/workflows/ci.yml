@@ -214,7 +214,9 @@ jobs:
     # both runs feeds the gate, since PostgreSQL-only code only runs in the second.
     services:
       postgres:
-        image: postgres:18-alpine
+        # Pinned by digest like the actions; Dependabot does not bump service
+        # images, so move it by hand (docs/pipelines.md#dependabot-dependabotyml).
+        image: postgres:18-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
         env:
           POSTGRES_USER: grimoire
           POSTGRES_PASSWORD: grimoire
@@ -325,7 +327,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15-alpine
+        # Pinned by digest; bumped by hand (docs/pipelines.md#dependabot-dependabotyml).
+        image: postgres:15-alpine@sha256:aae6554de426ae1990f1a939ff183a0299146cf7142a6f4c379c3357af9cc2d8
         env:
           POSTGRES_USER: grimoire
           POSTGRES_PASSWORD: grimoire

@@ -282,6 +282,11 @@ unless it can't be written back as JSON (`NaN`, `Infinity`, or a value nested
 thousands deep). JSON text that isn't valid Unicode - a lone surrogate escape
 such as `"\ud800"` - is a `422` of type `unicode_error`, whatever the route.
 
+**Names and links.** A campaign's, league's or army's `name` is trimmed, and a
+`422` when nothing is left. An optional link to another row sent as `""` -
+`system_id` or `parent_campaign_id` on a new campaign, `game_system_id` on a
+league, an army's system or faction - means none.
+
 ### Health
 
 | Endpoint | Method | Auth | Description |
@@ -761,7 +766,7 @@ each section is collapsible.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/genres` | GET | any (not guest) | `{"genres": [{id, name, parent_id, is_default, sort_order}]}`. Tiered via `parent_id` (e.g. Cyberpunk → Science Fiction). |
-| `/api/genres` | POST | admin | Create a genre. Body `{name, parent_id?}`. 409 if the name exists. |
+| `/api/genres` | POST | admin | Create a genre. Body `{name, parent_id?}`. 409 if the name exists. Names are at most 120 characters (150 for families, parent systems and licenses, 120 for dice and materials); longer is a 422. |
 | `/api/genres/:id` | DELETE | admin | Delete a genre (and its children). 409 with `{detail: {message, name, usage_count}}` if attached to a system/book, unless `?force=true`. |
 | `/api/system-families` | GET | any (not guest) | `{"families": [{id, name, is_default, sort_order}]}` |
 | `/api/system-families` | POST | admin | Create a family. Body `{name}`. 409 if the name exists. |
@@ -1297,7 +1302,7 @@ with `tags`); these endpoints manage the shared tag catalog and browse items by 
 |----------|--------|------|-------------|
 | `/api/tags` | GET | any (not guest) | List tags with usage `count` and `is_favorite` (for the current user). Query `in_use_by=system\|book\|map\|token\|audio` restricts to tags used on that resource type. Folder tags (from `tags.json`/folder tagging, including **book subcategory folders**) are merged in and counted by the items they cover |
 | `/api/tags` | POST | gm/admin | Create a tag up front (idempotent by internal key). Body: `{value, display?}`. A `value` containing `/` or `\` is refused with a 422 (see **Tag names** below) |
-| `/api/tags/:internal/items` | GET | any (not guest) | A tag's summary plus one page of the items carrying it directly: `counts` (directly-tagged items per type), `total`, `items` (a page, in type order then name order, enriched like favorites), and `folders` - every folder carrying the tag as `{resource_type, path, key, count}` (book folders show only their subfolder path). Query: `resource_type` (one type's counts, folders and page), `limit` (default 100, max 500; `0` for the summary alone), `offset`. Counts and pages leave out explicit items for users who can't see them, and books or systems the caller may not open |
+| `/api/tags/:internal/items` | GET | any (not guest) | A tag's summary plus one page of the items carrying it directly: `counts` (directly-tagged items per type), `total`, `items` (a page, in type order then name order, enriched like favorites), and `folders` - every folder carrying the tag as `{resource_type, path, key, count}` (book folders show only their subfolder path). Query: `resource_type` (one type's counts, folders and page), `limit` (default 100, max 500; `0` for the summary alone), `offset`. Counts and pages leave out explicit items for users who can't see them, and books or systems the caller may not open. A tag whose every item and folder is left out that way is a `404`, as for a tag that doesn't exist; one carried by nothing at all is still listed |
 | `/api/tags/:internal/folder-items` | GET | any (not guest) | A page of everything inside one tagged folder, in name order: `{total, items}`. Query: `resource_type`, `folder` (the group's `key`), `limit`, `offset`. 404 when that folder does not carry the tag |
 | `/api/tags/:internal` | PATCH | gm/admin | Rename a tag's display value; when the new display normalizes to a different key the internal is re-keyed too (merging into an existing tag on collision). Works for **folder-only** tags too (a tag that lives only in folder JSON is materialised into a catalog row so the rename persists - no 404). Body: `{display}`. A `display` containing `/` or `\` is refused with a 422 |
 | `/api/tags/:internal/merge` | POST | gm/admin | Merge this tag into another, re-pointing all links. Body: `{into}`. `into` is refused with a 422 if it contains `/` or `\`; the **source** `:internal` may contain one, so merging is a way out of such a tag |

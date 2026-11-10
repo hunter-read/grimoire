@@ -82,6 +82,13 @@ describe('ShareView', () => {
     expect(screen.getByText('sharePage.missingBody')).toBeInTheDocument()
   })
 
+  it('shows the same not-found page for a token that could not be read', () => {
+    render(<ShareView token={null} />)
+    expect(screen.getByText('sharePage.missingTitle')).toBeInTheDocument()
+    expect(screen.getByText('sharePage.missingBody')).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('says when it is being throttled', async () => {
     ;(fetch as unknown as Mock).mockReturnValue(respond(429, {}))
     render(<ShareView token="tok" />)

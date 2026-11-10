@@ -39,6 +39,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Inline code in wiki pages sits inside its sentence again instead of breaking out onto a line of its own
 - A campaign with a resource filed under a custom category can be deleted again, and so can its GM's account. Deleting either failed with a server error
 - Requests Grimoire can't read - JSON with `NaN` in it or with text that isn't valid Unicode, or an address with a NUL character - get an error saying so, instead of a server error. A book's or game system's year must be between 0 and 9999, and a bookmark's page between 0 and 1,000,000; a larger number was a server error
+- More input Grimoire can't use gets an error saying so instead of a server error: a character sheet with an impossible date in it, a list of genres, tags or dice sent as a single value, a genre or other lookup name longer than its column, a file name longer than 255 bytes, and an empty system on a new campaign. A campaign's name can no longer be blank
+- A Universal VTT map that is damaged - nested too deeply, or claiming an image too large to open - is shown as unreadable instead of failing
+- Single sign-on works again with providers whose ID token carries its certificate chain in the header, which has been refused since 1.10.1
+- A share link whose address has a broken escape in it shows the link-not-found page instead of a blank one
 - A new account's username, and a converted guest's, must be 2-100 characters with no control characters. A blank one was accepted, and a second blank one failed with a server error
 - A character opens again when its sheet works out a choice from a list, where it failed with a server error. The choice reads as unset
 - A campaign that other campaigns sit under can be deleted, and so can its GM's account, where either failed with a server error. The campaigns under it stay, with no parent. A campaign's parent must now be another of your own campaigns

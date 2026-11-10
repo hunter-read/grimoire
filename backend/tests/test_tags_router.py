@@ -293,10 +293,9 @@ class TestExplicitFiltering:
         # Admin sees it; restricted player does not.
         admin_items = client.get(f"/api/tags/{label.lower()}/items", headers=admin_headers).json()
         assert any(i["item_id"] == tok.id for i in admin_items["items"])
-        player_items = client.get(
-            f"/api/tags/{label.lower()}/items", headers=player_headers
-        ).json()
-        assert all(i["item_id"] != tok.id for i in player_items["items"])
+        # Its only item is kept from the player, so the tag reads as missing.
+        player_items = client.get(f"/api/tags/{label.lower()}/items", headers=player_headers)
+        assert player_items.status_code == 404
 
 
 class TestFolderTags:

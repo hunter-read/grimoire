@@ -255,3 +255,81 @@ def test_migrations_wait_for_each_other():
         conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _PG_MIGRATION_LOCK})
     engine.dispose()
     assert order == ["first", "second"]
+
+
+def _pages_matching(conn, word):
+    return conn.execute(
+        text("SELECT book_id FROM book_pages WHERE search @@ phraseto_tsquery('grimoire', :w) "
+             "ORDER BY book_id"),
+        {"w": word},
+    ).scalars().all()
+
+
+@pytest.mark.postgres_only
+class TestSearchMarkupMigration:
+    """0066 rebuilds the search columns so text inside <...> is indexed as words."""
+
+    _BEFORE = "4c8d2e6f1a93"  # 0065
+
+    def test_an_existing_index_is_rebuilt(self):
+        url = scratch_database("markup")
+        init_db(url)
+        engine = postgres_engine(url)
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+            conn.commit()
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO book_pages (book_id, page_number, content) "
+                     "VALUES ('m1', 1, 'the <quasitronic engine> table')")
+            )
+            conn.execute(
+                text("INSERT INTO content_search (entry_row, name, body) "
+                     "VALUES ('e1', 'Rite', '<p data-x=\"glimmerfen\">rite</p>')")
+            )
+            assert _pages_matching(conn, "quasitronic") == []  # the old behaviour
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+            conn.commit()
+        with engine.connect() as conn:
+            assert _pages_matching(conn, "quasitronic") == ["m1"]
+            assert conn.execute(
+                text("SELECT entry_row FROM content_search "
+                     "WHERE search @@ to_tsquery('grimoire', 'glimmerfen')")
+            ).scalars().all() == ["e1"]
+            # The GIN indexes came back with the columns.
+            indexes = {i["name"] for i in inspect(conn).get_indexes("book_pages")}
+            indexes |= {i["name"] for i in inspect(conn).get_indexes("content_search")}
+            assert {"ix_book_pages_search", "ix_content_search_search"} <= indexes
+            command.check(_alembic_config(conn))
+        engine.dispose()
+
+    def test_a_new_database_already_reads_markup_as_words(self, url):
+        engine = postgres_engine(url)
+        with engine.connect() as conn:
+            expressions = conn.execute(
+                text("SELECT table_name, generation_expression FROM information_schema.columns "
+                     "WHERE column_name = 'search' AND table_schema = current_schema()")
+            ).all()
+        engine.dispose()
+        assert len(expressions) == 2
+        assert all("translate(" in e for _, e in expressions)
+
+
+
+@pytest.mark.postgres_only
+def test_0059_cannot_be_downgraded_on_postgresql():
+    """Every later revision downgrades; 0059 says plainly why it cannot."""
+    url = scratch_database("down0059")
+    init_db(url)
+    engine = postgres_engine(url)
+    with engine.connect() as conn:
+        command.downgrade(_alembic_config(conn), "6e92be54a9d4")  # 0059
+        conn.commit()
+        with pytest.raises(RuntimeError, match="0059 .* cannot be downgraded on PostgreSQL"):
+            command.downgrade(_alembic_config(conn), "8b3f6d2a9c41")
+        conn.rollback()
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == (
+            "6e92be54a9d4"
+        )
+    engine.dispose()

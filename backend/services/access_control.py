@@ -45,7 +45,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Optional
 
-from sqlalchemy import ColumnElement, and_, event, false, or_, true
+from sqlalchemy import ColumnElement, and_, event, false, func, or_, true
 from sqlalchemy.orm import Query, Session
 
 from ..models import AppSetting, Book, GameSystem, User, UserAccessGrant
@@ -140,7 +140,7 @@ def validate_category_defaults(raw: Any) -> dict[str, str]:
             raise AccessError(f"the '{category}' category cannot be restricted")
         if level in (None, LEVEL_OPEN):
             continue  # "open" is the absence of an entry, not a stored value
-        if level not in RESTRICTED_LEVELS:
+        if not isinstance(level, str) or level not in RESTRICTED_LEVELS:
             raise AccessError(f"invalid access level for '{category}': {level!r}")
         out[category] = level
     return out
@@ -434,10 +434,13 @@ def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
     )
     # ``path_under`` rather than LIKE, which ignores case and treats ``_`` and
     # ``%`` in a folder name as wildcards (see sql_paths). ``relative_path`` is
-    # NOT NULL, so each comparison is a definite true or false.
+    # NOT NULL, so each comparison is a definite true or false. Compared with
+    # forward slashes, as ``FolderRules.level_for`` compares a book by id, so a
+    # path stored with backslashes (a library scanned on Windows) is covered too.
     blocked_folders = folder_access.load(db).paths_at(blocked)
+    forward = func.replace(Book.relative_path, "\\", "/")
     in_blocked_folder = (
-        or_(*[path_under(Book.relative_path, path + "/") for path in blocked_folders])
+        or_(*[path_under(forward, path + "/") for path in blocked_folders])
         if blocked_folders
         else false()
     )

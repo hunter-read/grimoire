@@ -39,7 +39,8 @@ services:
       - grimoire
 
   postgres:
-    # PostgreSQL 15 or newer.
+    # PostgreSQL 15 or newer. To run 15, 16 or 17, change the tag here AND the
+    # volume path below: the images keep their data in different places.
     image: postgres:18-alpine
     container_name: grimoire-postgres
     restart: unless-stopped
@@ -48,6 +49,13 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       - POSTGRES_DB=grimoire
     volumes:
+      # 18 and newer keep the data in a folder per major version under
+      # /var/lib/postgresql (e.g. 18/docker), so mount that directory.
+      # 15 to 17 keep it in /var/lib/postgresql/data: with one of those, use
+      #   - postgres_data:/var/lib/postgresql/data
+      # instead. Mounted here, a 15-17 image would write the database to an
+      # unnamed volume, which a new container (after `docker compose down`, say)
+      # starts without: the library would look empty.
       - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U grimoire -d grimoire"]

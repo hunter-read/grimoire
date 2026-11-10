@@ -31,6 +31,7 @@ from ..filename_rules.folders import relink_rules
 from .. import folder_access
 from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .paths import (
+    MAX_SEGMENT_BYTES,
     assert_writable,
     collection_of,
     in_book_section,
@@ -440,6 +441,14 @@ def _restore_sidecars(moved: list[tuple[Path, Path]]) -> None:
             logger.error("Could not roll back sidecar %s -> %s: %s", target, original, e)
 
 
+def _check_name_length(name: str) -> None:
+    """Refuse a name no filesystem holds; asking one about it raises ENAMETOOLONG."""
+    if len(os.fsencode(name)) > MAX_SEGMENT_BYTES:
+        raise LibraryFSError(
+            f"A file or folder name can be at most {MAX_SEGMENT_BYTES} bytes long", code="invalid"
+        )
+
+
 def _dest_for(dest_dir: Path, name: str, *, on_conflict: str) -> Path:
     """Resolve the final destination path, applying the collision policy.
 
@@ -449,6 +458,7 @@ def _dest_for(dest_dir: Path, name: str, *, on_conflict: str) -> Path:
     file under a suffixed name than by silently doing nothing. Overwriting is
     never implicit — it would destroy a file and the metadata attached to it.
     """
+    _check_name_length(name)
     target = dest_dir / name
     if not target.exists():
         return target
@@ -456,7 +466,9 @@ def _dest_for(dest_dir: Path, name: str, *, on_conflict: str) -> Path:
         raise LibraryFSError(f"A file named '{name}' already exists there", code="conflict")
     stem, suffix = Path(name).stem, Path(name).suffix
     for i in range(2, 1000):
-        candidate = dest_dir / f"{stem} ({i}){suffix}"
+        candidate_name = f"{stem} ({i}){suffix}"
+        _check_name_length(candidate_name)
+        candidate = dest_dir / candidate_name
         if not candidate.exists():
             return candidate
     raise LibraryFSError(f"Could not find a free name for '{name}'", code="conflict")

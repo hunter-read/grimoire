@@ -73,6 +73,15 @@ def _resolve_tag(db: Session, internal: str) -> tuple[str, Optional[Tag], list]:
     return key, tag, folders
 
 
+def _carries_anything(db: Session, tag: Optional[Tag], folders: list) -> bool:
+    """Whether the tag is on any item or folder at all, visible or not."""
+    if folders:
+        return True
+    return tag is not None and (
+        db.query(ResourceTag.id).filter(ResourceTag.tag_id == tag.id).first() is not None
+    )
+
+
 def _check_type(resource_type: Optional[str]) -> None:
     if resource_type is not None and resource_type not in RESOURCE_TYPES:
         raise HTTPException(
@@ -180,6 +189,10 @@ def tag_items(
             }
         )
     groups.sort(key=lambda g: (g["resource_type"], g["path"].lower()))
+    if limited and not counts and not groups and _carries_anything(db, tag, folders):
+        # Everything carrying the tag is kept from the caller, so the tag itself
+        # is too: its name answers like one that does not exist.
+        raise HTTPException(404, "Tag not found")
 
     display = tag.display if tag is not None else key
     if tag is None or display == key:

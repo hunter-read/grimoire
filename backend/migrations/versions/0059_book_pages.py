@@ -166,6 +166,17 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        # The schema before this revision - the FTS5 book_search table - exists
+        # only on SQLite. A PostgreSQL database is created from the models at a
+        # later revision, with book_pages and its tsvector in place of FTS5, so
+        # there is nothing earlier to go back to.
+        raise RuntimeError(
+            "Migration 0059 (book_pages) cannot be downgraded on PostgreSQL: the "
+            "schema before it exists only on SQLite, and no PostgreSQL database was "
+            "ever at an earlier revision. To run an older Grimoire, restore a "
+            "PostgreSQL backup taken with that version, or go back to SQLite."
+        )
     for trigger in ("book_pages_ai", "book_pages_ad", "book_pages_au"):
         op.execute(f"DROP TRIGGER IF EXISTS {trigger}")
     op.execute("DROP TABLE IF EXISTS book_search")

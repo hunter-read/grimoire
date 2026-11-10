@@ -57,9 +57,9 @@ function MermaidDiagram({ source }: { source: string }) {
         ref={ref}
         className="wiki-mermaid"
         style={diagramStyle}
-        // Mermaid's own output under securityLevel 'strict': label HTML is
-        // sanitised and click handlers are off. The source never reaches the
-        // DOM as HTML.
+        // Mermaid's own output under securityLevel 'strict', with labels as
+        // SVG text and links tidied (see renderMermaid). The source never
+        // reaches the DOM as HTML.
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
     )

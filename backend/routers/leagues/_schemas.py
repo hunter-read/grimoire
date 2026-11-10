@@ -4,11 +4,13 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from .._names import Name, OptionalId
+
 
 class LeagueCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    name: Name
     description: str = Field(default="", max_length=20000)
-    game_system_id: Optional[str] = None
+    game_system_id: OptionalId = None
     points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     points_win: int = Field(default=3, ge=-100, le=100)
     points_draw: int = Field(default=1, ge=-100, le=100)
@@ -16,9 +18,9 @@ class LeagueCreate(BaseModel):
 
 
 class LeagueUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    name: Optional[Name] = None
     description: Optional[str] = Field(default=None, max_length=20000)
-    game_system_id: Optional[str] = None
+    game_system_id: OptionalId = None
     points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     points_win: Optional[int] = Field(default=None, ge=-100, le=100)
     points_draw: Optional[int] = Field(default=None, ge=-100, le=100)

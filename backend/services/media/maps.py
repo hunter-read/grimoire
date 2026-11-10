@@ -342,6 +342,8 @@ def load_vtt(filepath: str) -> dict:
             data = json.loads(f.read().decode("utf-8-sig"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         raise ValueError(f"Not a valid Universal VTT file: {e}") from None
+    except RecursionError:
+        raise ValueError("Not a valid Universal VTT file: nested too deeply") from None
     if not isinstance(data, dict):
         raise ValueError("Universal VTT file must contain a JSON object")
     return data
@@ -447,5 +449,7 @@ def vtt_image_size(filepath: str) -> tuple[Optional[int], Optional[int]]:
         raw = vtt_image_bytes(filepath)
         with PILImage.open(io.BytesIO(raw)) as img:
             return img.size
-    except (ValueError, OSError):
+    except (ValueError, OSError, PILImage.DecompressionBombError):
+        # An image claiming more pixels than Pillow will open is no more
+        # readable here than a broken one.
         return (None, None)

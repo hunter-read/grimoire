@@ -55,6 +55,11 @@ class ExpressionError(ValueError):
 #: interpreter's recursion limit (about 3,000 parentheses used to exhaust it).
 MAX_EXPRESSION_DEPTH = 64
 
+#: The longest expression parsed, in characters. The longest in the community
+#: sheets is about 4,000; a formula on a list column runs once per row, so this
+#: keeps one sheet's cost bounded.
+MAX_EXPRESSION_LENGTH = 20_000
+
 #: The longest number literal accepted, in characters. Far beyond any real
 #: sheet; Python refuses to parse an int of more than 4,300 digits at all.
 MAX_NUMBER_LENGTH = 32
@@ -582,6 +587,8 @@ def parse(source: str) -> tuple:
     """Parse an expression to an AST, raising ExpressionError if it is not valid."""
     if not isinstance(source, str) or not source.strip():
         raise ExpressionError("Expression is empty")
+    if len(source) > MAX_EXPRESSION_LENGTH:
+        raise ExpressionError(f"Expression is longer than {MAX_EXPRESSION_LENGTH} characters")
     parser = _Parser(_tokenise(source))
     node = parser.parse_expression()
     kind, value = parser.peek()
