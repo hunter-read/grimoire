@@ -91,6 +91,20 @@ _DEFAULT_SHEET_INDEX = (
 )
 
 
+def candidate_urls(configured: str, index_path: str) -> list[str]:
+    """The URLs worth trying for another catalogue kept beside the sheets.
+
+    GM screen presets sit in their own directory of the same repository and
+    resolve exactly as sheets do, branch-named sources included.
+    """
+    return _candidate_urls(configured, index_path)
+
+
+def resolve_file_url(index_url: str, path: str) -> str:
+    """A catalogue file's URL, pinned to the catalogue's own host."""
+    return _resolve_sheet_url(index_url, path)
+
+
 def downloads_enabled() -> bool:
     return external_installs_enabled()
 
@@ -135,10 +149,10 @@ def _default_index_url() -> str:
 
 #: Catalogue directories that sit beside each other in the community repo. A
 #: URL pointing into one of them is rewritten to point into ours.
-_SIBLING_DIRECTORIES = ("themes", "templates", "character-sheets")
+_SIBLING_DIRECTORIES = ("themes", "templates", "character-sheets", "gm-screens")
 
 
-def _derive_sheet_url(url: str) -> str:
+def _derive_sheet_url(url: str, index_path: str = _SHEET_INDEX_PATH) -> str:
     """The sheet index beside whichever index a URL points at.
 
     ``.../main/index.json`` and ``.../main/themes/index.json`` both resolve to
@@ -160,15 +174,15 @@ def _derive_sheet_url(url: str) -> str:
     # `.../index.json/character-sheets/index.json`.
     url = url.strip().rstrip("/")
     if not url:
-        return _DEFAULT_SHEET_INDEX
+        return _DEFAULT_SHEET_INDEX.replace(_SHEET_INDEX_PATH, index_path)
 
     base, _, filename = url.rpartition("/")
     if not base:
-        return f"{url}/{_SHEET_INDEX_PATH}"
+        return f"{url}/{index_path}"
 
     if not filename.endswith(".json"):
         # A directory rather than an index file: the catalogue sits inside it.
-        return f"{url}/{_SHEET_INDEX_PATH}"
+        return f"{url}/{index_path}"
 
     directory = base.rsplit("/", 1)[-1]
     if filename == "index.json" and directory in _SIBLING_DIRECTORIES:
@@ -180,10 +194,10 @@ def _derive_sheet_url(url: str) -> str:
         # branch and the catalogue sits one level deeper.
         base = base[: -len(directory) - 1]
 
-    return f"{base}/{_SHEET_INDEX_PATH}"
+    return f"{base}/{index_path}"
 
 
-def _candidate_urls(configured: str) -> list[str]:
+def _candidate_urls(configured: str, index_path: str = _SHEET_INDEX_PATH) -> list[str]:
     """The URLs worth trying for one configured source, in order.
 
     Three, de-duplicated:
@@ -202,11 +216,11 @@ def _candidate_urls(configured: str) -> list[str]:
     """
     direct = configured.strip().rstrip("/")
     candidates = [direct] if direct else []
-    candidates.append(_derive_sheet_url(configured))
+    candidates.append(_derive_sheet_url(configured, index_path))
 
     if direct:
         base, _, filename = direct.rpartition("/")
-        nested = f"{base}/{_SHEET_INDEX_PATH}" if filename.endswith(".json") else None
+        nested = f"{base}/{index_path}" if filename.endswith(".json") else None
         if nested:
             candidates.append(nested)
 

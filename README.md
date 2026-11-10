@@ -350,6 +350,7 @@ kept in the repo so it versions with the release you are running:
 | [Filename rules](docs/filename-rules.md)      | Reading titles from structured filenames, renaming files to a scheme            |
 | [Campaigns](docs/campaigns.md)                | Characters, resources, the notes wiki, scheduling, and calendar export          |
 | [Wiki note templates](docs/wiki-templates.md) | Starting a campaign page from a template                                        |
+| [GM screen](docs/gm-screen.md)                | A board of trackers for the GM: Fear, countdowns, initiative, the party         |
 | [Token editor](docs/token-editor.md)          | Turning any picture into a VTT-ready token                                      |
 | [Universal VTT editor](docs/uvtt-editor.md)   | Drawing walls, doors, and lights for dynamic lighting                           |
 | [Share links](docs/sharing.md)                | Public links to library items for people without an account                     |

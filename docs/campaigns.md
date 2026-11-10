@@ -1,7 +1,8 @@
 # Campaigns
 
 Grimoire has a built-in campaign tracker: characters and sheets, linked resources, a
-markdown notes wiki, session scheduling, and calendar export.
+markdown notes wiki, session scheduling, and calendar export. A group campaign's GM
+also gets a [GM screen](gm-screen.md) - a board of trackers only they see.
 
 ---
 
@@ -125,6 +126,7 @@ Sessions land in your calendar on the day and time you actually picked, in the t
 
 ## See also
 
+- [GM screen](gm-screen.md) - the GM's board of trackers: Fear, countdowns, initiative and the party at a glance
 - [Wiki note templates](wiki-templates.md) - starting a page from a template
 - [Users and permissions](users-and-permissions.md) - roles, and restricted books in campaigns
 - [Setting images](setting-images.md) - campaign banners

@@ -141,13 +141,13 @@ from it like any public catalogue, update badges and **Update all** included.
    marked **Private**.
 
 The token covers everything that source serves: its add-on index and the
-manifests and scripts it lists, and the sheet, content-pack, theme and note
-template catalogues derived from it, with their files.
+manifests and scripts it lists, and the sheet, content-pack, theme, note
+template and GM screen preset catalogues derived from it, with their files.
 
 **Where the token goes.** Only to URLs *inside that source*: the same scheme,
 host and port, under the source's directory. That directory is the one holding
 the index, or its parent when the index sits in `themes/`, `templates/`,
-`character-sheets/` or `content-packs/`. So a private repo on
+`character-sheets/`, `content-packs/` or `gm-screens/`. So a private repo on
 `raw.githubusercontent.com` does not hand its token to the public community
 repo on the same host. The check runs again on every redirect, and a redirect
 that leaves the source drops the token. A scraper's requests to the site it

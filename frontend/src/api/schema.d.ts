@@ -2264,6 +2264,264 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/campaigns/{campaign_id}/gm-screen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the GM screen's panels
+         * @description Every panel on the campaign's GM screen, top to bottom.
+         */
+        get: operations["get_gm_screen_api_campaigns__campaign_id__gm_screen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy another campaign's GM screen
+         * @description Copy another campaign's board here: its setup, not its numbers.
+         *
+         *     Counters start at their starting value, countdowns unticked, the turn order
+         *     empty - a new table's game has not happened yet. Pinned notes look for a
+         *     page with the same name here.
+         */
+        post: operations["copy_gm_screen_api_campaigns__campaign_id__gm_screen_copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the GM screen as a board document
+         * @description The board as a document: to keep, to paste into another server, or to
+         *     offer the community as a preset.
+         */
+        get: operations["export_gm_screen_api_campaigns__campaign_id__gm_screen_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a board document on the GM screen
+         * @description Put an exported or hand-written board on this campaign.
+         */
+        post: operations["import_gm_screen_api_campaigns__campaign_id__gm_screen_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move and resize GM screen panels
+         * @description Move and resize several panels at once - one drag can push its neighbours.
+         *
+         *     A cell naming a panel that is not on this board is ignored: it was
+         *     removed on another device a moment ago, which is no reason to fail the
+         *     rest of the move.
+         */
+        put: operations["update_gm_layout_api_campaigns__campaign_id__gm_screen_layout_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/panels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a panel to the GM screen
+         * @description Add a panel. Without a position it takes the first gap it fits.
+         */
+        post: operations["create_gm_panel_api_campaigns__campaign_id__gm_screen_panels_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/panels/{panel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a GM screen panel
+         * @description Take a panel off the board.
+         */
+        delete: operations["delete_gm_panel_api_campaigns__campaign_id__gm_screen_panels__panel_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a GM screen panel
+         * @description Change a panel's title, cell, setup or contents - only what is given.
+         *
+         *     A new config re-cleans the state against it, so lowering a counter's top
+         *     brings its value down with it.
+         */
+        patch: operations["update_gm_panel_api_campaigns__campaign_id__gm_screen_panels__panel_id__patch"];
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/party": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The party's characters and values for the GM screen
+         * @description The campaign's characters with their values, for the party overview.
+         */
+        get: operations["get_gm_screen_party_api_campaigns__campaign_id__gm_screen_party_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse community GM screen presets
+         * @description The community catalogue of ready-made boards.
+         */
+        get: operations["browse_gm_screen_presets_api_campaigns__campaign_id__gm_screen_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/presets/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a community GM screen preset
+         * @description Download a preset from the catalogue and put it on this campaign.
+         */
+        post: operations["apply_gm_screen_preset_api_campaigns__campaign_id__gm_screen_presets_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a scene or session, or rest: clear marked panels
+         * @description End a scene or a session, or take a rest: clear what is marked to clear.
+         *
+         *     Ending a session clears what clears with a scene too.
+         */
+        post: operations["reset_gm_screen_api_campaigns__campaign_id__gm_screen_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/gm-screen/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Other campaigns with a GM screen to copy
+         * @description The other campaigns this GM runs that have a board to copy.
+         */
+        get: operations["list_gm_screen_sources_api_campaigns__campaign_id__gm_screen_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/campaigns/{campaign_id}/guests": {
         parameters: {
             query?: never;
@@ -12197,6 +12455,278 @@ export interface components {
         GenresResponse: {
             /** Genres */
             genres: components["schemas"]["GenreOut"][];
+        };
+        /** GmApplyPresetRequest */
+        GmApplyPresetRequest: {
+            /** Index Url */
+            index_url?: string | null;
+            /** Preset Id */
+            preset_id: string;
+            /**
+             * Replace
+             * @default true
+             */
+            replace?: boolean;
+        };
+        /** GmBoardExport */
+        GmBoardExport: {
+            /** Format */
+            format: string;
+            /** Name */
+            name: string;
+            /** Panels */
+            panels: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** GmCatalogueError */
+        GmCatalogueError: {
+            /** Error */
+            error: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * GmCopyRequest
+         * @description Copy another campaign's board. ``replace`` False adds it below this one.
+         */
+        GmCopyRequest: {
+            /**
+             * Replace
+             * @default true
+             */
+            replace?: boolean;
+            /** Source Campaign Id */
+            source_campaign_id: string;
+        };
+        /**
+         * GmImportRequest
+         * @description A board document, as exported from a campaign or written for the catalogue.
+         */
+        GmImportRequest: {
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /**
+             * Replace
+             * @default true
+             */
+            replace?: boolean;
+        };
+        /** GmLayoutCell */
+        GmLayoutCell: {
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * GmLayoutUpdate
+         * @description Every panel a drag moved, in one write: moving one panel can push others.
+         */
+        GmLayoutUpdate: {
+            /** Panels */
+            panels: components["schemas"]["GmLayoutCell"][];
+        };
+        /**
+         * GmPanelCreate
+         * @description A new panel. Without a position it goes into the first gap it fits.
+         */
+        GmPanelCreate: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            /** H */
+            h?: number | null;
+            /** Kind */
+            kind: string;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Title */
+            title?: string | null;
+            /** W */
+            w?: number | null;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
+        /** GmPanelOut */
+        GmPanelOut: {
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** H */
+            h: number;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** State */
+            state: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * GmPanelUpdate
+         * @description A partial update: only what is given changes. ``state`` replaces the
+         *     panel's state whole, cleaned against its config.
+         */
+        GmPanelUpdate: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            /** H */
+            h?: number | null;
+            /** State */
+            state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Title */
+            title?: string | null;
+            /** W */
+            w?: number | null;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
+        /** GmPartyCharacter */
+        GmPartyCharacter: {
+            /** Editable */
+            editable: boolean;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Name */
+            owner_name: string;
+            /** Portrait Crop */
+            portrait_crop?: {
+                [key: string]: unknown;
+            } | null;
+            /** Portrait Path */
+            portrait_path?: string | null;
+            /** Portrait Version */
+            portrait_version?: number | null;
+            /** Schema Name */
+            schema_name: string;
+            /** Schema Ref */
+            schema_ref: string;
+            /** Status */
+            status: string;
+            /** User Id */
+            user_id: string;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * GmPartyField
+         * @description A value the party overview can show: a sheet field or a computed value.
+         */
+        GmPartyField: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "field" | "computed";
+            /** Type */
+            type: string;
+        };
+        /** GmPartyOut */
+        GmPartyOut: {
+            /** Characters */
+            characters: components["schemas"]["GmPartyCharacter"][];
+            /** Fields */
+            fields: components["schemas"]["GmPartyField"][];
+        };
+        /** GmPreset */
+        GmPreset: {
+            /** Author */
+            author: string;
+            /** Author Url */
+            author_url: string;
+            /** Description */
+            description: string;
+            /** Id */
+            id: string;
+            /** Index Url */
+            index_url: string;
+            /** License */
+            license: string;
+            /** Name */
+            name: string;
+            /** Panel Count */
+            panel_count: number;
+            /** System */
+            system: string;
+            /** Version */
+            version: string;
+        };
+        /** GmPresetListOut */
+        GmPresetListOut: {
+            /** Errors */
+            errors: components["schemas"]["GmCatalogueError"][];
+            /** Presets */
+            presets: components["schemas"]["GmPreset"][];
+        };
+        /** GmResetRequest */
+        GmResetRequest: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "scene" | "session" | "rest";
+        };
+        /** GmScreenOut */
+        GmScreenOut: {
+            /** Panels */
+            panels: components["schemas"]["GmPanelOut"][];
+        };
+        /** GmSourceCampaign */
+        GmSourceCampaign: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Panel Count */
+            panel_count: number;
+        };
+        /**
+         * GmSourcesOut
+         * @description Other campaigns this GM runs that have a board to copy.
+         */
+        GmSourcesOut: {
+            /** Campaigns */
+            campaigns: components["schemas"]["GmSourceCampaign"][];
         };
         /**
          * GroupEdge
@@ -24237,6 +24767,504 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gm_screen_api_campaigns__campaign_id__gm_screen_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_gm_screen_api_campaigns__campaign_id__gm_screen_copy_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmCopyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_gm_screen_api_campaigns__campaign_id__gm_screen_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmBoardExport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_gm_screen_api_campaigns__campaign_id__gm_screen_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_gm_layout_api_campaigns__campaign_id__gm_screen_layout_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmLayoutUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_gm_panel_api_campaigns__campaign_id__gm_screen_panels_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmPanelCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmPanelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_gm_panel_api_campaigns__campaign_id__gm_screen_panels__panel_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                panel_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_gm_panel_api_campaigns__campaign_id__gm_screen_panels__panel_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                panel_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmPanelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmPanelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gm_screen_party_api_campaigns__campaign_id__gm_screen_party_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmPartyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browse_gm_screen_presets_api_campaigns__campaign_id__gm_screen_presets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmPresetListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_gm_screen_preset_api_campaigns__campaign_id__gm_screen_presets_apply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmApplyPresetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_gm_screen_api_campaigns__campaign_id__gm_screen_reset_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmScreenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_gm_screen_sources_api_campaigns__campaign_id__gm_screen_sources_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmSourcesOut"];
                 };
             };
             /** @description Validation Error */

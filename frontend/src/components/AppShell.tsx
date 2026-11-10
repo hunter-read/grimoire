@@ -41,6 +41,7 @@ import {
   CharacterDetailView,
   CampaignDetailView,
   CampaignNotesView,
+  GmScreenView,
   ArmiesView,
   ArmyDetailView,
   LeaguesView,
@@ -308,6 +309,7 @@ export default function AppShell() {
                     element={<Navigate to="overview" replace />}
                   />
                   <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+                  <Route path="/campaigns/:campaignId/gm-screen" element={<GmScreenView />} />
                   <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
                   <Route path="/characters" element={<CharactersView />} />
                   {/* Rulesets moved into the sheet manager. Kept as a redirect so

@@ -2280,7 +2280,8 @@
     "leave": "Leave campaign",
     "leaveHint": "Remove yourself from this campaign. The GM keeps the campaign and its notes.",
     "leaveConfirm": "Leave \"{{name}}\"? You will lose access to its resources, wiki, and schedule. The GM can invite you back.",
-    "actionsMenu": "Campaign actions"
+    "actionsMenu": "Campaign actions",
+    "openGmScreen": "GM screen"
   },
   "campaignEditor": {
     "titleNew": "New Campaign",
@@ -4677,6 +4678,199 @@
         "private": "Chosen members",
         "organizer": "Organizer only"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "GM screen - {{name}}",
+    "heading": "GM screen",
+    "back": "Campaign",
+    "gmOnly": "Only this campaign's GM can open its GM screen.",
+    "locked": "This campaign is read-only, so its GM screen can't be changed until the campaign is unlocked.",
+    "toolbar": "GM screen tools",
+    "addTool": "Add tool",
+    "dismiss": "Dismiss",
+    "empty": "Your GM screen is empty. Start with a basic board, use a community preset, copy one from another campaign, or add tools one at a time.",
+    "startBasic": "Start with a basic board",
+    "kinds": {
+      "party": "Party",
+      "note": "Pinned note",
+      "counter": "Counter",
+      "clocks": "Countdowns",
+      "pools": "Token pools",
+      "initiative": "Initiative",
+      "scratch": "Scratch note"
+    },
+    "panel": {
+      "move": "Move {{title}}",
+      "moveHint": "Drag to move. From the keyboard, arrow keys move it and Shift+arrow keys resize it.",
+      "resizeHint": "Drag to resize",
+      "settings": "Settings for {{title}}",
+      "remove": "Remove {{title}}",
+      "removeConfirm": "Remove {{title}} from the GM screen? Everything it holds is lost.",
+      "title": "Title",
+      "done": "Done"
+    },
+    "stepper": {
+      "decrease": "Decrease {{label}}",
+      "increase": "Increase {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} of {{max}}",
+      "range": "{{min}} to {{max}}",
+      "min": "Lowest",
+      "max": "Highest",
+      "noMax": "No limit",
+      "start": "Starts at",
+      "style": "Show as",
+      "styleNumber": "A number",
+      "stylePips": "Boxes"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "No countdowns yet.",
+        "clock": "No clocks yet."
+      },
+      "add": {
+        "countdown": "Add countdown",
+        "clock": "Add clock"
+      },
+      "unnamed": "Unnamed",
+      "name": "Name",
+      "newName": "Name a new one",
+      "left_one": "{{count}} left",
+      "left_other": "{{count}} left",
+      "filled": "{{ticks}} of {{size}}",
+      "triggered": "Triggered",
+      "loop": "Start {{name}} again",
+      "remove": "Remove {{name}}",
+      "note": "What happens when it triggers",
+      "notePlaceholder": "When it triggers...",
+      "options": "Options",
+      "boxes": "Boxes",
+      "loops": "Starts again when it triggers",
+      "mode": "Count",
+      "modeCountdown": "Down, showing boxes left (countdowns)",
+      "modeClock": "Up, showing boxes filled (clocks)"
+    },
+    "pools": {
+      "empty": "No pools yet.",
+      "unnamed": "Unnamed pool",
+      "name": "Pool name",
+      "newName": "Name a new pool",
+      "add": "Add pool",
+      "remove": "Remove {{name}}",
+      "note": "What the tokens do",
+      "notePlaceholder": "What the tokens do...",
+      "resets": "Empty the pools"
+    },
+    "scratch": {
+      "placeholder": "Jot down names, rulings, who owes whom..."
+    },
+    "initiative": {
+      "round": "Round {{round}}",
+      "empty": "No one is in the turn order yet.",
+      "newName": "Name",
+      "score": "Score",
+      "side": "Side",
+      "add": "Add",
+      "addParty_one": "Add the party ({{count}})",
+      "addParty_other": "Add the party ({{count}})",
+      "previous": "Back",
+      "next": "Next turn",
+      "sort": "Sort by score",
+      "remove": "Remove {{name}}",
+      "roundOver": "Everyone has acted this round.",
+      "sideUp": "{{side}} to act",
+      "nextRound": "Next round",
+      "goesFirst": "goes first",
+      "makeFirst": "Goes first",
+      "acted": "{{name}} has acted",
+      "mode": "Turns",
+      "modeOrdered": "One after another, by score",
+      "modeSides": "Sides take turns",
+      "sides": "Sides",
+      "sideName": "Side {{number}}",
+      "removeSide": "Remove {{side}}",
+      "newSide": "New side",
+      "addSide": "Add side",
+      "resets": "Clear the turn order"
+    },
+    "note": {
+      "choose": "Choose a note to pin in this panel's settings.",
+      "missing": "The pinned note is gone. Choose another in this panel's settings.",
+      "open": "Open {{title}} in the notes",
+      "page": "Note",
+      "none": "None"
+    },
+    "party": {
+      "empty": "No characters are in this campaign yet.",
+      "noStats": "Choose which stats to show in this panel's settings.",
+      "noFields": "None of this campaign's characters uses a sheet with stats to show yet.",
+      "unnamed": "Unnamed",
+      "statLabel": "Label",
+      "statStyle": "Show as",
+      "styleNumber": "A number",
+      "stylePipsOf": "Boxes, out of {{field}}",
+      "moveUp": "Move {{stat}} up",
+      "moveDown": "Move {{stat}} down",
+      "removeStat": "Remove {{stat}}",
+      "addStat": "Add a stat",
+      "pickField": "Choose a value...",
+      "computed": "worked out",
+      "add": "Add",
+      "includeInactive": "Show retired and dead characters too"
+    },
+    "resets": {
+      "label": "Clears",
+      "never": "Never",
+      "scene": "At the end of a scene",
+      "session": "At the end of a session",
+      "rest": "At a rest",
+      "action": {
+        "scene": "End scene",
+        "session": "End session",
+        "rest": "Rest"
+      },
+      "hint": {
+        "scene": "Clear everything set to clear at the end of a scene",
+        "session": "Clear everything set to clear at the end of a scene or a session",
+        "rest": "Clear everything set to clear at a rest"
+      },
+      "done": {
+        "scene": "Scene ended.",
+        "session": "Session ended.",
+        "rest": "Rested."
+      }
+    },
+    "board": {
+      "menu": "Board",
+      "presets": "Community presets",
+      "copy": "Copy from another campaign",
+      "export": "Export",
+      "import": "Import",
+      "importReplace": "Replace the current board with the imported one? Cancel adds it below instead.",
+      "imported": "Board imported.",
+      "notJson": "That file is not a GM screen board.",
+      "panelCount_one": "{{count}} panel",
+      "panelCount_other": "{{count}} panels",
+      "whereLegend": "Put it",
+      "replace": "In place of this board",
+      "append": "Below this board"
+    },
+    "copy": {
+      "title": "Copy a GM screen",
+      "none": "None of your other campaigns has a GM screen yet.",
+      "help": "The layout and each tool's setup are copied. Values start fresh, and a pinned note looks for a note with the same name here.",
+      "from": "Copy from",
+      "action": "Copy"
+    },
+    "presets": {
+      "title": "Community presets",
+      "none": "No presets are available from the configured add-on sources.",
+      "by": "by {{author}}",
+      "apply": "Use",
+      "applyNamed": "Use {{name}}",
+      "sourceError": "Couldn't read {{url}}: {{error}}"
     }
   }
 }

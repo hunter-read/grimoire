@@ -2280,7 +2280,8 @@
     "leave": "Quitter la campagne",
     "leaveHint": "Vous retirer de cette campagne. Le MJ conserve la campagne et ses notes.",
     "leaveConfirm": "Quitter « {{name}} » ? Vous perdrez l'accès à ses ressources, son wiki et son planning. Le MJ pourra vous réinviter.",
-    "actionsMenu": "Actions de campagne"
+    "actionsMenu": "Actions de campagne",
+    "openGmScreen": "Écran du MJ"
   },
   "campaignEditor": {
     "titleNew": "Nouvelle campagne",
@@ -4677,6 +4678,199 @@
         "private": "Membres choisis",
         "organizer": "Organisateur seulement"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "Écran du MJ - {{name}}",
+    "heading": "Écran du MJ",
+    "back": "Campagne",
+    "gmOnly": "Seul le MJ de cette campagne peut ouvrir son écran du MJ.",
+    "locked": "Cette campagne est en lecture seule : son écran du MJ ne peut pas être modifié tant qu'elle n'est pas déverrouillée.",
+    "toolbar": "Outils de l'écran du MJ",
+    "addTool": "Ajouter un outil",
+    "dismiss": "Fermer",
+    "empty": "Votre écran du MJ est vide. Commencez par un tableau de base, utilisez un modèle de la communauté, copiez celui d'une autre campagne ou ajoutez des outils un par un.",
+    "startBasic": "Commencer par un tableau de base",
+    "kinds": {
+      "party": "Groupe",
+      "note": "Note épinglée",
+      "counter": "Compteur",
+      "clocks": "Comptes à rebours",
+      "pools": "Réserves de jetons",
+      "initiative": "Initiative",
+      "scratch": "Bloc-notes"
+    },
+    "panel": {
+      "move": "Déplacer {{title}}",
+      "moveHint": "Faites glisser pour déplacer. Au clavier, les flèches le déplacent et Maj+flèches le redimensionnent.",
+      "resizeHint": "Faites glisser pour redimensionner",
+      "settings": "Réglages de {{title}}",
+      "remove": "Retirer {{title}}",
+      "removeConfirm": "Retirer {{title}} de l'écran du MJ ? Tout ce qu'il contient sera perdu.",
+      "title": "Titre",
+      "done": "Terminé"
+    },
+    "stepper": {
+      "decrease": "Diminuer {{label}}",
+      "increase": "Augmenter {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} sur {{max}}",
+      "range": "De {{min}} à {{max}}",
+      "min": "Minimum",
+      "max": "Maximum",
+      "noMax": "Sans limite",
+      "start": "Commence à",
+      "style": "Afficher comme",
+      "styleNumber": "Un nombre",
+      "stylePips": "Cases"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Aucun compte à rebours pour l'instant.",
+        "clock": "Aucune horloge pour l'instant."
+      },
+      "add": {
+        "countdown": "Ajouter un compte à rebours",
+        "clock": "Ajouter une horloge"
+      },
+      "unnamed": "Sans nom",
+      "name": "Nom",
+      "newName": "Nommer un nouveau",
+      "left_one": "{{count}} restante",
+      "left_other": "{{count}} restantes",
+      "filled": "{{ticks}} sur {{size}}",
+      "triggered": "Déclenché",
+      "loop": "Relancer {{name}}",
+      "remove": "Retirer {{name}}",
+      "note": "Ce qui se passe au déclenchement",
+      "notePlaceholder": "Au déclenchement...",
+      "options": "Options",
+      "boxes": "Cases",
+      "loops": "Recommence une fois déclenché",
+      "mode": "Compter",
+      "modeCountdown": "À rebours, cases restantes (comptes à rebours)",
+      "modeClock": "En montant, cases remplies (horloges)"
+    },
+    "pools": {
+      "empty": "Aucune réserve pour l'instant.",
+      "unnamed": "Réserve sans nom",
+      "name": "Nom de la réserve",
+      "newName": "Nommer une nouvelle réserve",
+      "add": "Ajouter une réserve",
+      "remove": "Retirer {{name}}",
+      "note": "À quoi servent les jetons",
+      "notePlaceholder": "À quoi servent les jetons...",
+      "resets": "Vider les réserves"
+    },
+    "scratch": {
+      "placeholder": "Notez les noms, les décisions de règles, qui doit quoi à qui..."
+    },
+    "initiative": {
+      "round": "Round {{round}}",
+      "empty": "Personne dans l'ordre des tours pour l'instant.",
+      "newName": "Nom",
+      "score": "Score",
+      "side": "Camp",
+      "add": "Ajouter",
+      "addParty_one": "Ajouter le groupe ({{count}})",
+      "addParty_other": "Ajouter le groupe ({{count}})",
+      "previous": "Retour",
+      "next": "Tour suivant",
+      "sort": "Trier par score",
+      "remove": "Retirer {{name}}",
+      "roundOver": "Tout le monde a agi ce round.",
+      "sideUp": "Au tour de {{side}}",
+      "nextRound": "Round suivant",
+      "goesFirst": "commence",
+      "makeFirst": "Commence",
+      "acted": "{{name}} a agi",
+      "mode": "Tours",
+      "modeOrdered": "L'un après l'autre, par score",
+      "modeSides": "Les camps jouent à tour de rôle",
+      "sides": "Camps",
+      "sideName": "Camp {{number}}",
+      "removeSide": "Retirer {{side}}",
+      "newSide": "Nouveau camp",
+      "addSide": "Ajouter un camp",
+      "resets": "Vider l'ordre des tours"
+    },
+    "note": {
+      "choose": "Choisissez une note à épingler dans les réglages de ce panneau.",
+      "missing": "La note épinglée n'existe plus. Choisissez-en une autre dans les réglages de ce panneau.",
+      "open": "Ouvrir {{title}} dans les notes",
+      "page": "Note",
+      "none": "Aucune"
+    },
+    "party": {
+      "empty": "Aucun personnage dans cette campagne pour l'instant.",
+      "noStats": "Choisissez les valeurs à afficher dans les réglages de ce panneau.",
+      "noFields": "Aucun personnage de cette campagne n'utilise encore une fiche avec des valeurs à afficher.",
+      "unnamed": "Sans nom",
+      "statLabel": "Libellé",
+      "statStyle": "Afficher comme",
+      "styleNumber": "Un nombre",
+      "stylePipsOf": "Cases, sur {{field}}",
+      "moveUp": "Monter {{stat}}",
+      "moveDown": "Descendre {{stat}}",
+      "removeStat": "Retirer {{stat}}",
+      "addStat": "Ajouter une valeur",
+      "pickField": "Choisissez une valeur...",
+      "computed": "calculée",
+      "add": "Ajouter",
+      "includeInactive": "Afficher aussi les personnages retraités et morts"
+    },
+    "resets": {
+      "label": "Se vide",
+      "never": "Jamais",
+      "scene": "À la fin d'une scène",
+      "session": "À la fin d'une séance",
+      "rest": "Lors d'un repos",
+      "action": {
+        "scene": "Finir la scène",
+        "session": "Finir la séance",
+        "rest": "Repos"
+      },
+      "hint": {
+        "scene": "Vider tout ce qui se vide à la fin d'une scène",
+        "session": "Vider tout ce qui se vide à la fin d'une scène ou d'une séance",
+        "rest": "Vider tout ce qui se vide lors d'un repos"
+      },
+      "done": {
+        "scene": "Scène terminée.",
+        "session": "Séance terminée.",
+        "rest": "Repos pris."
+      }
+    },
+    "board": {
+      "menu": "Tableau",
+      "presets": "Modèles de la communauté",
+      "copy": "Copier depuis une autre campagne",
+      "export": "Exporter",
+      "import": "Importer",
+      "importReplace": "Remplacer le tableau actuel par celui importé ? Annuler l'ajoute en dessous.",
+      "imported": "Tableau importé.",
+      "notJson": "Ce fichier n'est pas un tableau d'écran du MJ.",
+      "panelCount_one": "{{count}} panneau",
+      "panelCount_other": "{{count}} panneaux",
+      "whereLegend": "Le placer",
+      "replace": "À la place de ce tableau",
+      "append": "Sous ce tableau"
+    },
+    "copy": {
+      "title": "Copier un écran du MJ",
+      "none": "Aucune de vos autres campagnes n'a encore d'écran du MJ.",
+      "help": "La disposition et les réglages de chaque outil sont copiés. Les valeurs repartent de zéro, et une note épinglée cherche ici une note du même nom.",
+      "from": "Copier depuis",
+      "action": "Copier"
+    },
+    "presets": {
+      "title": "Modèles de la communauté",
+      "none": "Aucun modèle n'est disponible depuis les sources d'extensions configurées.",
+      "by": "par {{author}}",
+      "apply": "Utiliser",
+      "applyNamed": "Utiliser {{name}}",
+      "sourceError": "Impossible de lire {{url}} : {{error}}"
     }
   }
 }

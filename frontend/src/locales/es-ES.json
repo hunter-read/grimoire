@@ -2280,7 +2280,8 @@
     "leave": "Salir de la campaña",
     "leaveHint": "Quitarte de esta campaña. El DJ conserva la campaña y sus notas.",
     "leaveConfirm": "¿Salir de \"{{name}}\"? Perderás el acceso a sus recursos, wiki y horario. El DJ puede volver a invitarte.",
-    "actionsMenu": "Acciones de campaña"
+    "actionsMenu": "Acciones de campaña",
+    "openGmScreen": "Pantalla del DJ"
   },
   "campaignEditor": {
     "titleNew": "Nueva campaña",
@@ -4677,6 +4678,199 @@
         "private": "Miembros elegidos",
         "organizer": "Solo el organizador"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "Pantalla del DJ - {{name}}",
+    "heading": "Pantalla del DJ",
+    "back": "Campaña",
+    "gmOnly": "Solo el DJ de esta campaña puede abrir su pantalla del DJ.",
+    "locked": "Esta campaña es de solo lectura, así que su pantalla del DJ no se puede cambiar hasta que se desbloquee.",
+    "toolbar": "Herramientas de la pantalla del DJ",
+    "addTool": "Añadir herramienta",
+    "dismiss": "Descartar",
+    "empty": "Tu pantalla del DJ está vacía. Empieza con un tablero básico, usa una plantilla de la comunidad, copia uno de otra campaña o añade herramientas una a una.",
+    "startBasic": "Empezar con un tablero básico",
+    "kinds": {
+      "party": "Grupo",
+      "note": "Nota fijada",
+      "counter": "Contador",
+      "clocks": "Cuentas atrás",
+      "pools": "Reservas de fichas",
+      "initiative": "Iniciativa",
+      "scratch": "Bloc de notas"
+    },
+    "panel": {
+      "move": "Mover {{title}}",
+      "moveHint": "Arrastra para mover. Con el teclado, las flechas lo mueven y Mayús+flechas cambian su tamaño.",
+      "resizeHint": "Arrastra para cambiar el tamaño",
+      "settings": "Ajustes de {{title}}",
+      "remove": "Quitar {{title}}",
+      "removeConfirm": "¿Quitar {{title}} de la pantalla del DJ? Se perderá todo lo que contiene.",
+      "title": "Título",
+      "done": "Hecho"
+    },
+    "stepper": {
+      "decrease": "Reducir {{label}}",
+      "increase": "Aumentar {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} de {{max}}",
+      "range": "De {{min}} a {{max}}",
+      "min": "Mínimo",
+      "max": "Máximo",
+      "noMax": "Sin límite",
+      "start": "Empieza en",
+      "style": "Mostrar como",
+      "styleNumber": "Un número",
+      "stylePips": "Casillas"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Aún no hay cuentas atrás.",
+        "clock": "Aún no hay relojes."
+      },
+      "add": {
+        "countdown": "Añadir cuenta atrás",
+        "clock": "Añadir reloj"
+      },
+      "unnamed": "Sin nombre",
+      "name": "Nombre",
+      "newName": "Nombre de uno nuevo",
+      "left_one": "Queda {{count}}",
+      "left_other": "Quedan {{count}}",
+      "filled": "{{ticks}} de {{size}}",
+      "triggered": "Activada",
+      "loop": "Reiniciar {{name}}",
+      "remove": "Quitar {{name}}",
+      "note": "Qué pasa cuando se activa",
+      "notePlaceholder": "Cuando se activa...",
+      "options": "Opciones",
+      "boxes": "Casillas",
+      "loops": "Vuelve a empezar al activarse",
+      "mode": "Contar",
+      "modeCountdown": "Hacia abajo, casillas restantes (cuentas atrás)",
+      "modeClock": "Hacia arriba, casillas marcadas (relojes)"
+    },
+    "pools": {
+      "empty": "Aún no hay reservas.",
+      "unnamed": "Reserva sin nombre",
+      "name": "Nombre de la reserva",
+      "newName": "Nombre de una reserva nueva",
+      "add": "Añadir reserva",
+      "remove": "Quitar {{name}}",
+      "note": "Para qué sirven las fichas",
+      "notePlaceholder": "Para qué sirven las fichas...",
+      "resets": "Vaciar las reservas"
+    },
+    "scratch": {
+      "placeholder": "Apunta nombres, decisiones de reglas, quién debe qué a quién..."
+    },
+    "initiative": {
+      "round": "Ronda {{round}}",
+      "empty": "Aún no hay nadie en el orden de turnos.",
+      "newName": "Nombre",
+      "score": "Valor",
+      "side": "Bando",
+      "add": "Añadir",
+      "addParty_one": "Añadir el grupo ({{count}})",
+      "addParty_other": "Añadir el grupo ({{count}})",
+      "previous": "Atrás",
+      "next": "Siguiente turno",
+      "sort": "Ordenar por valor",
+      "remove": "Quitar {{name}}",
+      "roundOver": "Todos han actuado esta ronda.",
+      "sideUp": "Le toca a {{side}}",
+      "nextRound": "Siguiente ronda",
+      "goesFirst": "empieza",
+      "makeFirst": "Empieza",
+      "acted": "{{name}} ha actuado",
+      "mode": "Turnos",
+      "modeOrdered": "Uno tras otro, por valor",
+      "modeSides": "Los bandos se turnan",
+      "sides": "Bandos",
+      "sideName": "Bando {{number}}",
+      "removeSide": "Quitar {{side}}",
+      "newSide": "Bando nuevo",
+      "addSide": "Añadir bando",
+      "resets": "Vaciar el orden de turnos"
+    },
+    "note": {
+      "choose": "Elige una nota para fijar en los ajustes de este panel.",
+      "missing": "La nota fijada ya no existe. Elige otra en los ajustes de este panel.",
+      "open": "Abrir {{title}} en las notas",
+      "page": "Nota",
+      "none": "Ninguna"
+    },
+    "party": {
+      "empty": "Aún no hay personajes en esta campaña.",
+      "noStats": "Elige qué valores mostrar en los ajustes de este panel.",
+      "noFields": "Ningún personaje de esta campaña usa todavía una hoja con valores que mostrar.",
+      "unnamed": "Sin nombre",
+      "statLabel": "Etiqueta",
+      "statStyle": "Mostrar como",
+      "styleNumber": "Un número",
+      "stylePipsOf": "Casillas, sobre {{field}}",
+      "moveUp": "Subir {{stat}}",
+      "moveDown": "Bajar {{stat}}",
+      "removeStat": "Quitar {{stat}}",
+      "addStat": "Añadir un valor",
+      "pickField": "Elige un valor...",
+      "computed": "calculado",
+      "add": "Añadir",
+      "includeInactive": "Mostrar también personajes retirados y muertos"
+    },
+    "resets": {
+      "label": "Se vacía",
+      "never": "Nunca",
+      "scene": "Al final de una escena",
+      "session": "Al final de una sesión",
+      "rest": "Al descansar",
+      "action": {
+        "scene": "Terminar escena",
+        "session": "Terminar sesión",
+        "rest": "Descansar"
+      },
+      "hint": {
+        "scene": "Vaciar todo lo que se vacía al final de una escena",
+        "session": "Vaciar todo lo que se vacía al final de una escena o de una sesión",
+        "rest": "Vaciar todo lo que se vacía al descansar"
+      },
+      "done": {
+        "scene": "Escena terminada.",
+        "session": "Sesión terminada.",
+        "rest": "Descanso hecho."
+      }
+    },
+    "board": {
+      "menu": "Tablero",
+      "presets": "Plantillas de la comunidad",
+      "copy": "Copiar de otra campaña",
+      "export": "Exportar",
+      "import": "Importar",
+      "importReplace": "¿Sustituir el tablero actual por el importado? Con Cancelar se añade debajo.",
+      "imported": "Tablero importado.",
+      "notJson": "Ese archivo no es un tablero de pantalla del DJ.",
+      "panelCount_one": "{{count}} panel",
+      "panelCount_other": "{{count}} paneles",
+      "whereLegend": "Ponerlo",
+      "replace": "En lugar de este tablero",
+      "append": "Debajo de este tablero"
+    },
+    "copy": {
+      "title": "Copiar una pantalla del DJ",
+      "none": "Ninguna de tus otras campañas tiene todavía una pantalla del DJ.",
+      "help": "Se copian la disposición y los ajustes de cada herramienta. Los valores empiezan de cero, y una nota fijada busca aquí una nota con el mismo nombre.",
+      "from": "Copiar de",
+      "action": "Copiar"
+    },
+    "presets": {
+      "title": "Plantillas de la comunidad",
+      "none": "No hay plantillas disponibles en las fuentes de complementos configuradas.",
+      "by": "de {{author}}",
+      "apply": "Usar",
+      "applyNamed": "Usar {{name}}",
+      "sourceError": "No se pudo leer {{url}}: {{error}}"
     }
   }
 }

@@ -90,8 +90,9 @@ class TestScope:
     def test_an_index_file_scopes_to_its_directory(self):
         assert credentials.source_root(PRIVATE) == "/our-table/private-packs/main/"
 
-    def test_an_index_in_a_sibling_catalogue_scopes_to_the_repo_root(self):
-        url = "https://raw.githubusercontent.com/o/r/main/themes/index.json"
+    @pytest.mark.parametrize("catalogue", ["themes", "character-sheets", "gm-screens"])
+    def test_an_index_in_a_sibling_catalogue_scopes_to_the_repo_root(self, catalogue):
+        url = f"https://raw.githubusercontent.com/o/r/main/{catalogue}/index.json"
         assert credentials.source_root(url) == "/o/r/main/"
 
     def test_a_directory_url_is_its_own_root(self):

@@ -2280,7 +2280,8 @@
     "leave": "Lascia la campagna",
     "leaveHint": "Rimuoviti da questa campagna. Il GM conserva la campagna e le sue note.",
     "leaveConfirm": "Lasciare \"{{name}}\"? Perderai l'accesso alle sue risorse, alla wiki e alla programmazione. Il GM potrà invitarti di nuovo.",
-    "actionsMenu": "Azioni campagna"
+    "actionsMenu": "Azioni campagna",
+    "openGmScreen": "Schermo del GM"
   },
   "campaignEditor": {
     "titleNew": "Nuova campagna",
@@ -4677,6 +4678,199 @@
         "private": "Membri scelti",
         "organizer": "Solo l’organizzatore"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "Schermo del GM - {{name}}",
+    "heading": "Schermo del GM",
+    "back": "Campagna",
+    "gmOnly": "Solo il GM di questa campagna può aprire il suo schermo del GM.",
+    "locked": "Questa campagna è in sola lettura, quindi il suo schermo del GM non può essere modificato finché non viene sbloccata.",
+    "toolbar": "Strumenti dello schermo del GM",
+    "addTool": "Aggiungi strumento",
+    "dismiss": "Chiudi",
+    "empty": "Il tuo schermo del GM è vuoto. Inizia da una plancia di base, usa un modello della community, copiane uno da un'altra campagna o aggiungi strumenti uno alla volta.",
+    "startBasic": "Inizia da una plancia di base",
+    "kinds": {
+      "party": "Gruppo",
+      "note": "Nota fissata",
+      "counter": "Contatore",
+      "clocks": "Conti alla rovescia",
+      "pools": "Riserve di segnalini",
+      "initiative": "Iniziativa",
+      "scratch": "Appunti"
+    },
+    "panel": {
+      "move": "Sposta {{title}}",
+      "moveHint": "Trascina per spostare. Da tastiera, le frecce lo spostano e Maiusc+frecce lo ridimensionano.",
+      "resizeHint": "Trascina per ridimensionare",
+      "settings": "Impostazioni di {{title}}",
+      "remove": "Rimuovi {{title}}",
+      "removeConfirm": "Rimuovere {{title}} dallo schermo del GM? Tutto ciò che contiene andrà perso.",
+      "title": "Titolo",
+      "done": "Fatto"
+    },
+    "stepper": {
+      "decrease": "Diminuisci {{label}}",
+      "increase": "Aumenta {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} su {{max}}",
+      "range": "Da {{min}} a {{max}}",
+      "min": "Minimo",
+      "max": "Massimo",
+      "noMax": "Nessun limite",
+      "start": "Parte da",
+      "style": "Mostra come",
+      "styleNumber": "Un numero",
+      "stylePips": "Caselle"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Ancora nessun conto alla rovescia.",
+        "clock": "Ancora nessun orologio."
+      },
+      "add": {
+        "countdown": "Aggiungi conto alla rovescia",
+        "clock": "Aggiungi orologio"
+      },
+      "unnamed": "Senza nome",
+      "name": "Nome",
+      "newName": "Nome del nuovo",
+      "left_one": "Ne manca {{count}}",
+      "left_other": "Ne mancano {{count}}",
+      "filled": "{{ticks}} su {{size}}",
+      "triggered": "Attivato",
+      "loop": "Fai ripartire {{name}}",
+      "remove": "Rimuovi {{name}}",
+      "note": "Cosa succede quando si attiva",
+      "notePlaceholder": "Quando si attiva...",
+      "options": "Opzioni",
+      "boxes": "Caselle",
+      "loops": "Riparte quando si attiva",
+      "mode": "Conta",
+      "modeCountdown": "All'indietro, caselle rimaste (conti alla rovescia)",
+      "modeClock": "In avanti, caselle riempite (orologi)"
+    },
+    "pools": {
+      "empty": "Ancora nessuna riserva.",
+      "unnamed": "Riserva senza nome",
+      "name": "Nome della riserva",
+      "newName": "Nome della nuova riserva",
+      "add": "Aggiungi riserva",
+      "remove": "Rimuovi {{name}}",
+      "note": "A cosa servono i segnalini",
+      "notePlaceholder": "A cosa servono i segnalini...",
+      "resets": "Svuota le riserve"
+    },
+    "scratch": {
+      "placeholder": "Annota nomi, decisioni sulle regole, chi deve cosa a chi..."
+    },
+    "initiative": {
+      "round": "Round {{round}}",
+      "empty": "Ancora nessuno nell'ordine dei turni.",
+      "newName": "Nome",
+      "score": "Punteggio",
+      "side": "Schieramento",
+      "add": "Aggiungi",
+      "addParty_one": "Aggiungi il gruppo ({{count}})",
+      "addParty_other": "Aggiungi il gruppo ({{count}})",
+      "previous": "Indietro",
+      "next": "Turno successivo",
+      "sort": "Ordina per punteggio",
+      "remove": "Rimuovi {{name}}",
+      "roundOver": "Tutti hanno agito in questo round.",
+      "sideUp": "Tocca a {{side}}",
+      "nextRound": "Round successivo",
+      "goesFirst": "inizia",
+      "makeFirst": "Inizia",
+      "acted": "{{name}} ha agito",
+      "mode": "Turni",
+      "modeOrdered": "Uno dopo l'altro, per punteggio",
+      "modeSides": "Gli schieramenti si alternano",
+      "sides": "Schieramenti",
+      "sideName": "Schieramento {{number}}",
+      "removeSide": "Rimuovi {{side}}",
+      "newSide": "Nuovo schieramento",
+      "addSide": "Aggiungi schieramento",
+      "resets": "Svuota l'ordine dei turni"
+    },
+    "note": {
+      "choose": "Scegli una nota da fissare nelle impostazioni di questo pannello.",
+      "missing": "La nota fissata non esiste più. Scegline un'altra nelle impostazioni di questo pannello.",
+      "open": "Apri {{title}} nelle note",
+      "page": "Nota",
+      "none": "Nessuna"
+    },
+    "party": {
+      "empty": "Ancora nessun personaggio in questa campagna.",
+      "noStats": "Scegli quali valori mostrare nelle impostazioni di questo pannello.",
+      "noFields": "Nessun personaggio di questa campagna usa ancora una scheda con valori da mostrare.",
+      "unnamed": "Senza nome",
+      "statLabel": "Etichetta",
+      "statStyle": "Mostra come",
+      "styleNumber": "Un numero",
+      "stylePipsOf": "Caselle, su {{field}}",
+      "moveUp": "Sposta su {{stat}}",
+      "moveDown": "Sposta giù {{stat}}",
+      "removeStat": "Rimuovi {{stat}}",
+      "addStat": "Aggiungi un valore",
+      "pickField": "Scegli un valore...",
+      "computed": "calcolato",
+      "add": "Aggiungi",
+      "includeInactive": "Mostra anche i personaggi ritirati e morti"
+    },
+    "resets": {
+      "label": "Si svuota",
+      "never": "Mai",
+      "scene": "Alla fine di una scena",
+      "session": "Alla fine di una sessione",
+      "rest": "A un riposo",
+      "action": {
+        "scene": "Fine scena",
+        "session": "Fine sessione",
+        "rest": "Riposo"
+      },
+      "hint": {
+        "scene": "Svuota tutto ciò che si svuota alla fine di una scena",
+        "session": "Svuota tutto ciò che si svuota alla fine di una scena o di una sessione",
+        "rest": "Svuota tutto ciò che si svuota a un riposo"
+      },
+      "done": {
+        "scene": "Scena terminata.",
+        "session": "Sessione terminata.",
+        "rest": "Riposo fatto."
+      }
+    },
+    "board": {
+      "menu": "Plancia",
+      "presets": "Modelli della community",
+      "copy": "Copia da un'altra campagna",
+      "export": "Esporta",
+      "import": "Importa",
+      "importReplace": "Sostituire la plancia attuale con quella importata? Annulla la aggiunge sotto.",
+      "imported": "Plancia importata.",
+      "notJson": "Questo file non è una plancia dello schermo del GM.",
+      "panelCount_one": "{{count}} pannello",
+      "panelCount_other": "{{count}} pannelli",
+      "whereLegend": "Mettila",
+      "replace": "Al posto di questa plancia",
+      "append": "Sotto questa plancia"
+    },
+    "copy": {
+      "title": "Copia uno schermo del GM",
+      "none": "Nessuna delle tue altre campagne ha ancora uno schermo del GM.",
+      "help": "Vengono copiati la disposizione e le impostazioni di ogni strumento. I valori ripartono da zero, e una nota fissata cerca qui una nota con lo stesso nome.",
+      "from": "Copia da",
+      "action": "Copia"
+    },
+    "presets": {
+      "title": "Modelli della community",
+      "none": "Nessun modello disponibile dalle fonti di add-on configurate.",
+      "by": "di {{author}}",
+      "apply": "Usa",
+      "applyNamed": "Usa {{name}}",
+      "sourceError": "Impossibile leggere {{url}}: {{error}}"
     }
   }
 }

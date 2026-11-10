@@ -20,12 +20,15 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import CHARACTER_PORTRAIT_DIR, get_db
-from ...models import Character, CharacterSchema, ContentEntry, Ruleset, RulesetEntry
-from ...services.characters import rulesets as rs
+from ...models import Character, CharacterSchema
 from ...services import characters as svc
 from ...services.characters import catalogue
 from ...services.characters import images as char_images
 from ...services.characters import importing
+from ...services.characters.sheet_values import (
+    resolved_entries as _resolved_entries,
+    validated_document as _validated_document,
+)
 from ...text import slugs
 from . import _helpers as helpers
 from .portraits import store_portrait
@@ -59,22 +62,6 @@ def _serialize_schema(row: CharacterSchema, *, count: int = 0) -> dict:
         "is_community": bool(row.source_id),
         "character_count": count,
     }
-
-
-def _validated_document(row: CharacterSchema) -> dict:
-    """Re-validate a stored document on the way out.
-
-    A row edited directly in the database must be no more dangerous than an
-    uploaded one — the rule `UserTheme` follows for colour tokens, and it counts
-    for more here because a schema carries layout markup. A document that no
-    longer validates yields an empty layout rather than raising, so the sheet
-    degrades to its raw fields instead of 500ing.
-    """
-    try:
-        return svc.validate_schema(row.document or {})
-    except svc.SchemaError:
-        logger.warning("Stored schema %s failed re-validation", row.schema_id)
-        return {"id": row.schema_id, "name": row.name, "fields": {}, "layout": []}
 
 
 def list_schemas(
@@ -260,54 +247,6 @@ def _schema_for(db: Session, user_id: str, schema_ref: str) -> Optional[Characte
         .filter_by(user_id=user_id, schema_id=schema_ref)
         .first()
     )
-
-
-def _resolved_entries(db: Session, document: dict, data: dict, user_id: str) -> dict:
-    """Catalog entries every reference in a character points at.
-
-    Formulas like `sum_refs(spells, 'level')` need the entries themselves, not
-    just their ids. Collected in one query rather than per reference: a sheet
-    with twenty spells should cost one lookup.
-    """
-    fields = document.get("fields") or {}
-    wanted: set[str] = set()
-    for name, definition in fields.items():
-        if not isinstance(definition, dict):
-            continue
-        if definition.get("type") not in ("content_ref", "content_list"):
-            continue
-        value = data.get(name)
-        items = value if isinstance(value, list) else [value]
-        for item in items:
-            if isinstance(item, dict) and not item.get("_inline"):
-                entry_id = item.get("_ref")
-                if isinstance(entry_id, str) and entry_id:
-                    wanted.add(entry_id)
-
-    if not wanted:
-        return {}
-
-    schema_id = document.get("id") or ""
-    resolved = {
-        row.entry_id: (row.data if isinstance(row.data, dict) else {})
-        for row in db.query(ContentEntry)
-        .filter(ContentEntry.schema_id == schema_id)
-        .filter(ContentEntry.entry_id.in_(wanted))
-        .all()
-    }
-    # Ruleset entries resolve the same way, so a formula reading a spell's
-    # level does not care whether the spell came from a pack or a table's own
-    # ruleset.
-    for row in (
-        db.query(RulesetEntry)
-        .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
-        .filter(RulesetEntry.schema_id == schema_id)
-        .filter(RulesetEntry.entry_id.in_(wanted))
-        .filter(rs.readable_filter(db, user_id))
-        .all()
-    ):
-        resolved.setdefault(row.entry_id, row.data if isinstance(row.data, dict) else {})
-    return resolved
 
 
 def _portrait_version(portrait_path: Optional[str]) -> Optional[int]:

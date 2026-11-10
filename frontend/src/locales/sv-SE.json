@@ -2280,7 +2280,8 @@
     "leave": "Lämna kampanjen",
     "leaveHint": "Ta bort dig själv från den här kampanjen. Spelledaren behåller kampanjen och dess anteckningar.",
     "leaveConfirm": "Lämna \"{{name}}\"? Du förlorar åtkomst till dess resurser, wiki och schema. Spelledaren kan bjuda in dig igen.",
-    "actionsMenu": "Kampanjåtgärder"
+    "actionsMenu": "Kampanjåtgärder",
+    "openGmScreen": "SL-skärm"
   },
   "campaignEditor": {
     "titleNew": "Ny kampanj",
@@ -4677,6 +4678,199 @@
         "private": "Valda medlemmar",
         "organizer": "Bara arrangören"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "SL-skärm - {{name}}",
+    "heading": "SL-skärm",
+    "back": "Kampanj",
+    "gmOnly": "Bara kampanjens spelledare kan öppna dess SL-skärm.",
+    "locked": "Den här kampanjen är skrivskyddad, så SL-skärmen kan inte ändras förrän kampanjen låses upp.",
+    "toolbar": "SL-skärmens verktyg",
+    "addTool": "Lägg till verktyg",
+    "dismiss": "Stäng",
+    "empty": "Din SL-skärm är tom. Börja med en enkel tavla, använd en mall från communityn, kopiera en från en annan kampanj eller lägg till verktyg ett i taget.",
+    "startBasic": "Börja med en enkel tavla",
+    "kinds": {
+      "party": "Gruppen",
+      "note": "Fäst anteckning",
+      "counter": "Räknare",
+      "clocks": "Nedräkningar",
+      "pools": "Polletter",
+      "initiative": "Initiativ",
+      "scratch": "Kladdlapp"
+    },
+    "panel": {
+      "move": "Flytta {{title}}",
+      "moveHint": "Dra för att flytta. Med tangentbordet flyttar piltangenterna och Skift+piltangenter ändrar storleken.",
+      "resizeHint": "Dra för att ändra storlek",
+      "settings": "Inställningar för {{title}}",
+      "remove": "Ta bort {{title}}",
+      "removeConfirm": "Ta bort {{title}} från SL-skärmen? Allt den innehåller försvinner.",
+      "title": "Titel",
+      "done": "Klar"
+    },
+    "stepper": {
+      "decrease": "Minska {{label}}",
+      "increase": "Öka {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} av {{max}}",
+      "range": "{{min}} till {{max}}",
+      "min": "Lägst",
+      "max": "Högst",
+      "noMax": "Ingen gräns",
+      "start": "Börjar på",
+      "style": "Visa som",
+      "styleNumber": "Ett tal",
+      "stylePips": "Rutor"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Inga nedräkningar än.",
+        "clock": "Inga klockor än."
+      },
+      "add": {
+        "countdown": "Lägg till nedräkning",
+        "clock": "Lägg till klocka"
+      },
+      "unnamed": "Namnlös",
+      "name": "Namn",
+      "newName": "Namn på en ny",
+      "left_one": "{{count}} kvar",
+      "left_other": "{{count}} kvar",
+      "filled": "{{ticks}} av {{size}}",
+      "triggered": "Utlöst",
+      "loop": "Starta om {{name}}",
+      "remove": "Ta bort {{name}}",
+      "note": "Vad som händer när den utlöses",
+      "notePlaceholder": "När den utlöses...",
+      "options": "Alternativ",
+      "boxes": "Rutor",
+      "loops": "Börjar om när den utlöses",
+      "mode": "Räkna",
+      "modeCountdown": "Nedåt, visar rutor kvar (nedräkningar)",
+      "modeClock": "Uppåt, visar fyllda rutor (klockor)"
+    },
+    "pools": {
+      "empty": "Inga pooler än.",
+      "unnamed": "Namnlös pool",
+      "name": "Poolens namn",
+      "newName": "Namn på en ny pool",
+      "add": "Lägg till pool",
+      "remove": "Ta bort {{name}}",
+      "note": "Vad polletterna gör",
+      "notePlaceholder": "Vad polletterna gör...",
+      "resets": "Töm poolerna"
+    },
+    "scratch": {
+      "placeholder": "Skriv ner namn, regelbeslut, vem som är skyldig vem vad..."
+    },
+    "initiative": {
+      "round": "Runda {{round}}",
+      "empty": "Ingen i turordningen än.",
+      "newName": "Namn",
+      "score": "Värde",
+      "side": "Sida",
+      "add": "Lägg till",
+      "addParty_one": "Lägg till gruppen ({{count}})",
+      "addParty_other": "Lägg till gruppen ({{count}})",
+      "previous": "Bakåt",
+      "next": "Nästa tur",
+      "sort": "Sortera efter värde",
+      "remove": "Ta bort {{name}}",
+      "roundOver": "Alla har agerat den här rundan.",
+      "sideUp": "{{side}} på tur",
+      "nextRound": "Nästa runda",
+      "goesFirst": "börjar",
+      "makeFirst": "Börjar",
+      "acted": "{{name}} har agerat",
+      "mode": "Turer",
+      "modeOrdered": "En efter en, efter värde",
+      "modeSides": "Sidorna turas om",
+      "sides": "Sidor",
+      "sideName": "Sida {{number}}",
+      "removeSide": "Ta bort {{side}}",
+      "newSide": "Ny sida",
+      "addSide": "Lägg till sida",
+      "resets": "Töm turordningen"
+    },
+    "note": {
+      "choose": "Välj en anteckning att fästa i panelens inställningar.",
+      "missing": "Den fästa anteckningen finns inte längre. Välj en annan i panelens inställningar.",
+      "open": "Öppna {{title}} i anteckningarna",
+      "page": "Anteckning",
+      "none": "Ingen"
+    },
+    "party": {
+      "empty": "Det finns inga rollpersoner i kampanjen än.",
+      "noStats": "Välj vilka värden som ska visas i panelens inställningar.",
+      "noFields": "Ingen rollperson i kampanjen använder ännu ett formulär med värden att visa.",
+      "unnamed": "Namnlös",
+      "statLabel": "Etikett",
+      "statStyle": "Visa som",
+      "styleNumber": "Ett tal",
+      "stylePipsOf": "Rutor, av {{field}}",
+      "moveUp": "Flytta upp {{stat}}",
+      "moveDown": "Flytta ner {{stat}}",
+      "removeStat": "Ta bort {{stat}}",
+      "addStat": "Lägg till ett värde",
+      "pickField": "Välj ett värde...",
+      "computed": "beräknat",
+      "add": "Lägg till",
+      "includeInactive": "Visa även pensionerade och döda rollpersoner"
+    },
+    "resets": {
+      "label": "Töms",
+      "never": "Aldrig",
+      "scene": "I slutet av en scen",
+      "session": "I slutet av en spelträff",
+      "rest": "Vid en vila",
+      "action": {
+        "scene": "Avsluta scen",
+        "session": "Avsluta spelträff",
+        "rest": "Vila"
+      },
+      "hint": {
+        "scene": "Töm allt som töms i slutet av en scen",
+        "session": "Töm allt som töms i slutet av en scen eller spelträff",
+        "rest": "Töm allt som töms vid en vila"
+      },
+      "done": {
+        "scene": "Scenen avslutad.",
+        "session": "Spelträffen avslutad.",
+        "rest": "Vilat."
+      }
+    },
+    "board": {
+      "menu": "Tavla",
+      "presets": "Mallar från communityn",
+      "copy": "Kopiera från en annan kampanj",
+      "export": "Exportera",
+      "import": "Importera",
+      "importReplace": "Ersätta den nuvarande tavlan med den importerade? Avbryt lägger till den nedanför i stället.",
+      "imported": "Tavlan importerad.",
+      "notJson": "Filen är ingen tavla för en SL-skärm.",
+      "panelCount_one": "{{count}} panel",
+      "panelCount_other": "{{count}} paneler",
+      "whereLegend": "Placera den",
+      "replace": "I stället för den här tavlan",
+      "append": "Under den här tavlan"
+    },
+    "copy": {
+      "title": "Kopiera en SL-skärm",
+      "none": "Ingen av dina andra kampanjer har en SL-skärm än.",
+      "help": "Layouten och varje verktygs inställningar kopieras. Värdena börjar om, och en fäst anteckning letar här efter en anteckning med samma namn.",
+      "from": "Kopiera från",
+      "action": "Kopiera"
+    },
+    "presets": {
+      "title": "Mallar från communityn",
+      "none": "Det finns inga mallar i de inställda tilläggskällorna.",
+      "by": "av {{author}}",
+      "apply": "Använd",
+      "applyNamed": "Använd {{name}}",
+      "sourceError": "Kunde inte läsa {{url}}: {{error}}"
     }
   }
 }

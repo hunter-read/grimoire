@@ -65,7 +65,9 @@ _RESERVED_HEADERS = {
 #: Catalogue directories that sit beside each other in a source repository. An
 #: index inside one of them (``.../main/themes/index.json``) has the directory
 #: above as its root, so the sibling catalogues derived from it stay in scope.
-_SIBLING_DIRECTORIES = ("themes", "templates", "character-sheets", "content-packs")
+_SIBLING_DIRECTORIES = (
+    "themes", "templates", "character-sheets", "content-packs", "gm-screens",
+)
 
 # Sealed values already reported as unreadable, so a changed SECRET_KEY is
 # logged once per token rather than on every fetch.

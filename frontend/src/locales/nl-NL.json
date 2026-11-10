@@ -2280,7 +2280,8 @@
     "leave": "Campagne verlaten",
     "leaveHint": "Jezelf uit deze campagne verwijderen. De SL houdt de campagne en de notities.",
     "leaveConfirm": "\"{{name}}\" verlaten? Je verliest toegang tot de bronnen, wiki en planning. De SL kan je opnieuw uitnodigen.",
-    "actionsMenu": "Campagneacties"
+    "actionsMenu": "Campagneacties",
+    "openGmScreen": "GM-scherm"
   },
   "campaignEditor": {
     "titleNew": "Nieuwe campagne",
@@ -4677,6 +4678,199 @@
         "private": "Gekozen leden",
         "organizer": "Alleen de organisator"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "GM-scherm - {{name}}",
+    "heading": "GM-scherm",
+    "back": "Campagne",
+    "gmOnly": "Alleen de GM van deze campagne kan het GM-scherm openen.",
+    "locked": "Deze campagne is alleen-lezen, dus het GM-scherm kan pas worden gewijzigd als de campagne weer is ontgrendeld.",
+    "toolbar": "Gereedschap van het GM-scherm",
+    "addTool": "Hulpmiddel toevoegen",
+    "dismiss": "Sluiten",
+    "empty": "Je GM-scherm is leeg. Begin met een eenvoudig bord, gebruik een sjabloon uit de community, kopieer er een uit een andere campagne of voeg hulpmiddelen een voor een toe.",
+    "startBasic": "Begin met een eenvoudig bord",
+    "kinds": {
+      "party": "Groep",
+      "note": "Vastgezette notitie",
+      "counter": "Teller",
+      "clocks": "Aftellers",
+      "pools": "Fichepools",
+      "initiative": "Initiatief",
+      "scratch": "Kladblok"
+    },
+    "panel": {
+      "move": "{{title}} verplaatsen",
+      "moveHint": "Sleep om te verplaatsen. Met het toetsenbord verplaatsen de pijltjestoetsen het en Shift+pijltjes wijzigen de grootte.",
+      "resizeHint": "Sleep om de grootte te wijzigen",
+      "settings": "Instellingen voor {{title}}",
+      "remove": "{{title}} verwijderen",
+      "removeConfirm": "{{title}} van het GM-scherm verwijderen? Alles wat erin staat gaat verloren.",
+      "title": "Titel",
+      "done": "Klaar"
+    },
+    "stepper": {
+      "decrease": "{{label}} verlagen",
+      "increase": "{{label}} verhogen"
+    },
+    "counter": {
+      "ofMax": "{{value}} van {{max}}",
+      "range": "{{min}} tot {{max}}",
+      "min": "Laagste",
+      "max": "Hoogste",
+      "noMax": "Geen limiet",
+      "start": "Begint bij",
+      "style": "Tonen als",
+      "styleNumber": "Een getal",
+      "stylePips": "Vakjes"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Nog geen aftellers.",
+        "clock": "Nog geen klokken."
+      },
+      "add": {
+        "countdown": "Afteller toevoegen",
+        "clock": "Klok toevoegen"
+      },
+      "unnamed": "Naamloos",
+      "name": "Naam",
+      "newName": "Naam voor een nieuwe",
+      "left_one": "Nog {{count}}",
+      "left_other": "Nog {{count}}",
+      "filled": "{{ticks}} van {{size}}",
+      "triggered": "Afgegaan",
+      "loop": "{{name}} opnieuw starten",
+      "remove": "{{name}} verwijderen",
+      "note": "Wat er gebeurt als hij afgaat",
+      "notePlaceholder": "Als hij afgaat...",
+      "options": "Opties",
+      "boxes": "Vakjes",
+      "loops": "Begint opnieuw als hij afgaat",
+      "mode": "Tellen",
+      "modeCountdown": "Omlaag, toont resterende vakjes (aftellers)",
+      "modeClock": "Omhoog, toont gevulde vakjes (klokken)"
+    },
+    "pools": {
+      "empty": "Nog geen pools.",
+      "unnamed": "Naamloze pool",
+      "name": "Naam van de pool",
+      "newName": "Naam voor een nieuwe pool",
+      "add": "Pool toevoegen",
+      "remove": "{{name}} verwijderen",
+      "note": "Waar de fiches voor zijn",
+      "notePlaceholder": "Waar de fiches voor zijn...",
+      "resets": "Pools legen"
+    },
+    "scratch": {
+      "placeholder": "Noteer namen, regelbeslissingen, wie wat aan wie schuldig is..."
+    },
+    "initiative": {
+      "round": "Ronde {{round}}",
+      "empty": "Nog niemand in de beurtvolgorde.",
+      "newName": "Naam",
+      "score": "Score",
+      "side": "Kant",
+      "add": "Toevoegen",
+      "addParty_one": "Groep toevoegen ({{count}})",
+      "addParty_other": "Groep toevoegen ({{count}})",
+      "previous": "Terug",
+      "next": "Volgende beurt",
+      "sort": "Sorteren op score",
+      "remove": "{{name}} verwijderen",
+      "roundOver": "Iedereen heeft deze ronde gehandeld.",
+      "sideUp": "{{side}} is aan de beurt",
+      "nextRound": "Volgende ronde",
+      "goesFirst": "begint",
+      "makeFirst": "Begint",
+      "acted": "{{name}} heeft gehandeld",
+      "mode": "Beurten",
+      "modeOrdered": "Na elkaar, op score",
+      "modeSides": "Kanten wisselen elkaar af",
+      "sides": "Kanten",
+      "sideName": "Kant {{number}}",
+      "removeSide": "{{side}} verwijderen",
+      "newSide": "Nieuwe kant",
+      "addSide": "Kant toevoegen",
+      "resets": "Beurtvolgorde legen"
+    },
+    "note": {
+      "choose": "Kies in de instellingen van dit paneel een notitie om vast te zetten.",
+      "missing": "De vastgezette notitie bestaat niet meer. Kies een andere in de instellingen van dit paneel.",
+      "open": "{{title}} openen in de notities",
+      "page": "Notitie",
+      "none": "Geen"
+    },
+    "party": {
+      "empty": "Er zijn nog geen personages in deze campagne.",
+      "noStats": "Kies in de instellingen van dit paneel welke waarden je wilt zien.",
+      "noFields": "Nog geen personage in deze campagne gebruikt een blad met waarden om te tonen.",
+      "unnamed": "Naamloos",
+      "statLabel": "Label",
+      "statStyle": "Tonen als",
+      "styleNumber": "Een getal",
+      "stylePipsOf": "Vakjes, van {{field}}",
+      "moveUp": "{{stat}} omhoog",
+      "moveDown": "{{stat}} omlaag",
+      "removeStat": "{{stat}} verwijderen",
+      "addStat": "Waarde toevoegen",
+      "pickField": "Kies een waarde...",
+      "computed": "berekend",
+      "add": "Toevoegen",
+      "includeInactive": "Ook gestopte en dode personages tonen"
+    },
+    "resets": {
+      "label": "Wordt geleegd",
+      "never": "Nooit",
+      "scene": "Aan het eind van een scène",
+      "session": "Aan het eind van een sessie",
+      "rest": "Bij een rust",
+      "action": {
+        "scene": "Scène beëindigen",
+        "session": "Sessie beëindigen",
+        "rest": "Rusten"
+      },
+      "hint": {
+        "scene": "Alles legen wat aan het eind van een scène wordt geleegd",
+        "session": "Alles legen wat aan het eind van een scène of sessie wordt geleegd",
+        "rest": "Alles legen wat bij een rust wordt geleegd"
+      },
+      "done": {
+        "scene": "Scène beëindigd.",
+        "session": "Sessie beëindigd.",
+        "rest": "Gerust."
+      }
+    },
+    "board": {
+      "menu": "Bord",
+      "presets": "Sjablonen uit de community",
+      "copy": "Kopiëren uit een andere campagne",
+      "export": "Exporteren",
+      "import": "Importeren",
+      "importReplace": "Het huidige bord vervangen door het geïmporteerde? Met Annuleren wordt het eronder toegevoegd.",
+      "imported": "Bord geïmporteerd.",
+      "notJson": "Dat bestand is geen bord voor een GM-scherm.",
+      "panelCount_one": "{{count}} paneel",
+      "panelCount_other": "{{count}} panelen",
+      "whereLegend": "Plaatsen",
+      "replace": "In plaats van dit bord",
+      "append": "Onder dit bord"
+    },
+    "copy": {
+      "title": "Een GM-scherm kopiëren",
+      "none": "Geen van je andere campagnes heeft al een GM-scherm.",
+      "help": "De indeling en de instellingen van elk hulpmiddel worden gekopieerd. Waarden beginnen opnieuw, en een vastgezette notitie zoekt hier een notitie met dezelfde naam.",
+      "from": "Kopiëren uit",
+      "action": "Kopiëren"
+    },
+    "presets": {
+      "title": "Sjablonen uit de community",
+      "none": "Er zijn geen sjablonen beschikbaar uit de ingestelde add-onbronnen.",
+      "by": "door {{author}}",
+      "apply": "Gebruiken",
+      "applyNamed": "{{name}} gebruiken",
+      "sourceError": "Kon {{url}} niet lezen: {{error}}"
     }
   }
 }

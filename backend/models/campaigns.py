@@ -1,6 +1,6 @@
 """Campaign, session note, schedule, and availability models."""
 import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -16,6 +16,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .. import token_vault
 from .base import BYTES_TYPE, Base, _utcnow, _uuid
+
+if TYPE_CHECKING:
+    from .gm_screen import GmScreenPanel
 
 
 class Campaign(Base):
@@ -98,6 +101,10 @@ class Campaign(Base):
     )
     files: Mapped[list["CampaignFile"]] = relationship(
         "CampaignFile", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    # The GM screen's panels go with the campaign (issue #764).
+    gm_panels: Mapped[list["GmScreenPanel"]] = relationship(
+        "GmScreenPanel", cascade="all, delete-orphan"
     )
 
 
