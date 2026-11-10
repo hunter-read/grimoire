@@ -385,11 +385,17 @@ class TestToggleAndUninstall:
     def test_uninstalling_something_absent_is_404(self, client, admin_headers):
         assert client.delete("/api/addons/ghost", headers=admin_headers).status_code == 404
 
-    def test_toggling_something_absent_is_404(self, client, admin_headers):
-        response = client.patch(
-            "/api/addons/ghost", json={"enabled": True}, headers=admin_headers
-        )
+    @pytest.mark.parametrize(
+        "body", [{"enabled": True}, {}, {"script_approved": False}], ids=["enable", "empty", "revoke"]
+    )
+    def test_toggling_something_absent_is_404(self, client, admin_headers, body):
+        response = client.patch("/api/addons/ghost", json=body, headers=admin_headers)
         assert response.status_code == 404
+
+    def test_an_empty_patch_describes_the_addon(self, client, admin_headers, installed):
+        response = client.patch("/api/addons/ttrpg-wiki", json={}, headers=admin_headers)
+        assert response.status_code == 200, response.text
+        assert response.json()["id"] == "ttrpg-wiki"
 
     def test_installing_something_not_in_the_index_is_400(self, client, admin_headers):
         response = client.post("/api/addons/ghost/install", json={}, headers=admin_headers)

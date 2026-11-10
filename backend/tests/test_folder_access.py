@@ -370,6 +370,25 @@ class TestApi:
         assert detail.status_code == 200
         assert detail.json()["effective_access_level"] == "gm"
 
+    @pytest.mark.parametrize("padding", [" ", "  ", "\t"])
+    def test_a_stray_space_is_saved_as_the_folder(
+        self, client, admin_headers, player_headers, shelf, padding
+    ):
+        book = _on_disk(shelf, "Core/GM/dmg.pdf")
+        path = shelf["rel"] + "/Core/GM"
+        resp = client.put(URL, json={"path": path + padding, "level": "gm"}, headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["path"] == path
+        assert resp.json()["exists"] is True and resp.json()["books"] == 1
+        assert client.get(f"/api/books/{book.id}", headers=player_headers).status_code == 404
+
+    def test_a_stored_rule_not_spelled_as_on_disk_reads_as_missing(self, client, admin_headers, db, shelf):
+        # A rule saved before paths were stored as found on disk.
+        _rule(db, shelf["rel"] + "/Core/GM ", LEVEL_GM)
+        rules = client.get(URL, headers=admin_headers).json()["rules"]
+        stray = next(r for r in rules if r["path"] == shelf["rel"] + "/Core/GM ")
+        assert stray["exists"] is False
+
     def test_saving_demotes_campaign_shares(self, client, admin_headers, db, shelf):
         restricted = _on_disk(shelf, "Core/GM/dmg.pdf")
         shared = _on_disk(shelf, "Core/GM/handout.pdf", access_level=LEVEL_OPEN)

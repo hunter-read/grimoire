@@ -131,14 +131,21 @@ def update_army(
     """Rename, re-match, set the limit and notes, or replace a hand-built list."""
     army = get_army(db, army_id, current_user, edit=True)
     fields = data.model_fields_set
-    system_id = data.game_system_id if "game_system_id" in fields else army.game_system_id
-    faction_id = data.faction_id if "faction_id" in fields else army.faction_id
-    if "game_system_id" in fields and "faction_id" not in fields and system_id != army.game_system_id:
-        # A faction belongs to one system; moving systems leaves it behind.
-        faction_id = None
-    army.game_system_id, army.faction_id = check_system_and_faction(
-        db, current_user, system_id, faction_id
-    )
+    if "game_system_id" in fields or "faction_id" in fields:
+        # Checked only when asked to change: a system hidden from the owner
+        # since it was set must not stop them renaming the army.
+        system_id = data.game_system_id if "game_system_id" in fields else army.game_system_id
+        faction_id = data.faction_id if "faction_id" in fields else army.faction_id
+        if (
+            "game_system_id" in fields
+            and "faction_id" not in fields
+            and system_id != army.game_system_id
+        ):
+            # A faction belongs to one system; moving systems leaves it behind.
+            faction_id = None
+        army.game_system_id, army.faction_id = check_system_and_faction(
+            db, current_user, system_id, faction_id
+        )
     if data.name:
         army.name = data.name.strip() or army.name
     if "points_limit" in fields:

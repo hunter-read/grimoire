@@ -394,7 +394,9 @@ the folder to settle it:
   as in `books/`)
 
 A book's factions show in the reader's details panel, and the shelf groups each faction's
-books under its folder. Factions are listed per system at
+books under its folder. A book moved to another folder - in the file manager, or on disk and
+then rescanned - takes the factions its new folders name. A rescan removes a faction
+left with no books in it or its sub-factions, unless an army is set to it. Factions are listed per system at
 [`GET /api/systems/{id}/factions`](api.md#game-systems).
 
 ## Book metadata from OPF files

@@ -32,7 +32,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from ..models import Book, Faction, GameSystem
+from ..models import Army, Book, Faction, GameSystem, book_factions
 from .categories import match_wargame_category, slugify
 from .constants import ARMY_BOOK, CATEGORY_MARKER, FACTION_MARKER
 
@@ -146,3 +146,34 @@ def link_folder_factions(
     if parent is not None and parent not in book.factions:
         book.factions.append(parent)
     return parent
+
+
+def prune_empty_factions(session: Session) -> int:
+    """Delete the factions left with nothing in them, returning how many went.
+
+    A faction is kept while a book, or an army, sits in it or in one of its
+    sub-factions: deleting it would clear that army's faction, so a folder
+    emptied for a moment never costs a player theirs. Run after a scan, once
+    moves have re-linked books to the factions their new folders name. A
+    missing book keeps its links, so its faction stays until the book goes.
+    The caller commits.
+    """
+    factions = dict(session.query(Faction.id, Faction.parent_id).all())
+    if not factions:
+        return 0
+    used = {row[0] for row in session.query(book_factions.c.faction_id).distinct()}
+    used |= {
+        row[0]
+        for row in session.query(Army.faction_id).filter(Army.faction_id.isnot(None)).distinct()
+    }
+    keep: set[str] = set()
+    for faction_id in used:
+        node: Optional[str] = faction_id
+        while node is not None and node not in keep and node in factions:
+            keep.add(node)
+            node = factions[node]
+    empty = [faction_id for faction_id in factions if faction_id not in keep]
+    if empty:
+        session.query(Faction).filter(Faction.id.in_(empty)).delete(synchronize_session=False)
+        logger.info(f"Removed {len(empty)} empty faction(s)")
+    return len(empty)

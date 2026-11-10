@@ -281,6 +281,10 @@ def _apply_move(ctx: _ScanContext, model: Any, old: Any, new: Any) -> None:
     # blank cover until a full "Rescan and Re-index" (issue #394).
     new_has_thumbnail = getattr(new, "has_thumbnail", False)
     new_title = getattr(new, "title", None)
+    # A wargame book's factions are read from its folders, and the walk linked
+    # the new row to the ones its new folders name. Read before it is deleted.
+    new_factions = list(new.factions) if model is Book else []
+    new_game_type = getattr(new, "game_type", None)
     session.delete(new)
     session.flush()
 
@@ -295,6 +299,11 @@ def _apply_move(ctx: _ScanContext, model: Any, old: Any, new: Any) -> None:
             ctx.vacated_systems.setdefault(old.game_system_id, set()).add(new_system)
         old.game_system_id = new_system
         old.category = new_category
+        if new_game_type:
+            old.game_type = new_game_type
+        # Replaced, not added to: the old folders' factions no longer apply,
+        # the same as when the file manager moves a book.
+        old.factions = new_factions
         old.has_thumbnail = bool(new_has_thumbnail)
         # The cover was written as ``slugify(<new row's title>)_<hash>.webp``.
         # A survivor whose title was customised in the UI keeps that title, so

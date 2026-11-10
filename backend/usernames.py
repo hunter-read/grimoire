@@ -16,6 +16,7 @@ way every time.
 """
 import datetime
 import logging
+import re
 from typing import Any, Optional
 
 from sqlalchemy import text
@@ -28,6 +29,31 @@ from .sql_functions import fold_text
 logger = logging.getLogger("grimoire.users")
 
 INDEX_NAME = "ix_users_username_lower"
+
+#: The shortest and longest username an account can be given. The longest is
+#: the column's width.
+USERNAME_MIN_LENGTH = 2
+USERNAME_MAX_LENGTH = 100
+
+_CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
+
+
+def clean_username(raw: str) -> str:
+    """A username as an account is given it - trimmed - or ``ValueError``.
+
+    The one rule for every way a name is chosen: setup, an admin creating an
+    account, and a guest converted to one. Blank names (which all fold to one,
+    so the second was refused by the database), and control characters (a NUL
+    PostgreSQL would drop), are refused.
+    """
+    name = (raw or "").strip()
+    if len(name) < USERNAME_MIN_LENGTH:
+        raise ValueError(f"Username must be at least {USERNAME_MIN_LENGTH} characters")
+    if len(name) > USERNAME_MAX_LENGTH:
+        raise ValueError(f"Username must be at most {USERNAME_MAX_LENGTH} characters")
+    if _CONTROL.search(name):
+        raise ValueError("Username must not contain control characters")
+    return name
 
 # SQLite's lower(): A-Z only.
 _ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")

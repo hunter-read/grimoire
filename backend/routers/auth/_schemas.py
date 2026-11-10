@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 from ...passwords import check_account_password
+from ...usernames import clean_username
 
 # C0 controls and DEL, plus C1 controls.
 _CONTROL = re.compile("[\x00-\x1f\x7f-\x9f]")
@@ -40,10 +41,7 @@ class SetupRequest(BaseModel):
     @field_validator("username")
     @classmethod
     def username_valid(cls, v):
-        v = v.strip()
-        if len(v) < 2:
-            raise ValueError("Username must be at least 2 characters")
-        return v
+        return clean_username(v)
 
     @field_validator("password")
     @classmethod
