@@ -181,6 +181,27 @@ describe('ContentRefField', () => {
     expect(screen.getByDisplayValue('Homebrew')).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
   })
+
+  it('reads text saved before the field was a pick as a custom entry', async () => {
+    const onChange = vi.fn()
+    renderRef({
+      value: 'Champion',
+      onChange,
+      definition: {
+        type: 'content_ref',
+        label: 'Subclass',
+        content_type: 'spell',
+        allow_freeform: true,
+      },
+    })
+    await userEvent.type(screen.getByDisplayValue('Champion'), '!')
+    expect(onChange).toHaveBeenCalledWith({ _inline: true, name: 'Champion!' }, { entry: null })
+  })
+
+  it('treats blank text as nothing chosen', () => {
+    renderRef({ value: '  ' })
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
 })
 
 describe('ContentListField', () => {

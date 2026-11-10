@@ -55,6 +55,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Bookmarking a text selection on the page a book opened at records that page, not page 1
 - Large downloads - bulk archives, books, audio, maps, models, tokens, OPDS and backups - and add-on installs no longer hold a database connection while they transfer, so a handful of slow downloads can't stall the rest of the app
 - On PostgreSQL, a library scan that runs into a locked row skips just that file or folder and carries on, instead of failing every step after it. A game system the database keeps locked during a scan is skipped on its own, without undoing the other systems registered in that scan
+- When a character sheet turns a typed field into a catalogue pick, characters saved before the change keep what was typed. It shows as a custom entry of that name, where the field looked empty
 
 ## [1.10.2] - 2026-11-05
 

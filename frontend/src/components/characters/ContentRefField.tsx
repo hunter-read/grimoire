@@ -52,7 +52,17 @@ export default function ContentRefField({
   const [browsing, setBrowsing] = useState(false)
   const [editingInline, setEditingInline] = useState(false)
 
-  const ref = value && typeof value === 'object' ? (value as ContentRefValue) : null
+  // A sheet can turn a text field into a pick (a subclass, say), and the
+  // characters saved before that still hold the text. It reads as a custom
+  // entry of that name, and becomes one the first time it is edited.
+  const ref =
+    typeof value === 'string'
+      ? value.trim()
+        ? ({ _inline: true, name: value } as ContentRefValue)
+        : null
+      : value && typeof value === 'object'
+        ? (value as ContentRefValue)
+        : null
   const inline = !!ref?._inline
   const entry = (!inline && ref?._ref ? entries[ref._ref] : null) as
     { name?: string } | null | undefined
