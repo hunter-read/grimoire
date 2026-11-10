@@ -840,7 +840,7 @@ def coerce_value(
     if field_type == "select":
         # An unrecognised choice falls back to empty rather than persisting a
         # value the sheet cannot display.
-        return value if value in _allowed_options(definition) else ""
+        return value if _is_option(value, _allowed_options(definition)) else ""
 
     if field_type == "multiselect":
         if not isinstance(value, list):
@@ -848,8 +848,8 @@ def coerce_value(
         allowed = _allowed_options(definition)
         # Order is the author's, not the order they were clicked in, so a sheet
         # reads the same each time it is opened. Duplicates collapse.
-        chosen = {item for item in value if item in allowed}
-        return [option for option in _option_values(definition) if option in chosen]
+        chosen = {item for item in value if _is_option(item, allowed)}
+        return [option for option in _option_values(definition) if _is_option(option, chosen)]
 
     if field_type == "list":
         return _coerce_rows(definition, value)
@@ -952,7 +952,23 @@ def _option_values(definition: dict) -> list:
 
 
 def _allowed_options(definition: dict) -> set:
-    return set(_option_values(definition))
+    # An option written as a list or object can never be chosen: it has no
+    # value to compare with, and would stop the set being built at all.
+    return {value for value in _option_values(definition) if _hashable(value)}
+
+
+def _hashable(value: Any) -> bool:
+    try:
+        hash(value)
+    except TypeError:
+        return False
+    return True
+
+
+def _is_option(value: Any, allowed: set) -> bool:
+    """Whether ``value`` is one of ``allowed``. A list or object never is - a
+    ``default_from`` formula can work one out, and a client can send one."""
+    return _hashable(value) and value in allowed
 
 
 def _coerce_rows(definition: dict, value: Any) -> list:

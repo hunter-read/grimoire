@@ -5,6 +5,7 @@ from pydantic import BaseModel, field_validator
 
 from ...auth import ROLES
 from ...passwords import check_account_password
+from ...usernames import clean_username
 
 
 # Pragmatic email regex — matches the same shape browsers use for input[type=email].
@@ -38,6 +39,11 @@ class UserCreate(BaseModel):
     # Share-link override (issue #541): "role" follows the role's default,
     # "allow"/"deny" grant or refuse it whatever the role.
     share_links: Optional[Literal["role", "allow", "deny"]] = None
+
+    @field_validator("username")
+    @classmethod
+    def username_valid(cls, v):
+        return clean_username(v)
 
     @field_validator("role")
     @classmethod
@@ -101,10 +107,7 @@ class GuestConvert(BaseModel):
     @field_validator("username")
     @classmethod
     def username_valid(cls, v):
-        v = (v or "").strip()
-        if not v:
-            raise ValueError("Username is required")
-        return v
+        return clean_username(v)
 
     @field_validator("role")
     @classmethod

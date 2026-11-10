@@ -22,6 +22,7 @@ import logging
 from pathlib import Path
 from typing import AbstractSet, Any, Callable, Optional
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..library_ignore import IgnoreMatcher
@@ -72,6 +73,8 @@ from .constants import (
     MEDIA_ARCHIVE_EXTS,
 )
 from .added_dates import first_import_done, mark_first_import_done
+from .factions import prune_empty_factions
+from ._db import _db_call
 from .hashing import (  # noqa: F401  (re-exported: patched as backend.indexer.scan.hash_file)
     apply_signature,
     changed_content,
@@ -332,6 +335,17 @@ def scan_library(
     # and its systems go once their books are gone.
     if scan_books and books_dir.exists():
         stats["removed_systems"] = _prune_vanished_systems(ctx)
+
+    # --- Drop factions left empty ---
+    # After the sweep, so a moved wargame book has been re-linked to the
+    # factions its new folders name and the ones it left can go.
+    if scan_books or scan_armory:
+        try:
+            if prune_empty_factions(session):
+                _db_call(session.commit, "commit pruned factions", session)
+        except SQLAlchemyError as e:
+            logger.error(f"DB error pruning empty factions: {e}")
+            session.rollback()
 
     # A complete walk of the whole library ends the undated first import
     # (issue #199). A scoped or interrupted scan saw only part of it, so the

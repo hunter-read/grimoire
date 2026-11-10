@@ -261,3 +261,74 @@ class TestSaving:
         ).json()
         assert body["data"]["family_records"][0]["age"] is None
         assert body["computed"]["total_age"] == 50
+
+
+def _select_from_a_list_schema():
+    """A select column, and a select field, worked out from a multiselect."""
+    return svc.validate_schema(
+        {
+            "id": "select-from-list",
+            "name": "Select From List",
+            "fields": {
+                "picks": {"type": "multiselect", "options": ["a", "b"], "default": ["a"]},
+                "favourite": {"type": "select", "options": ["a", "b"], "default_from": "picks"},
+                "rows": {
+                    "type": "list",
+                    "columns": [
+                        {"key": "name", "type": "text"},
+                        {
+                            "key": "kind",
+                            "type": "select",
+                            "options": ["a", "b"],
+                            "default_from": "picks",
+                        },
+                    ],
+                },
+            },
+        }
+    )
+
+
+class TestASelectWorkedOutAsAList:
+    """A formula can work out a list; a select never takes one as its choice."""
+
+    def test_it_reads_as_no_choice(self):
+        context = _build_context(_select_from_a_list_schema(), {"rows": [{"name": "x"}]})
+        assert context["favourite"] == ""
+        assert context["rows"][0]["kind"] == ""
+
+    def test_a_list_or_object_sent_for_a_choice_is_dropped(self):
+        definition = {"type": "select", "options": ["a", 1]}
+        assert svc.coerce_value(definition, ["a"]) == ""
+        assert svc.coerce_value(definition, {"a": 1}) == ""
+        assert svc.coerce_value(definition, 1) == 1
+        multi = {"type": "multiselect", "options": ["a", ["b"], "c"]}
+        assert svc.coerce_value(multi, [["b"], "c", {"x": 1}]) == ["c"]
+
+    def test_the_character_opens(self, client, admin_headers):
+        installed = client.post(
+            "/api/characters/schemas",
+            json={"document": _select_from_a_list_schema()},
+            headers=admin_headers,
+        )
+        assert installed.status_code in (200, 201), installed.text
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "select-from-list", "name": "Pick", "data": {"rows": [{"name": "x"}]}},
+            headers=admin_headers,
+        )
+        assert created.status_code == 200, created.text
+        cid = created.json()["id"]
+        empty = client.post(
+            "/api/characters",
+            json={"schema_ref": "select-from-list", "name": "Empty", "data": {}},
+            headers=admin_headers,
+        ).json()["id"]
+        saved = client.put(
+            f"/api/characters/{empty}",
+            json={"data": {"rows": [{"name": "y"}]}},
+            headers=admin_headers,
+        )
+        assert saved.status_code == 200, saved.text
+        for character in (cid, empty):
+            assert client.get(f"/api/characters/{character}", headers=admin_headers).status_code == 200

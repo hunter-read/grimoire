@@ -5,6 +5,8 @@ Thin by design - matching and the cascade live in ``services/folder_access`` and
 these endpoints configure. This module validates, maps errors to status codes,
 and keeps campaign shares in step.
 """
+from typing import Optional
+
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -25,11 +27,21 @@ def _bad(e: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(e))
 
 
-def _folder_exists(path: str) -> bool:
+def _folder_on_disk(path: str) -> Optional[str]:
+    """``path`` as the folder it names is spelled on disk, or None for no folder.
+
+    Resolving forgives a stray space at either end, so this is the form a rule
+    is stored in: a rule only matches books whose paths start with exactly it.
+    """
     try:
-        return fs.safe_join(path, must_exist=True).is_dir()
+        found = fs.safe_join(path, must_exist=True)
     except fs.LibraryFSError:
-        return False
+        return None
+    return fs.to_relative(found) if found.is_dir() else None
+
+
+def _folder_exists(path: str) -> bool:
+    return _folder_on_disk(path) == path
 
 
 def _books_under(path: str):
@@ -106,8 +118,10 @@ def save_folder_access_rule(
         path, level = folder_access.validate(data.path, data.level)
     except folder_access.FolderAccessError as e:
         raise _bad(e) from e
-    if not _folder_exists(path):
+    found = _folder_on_disk(path)
+    if found is None:
         raise HTTPException(404, "That folder does not exist.")
+    path = found
 
     row = db.query(FolderAccessRule).filter_by(path=path).first()
     if row is None:

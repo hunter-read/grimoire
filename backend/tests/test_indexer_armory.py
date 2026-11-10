@@ -311,3 +311,80 @@ def test_game_type_helpers():
     assert not is_armory_path(None)
     assert game_type_for_path("armory/G/x.pdf") == "wargame"
     assert game_type_for_path("books/G/x.pdf") == "ttrpg"
+
+
+def _factions(system_name: str) -> set:
+    db = SessionLocal()
+    try:
+        system = db.query(GameSystem).filter_by(name=system_name, game_type="wargame").one()
+        return {f.name for f in db.query(Faction).filter_by(game_system_id=system.id)}
+    finally:
+        db.close()
+
+
+def test_a_book_moved_on_disk_takes_its_new_folders_factions(lib):
+    tmp, library = lib
+    name = _name()
+    source = _pdf(library / "armory" / name / "Factions" / "Necrons" / "Codex.pdf")
+    _scan(tmp, library)
+    before = _book(library, "armory", name, "Factions", "Necrons", "Codex.pdf")
+    assert before.faction_names == ["Necrons"]
+
+    orks = library / "armory" / name / "Factions" / "Orks" / "Codex.pdf"
+    orks.parent.mkdir(parents=True)
+    source.rename(orks)
+    _scan(tmp, library)
+    moved = _book(library, "armory", name, "Factions", "Orks", "Codex.pdf")
+    assert moved.id == before.id  # the same book, followed to its new folder
+    assert moved.faction_names == ["Orks"]
+    assert _factions(name) == {"Orks"}  # Necrons, left empty, is gone
+
+    missions = library / "armory" / name / "Missions" / "Codex.pdf"
+    missions.parent.mkdir(parents=True)
+    orks.rename(missions)
+    _scan(tmp, library)
+    moved = _book(library, "armory", name, "Missions", "Codex.pdf")
+    assert moved.id == before.id and moved.faction_names == []
+    assert _factions(name) == set()
+
+
+def test_an_emptied_faction_an_army_uses_is_kept(lib):
+    from backend.models import Army, User
+
+    tmp, library = lib
+    name = _name()
+    source = _pdf(library / "armory" / name / "Factions" / "Imperium" / "Guard" / "Codex.pdf")
+    _scan(tmp, library)
+    db = SessionLocal()
+    try:
+        guard = db.query(Faction).filter_by(name="Guard").filter(
+            Faction.game_system.has(name=name)
+        ).one()
+        owner = User(username=f"army-{uuid.uuid4().hex[:8]}", role="player")
+        db.add(owner)
+        db.flush()
+        army = Army(
+            user_id=owner.id,
+            name="Guard list",
+            faction_id=guard.id,
+            game_system_id=guard.game_system_id,
+        )
+        db.add(army)
+        db.commit()
+        army_id, owner_id = army.id, owner.id
+    finally:
+        db.close()
+
+    source.unlink()
+    _pdf(library / "armory" / name / "Core" / "Rules.pdf")
+    _scan(tmp, library)
+    # Guard has no book now, but an army stands in it, and so its parent stays.
+    assert _factions(name) == {"Imperium", "Guard"}
+    db = SessionLocal()
+    try:
+        assert db.get(Army, army_id).faction_id is not None
+        db.query(Army).filter_by(id=army_id).delete()
+        db.query(User).filter_by(id=owner_id).delete()
+        db.commit()
+    finally:
+        db.close()

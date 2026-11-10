@@ -292,6 +292,9 @@ def update_addon(
             addons.set_enabled(db, addon_id, data.enabled, commit=False)
         if data.script_approved is not None:
             addons.set_script_approved(db, addon_id, data.script_approved, commit=False)
+        # Inside the try: with nothing to change, this is what finds an add-on
+        # that is not installed.
+        described = addons.describe(db, addon_id)
     except addons.AddonNotInstalledError as exc:
         db.rollback()
         raise HTTPException(404, str(exc)) from exc
@@ -299,7 +302,7 @@ def update_addon(
         db.rollback()
         raise HTTPException(400, str(exc)) from exc
     db.commit()
-    return addons.describe(db, addon_id)
+    return described
 
 
 def uninstall_addon(

@@ -685,3 +685,37 @@ def test_roster_totals_are_clamped():
     assert battlescribe.roster_points(data, "pts") == battlescribe.MAX_TOTAL
     data = {"costs": [{"name": "pts", "value": -10 * battlescribe.MAX_TOTAL}]}
     assert battlescribe.roster_points(data, "pts") == -battlescribe.MAX_TOTAL
+
+
+def test_an_army_in_a_system_hidden_since_can_still_be_edited(client, player_headers, necrons):
+    from backend.models import GameSystem
+
+    system, faction_id = necrons
+    created = client.post(
+        "/api/armies",
+        json={"name": "Hidden later", "game_system_id": system.id, "faction_id": faction_id, "units": []},
+        headers=player_headers,
+    )
+    assert created.status_code == 201, created.text
+    army_id = created.json()["id"]
+    db = SessionLocal()
+    try:
+        db.query(GameSystem).filter_by(id=system.id).update({"access_level": "gm"})
+        db.commit()
+        resp = client.patch(
+            f"/api/armies/{army_id}", json={"name": "Renamed", "notes": "x"}, headers=player_headers
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["name"] == "Renamed"
+        stored = db.get(Army, army_id)
+        db.refresh(stored)
+        assert (stored.game_system_id, stored.faction_id) == (system.id, faction_id)
+        # Asking to set it again is still checked.
+        again = client.patch(
+            f"/api/armies/{army_id}", json={"game_system_id": system.id}, headers=player_headers
+        )
+        assert again.status_code == 400
+    finally:
+        db.query(GameSystem).filter_by(id=system.id).update({"access_level": ""})
+        db.commit()
+        db.close()
