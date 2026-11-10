@@ -6,6 +6,7 @@ endpoint emit the same shape.
 from typing import Any
 
 from ...indexer import reocr_applies
+from ...indexer.categories import holds_shared_library
 from ...models import Book, GameSystem
 from ...models.base import utc_iso
 from ...models.game_types import GAME_TYPE_TTRPG
@@ -18,6 +19,7 @@ def serialize_book(
     tags: list[str] | None = None,
     variant_count: int = 0,
     factions: list[dict[str, Any]] | None = None,
+    linked_from: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Serialize a Book to the API shape used by the system detail view.
 
@@ -31,11 +33,17 @@ def serialize_book(
 
     ``factions`` are a wargame book's armies (``services.factions``), batched
     the same way; empty for a role-playing book.
+
+    ``linked_from`` is set for a book standing on this shelf through a link
+    rather than its folder (issue #446) - ``book_links.homes_for`` - and names
+    the system it lives in, when the reader may see that system.
     """
     return {
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
+        # The system its folder gives it - another shelf's, for a linked book.
+        "game_system_id": book.game_system_id,
         "category": book.category,
         "game_type": book.game_type or GAME_TYPE_TTRPG,
         "factions": factions if factions is not None else [],
@@ -82,6 +90,10 @@ def serialize_book(
         # When the book first appeared in the library (issue #199); null for a
         # legacy row added before this was tracked.
         "added_at": utc_iso(book.added_at),
+        # Shown here through a link, not its folder: its home system (or None
+        # when that is hidden from the reader). Absent for the shelf's own books.
+        "is_linked": bool(linked_from),
+        "linked_from": (linked_from or {}).get("system"),
     }
 
 
@@ -155,10 +167,13 @@ def serialize_system_summary(
 def _category_depth(system: GameSystem) -> int:
     """``2 + <number of enclosing containers>`` — see ``category_depth`` above.
 
+    One more for a container, whose own books sit in its ``shared-library/``
+    folder (issue #446).
+
     Walks ``parent`` rather than querying, since the caller already has the row
     loaded. Guards against a cycle the schema does not prevent.
     """
-    depth = 2
+    depth = 3 if holds_shared_library(system.container_kind) else 2
     seen: set[str] = {system.id}
     current = system.parent if system.parent_id else None
     while current is not None and current.id not in seen:

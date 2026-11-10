@@ -296,31 +296,6 @@ export default function SystemDetailView() {
       ? { to: '/armory', label: t('systemDetail.backToArmory') }
       : { to: '/library', label: t('systemDetail.backToLibrary') }
 
-  // Container folders hold systems, not categories (issues #261, #262), so they
-  // render their children as a system grid instead of a book list. A container
-  // with no children yet falls through to the normal view rather than showing an
-  // empty grid — that way a half-scanned library still shows whatever it found.
-  // The agnostic collection carries a container kind but is not a shelf of
-  // systems — its subfolders are categories — so it falls through to the normal
-  // book view below (issue: marking a folder .system-agnostic-container turned
-  // its categories into systems and emptied the collection page).
-  if (system.container_kind && !system.is_system_agnostic && (system.children || []).length > 0) {
-    return (
-      <SystemContainerView
-        system={system}
-        viewMode={systemViewMode}
-        onCycleViewMode={cycleSystemViewMode}
-        canEdit={isEditor}
-        backLabel={backTarget.label}
-        onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
-        onCoverChange={(cover: Partial<System>) => setSystem((s) => (s ? { ...s, ...cover } : s))}
-        onChildrenChange={(update: (children: System['children']) => System['children']) =>
-          setSystem((s) => (s ? { ...s, children: update(s.children) } : s))
-        }
-      />
-    )
-  }
-
   // Special collections (system-agnostic + one-page/small RPGs) are not real
   // game systems, so they don't expose editable system metadata.
   const isSpecialCollection = system.is_system_agnostic || system.is_one_page
@@ -504,6 +479,279 @@ export default function SystemDetailView() {
       : shelfData.matchCount != null
         ? t('a11y.booksShown', { count: shelfData.matchCount })
         : ''
+
+  // The books part of the page: the sort/filter bar, then the shelf grouped by
+  // category or as one flat list. A container shows it under its systems too.
+  const shelfBody = (
+    <>
+      {/* Single sticky toolbar row: sort + filters on the left, multi-select
+            and view-mode on the right (#255). Hidden while showing in-book
+            search results, which have their own layout. */}
+      {!searchResults && (
+        <SortFilterBar
+          sticky
+          state={bookFilter}
+          onChange={updateBookFilter}
+          sortOptions={bookSortOptions}
+          showSearch={false}
+          trailing={
+            <>
+              {isEditor && (
+                <BulkToggleButton active={bulkMode} onToggle={bulkMode ? bulk.exit : bulk.enter} />
+              )}
+              <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
+            </>
+          }
+          selectFilters={[
+            {
+              key: 'genres',
+              label: t('sortFilter.filterGenre'),
+              allLabel: t('sortFilter.allGenres'),
+              options: bookGenreOptions,
+            },
+            {
+              key: 'productCode',
+              label: t('sortFilter.filterProductCode'),
+              allLabel: t('sortFilter.allProductCodes'),
+              options: bookProductCodeOptions,
+            },
+          ]}
+          queryFilters={[
+            {
+              key: 'tags',
+              label: t('sortFilter.filterTags'),
+              emptyLabel: t('sortFilter.noTags'),
+              options: bookTagOptions,
+            },
+          ]}
+          toggleFilters={[
+            { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
+            {
+              key: 'recent',
+              label: t('sortFilter.filterRecent', { days: RECENTLY_ADDED_DAYS }),
+              boolean: true,
+            },
+            { key: 'explicit', label: t('sortFilter.filterExplicit') },
+          ]}
+          saved={savedBookFilters}
+          onSavePreset={handleSaveBookPreset}
+          onSetDefault={setBookPresetDefault}
+          onDeletePreset={removeBookPreset}
+        />
+      )}
+
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {listStatus}
+      </div>
+
+      <SystemSearchResults
+        searchResults={searchResults}
+        matchedBooks={matchedBooks}
+        booksContainerStyle={booksContainerStyle}
+        card={card}
+        compact={compact}
+      />
+
+      {/* Books, grouped by category (default) or as one flat sorted list. */}
+      {!searchResults &&
+        grouped &&
+        orderedCatKeys.map((cat) => (
+          <SystemCategorySection
+            key={cat}
+            cat={cat}
+            node={shelf[cat]}
+            pages={pages}
+            onLoadNode={loadNode}
+            folderOrder={folderOrder}
+            system={system}
+            isCollapsed={collapsedCats.has(cat)}
+            onToggleCat={() =>
+              setCollapsedCats((prev) => {
+                const next = new Set(prev)
+                if (next.has(cat)) next.delete(cat)
+                else next.add(cat)
+                return next
+              })
+            }
+            collapsedSubfolders={collapsedSubfolders}
+            onToggleSubfolder={toggleSubfolder}
+            bookFolderTags={bookFolderTags}
+            editingFolderKey={editingFolderKey}
+            onEditFolder={setEditingFolderKey}
+            onSaveBookFolderTags={saveBookFolderTags}
+            editingBookId={editingBookId}
+            setEditingBookId={setEditingBookId}
+            allTags={allTags}
+            existingCategories={existingCategories}
+            systemGenres={system.genres || []}
+            card={card}
+            compact={compact}
+            list={list}
+            booksContainerStyle={booksContainerStyle}
+            isEditor={isEditor}
+            onSaveBook={saveBook}
+            onVariantsChanged={handleVariantsChanged}
+            onDownload={setDownloadModal}
+            bulkMode={bulkMode}
+            selectedBookIds={selectedBookIds}
+            onToggleBook={toggleBookSelect}
+          />
+        ))}
+
+      {!searchResults && !grouped && shelfData.flatBooks.length > 0 && (
+        <ul role="list" className="card-list" style={booksContainerStyle}>
+          {shelfData.flatBooks.map((book) => (
+            <CategoryBookItem
+              key={book.id}
+              book={book}
+              card={card}
+              compact={compact}
+              list={list}
+              editingBookId={editingBookId}
+              setEditingBookId={setEditingBookId}
+              allTags={allTags}
+              existingCategories={existingCategories}
+              systemGenres={system.genres || []}
+              isEditor={isEditor}
+              onSaveBook={saveBook}
+              onVariantsChanged={handleVariantsChanged}
+              bulkMode={bulkMode}
+              selectedBookIds={selectedBookIds}
+              onToggleBook={toggleBookSelect}
+            />
+          ))}
+        </ul>
+      )}
+
+      {/* The flat list pages in as its end scrolls near (issue #221). */}
+      {!searchResults && !grouped && (
+        <>
+          {shelfData.flatLoading && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
+              <Spinner size={20} />
+            </div>
+          )}
+          <LoadMoreSentinel
+            active={shelfData.flatHasMore && !shelfData.flatLoading}
+            count={shelfData.flatBooks.length}
+            onVisible={shelfData.loadMoreFlat}
+          />
+        </>
+      )}
+
+      {!searchResults && noBooks && (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
+          <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
+          <p>{favOnly ? t('favorites.noFavoritesInView') : t('systemDetail.noBooks')}</p>
+        </div>
+      )}
+    </>
+  )
+  // Overlays and dialogs the shelf opens; fixed-position, so placement is free.
+  const shelfOverlays = (
+    <>
+      {downloadModal && (
+        <DownloadArchiveModal
+          title={downloadModal.title}
+          params={downloadModal.params}
+          onClose={() => setDownloadModal(null)}
+        />
+      )}
+      {bulkMode && (
+        <BulkActionBar
+          count={totalSelected}
+          applying={bulkApplying}
+          onApplyTags={applyBulkTags}
+          onAddToCampaign={() => setShowAddToCampaign(true)}
+          onBulkEdit={() => setShowBulkEdit(true)}
+          {...merge.barProps}
+          onDone={bulk.exit}
+        />
+      )}
+      {merge.dialog}
+
+      {showAddToCampaign && (
+        <AddToCampaignModal
+          items={selectedBookObjects().map((b) => ({ resource_type: 'book', resource_id: b.id }))}
+          onClose={() => setShowAddToCampaign(false)}
+          onAdded={() => setShowAddToCampaign(false)}
+        />
+      )}
+
+      {showBulkEdit && (
+        <BulkEditModal
+          type="book"
+          items={selectedBookObjects()}
+          existingCategories={existingCategories}
+          systemGenres={system.genres || []}
+          onClose={() => setShowBulkEdit(false)}
+          onSaved={(edited: Record<string, Partial<Book>>) => {
+            applyBookEdits(edited)
+            setShowBulkEdit(false)
+          }}
+        />
+      )}
+    </>
+  )
+
+  // Container folders hold systems, not categories (issues #261, #262), so they
+  // render their children as a system grid instead of a book list. A container
+  // with no children yet falls through to the normal view rather than showing an
+  // empty grid — that way a half-scanned library still shows whatever it found.
+  // The agnostic collection carries a container kind but is not a shelf of
+  // systems — its subfolders are categories — so it falls through to the normal
+  // book view below (issue: marking a folder .system-agnostic-container turned
+  // its categories into systems and emptied the collection page).
+  //
+  // A container's own books - its shared-library/ folder, and books linked onto
+  // it (issue #446) - are listed under the systems, in the book view mode.
+  if (system.container_kind && !system.is_system_agnostic && (system.children || []).length > 0) {
+    return (
+      <SystemContainerView
+        system={system}
+        viewMode={systemViewMode}
+        onCycleViewMode={cycleSystemViewMode}
+        canEdit={isEditor}
+        backLabel={backTarget.label}
+        onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
+        onCoverChange={(cover: Partial<System>) => setSystem((s) => (s ? { ...s, ...cover } : s))}
+        onChildrenChange={(update: (children: System['children']) => System['children']) =>
+          setSystem((s) => (s ? { ...s, children: update(s.children) } : s))
+        }
+        books={
+          system.book_count > 0 ? (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <h2 id="container-books-heading" style={{ fontSize: 22, margin: 0 }}>
+                  {t('systemContainer.sharedBooks')}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CategoryGroupToggle grouped={grouped} onToggle={setGrouped} />
+                  <CollapseExpandButtons
+                    onCollapseAll={collapseAll}
+                    onExpandAll={expandAll}
+                    collapseDisabled={!grouped || allCollapsed}
+                    expandDisabled={!grouped || (!collapsedCats.size && !collapsedSubfolders.size)}
+                  />
+                </div>
+              </div>
+              {shelfBody}
+              {shelfOverlays}
+            </>
+          ) : null
+        }
+      />
+    )
+  }
 
   return (
     <div
@@ -827,214 +1075,10 @@ export default function SystemDetailView() {
           />
         )}
 
-        {/* Single sticky toolbar row: sort + filters on the left, multi-select
-            and view-mode on the right (#255). Hidden while showing in-book
-            search results, which have their own layout. */}
-        {!searchResults && (
-          <SortFilterBar
-            sticky
-            state={bookFilter}
-            onChange={updateBookFilter}
-            sortOptions={bookSortOptions}
-            showSearch={false}
-            trailing={
-              <>
-                {isEditor && (
-                  <BulkToggleButton
-                    active={bulkMode}
-                    onToggle={bulkMode ? bulk.exit : bulk.enter}
-                  />
-                )}
-                <ViewModeToggle mode={viewMode} onCycle={cycleViewMode} style={toolBtnStyle} />
-              </>
-            }
-            selectFilters={[
-              {
-                key: 'genres',
-                label: t('sortFilter.filterGenre'),
-                allLabel: t('sortFilter.allGenres'),
-                options: bookGenreOptions,
-              },
-              {
-                key: 'productCode',
-                label: t('sortFilter.filterProductCode'),
-                allLabel: t('sortFilter.allProductCodes'),
-                options: bookProductCodeOptions,
-              },
-            ]}
-            queryFilters={[
-              {
-                key: 'tags',
-                label: t('sortFilter.filterTags'),
-                emptyLabel: t('sortFilter.noTags'),
-                options: bookTagOptions,
-              },
-            ]}
-            toggleFilters={[
-              { key: 'favorites', label: t('sortFilter.filterFavorites'), boolean: true },
-              {
-                key: 'recent',
-                label: t('sortFilter.filterRecent', { days: RECENTLY_ADDED_DAYS }),
-                boolean: true,
-              },
-              { key: 'explicit', label: t('sortFilter.filterExplicit') },
-            ]}
-            saved={savedBookFilters}
-            onSavePreset={handleSaveBookPreset}
-            onSetDefault={setBookPresetDefault}
-            onDeletePreset={removeBookPreset}
-          />
-        )}
-
-        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-          {listStatus}
-        </div>
-
-        <SystemSearchResults
-          searchResults={searchResults}
-          matchedBooks={matchedBooks}
-          booksContainerStyle={booksContainerStyle}
-          card={card}
-          compact={compact}
-        />
-
-        {/* Books, grouped by category (default) or as one flat sorted list. */}
-        {!searchResults &&
-          grouped &&
-          orderedCatKeys.map((cat) => (
-            <SystemCategorySection
-              key={cat}
-              cat={cat}
-              node={shelf[cat]}
-              pages={pages}
-              onLoadNode={loadNode}
-              folderOrder={folderOrder}
-              system={system}
-              isCollapsed={collapsedCats.has(cat)}
-              onToggleCat={() =>
-                setCollapsedCats((prev) => {
-                  const next = new Set(prev)
-                  if (next.has(cat)) next.delete(cat)
-                  else next.add(cat)
-                  return next
-                })
-              }
-              collapsedSubfolders={collapsedSubfolders}
-              onToggleSubfolder={toggleSubfolder}
-              bookFolderTags={bookFolderTags}
-              editingFolderKey={editingFolderKey}
-              onEditFolder={setEditingFolderKey}
-              onSaveBookFolderTags={saveBookFolderTags}
-              editingBookId={editingBookId}
-              setEditingBookId={setEditingBookId}
-              allTags={allTags}
-              existingCategories={existingCategories}
-              systemGenres={system.genres || []}
-              card={card}
-              compact={compact}
-              list={list}
-              booksContainerStyle={booksContainerStyle}
-              isEditor={isEditor}
-              onSaveBook={saveBook}
-              onVariantsChanged={handleVariantsChanged}
-              onDownload={setDownloadModal}
-              bulkMode={bulkMode}
-              selectedBookIds={selectedBookIds}
-              onToggleBook={toggleBookSelect}
-            />
-          ))}
-
-        {!searchResults && !grouped && shelfData.flatBooks.length > 0 && (
-          <ul role="list" className="card-list" style={booksContainerStyle}>
-            {shelfData.flatBooks.map((book) => (
-              <CategoryBookItem
-                key={book.id}
-                book={book}
-                card={card}
-                compact={compact}
-                list={list}
-                editingBookId={editingBookId}
-                setEditingBookId={setEditingBookId}
-                allTags={allTags}
-                existingCategories={existingCategories}
-                systemGenres={system.genres || []}
-                isEditor={isEditor}
-                onSaveBook={saveBook}
-                onVariantsChanged={handleVariantsChanged}
-                bulkMode={bulkMode}
-                selectedBookIds={selectedBookIds}
-                onToggleBook={toggleBookSelect}
-              />
-            ))}
-          </ul>
-        )}
-
-        {/* The flat list pages in as its end scrolls near (issue #221). */}
-        {!searchResults && !grouped && (
-          <>
-            {shelfData.flatLoading && (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
-                <Spinner size={20} />
-              </div>
-            )}
-            <LoadMoreSentinel
-              active={shelfData.flatHasMore && !shelfData.flatLoading}
-              count={shelfData.flatBooks.length}
-              onVisible={shelfData.loadMoreFlat}
-            />
-          </>
-        )}
-
-        {!searchResults && noBooks && (
-          <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>
-            <LuFolderOpen size={48} style={{ marginBottom: 16, opacity: 0.4 }} />
-            <p>{favOnly ? t('favorites.noFavoritesInView') : t('systemDetail.noBooks')}</p>
-          </div>
-        )}
-
-        {downloadModal && (
-          <DownloadArchiveModal
-            title={downloadModal.title}
-            params={downloadModal.params}
-            onClose={() => setDownloadModal(null)}
-          />
-        )}
+        {shelfBody}
       </div>
 
-      {bulkMode && (
-        <BulkActionBar
-          count={totalSelected}
-          applying={bulkApplying}
-          onApplyTags={applyBulkTags}
-          onAddToCampaign={() => setShowAddToCampaign(true)}
-          onBulkEdit={() => setShowBulkEdit(true)}
-          {...merge.barProps}
-          onDone={bulk.exit}
-        />
-      )}
-      {merge.dialog}
-
-      {showAddToCampaign && (
-        <AddToCampaignModal
-          items={selectedBookObjects().map((b) => ({ resource_type: 'book', resource_id: b.id }))}
-          onClose={() => setShowAddToCampaign(false)}
-          onAdded={() => setShowAddToCampaign(false)}
-        />
-      )}
-
-      {showBulkEdit && (
-        <BulkEditModal
-          type="book"
-          items={selectedBookObjects()}
-          existingCategories={existingCategories}
-          systemGenres={system.genres || []}
-          onClose={() => setShowBulkEdit(false)}
-          onSaved={(edited: Record<string, Partial<Book>>) => {
-            applyBookEdits(edited)
-            setShowBulkEdit(false)
-          }}
-        />
-      )}
+      {shelfOverlays}
     </div>
   )
 }

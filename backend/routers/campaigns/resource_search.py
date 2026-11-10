@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Audio, Book, GameSystem, GenericMap, Token
-from ...services import access_control, variants
+from ...services import access_control, book_links, variants
 
 # Hard ceiling on how many rows one search may return per resource type. The
 # picker browses a whole collection as a folder tree, so this has to be large
@@ -271,7 +271,7 @@ def suggested_resources(
         return []
     books = access_control.visible_books(
         db,
-        variants.parents_only(db.query(Book).filter_by(game_system_id=system_id), Book),
+        variants.parents_only(db.query(Book).filter(book_links.on_shelf(system_id)), Book),
         access_user,
     ).order_by(Book.title).all()
     out = [

@@ -18,7 +18,7 @@ from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
 from ..models import Book, GameSystem, ResourceTag, Tag
-from . import access_control, tag_service, variants
+from . import access_control, book_links, tag_service, variants
 from .search_query import BOOK_FIELDS, ParsedQuery, year_bounds
 from .systems import visible_systems_by_id
 from .sql_like import contains, icontains, ilike
@@ -177,7 +177,8 @@ def search_book_metadata(
 
     query = db.query(Book).filter(variants.parent_filter(Book))
     if system_id:
-        query = query.filter(Book.game_system_id == system_id)
+        # The system's shelf, books linked onto it included (issue #446).
+        query = query.filter(book_links.on_shelf(system_id))
 
     if parsed.has_filters:
         filtered = apply_field_filters(db, query, parsed)

@@ -16,6 +16,7 @@ import LinkableTag from '../LinkableTag'
 import { displayLabel } from '../tagStyle'
 import BookActionsMenu from './BookActionsMenu'
 import RecentlyAddedBadge from '../RecentlyAddedBadge'
+import LinkedBookBadge from './LinkedBookBadge'
 
 // The list row's compact gold tag chip.
 const rowTagStyle = {
@@ -329,6 +330,7 @@ export default function BookRow({
             >
               {(book.page_count ?? 0) > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
+            <LinkedBookBadge book={book} small />
             {(book.variant_count ?? 0) > 0 && (
               // The grid card has no badge strip, so this rides alongside the
               // page count rather than introducing a whole new row.
@@ -627,6 +629,7 @@ export default function BookRow({
               )}
             </>
           )}
+          <LinkedBookBadge book={book} />
           {(book.variant_count ?? 0) > 0 && (
             <span
               title={t('variants.otherVersions')}

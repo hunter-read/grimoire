@@ -43,6 +43,7 @@ from ._context import (
 )
 from .categories import (
     folder_category_inference_disabled,
+    is_shared_library_folder,
     is_special_collection_folder,
     prettify_collection_name,
     slugify,
@@ -257,6 +258,17 @@ def _scan_container(
         return False
 
     child_dirs = [d for d in entries if d.is_dir() and _keep_entry(d, ctx.ignore, is_dir=True)]
+    # ``shared-library/`` is the container's own shelf, not a child system (issue
+    # #446): its books are registered on the container row after the children.
+    shared_dirs = [d for d in child_dirs if is_shared_library_folder(d.name, kind)]
+    child_dirs = [d for d in child_dirs if d not in shared_dirs]
+    if scoped_child and any(d.name == scoped_child for d in shared_dirs):
+        # A rescan of the shared shelf touches that shelf alone.
+        if register_only:
+            return False
+        return _scan_shared_library(
+            ctx, container, container_folder, shared_dirs, category_inference_off, depth
+        )
 
     # Pass 1 — register every child system before indexing any books (issue #352).
     # Registering and indexing in one loop meant a stop partway through the first
@@ -345,6 +357,11 @@ def _scan_container(
     if scoped_child:
         return False
 
+    if not register_only and _scan_shared_library(
+        ctx, container, container_folder, shared_dirs, category_inference_off, depth
+    ):
+        return True
+
     loose_files = [f for f in entries if f.is_file() and _keep_entry(f, ctx.ignore, is_dir=False)]
     if kind == CONTAINER_ONE_PAGE:
         # Each loose file is a system of its own, so this belongs in the
@@ -366,6 +383,40 @@ def _scan_container(
         container_dir,
         recurse=False,
     )
+
+
+def _scan_shared_library(
+    ctx: _ScanContext,
+    container: GameSystem,
+    container_folder: _SystemFolder,
+    shared_dirs: list[Path],
+    category_inference_off: bool,
+    depth: int,
+) -> bool:
+    """Register the books in a container's ``shared-library/`` on the container row.
+
+    The shelf is laid out like a system folder - ``shared-library/core/``,
+    ``shared-library/adventures/`` - so category inference starts at the folder
+    below it, the same depth as in the container's child systems. True if a stop
+    was requested.
+    """
+    for shared_dir in shared_dirs:
+        category_off = (
+            category_inference_off
+            or (container_folder.path / NO_AUTO_CATEGORY_MARKER).exists()
+            or (shared_dir / NO_AUTO_CATEGORY_MARKER).exists()
+        )
+        if _scan_books_in_system(
+            ctx,
+            container,
+            container_folder.name,
+            category_off,
+            False,
+            shared_dir,
+            system_depth=2 + depth,
+        ):
+            return True
+    return False
 
 
 def _scan_one_page_loose_files(

@@ -15,6 +15,7 @@ const KINDS = [
   'access_grants',
   'audio_sets',
   'system_covers',
+  'system_links',
   'notes',
 ] as const
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import BookEditor from './BookEditor'
 import type { BookEditorProps, EditableBook } from './BookEditor'
 import { clearMetadataSourcesCache } from './useMetadataSources'
@@ -14,6 +15,8 @@ const mockDeleteCover: Mock = vi.fn()
 const mockGet: Mock = vi.fn((path: string) =>
   Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
 )
+const mockLinksList: Mock = vi.fn(() => Promise.resolve([]))
+const mockLinksRemove: Mock = vi.fn(() => Promise.resolve([]))
 vi.mock('../../api', () => ({
   default: {
     patch: (...args: unknown[]) => mockPatch(...args),
@@ -30,6 +33,12 @@ vi.mock('../../api', () => ({
     `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
   imageSources: {
     deleteBookCover: (...args: unknown[]) => mockDeleteCover(...args),
+  },
+  // BookSystemLinksSection lists and edits the other shelves the book is on.
+  bookLinks: {
+    list: (...args: unknown[]) => mockLinksList(...args),
+    add: vi.fn(() => Promise.resolve([])),
+    remove: (...args: unknown[]) => mockLinksRemove(...args),
   },
   duplicates: {
     link: vi.fn(() => Promise.resolve({})),
@@ -339,6 +348,47 @@ describe('BookEditor access picker placement', () => {
     renderEditor()
     expect(screen.queryByLabelText('access.pickerLabel')).not.toBeInTheDocument()
     expect(screen.getByText('bookEditor.save')).toBeInTheDocument()
+  })
+})
+
+// Issue #446: the shelves a book is linked onto are edited in place.
+describe('BookEditor linked systems', () => {
+  const pathfinder = { id: 's2', name: 'Pathfinder', game_type: 'ttrpg', is_one_page: false }
+
+  it('reloads the shelf after an unlink when opened on a shelf it is linked onto', async () => {
+    mockLinksList.mockResolvedValueOnce([pathfinder])
+    const onVariantsChanged = vi.fn()
+    render(
+      <MemoryRouter>
+        <BookEditor
+          book={makeBook({ is_linked: true })}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          onVariantsChanged={onVariantsChanged}
+        />
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'bookLinks.remove' }))
+    await waitFor(() => expect(onVariantsChanged).toHaveBeenCalledWith(null))
+    expect(mockLinksRemove).toHaveBeenCalledWith('book-1', 's2')
+  })
+
+  it('leaves its own shelf alone when a link changes', async () => {
+    mockLinksList.mockResolvedValueOnce([pathfinder])
+    const onVariantsChanged = vi.fn()
+    render(
+      <MemoryRouter>
+        <BookEditor
+          book={makeBook()}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+          onVariantsChanged={onVariantsChanged}
+        />
+      </MemoryRouter>
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'bookLinks.remove' }))
+    await waitFor(() => expect(mockLinksRemove).toHaveBeenCalled())
+    expect(onVariantsChanged).not.toHaveBeenCalled()
   })
 })
 

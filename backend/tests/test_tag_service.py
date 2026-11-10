@@ -684,11 +684,16 @@ class TestBookFolderDepth:
         self._system(db, "outer", container_kind="family")
         self._system(db, "inner", parent_id="outer", container_kind="parent")
         self._system(db, "deep", parent_id="inner")
+        # A container's own books sit in its shared-library/ folder (issue
+        # #446), one segment below the container itself.
         assert tag_service.system_category_depths(db) == {
-            "outer": 2,
-            "inner": 3,
+            "outer": 3,
+            "inner": 4,
             "deep": 4,
         }
+        assert {
+            sid: tag_service.system_category_depth(db, sid) for sid in ("outer", "inner", "deep")
+        } == tag_service.system_category_depths(db)
 
     def test_cycle_does_not_hang(self):
         db = _session()

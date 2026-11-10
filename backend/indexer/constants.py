@@ -99,6 +99,19 @@ CONTAINER_GENERIC = "generic"
 # already claims them.
 SINGLETON_CONTAINER_KINDS = frozenset({CONTAINER_ONE_PAGE, CONTAINER_AGNOSTIC})
 
+# A container's own shelf (issue #446): ``books/Dungeons & Dragons/shared-library/``
+# holds the books that belong to the whole container rather than one of its
+# systems - a Forgotten Realms sourcebook beside the 5e and 5.5e editions. The
+# name is reserved, never a child system, and its books sit on the container's
+# own row, with category folders inside it exactly as under any system.
+SHARED_LIBRARY_FOLDER = "shared-library"
+# The kinds whose children are systems a book can be shared across. A one-page
+# collection's subfolders are each a tiny game of their own, and the agnostic
+# collection's are categories, so neither has a shared shelf.
+SHARED_LIBRARY_KINDS = frozenset(
+    {CONTAINER_PARENT, CONTAINER_FAMILY, CONTAINER_PUBLISHER, CONTAINER_GENERIC}
+)
+
 # Precedence when a folder carries more than one container declaration, most
 # specific first: a folder claiming both "parent system" and "publisher" is
 # read as the parent system, because that makes the stronger claim about how

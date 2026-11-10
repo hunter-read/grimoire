@@ -9,7 +9,7 @@ from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...codex import collection as codex_collection
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
-from ...services import access_control, bulk_service, tag_service, variants
+from ...services import access_control, book_links, bulk_service, tag_service, variants
 from ...sql_paths import path_under
 from .._bulk_schemas import BulkAddTags
 from ...services.books.access import enforce_campaign_visibility, pop_access_level
@@ -88,6 +88,11 @@ def list_systems(
     if game_type:
         system_q = system_q.filter(GameSystem.game_type == game_type)
     systems = access_control.visible_systems(db, system_q, user).all()
+    # Books linked onto a shelf count on it too (issue #446), through the same
+    # narrowing, so the card's number is what the shelf shows.
+    agg = book_links.add_counts(
+        agg, book_links.linked_counts(_count_base(db, user, can_see_explicit), [s.id for s in systems])
+    )
     # Number of child systems per container, for the container's card; only
     # the children this user can see, matching the container page.
     child_q: OrmQuery[Any] = db.query(GameSystem.parent_id, func.count(GameSystem.id)).filter(
@@ -139,6 +144,14 @@ def list_systems(
 
     result = _sort_systems(result, sort, order)
     return result
+
+
+def _count_base(db: Session, user: Any, can_see_explicit: bool) -> OrmQuery[Any]:
+    """Every book ``user`` would see counted on a shelf: main versions they may open."""
+    q = db.query(Book).filter(variants.parent_filter(Book))
+    if not can_see_explicit:
+        q = q.filter(Book.is_explicit != True)  # noqa: E712
+    return access_control.visible_books(db, q, user)
 
 
 def _sort_systems(rows: list[dict], sort: str, order: str) -> list[dict]:
@@ -195,9 +208,8 @@ def get_system(
     if not access_control.can_access_system(db, user, system):
         raise HTTPException(404, "System not found")
 
-    book_q = variants.parents_only(
-        db.query(Book).filter_by(game_system_id=system.id), Book
-    )
+    # The system's own books and those linked onto its shelf (issue #446).
+    book_q = variants.parents_only(db.query(Book).filter(book_links.on_shelf(system.id)), Book)
     if not can_see_explicit:
         book_q = book_q.filter(Book.is_explicit != True)
     book_q = access_control.visible_books(db, book_q, user)
@@ -215,7 +227,10 @@ def get_system(
         ).one()
         cover_book_id = visible_cover_id(db, system.cover_book_id, user)
         if not cover_book_id and not system.container_kind:
-            with_thumb = book_q.filter(Book.has_thumbnail == True)  # noqa: E712
+            # Its own books only: a linked book is another system's cover.
+            with_thumb = book_q.filter(
+                Book.game_system_id == system.id, Book.has_thumbnail == True  # noqa: E712
+            )
             cover_book_id = (
                 with_thumb.filter(Book.category == "core").with_entities(Book.id).limit(1).scalar()
                 or with_thumb.with_entities(Book.id).limit(1).scalar()
@@ -239,9 +254,10 @@ def get_system(
     # never borrow a child's book as their cover — see resolve_cover_book_id.
     cover_book_id = visible_cover_id(db, system.cover_book_id, user)
     if not cover_book_id and not system.container_kind:
-        auto = next((b for b in books if b.category == "core" and b.has_thumbnail), None)
+        own = [b for b in books if b.game_system_id == system.id]
+        auto = next((b for b in own if b.category == "core" and b.has_thumbnail), None)
         if not auto:
-            auto = next((b for b in books if b.has_thumbnail), None)
+            auto = next((b for b in own if b.has_thumbnail), None)
         if auto:
             cover_book_id = auto.id
 
@@ -268,12 +284,14 @@ def get_system(
         child_count=len(children),
     )
     book_factions = factions_for_books(db, [b.id for b in books])
+    homes = book_links.homes_for(db, books, system.id, current_user)
     summary["books"] = [
         serialize_book(
             b,
             tags=book_tags.get(b.id, []),
             variant_count=vcounts.get(b.id, 0),
             factions=book_factions.get(b.id, []),
+            linked_from=homes.get(b.id),
         )
         for b in books
     ]
@@ -335,6 +353,10 @@ def _serialize_children(
         gsid: (count, pages)
         for gsid, count, pages in agg_q.group_by(Book.game_system_id).all()
     }
+    agg = book_links.add_counts(
+        agg,
+        book_links.linked_counts(_count_base(db, user, can_see_explicit), [c.id for c in children]),
+    )
     child_tags = tag_service.display_tags_for_resources(db, "system", [c.id for c in children])
     rows = []
     for c in children:

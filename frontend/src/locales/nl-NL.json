@@ -193,7 +193,8 @@
     "empty": "Nog geen systemen gevonden in deze collectie.",
     "noMatch": "Geen systemen in deze collectie komen overeen met de huidige filters.",
     "count_one": "{{count}} systeem",
-    "count_other": "{{count}} systemen"
+    "count_other": "{{count}} systemen",
+    "sharedBooks": "Gedeelde boeken"
   },
   "systemDetail": {
     "backToLibrary": "Terug naar bibliotheek",
@@ -3540,7 +3541,20 @@
     "fileSize": "Bestandsgrootte",
     "format": "Formaat",
     "path": "Pad",
-    "productCode": "Productcode"
+    "productCode": "Productcode",
+    "linkedFrom": "Gekoppeld vanuit"
+  },
+  "bookLinks": {
+    "heading": "Ook getoond in",
+    "hint": "Het bestand blijft waar het is. De planken van deze systemen tonen het ook, met dezelfde tags, toegang en leesvoortgang.",
+    "none": "Alleen op de plank van het eigen systeem.",
+    "add": "Tonen in een ander systeem",
+    "pick": "Kies een systeem",
+    "addButton": "Toevoegen",
+    "remove": "Verwijderen uit {{name}}",
+    "badge": "Gekoppeld",
+    "linkedFrom": "Gekoppeld vanuit {{name}}",
+    "linkedHidden": "Gekoppeld vanuit een ander systeem"
   },
   "appearance": {
     "title": "Appearance",
@@ -4277,6 +4291,8 @@
         "audio_sets_other": "{{count}} soundboard- of afspeellijstitems",
         "system_covers_one": "{{count}} systeemomslag",
         "system_covers_other": "{{count}} systeemomslagen",
+        "system_links_one": "{{count}} koppeling met een ander systeem",
+        "system_links_other": "{{count}} koppelingen met andere systemen",
         "notes_one": "{{count}} campagnenotitie die het insluit",
         "notes_other": "{{count}} campagnenotities die het insluiten"
       },

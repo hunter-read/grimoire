@@ -145,12 +145,14 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
   // reached by drilling in, so the children stay out of the grid. Flattened:
   // the containers themselves drop out and their children take their place, so
   // the grid is a plain list of real systems (never both, which would show the
-  // same games twice). Special collections keep their own chip strip either way.
+  // same games twice). A container holding books of its own - its shared shelf
+  // (issue #446) - keeps a card even then, since those books are on no child's.
+  // Special collections keep their own chip strip either way.
   const inGrid = (s: SystemSummary) =>
     visible(s) &&
     !isSpecial(s) &&
     !isOnePageChild(s) &&
-    (grouped ? !s.parent_id : !s.container_kind)
+    (grouped ? !s.parent_id : !s.container_kind || s.book_count > 0)
 
   // Every regular system this user can see, before the sort/filter bar narrows
   // it. The subtitle's denominator, so it only ever counts systems already

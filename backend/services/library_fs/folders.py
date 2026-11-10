@@ -16,13 +16,12 @@ from sqlalchemy.orm import Session
 from ...config import logger
 from ...filenames import is_undecodable
 from ...indexer.categories import (
-    detect_container_kind,
     guess_category,
     match_wargame_category,
     is_one_page_folder,
+    is_shared_library_folder,
     is_system_agnostic_folder,
     slugify,
-    strip_container_suffix,
 )
 from ...indexer.constants import (
     CONTAINER_AGNOSTIC,
@@ -47,7 +46,12 @@ from .paths import (
     safe_join,
     to_relative,
 )
-from .placement import _container_child_slug, _system_depth_for, _system_folder_name
+from .placement import (
+    _container_child_slug,
+    _container_kind_at as _container_kind_of,
+    _system_depth_for,
+    _system_folder_name,
+)
 from .wargame_placement import wargame_folder_category
 
 # Where a container kind is refused: one that only books/ (or the armory) reads.
@@ -422,6 +426,9 @@ def accepts_container_kind(target: Path) -> bool:
     # the whole chain hangs from.
     if len(parts) < 2:
         return False
+    # A container's shared shelf holds books, never systems (issue #446).
+    if is_shared_library_folder(target.name, _container_kind_of(target.parent)):
+        return False
     return holds_system_folders(target.parent)
 
 
@@ -440,12 +447,6 @@ def accepts_frames_marker(target: Path) -> bool:
     rel = to_relative(target)
     parts = rel.split("/")
     return parts[0] == "tokens" and len(parts) >= 2
-
-
-def _container_kind_of(folder: Path) -> str:
-    """The container kind a books folder declares, by marker, suffix, or name."""
-    _, suffix_kind = strip_container_suffix(folder.name)
-    return suffix_kind or detect_container_kind(folder, folder.name)
 
 
 def scaffold_categories(path: str) -> dict:

@@ -59,6 +59,8 @@ export default function BookDetailsModal({ book, onClose }: BookDetailsModalProp
       [t('bookDetails.fileSize'), book.file_size ? formatSize(book.file_size) : ''],
       [t('bookDetails.format'), book.mime_type],
       [t('bookDetails.path'), book.relative_path],
+      // On this shelf through a link (issue #446): where the book really lives.
+      [t('bookDetails.linkedFrom'), book.is_linked ? book.linked_from?.name : ''],
     ] as [string, string | null | undefined][]
   ).filter(([, value]) => value)
 

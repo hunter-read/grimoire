@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 from ...services import tag_service
 from ...services.library_fs import is_category_name
 from ...services.books.access import ACCESS_INHERIT
+from .._book_link_schemas import LinkedSystemRef
 from .._bulk_schemas import bulk_update_model
 from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import coerce_link_list, coerce_str_list
@@ -304,6 +305,9 @@ class BookDetail(BaseModel):
     variant_main_filename: str = ""
     variants: list[VariantEntry] = []
     game_system: Optional[BookSystemRef] = None
+    # The other systems whose shelves this book also stands on (issue #446),
+    # as far as the reader can see them.
+    linked_systems: list[LinkedSystemRef] = []
 
     # These columns are free-form JSON; normalize legacy shapes rather than
     # failing the response. See `_json_list_coercion`.

@@ -16,6 +16,8 @@ from .constants import (
     CONTAINER_PRECEDENCE,
     NO_AUTO_CATEGORY_MARKER,  # noqa: F401  (re-exported for callers)
     NSFW_MARKER,
+    SHARED_LIBRARY_FOLDER,
+    SHARED_LIBRARY_KINDS,
     UNCATEGORIZED,
     WARGAME_CATEGORY_EXACT_NAMES,
     WARGAME_CATEGORY_MAP,
@@ -66,6 +68,28 @@ def is_special_collection_folder(folder_name: str) -> bool:
     the normal CATEGORY_MAP inference.
     """
     return is_system_agnostic_folder(folder_name) or is_one_page_folder(folder_name)
+
+
+def is_shared_library_folder(folder_name: str, container_kind: str | None) -> bool:
+    """Whether ``folder_name`` is the shared shelf of a ``container_kind`` container.
+
+    ``shared-library`` (any case) inside a container whose children are systems
+    holds the container's own books rather than being a system of its own
+    (issue #446). Anywhere else - a plain system's category folder, a one-page
+    collection's game - the name is nothing special.
+    """
+    return (container_kind or "") in SHARED_LIBRARY_KINDS and (
+        folder_name.strip().lower() == SHARED_LIBRARY_FOLDER
+    )
+
+
+def holds_shared_library(container_kind: str | None) -> bool:
+    """Whether a system of ``container_kind`` keeps its own books in ``shared-library/``.
+
+    Such a container's books sit one folder deeper than a system's would, so
+    the category folder is one index further along their paths.
+    """
+    return (container_kind or "") in SHARED_LIBRARY_KINDS
 
 
 def prettify_collection_name(name: str) -> str:

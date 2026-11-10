@@ -9,6 +9,7 @@ from .api_keys import ApiKey
 from .armies import Army, PublicationLink
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
+from .book_links import BookSystemLink
 from .characters import Character, CharacterSchema, UserImporter
 from .content import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from .campaigns import (
@@ -73,6 +74,7 @@ __all__ = [
     "GameSystem",
     "Book",
     "BookFolder",
+    "BookSystemLink",
     "FolderNamingRule",
     "Genre",
     "SystemFamily",

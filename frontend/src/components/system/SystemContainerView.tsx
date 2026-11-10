@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuLibrary, LuPencil } from 'react-icons/lu'
 import SystemCard from '../library/SystemCard'
@@ -35,8 +35,9 @@ import { systemPath } from '../../utils/armory'
  * saved presets, multi-select and view mode (issue #500) - since a container is
  * a smaller library in its own right.
  *
- * Any books sitting loose at the container's own root are rendered underneath by
- * the caller, which owns the normal book-list rendering.
+ * The container's own books - its `shared-library/` folder, and books linked
+ * onto it (issue #446) - are rendered underneath as `books`, by the caller,
+ * which owns the normal book-list rendering.
  *
  * @param onChildrenChange  (updater) => void, patches the children after a bulk
  *   tag or edit so the grid updates without a refetch
@@ -52,6 +53,8 @@ export interface SystemContainerViewProps {
   onBack: () => void
   onCoverChange?: (cover: CoverChange) => void
   onChildrenChange: (update: (children: ChildSystem[]) => ChildSystem[]) => void
+  /** The container's own book shelf, shown under its systems; omitted when it has none. */
+  books?: ReactNode
 }
 
 export default function SystemContainerView({
@@ -63,6 +66,7 @@ export default function SystemContainerView({
   onBack,
   onCoverChange,
   onChildrenChange,
+  books,
 }: SystemContainerViewProps) {
   const { t, i18n } = useTranslation()
   const pins = usePins('systems')
@@ -280,6 +284,12 @@ export default function SystemContainerView({
               </ul>
             )}
           />
+        )}
+
+        {books && (
+          <section aria-labelledby="container-books-heading" style={{ marginTop: 40 }}>
+            {books}
+          </section>
         )}
       </div>
 

@@ -193,7 +193,8 @@
     "empty": "No systems found in this collection yet.",
     "noMatch": "No systems in this collection match the current filters.",
     "count_one": "{{count}} system",
-    "count_other": "{{count}} systems"
+    "count_other": "{{count}} systems",
+    "sharedBooks": "Shared books"
   },
   "systemDetail": {
     "backToLibrary": "Back to Library",
@@ -3540,7 +3541,20 @@
     "fileSize": "File size",
     "format": "Format",
     "path": "Path",
-    "productCode": "Product code"
+    "productCode": "Product code",
+    "linkedFrom": "Linked from"
+  },
+  "bookLinks": {
+    "heading": "Also shown in",
+    "hint": "The file stays where it is. These systems' shelves list it too, with the same tags, access and reading progress.",
+    "none": "Only on its own system's shelf.",
+    "add": "Show on another system",
+    "pick": "Choose a system",
+    "addButton": "Add",
+    "remove": "Remove from {{name}}",
+    "badge": "Linked",
+    "linkedFrom": "Linked from {{name}}",
+    "linkedHidden": "Linked from another system"
   },
   "appearance": {
     "title": "Appearance",
@@ -4277,6 +4291,8 @@
         "audio_sets_other": "{{count}} soundboard or playlist entries",
         "system_covers_one": "{{count}} system cover",
         "system_covers_other": "{{count}} system covers",
+        "system_links_one": "{{count}} link onto another system",
+        "system_links_other": "{{count}} links onto other systems",
         "notes_one": "{{count}} campaign note that embeds it",
         "notes_other": "{{count}} campaign notes that embed it"
       },

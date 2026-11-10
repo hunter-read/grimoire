@@ -121,6 +121,23 @@ describe('SystemContainerView', () => {
     expect(screen.getByText('1 systems in this collection')).toBeInTheDocument()
   })
 
+  it("renders the container's own books under its systems", () => {
+    render(
+      <SystemContainerView
+        {...unset}
+        system={makeContainer()}
+        onBack={vi.fn()}
+        books={<h2 id="container-books-heading">Shared shelf</h2>}
+      />
+    )
+    expect(screen.getByRole('region', { name: 'Shared shelf' })).toBeInTheDocument()
+  })
+
+  it('has no book section when the container holds no books', () => {
+    render(<SystemContainerView {...unset} system={makeContainer()} onBack={vi.fn()} />)
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+  })
+
   it('prefers the container description over the generated summary', () => {
     render(
       <SystemContainerView
