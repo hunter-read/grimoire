@@ -238,6 +238,10 @@ export const files = {
   // Asked of the server rather than counted from a listing: the listing hides
   // sidecars and markers, so the two definitions of "empty" would disagree.
   folderContents: (path: string) => client.get('/files/folder/contents', { query: { path } }),
+  // Campaigns using a map at or under `path`, and whether a delete leaves each
+  // one a copy of it (issue #578). Asked by the delete dialog before confirming.
+  campaignMapCopies: (path: string) =>
+    client.get('/files/campaign-map-copies', { query: { path } }),
   // Create the standard category folders inside a system folder.
   scaffold: (path: string) => client.post('/files/folder/scaffold', { body: { path } }),
   // Fetch the full record behind a listing row, so the shared metadata editor

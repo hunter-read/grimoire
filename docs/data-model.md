@@ -106,6 +106,8 @@ erDiagram
     wiki_pages ||--o{ wiki_pages : "parent of"
     wiki_pages ||--o{ wiki_page_links : "source of"
     wiki_pages ||--o{ wiki_page_links : "target of"
+    wiki_pages ||--o{ wiki_map_pins : "pins on"
+    wiki_pages |o--o{ wiki_map_pins : "pinned by"
 
     tags ||--o{ resource_tags : "applied via"
 
@@ -212,6 +214,9 @@ its migration in the same change (and the reverse).
 | `gm_screen_panels.campaign_id` | `campaigns.id` | `ON DELETE CASCADE`: a deleted campaign takes its GM screen |
 | `wiki_page_links.source_page_id` | `wiki_pages.id` | |
 | `wiki_page_links.target_page_id` | `wiki_pages.id` | |
+| `wiki_map_pins.page_id` | `wiki_pages.id` | `ON DELETE CASCADE`: a map page takes its pins |
+| `wiki_map_pins.target_page_id` | `wiki_pages.id` | nullable; `ON DELETE SET NULL`, leaving an unlinked pin |
+| `wiki_map_pins.created_by_id` | `users.id` | nullable; attribution, cleared when the user is deleted |
 | `resource_tags.tag_id` | `tags.id` | `ON DELETE CASCADE`; `resource_id` is a polymorphic soft link (not a FK) |
 | `armies.user_id` | `users.id` | the army's owner; deleted with them, with its roster file (`purge_user_data`), and moved by a guest merge |
 | `armies.game_system_id` | `game_systems.id` | the wargame system it is matched to; **ON DELETE SET NULL** |
@@ -348,10 +353,11 @@ path-keyed feature.
 | `player_session_notes` | Per-player scratch pad for a session. | FKs `session_id`, `user_id`. **Unique** `(session_id, user_id)`. |
 | `gm_session_notes` | GM internal + shared notes for a session. | FK `session_id` **unique** (one-to-one). |
 | `session_availability` | A user's availability for a session date. | FKs `campaign_id`, `user_id`. **Unique** `(campaign_id, user_id, session_date)`. |
-| `wiki_pages` | A markdown wiki page in a campaign. | FKs `campaign_id`, `created_by_id`, `parent_id` (self), `category_id` (legacy). **Unique** `(campaign_id, slug)`. `visibility` ∈ `gm`/`group`/`members`, interpreted relative to `created_by_id`: `gm` is author-only (labelled "GM only" or "Self only" by who wrote it), `group` is campaign-wide read+write, `members` is the share list. |
+| `wiki_pages` | A markdown wiki page in a campaign. | FKs `campaign_id`, `created_by_id`, `parent_id` (self), `category_id` (legacy). **Unique** `(campaign_id, slug)`. `visibility` ∈ `gm`/`group`/`members`, interpreted relative to `created_by_id`: `gm` is author-only (labelled "GM only" or "Self only" by who wrote it), `group` is campaign-wide read+write, `members` is the share list. `page_type` ∈ `note`/`session`/`map`; a map page's picture is `map_id` (a library map) or `map_file_id` (a campaign file), both soft references with no FK so the page outlives a deleted map as a placeholder. |
 | `wiki_page_shares` | A user a `members` ("Private") wiki page is shared with. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. The row grants read; `can_write` upgrades it to read+write. Write implies read, so there is no write-without-read state - revoking read deletes the row. Rows predating `can_write` default to read-only. |
 | `wiki_page_hidden` | A wiki page one user has hidden from their own view. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. Per-user decluttering, not a permission: available on any page the user can see, and invisible to everyone else. Hiding a parent hides its subtree, derived at read time from `parent_id` rather than stored per descendant. |
-| `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
+| `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save, and on a map page whenever its pins change: a non-GM pin's target counts as a link. |
+| `wiki_map_pins` | A pin on a map page. | FKs `page_id` (cascades), `target_page_id` (nullable, set null when the target is deleted), `created_by_id`. `x`/`y` are fractions of the map (0-1). `visibility` ∈ `page` (whoever can see the map page and the target) / `gm` (the campaign GM only). |
 | `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything - a GM may keep several copies of the same community template. |
 | `gm_screen_panels` | One tool on a campaign's GM screen (issue #764; model in [`backend/models/gm_screen.py`](../backend/models/gm_screen.py)) - one row per panel, so ticking a countdown on one device does not overwrite a panel moved on another. Only the campaign's owner reads or writes them. | FK `campaign_id` (cascades, migration 0068; index `ix_gm_screen_panels_campaign_id`). `kind` ∈ `note`/`party`/`counter`/`clocks`/`pools`/`scratch`/`initiative`. `x`/`y`/`w`/`h` place it on a twelve-column grid. `config` (the tool's setup, copied with the board) and `state` (what is on it now, reset when copied) are JSON whose shape depends on `kind`, rebuilt by [`backend/services/gm_screen/panels.py`](../backend/services/gm_screen/panels.py) on every write. |
 

@@ -31,6 +31,8 @@ vi.mock('../../api', () => ({
     wikiTemplates: vi.fn(),
     useWikiTemplate: vi.fn(),
     getWikiTemplate: vi.fn(),
+    listResources: vi.fn(() => Promise.resolve([])),
+    searchResources: vi.fn(() => Promise.resolve([])),
     fileUrl: (cid: string, id: string) => `http://localhost/campaigns/${cid}/files/${id}`,
   },
 }))
@@ -1420,5 +1422,77 @@ describe('WikiView page list failure', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('Here be dragons')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('WikiView map pages', () => {
+  const mapPage = {
+    ...page,
+    id: 'map1',
+    title: 'Sword Coast',
+    slug: 'sword-coast',
+    page_type: 'map',
+    body: '',
+    map: { source: 'library', id: 'm1', name: 'coast.png', has_thumbnail: false },
+    pins: [
+      {
+        id: 'pin1',
+        x: 0.4,
+        y: 0.6,
+        label: '',
+        target_page_id: 'p1',
+        target_title: 'Dragons',
+        visibility: 'page',
+        sort_order: 0,
+        can_edit: true,
+      },
+    ],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaignsMock.listWikiPages.mockResolvedValue([mapPage, page])
+  })
+
+  it('shows the map, its pins, and no empty text box', async () => {
+    campaignsMock.getWikiPage.mockResolvedValue(mapPage)
+    renderView()
+    const region = await screen.findByRole('region', { name: 'Map' })
+    expect(within(region).getByRole('link', { name: 'Dragons' })).toHaveAttribute(
+      'href',
+      '/campaigns/c1/notes?note=p1'
+    )
+    expect(screen.queryByText('Here be dragons')).not.toBeInTheDocument()
+  })
+
+  it('says when a backlink is a pin', async () => {
+    campaignsMock.getWikiPage.mockResolvedValue({
+      ...page,
+      backlinks: [{ id: 'map1', title: 'Sword Coast', slug: 'sword-coast', via_pin: true }],
+    })
+    renderView()
+    expect(await screen.findByRole('link', { name: 'Pinned on Sword Coast' })).toHaveAttribute(
+      'href',
+      '/campaigns/c1/notes?note=map1'
+    )
+  })
+
+  it('starts a map page from its own button', async () => {
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+    campaignsMock.createWikiPage.mockResolvedValue({ id: 'new' })
+    renderView()
+    await screen.findByText('Here be dragons')
+    fireEvent.click(screen.getByRole('button', { name: 'New map page' }))
+    expect(screen.getByText('No map chosen')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('textbox', { name: 'Page title' }), {
+      target: { value: 'Region' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(campaigns.createWikiPage).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ title: 'Region', page_type: 'map' })
+      )
+    )
   })
 })

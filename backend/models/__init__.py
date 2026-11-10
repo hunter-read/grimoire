@@ -32,6 +32,7 @@ from .campaigns import (
 )
 from .db import init_db
 from .gm_screen import GmScreenPanel
+from .wiki_maps import WikiMapPin
 from .duplicates import DuplicateDismissal, DuplicateGroup
 from .factions import Faction, book_factions
 from .leagues import League, LeagueGame, LeagueMember, LeagueResource, LeagueResourceShare
@@ -142,6 +143,7 @@ __all__ = [
     "WikiPageHidden",
     "WikiTemplate",
     "GmScreenPanel",
+    "WikiMapPin",
     "WikiPageLink",
     "CampaignCategory",
     "CampaignSchedule",

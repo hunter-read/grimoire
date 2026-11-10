@@ -2,7 +2,7 @@
 
 import re
 from typing import Optional, List
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from .._link_urls import require_http_url
 from .._names import Name, OptionalId
@@ -188,8 +188,12 @@ class WikiPageCreate(BaseModel):
     # gm = author only ("GM only" / "Self only" depending who wrote it),
     # group = public, members = private to an explicit share list.
     visibility: str = "gm"
-    page_type: str = "note"  # note | session
+    page_type: str = "note"  # note | session | map
     session_date: Optional[str] = None  # YYYY-MM-DD for session pages
+    # A map page's picture: a library map linked to the campaign, or one of the
+    # campaign's own image files. Ignored on any other page type.
+    map_id: Optional[str] = None
+    map_file_id: Optional[str] = None
     shared_user_ids: Optional[List[str]] = None  # read access, members visibility
     # Subset of the share list that also gets write. Listing a user here alone is
     # enough — write implies read, so the server adds the read grant.
@@ -213,12 +217,46 @@ class WikiPageUpdate(BaseModel):
     parent_id: Optional[str] = None
     icon: Optional[str] = None  # "" clears it
     icon_color: Optional[str] = None  # "" clears it
+    # Setting one clears the other: a map page shows one picture. "" clears it.
+    map_id: Optional[str] = None
+    map_file_id: Optional[str] = None
 
     _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 class WikiReorder(BaseModel):
     ordered_ids: List[str]
+
+
+# Pins on a map page (issue #578). `x`/`y` are fractions of the picture.
+class WikiMapPinCreate(BaseModel):
+    x: float = Field(..., ge=0, le=1)
+    y: float = Field(..., ge=0, le=1)
+    label: str = Field("", max_length=255)
+    # The page the pin opens, by id. Or by title: one that names no page yet
+    # creates a stub, the way a [[Page Title]] link does. Neither = no link.
+    target_page_id: Optional[str] = None
+    target_title: Optional[str] = Field(None, max_length=255)
+    icon: Optional[str] = Field(None, max_length=50)
+    icon_color: Optional[str] = None
+    # page = follows the map page and target page; gm = the GM's alone.
+    visibility: str = "page"
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
+
+
+class WikiMapPinUpdate(BaseModel):
+    x: Optional[float] = Field(None, ge=0, le=1)
+    y: Optional[float] = Field(None, ge=0, le=1)
+    label: Optional[str] = Field(None, max_length=255)
+    # "" unlinks the pin.
+    target_page_id: Optional[str] = None
+    target_title: Optional[str] = Field(None, max_length=255)
+    icon: Optional[str] = Field(None, max_length=50)  # "" clears it
+    icon_color: Optional[str] = None  # "" clears it
+    visibility: Optional[str] = None
+
+    _check_icon_color = field_validator("icon_color")(clean_icon_color)
 
 
 # Note templates. `name` and `body` are the substance; system/category are free

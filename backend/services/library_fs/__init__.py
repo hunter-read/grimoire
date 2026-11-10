@@ -133,6 +133,7 @@ from .deletes import (  # noqa: F401
     _delete_folder_tree,
     _delete_records,
     _purge_derived,
+    campaign_map_copies,
     delete_empty_folder,
     delete_path,
     folder_has_content,

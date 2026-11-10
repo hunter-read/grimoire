@@ -13,6 +13,7 @@ export interface DeleteModalProps<E extends DeleteTarget> {
   onDeleted?: (result: Schema<'DeleteResponse'>, entry: E) => void
 }
 import Spinner from '../Spinner'
+import CampaignMapCopiesNotice from './CampaignMapCopiesNotice'
 
 /**
  * Confirm removing a file or folder from the library, from the index or disk.
@@ -174,6 +175,10 @@ export default function DeleteModal<E extends DeleteTarget>({
             </span>
           </span>
         </label>
+
+        {/* Either mode takes the map out of the library, so campaigns using it
+            are told what they keep either way. */}
+        <CampaignMapCopiesNotice path={entry.path} />
 
         {needsName && (
           <div style={{ marginTop: 14 }}>

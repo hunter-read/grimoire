@@ -428,6 +428,35 @@ def folder_contents(
     }
 
 
+def campaign_map_copies(
+    path: str,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Campaigns using a map at or under ``path``, and whether each keeps a copy.
+
+    The delete dialog lists these before confirming, since a delete through the
+    app copies each such map into the campaigns that use it as far as their
+    upload limits allow (issue #578).
+    """
+    try:
+        plan = fs.campaign_map_copies(db, path)
+    except fs.LibraryFSError as e:
+        raise _http(e) from e
+    return {
+        "campaigns": [
+            {
+                "campaign_id": item.campaign_id,
+                "campaign_name": item.campaign_name,
+                "map_id": item.map_id,
+                "map_name": item.map_name,
+                "outcome": item.outcome,
+            }
+            for item in plan
+        ]
+    }
+
+
 def scaffold_categories(
     req: ScaffoldRequest,
     _: CurrentUser = Depends(require_admin),

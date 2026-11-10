@@ -3361,6 +3361,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/campaigns/{campaign_id}/wiki/{page_id}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a pin to a map page */
+        post: operations["create_pin_api_campaigns__campaign_id__wiki__page_id__pins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/wiki/{page_id}/pins/{pin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a pin from a map page */
+        delete: operations["delete_pin_api_campaigns__campaign_id__wiki__page_id__pins__pin_id__delete"];
+        options?: never;
+        head?: never;
+        /** Move or edit a pin on a map page */
+        patch: operations["update_pin_api_campaigns__campaign_id__wiki__page_id__pins__pin_id__patch"];
+        trace?: never;
+    };
     "/api/cancel-scan": {
         parameters: {
             query?: never;
@@ -4635,6 +4670,30 @@ export interface paths {
          *     rather than silently showing a partial folder.
          */
         get: operations["browse_api_files_browse_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/files/campaign-map-copies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaigns that use a map a delete would remove, and whether each keeps a copy
+         * @description Campaigns using a map at or under ``path``, and whether each keeps a copy.
+         *
+         *     The delete dialog lists these before confirming, since a delete through the
+         *     app copies each such map into the campaigns that use it as far as their
+         *     upload limits allow (issue #578).
+         */
+        get: operations["campaign_map_copies_api_files_campaign_map_copies_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10081,6 +10140,31 @@ export interface components {
             name: string;
             /** Owner Display Name */
             owner_display_name: string;
+        };
+        /** CampaignMapCopiesResponse */
+        CampaignMapCopiesResponse: {
+            /** Campaigns */
+            campaigns: components["schemas"]["CampaignMapCopyOut"][];
+        };
+        /**
+         * CampaignMapCopyOut
+         * @description One campaign using a map that a delete would take out of the library.
+         *
+         *     ``outcome`` is ``copy`` when the campaign keeps its own copy; otherwise why
+         *     not (``too_large``, ``uploads_disabled``, ``not_image``, ``file_missing``),
+         *     in which case its map pages show a placeholder with Replace map.
+         */
+        CampaignMapCopyOut: {
+            /** Campaign Id */
+            campaign_id: string;
+            /** Campaign Name */
+            campaign_name: string;
+            /** Map Id */
+            map_id: string;
+            /** Map Name */
+            map_name: string;
+            /** Outcome */
+            outcome: string;
         };
         /**
          * CampaignMemberOut
@@ -18939,6 +19023,39 @@ export interface components {
             freestanding?: boolean;
         };
         /**
+         * WikiBacklinkOut
+         * @description A page linking here. ``via_pin`` when a pin on its map is (one of) the links.
+         */
+        WikiBacklinkOut: {
+            /** Icon */
+            icon?: string | null;
+            /** Icon Color */
+            icon_color?: string | null;
+            /** Id */
+            id: string;
+            /** Page Type */
+            page_type?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Session Date */
+            session_date?: string | null;
+            /** Slug */
+            slug: string;
+            /** Sort Order */
+            sort_order?: number | null;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Via Pin
+             * @default false
+             */
+            via_pin?: boolean;
+            /** Visibility */
+            visibility?: string | null;
+        };
+        /**
          * WikiHeadingOut
          * @description One ATX heading from ``wikilinks.extract_headings``.
          */
@@ -18957,6 +19074,107 @@ export interface components {
             /** Pages */
             pages: components["schemas"]["WikiPageSummaryOut"][];
         };
+        /**
+         * WikiMapOut
+         * @description What a map page shows, from ``_wiki_maps.resolve_page_map``.
+         *
+         *     ``source`` is ``library`` (a library map, by ``id``), ``file`` (the
+         *     campaign's own image, by ``id``), ``missing`` (its picture has gone, so
+         *     the page renders a placeholder with Replace map and keeps its pins), or
+         *     ``none`` (no picture chosen yet).
+         */
+        WikiMapOut: {
+            /**
+             * Has Thumbnail
+             * @default false
+             */
+            has_thumbnail?: boolean;
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Source */
+            source: string;
+        };
+        /** WikiMapPinCreate */
+        WikiMapPinCreate: {
+            /** Icon */
+            icon?: string | null;
+            /** Icon Color */
+            icon_color?: string | null;
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /** Target Page Id */
+            target_page_id?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+            /**
+             * Visibility
+             * @default page
+             */
+            visibility?: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
+         * WikiMapPinOut
+         * @description One pin as this viewer may see it, from ``_wiki_maps.pin_out``.
+         */
+        WikiMapPinOut: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Icon */
+            icon?: string | null;
+            /** Icon Color */
+            icon_color?: string | null;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order?: number;
+            /** Target Icon */
+            target_icon?: string | null;
+            /** Target Icon Color */
+            target_icon_color?: string | null;
+            /** Target Page Id */
+            target_page_id?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+            /** Visibility */
+            visibility: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /** WikiMapPinUpdate */
+        WikiMapPinUpdate: {
+            /** Icon */
+            icon?: string | null;
+            /** Icon Color */
+            icon_color?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Target Page Id */
+            target_page_id?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+            /** Visibility */
+            visibility?: string | null;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
         /** WikiPageCreate */
         WikiPageCreate: {
             /**
@@ -18968,6 +19186,10 @@ export interface components {
             icon?: string | null;
             /** Icon Color */
             icon_color?: string | null;
+            /** Map File Id */
+            map_file_id?: string | null;
+            /** Map Id */
+            map_id?: string | null;
             /**
              * Page Type
              * @default note
@@ -18998,7 +19220,7 @@ export interface components {
          */
         WikiPageDetailOut: {
             /** Backlinks */
-            backlinks: components["schemas"]["WikiPageSummaryOut"][];
+            backlinks: components["schemas"]["WikiBacklinkOut"][];
             /** Body */
             body?: string | null;
             /** Campaign Id */
@@ -19021,10 +19243,16 @@ export interface components {
             is_hidden: boolean;
             /** Is Mine */
             is_mine: boolean;
+            map?: components["schemas"]["WikiMapOut"] | null;
             /** Page Type */
             page_type?: string | null;
             /** Parent Id */
             parent_id?: string | null;
+            /**
+             * Pins
+             * @default []
+             */
+            pins?: components["schemas"]["WikiMapPinOut"][];
             /** Session Date */
             session_date?: string | null;
             /** Shared User Ids */
@@ -19173,6 +19401,10 @@ export interface components {
             icon?: string | null;
             /** Icon Color */
             icon_color?: string | null;
+            /** Map File Id */
+            map_file_id?: string | null;
+            /** Map Id */
+            map_id?: string | null;
             /** Page Type */
             page_type?: string | null;
             /** Parent Id */
@@ -27566,6 +27798,125 @@ export interface operations {
             };
         };
     };
+    create_pin_api_campaigns__campaign_id__wiki__page_id__pins_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                page_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WikiMapPinCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikiMapPinOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_pin_api_campaigns__campaign_id__wiki__page_id__pins__pin_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                page_id: string;
+                pin_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_pin_api_campaigns__campaign_id__wiki__page_id__pins__pin_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                page_id: string;
+                pin_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WikiMapPinUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WikiMapPinOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_scan_api_cancel_scan_post: {
         parameters: {
             query?: never;
@@ -30069,6 +30420,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrowseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    campaign_map_copies_api_files_campaign_map_copies_get: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMapCopiesResponse"];
                 };
             };
             /** @description Validation Error */

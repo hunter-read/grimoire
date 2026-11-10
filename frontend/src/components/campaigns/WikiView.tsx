@@ -25,6 +25,8 @@ import {
   LuEye,
   LuUser,
   LuX,
+  LuMap,
+  LuMapPin,
 } from 'react-icons/lu'
 import { campaigns, type ApiError, type Schema } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -44,6 +46,7 @@ import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
 import PageEditor from './PageEditor'
 import WikiBulkActionDialog from './WikiBulkActionDialog'
+import WikiMapView from './wikiMap/WikiMapView'
 import useFillViewport from './useFillViewport'
 import useResizableWidth from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
@@ -113,6 +116,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createParentId, setCreateParentId] = useState('')
+  // "map" when New map page started the editor (issue #578).
+  const [createPageType, setCreatePageType] = useState('note')
   // Content for a page started from a template: an unsaved draft PageEditor
   // opens with. Null for an ordinary blank New Page.
   const [draft, setDraft] = useState<Partial<WikiPageDetail> | null>(null)
@@ -485,12 +490,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     setPage((p) => (p ? { ...p, shared_user_ids: sharedIds, shared_write_user_ids: writeIds } : p))
   }
 
-  const startCreate = (parentId = '') => {
+  const startCreate = (parentId = '', pageType = 'note') => {
     setDraft(null)
     // Same remount, the other way round: New Page while a template-filled
     // editor is open must come up blank rather than keeping that body.
     setDraftToken((n) => n + 1)
     setCreateParentId(parentId)
+    setCreatePageType(pageType)
     setCreating(true)
     setEditing(false)
     setPage(null)
@@ -785,7 +791,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 onChange={(icon) => changeIcon(p.id, icon)}
                 color={p.icon_color}
                 onColorChange={(c) => changeIconColor(p.id, c)}
-                fallback={<LuFileText size={14} aria-hidden="true" />}
+                fallback={
+                  p.page_type === 'map' ? (
+                    <LuMap size={14} aria-hidden="true" />
+                  ) : (
+                    <LuFileText size={14} aria-hidden="true" />
+                  )
+                }
                 ariaLabel={t('wiki.iconLabel')}
                 compact
               />
@@ -793,7 +805,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           ) : (
             <CampaignIcon
               name={p.icon}
-              fallback={LuFileText}
+              fallback={p.page_type === 'map' ? LuMap : LuFileText}
               size={12}
               style={{ flexShrink: 0, color: resolveIconColor(p.icon_color) }}
             />
@@ -981,18 +993,23 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           minHeight: 0,
         }}
       >
-        <button
-          onClick={() => startCreate('')}
-          style={{
-            ...goldBtn,
-            width: '100%',
-            justifyContent: 'center',
-            marginBottom: 10,
-            flexShrink: 0,
-          }}
-        >
-          <LuPlus size={14} /> {t('wiki.newPage')}
-        </button>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexShrink: 0 }}>
+          <button
+            onClick={() => startCreate('')}
+            style={{ ...goldBtn, flex: 1, justifyContent: 'center' }}
+          >
+            <LuPlus size={14} /> {t('wiki.newPage')}
+          </button>
+          {/* A page built around a map, with pins linking to other pages. */}
+          <button
+            onClick={() => startCreate('', 'map')}
+            aria-label={t('wikiMap.newMapPage')}
+            title={t('wikiMap.newMapPage')}
+            style={{ ...ghostBtn, justifyContent: 'center', padding: '7px 10px' }}
+          >
+            <LuMap size={14} />
+          </button>
+        </div>
 
         <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
           <LuSearch
@@ -1267,6 +1284,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
             page={draft}
             allPages={pages}
             defaultParentId={createParentId}
+            defaultPageType={createPageType}
             onSaved={handleSaved}
             onCancel={() => {
               setCreating(false)
@@ -1347,7 +1365,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                         onChange={(icon) => changeIcon(page.id, icon)}
                         color={page.icon_color}
                         onColorChange={(c) => changeIconColor(page.id, c)}
-                        fallback={<LuFileText size={20} aria-hidden="true" />}
+                        fallback={
+                          page.page_type === 'map' ? (
+                            <LuMap size={20} aria-hidden="true" />
+                          ) : (
+                            <LuFileText size={20} aria-hidden="true" />
+                          )
+                        }
                         ariaLabel={t('wiki.iconLabel')}
                         compact
                         size={20}
@@ -1355,7 +1379,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                     ) : (
                       <CampaignIcon
                         name={page.icon}
-                        fallback={LuFileText}
+                        fallback={page.page_type === 'map' ? LuMap : LuFileText}
                         size={20}
                         style={{ color: resolveIconColor(page.icon_color) }}
                       />
@@ -1435,24 +1459,44 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               )
             })()}
 
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: '20px 24px',
-              }}
-            >
-              <WikiMarkdown
-                // Below the campaign's h1 and this note's h2.
-                headingLevelOffset={2}
-                body={page.body}
+            {page.page_type === 'map' && (
+              <WikiMapView
                 campaignId={campaign.id}
+                page={page}
                 pages={pages}
-                currentPageId={page.id}
-                onOpenPage={openPage}
+                isGm={isOwner}
+                noteHref={noteHref}
+                onPageChanged={() =>
+                  campaigns
+                    .getWikiPage(campaign.id, page.id)
+                    .then(setPage)
+                    .catch((e: unknown) => alert((e as ApiError).message))
+                }
+                onPagesChanged={() => loadList(page.id)}
               />
-            </div>
+            )}
+
+            {/* A map page's text is its description, and may be empty. */}
+            {(page.page_type !== 'map' || !!page.body?.trim()) && (
+              <div
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: '20px 24px',
+                }}
+              >
+                <WikiMarkdown
+                  // Below the campaign's h1 and this note's h2.
+                  headingLevelOffset={2}
+                  body={page.body}
+                  campaignId={campaign.id}
+                  pages={pages}
+                  currentPageId={page.id}
+                  onOpenPage={openPage}
+                />
+              </div>
+            )}
 
             {page.backlinks?.length > 0 && (
               <div style={{ marginTop: 16 }}>
@@ -1488,6 +1532,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                       <Link
                         to={noteHref(b.id)}
                         replace
+                        // A pin on this map page is (one of) its links here.
+                        aria-label={
+                          b.via_pin ? t('wikiMap.pinnedOn', { title: b.title }) : undefined
+                        }
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -1502,7 +1550,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                           textDecoration: 'none',
                         }}
                       >
-                        {b.title}
+                        {b.via_pin && <LuMapPin size={12} aria-hidden="true" />}
+                        {b.via_pin ? t('wikiMap.pinnedOn', { title: b.title }) : b.title}
                       </Link>
                     </li>
                   ))}

@@ -25,7 +25,7 @@ from typing import Optional
 TEMPLATE_FM_KEYS = ("title", "icon", "icon_color", "visibility", "page_type")
 
 VALID_VISIBILITY = ("gm", "group", "members")
-VALID_PAGE_TYPE = ("note", "session")
+VALID_PAGE_TYPE = ("note", "session", "map")
 
 # An opening `---` on its own line, a block, then a closing `---` on its own
 # line. Non-greedy so the *first* closing delimiter wins.

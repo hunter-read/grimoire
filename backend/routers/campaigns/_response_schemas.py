@@ -527,6 +527,47 @@ class WikiSearchOut(BaseModel):
     query: str
 
 
+class WikiBacklinkOut(WikiPageSummaryOut):
+    """A page linking here. ``via_pin`` when a pin on its map is (one of) the links."""
+
+    via_pin: bool = False
+
+
+class WikiMapOut(BaseModel):
+    """What a map page shows, from ``_wiki_maps.resolve_page_map``.
+
+    ``source`` is ``library`` (a library map, by ``id``), ``file`` (the
+    campaign's own image, by ``id``), ``missing`` (its picture has gone, so
+    the page renders a placeholder with Replace map and keeps its pins), or
+    ``none`` (no picture chosen yet).
+    """
+
+    source: str
+    id: Optional[str] = None
+    name: Optional[str] = None
+    has_thumbnail: bool = False
+
+
+class WikiMapPinOut(BaseModel):
+    """One pin as this viewer may see it, from ``_wiki_maps.pin_out``."""
+
+    id: str
+    x: float
+    y: float
+    label: str
+    target_page_id: Optional[str] = None
+    # The target's title and icon, so the canvas can label a pin without
+    # another request. Null for an unlinked pin.
+    target_title: Optional[str] = None
+    target_icon: Optional[str] = None
+    target_icon_color: Optional[str] = None
+    icon: Optional[str] = None
+    icon_color: Optional[str] = None
+    visibility: str
+    sort_order: int = 0
+    can_edit: bool
+
+
 class WikiPageDetailOut(BaseModel):
     """One page in full, from ``get_page``."""
 
@@ -553,7 +594,11 @@ class WikiPageDetailOut(BaseModel):
     # Empty unless the viewer is the author of a `members`-visibility page.
     shared_user_ids: list[str]
     shared_write_user_ids: list[str]
-    backlinks: list[WikiPageSummaryOut]
+    backlinks: list[WikiBacklinkOut]
+    # Map pages only: the picture (null on other page types) and the pins this
+    # viewer may see.
+    map: Optional[WikiMapOut] = None
+    pins: list[WikiMapPinOut] = []
     updated_at: Optional[str] = None
 
 
@@ -757,8 +802,11 @@ __all__ = [
     "SheetSourceOut",
     "SheetSourcesOut",
     "SuggestedResourceOut",
+    "WikiBacklinkOut",
     "WikiHeadingOut",
     "WikiImportOut",
+    "WikiMapOut",
+    "WikiMapPinOut",
     "WikiPageDetailOut",
     "WikiPageHiddenOut",
     "WikiPageListItem",

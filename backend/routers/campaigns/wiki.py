@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import User, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
+from ...models import User, WikiMapPin, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import (
     assert_not_archived,
     assert_not_locked,
@@ -33,6 +33,13 @@ from ._helpers import (
 )
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
 from ._writable import ACCESS_DISABLED, ARCHIVED, writable_while
+from ._wiki_maps import (
+    MAP_PAGE_TYPE,
+    apply_map_choice,
+    pinned_source_ids,
+    pins_for,
+    resolve_page_map,
+)
 from ._wiki_helpers import (
     _ensure_unique_slug,
     _page_summary,
@@ -49,6 +56,9 @@ from ._wiki_helpers import (
 )
 from ...text.wikilinks import extract_headings, slugify
 from ...services.sql_like import contains, ilike
+
+# The page types a client may create or switch a page to.
+_PAGE_TYPES = ("note", "session", MAP_PAGE_TYPE)
 
 __all__ = [
     "slugify",
@@ -193,12 +203,16 @@ def get_page(
     author = all_users.get(page.created_by_id or "")
 
     # Backlinks: other pages that link here, filtered to what the viewer can see.
+    # A map page with a pin here says so ("pinned on Sword Coast"); the pin
+    # itself may still be one this viewer can't see, but the link is the map
+    # page's, and they can see that.
     backlink_rows = db.query(WikiPageLink).filter_by(target_page_id=page.id).all()
+    pinned_on = pinned_source_ids(db, page.id)
     backlinks = []
     for row in backlink_rows:
         src = db.query(WikiPage).filter_by(id=row.source_page_id).first()
         if src and can_view_page(src, c, current_user, db):
-            backlinks.append(_page_summary(src))
+            backlinks.append({**_page_summary(src), "via_pin": src.id in pinned_on})
 
     # Share lists are the author's to see and set; to anyone else they'd leak who
     # else holds access to a page they merely read.
@@ -237,6 +251,8 @@ def get_page(
         "shared_user_ids": [s.user_id for s in shares],
         "shared_write_user_ids": [s.user_id for s in shares if s.can_write],
         "backlinks": backlinks,
+        "map": resolve_page_map(db, page),
+        "pins": pins_for(db, c, page, current_user),
         "updated_at": page.updated_at.isoformat() if page.updated_at else None,
     }
 
@@ -313,13 +329,14 @@ def create_page(
         slug=slug,
         body=body,
         visibility=visibility,
-        page_type=data.page_type if data.page_type in ("note", "session") else "note",
+        page_type=data.page_type if data.page_type in _PAGE_TYPES else "note",
         session_date=data.session_date,
         created_by_id=current_user.id,
         parent_id=parent_id,
         icon=(data.icon or None),
         icon_color=(data.icon_color or None),
     )
+    apply_map_choice(db, c, page, current_user, data.map_id, data.map_file_id)
     db.add(page)
     db.flush()
     # The author sets their own share list, whoever they are.
@@ -399,8 +416,9 @@ def update_page(
         page.visibility = data.visibility
     if data.session_date is not None:
         page.session_date = data.session_date or None
-    if data.page_type is not None and data.page_type in ("note", "session"):
+    if data.page_type is not None and data.page_type in _PAGE_TYPES:
         page.page_type = data.page_type
+    apply_map_choice(db, c, page, current_user, data.map_id, data.map_file_id)
     # Only an actual *re-nest* is validated. _resolve_parent requires write
     # access to the destination, so re-checking a parent the page already sits
     # under would refuse an edit to a child whose parent the user cannot write —
@@ -497,6 +515,12 @@ def delete_page(
         for row in db.query(WikiPageLink).filter_by(target_page_id=page_id).all()
         if row.source_page_id != page_id
     ]
+    # Pins pointing here stay on their maps, unlinked, rather than going dead
+    # (the FK would do this too; done here so the ORM state agrees). Their map
+    # pages' link rows to this page go with the rest just below.
+    db.query(WikiMapPin).filter_by(target_page_id=page_id).update(
+        {WikiMapPin.target_page_id: None}, synchronize_session=False
+    )
     # Drop link rows referencing this page from either side.
     db.query(WikiPageLink).filter(
         (WikiPageLink.source_page_id == page_id)

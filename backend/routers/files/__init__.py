@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from ._schemas import (
     BrowseResponse,
+    CampaignMapCopiesResponse,
     DeleteResponse,
     FolderContentsResponse,
     FolderResponse,
@@ -13,6 +14,7 @@ from ._schemas import (
 )
 from .core import (
     browse,
+    campaign_map_copies,
     create_folder,
     delete_entry,
     delete_folder,
@@ -79,6 +81,13 @@ router.add_api_route(
     methods=["GET"],
     summary="Report whether a folder holds content",
     response_model=FolderContentsResponse,
+)
+router.add_api_route(
+    "/campaign-map-copies",
+    campaign_map_copies,
+    methods=["GET"],
+    summary="Campaigns that use a map a delete would remove, and whether each keeps a copy",
+    response_model=CampaignMapCopiesResponse,
 )
 router.add_api_route(
     "/delete",

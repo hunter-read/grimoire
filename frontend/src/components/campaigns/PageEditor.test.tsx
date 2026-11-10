@@ -17,6 +17,12 @@ vi.mock('./WikiMarkdown', () => ({
     <div data-testid="preview">{body}</div>
   ),
 }))
+// The picker has its own tests; here it just hands back a choice.
+vi.mock('./wikiMap/MapPicker', () => ({
+  default: ({ onPick }: ComponentProps<typeof import('./wikiMap/MapPicker').default>) => (
+    <button onClick={() => onPick({ map_id: 'm1' }, 'coast.png')}>pick-map-stub</button>
+  ),
+}))
 vi.mock('./GrimoireEmbedPicker', () => ({
   default: ({ onInsert }: ComponentProps<typeof import('./GrimoireEmbedPicker').default>) => (
     <button onClick={() => onInsert('[[book:1]]')}>insert-embed-stub</button>
@@ -598,5 +604,54 @@ describe('PageEditor viewport fill', () => {
     } finally {
       window.matchMedia = original
     }
+  })
+})
+
+describe('PageEditor map pages', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaignsMock.wikiTitles.mockResolvedValue([])
+    campaignsMock.createWikiPage.mockResolvedValue({ id: 'new' })
+  })
+
+  it('creates a map page with the map chosen for it', async () => {
+    const user = userEvent.setup()
+    renderEditor({ page: null, defaultPageType: 'map' })
+    expect(screen.getByText('No map chosen')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Choose map' }))
+    await user.click(screen.getByRole('button', { name: 'pick-map-stub' }))
+    expect(screen.getByText('coast.png')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Replace map' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(campaignsMock.createWikiPage).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ page_type: 'map', map_id: 'm1' })
+      )
+    )
+  })
+
+  it("keeps a template's page type", async () => {
+    const user = userEvent.setup()
+    renderEditor({ page: { title: 'From template', page_type: 'session' } })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(campaignsMock.createWikiPage).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ page_type: 'session' })
+      )
+    )
+  })
+
+  it("leaves an existing map page's map and type alone", async () => {
+    const user = userEvent.setup()
+    campaignsMock.updateWikiPage.mockResolvedValue({ id: 'p1' })
+    renderEditor({ page: { ...existing, page_type: 'map' } })
+    expect(screen.queryByRole('button', { name: 'Choose map' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(campaignsMock.updateWikiPage).toHaveBeenCalled())
+    const payload = campaignsMock.updateWikiPage.mock.calls[0][2]
+    expect(payload).not.toHaveProperty('page_type')
+    expect(payload).not.toHaveProperty('map_id')
   })
 })
