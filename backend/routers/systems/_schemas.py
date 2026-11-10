@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional, Union
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
@@ -80,7 +80,7 @@ class GameSystemUpdate(BaseModel):
     parent_system: Optional[str] = None
     edition: Optional[str] = None
     license: Optional[str] = None
-    year: Optional[int] = None
+    year: Optional[int] = Field(default=None, ge=0, le=9999)
     cover_book_id: Optional[str] = None
     is_explicit: Optional[bool] = None
     # Minimum role required to see this system and, by inheritance, the books in

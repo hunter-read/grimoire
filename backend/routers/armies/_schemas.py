@@ -22,7 +22,7 @@ class ArmyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     game_system_id: Optional[str] = None
     faction_id: Optional[str] = None
-    points_limit: Optional[int] = Field(default=None, ge=0)
+    points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     units: list[ManualUnitIn] = Field(default_factory=list)
     notes: str = Field(default="", max_length=20000)
 
@@ -33,7 +33,7 @@ class ArmyUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     game_system_id: Optional[str] = None
     faction_id: Optional[str] = None
-    points_limit: Optional[int] = Field(default=None, ge=0)
+    points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     notes: Optional[str] = Field(default=None, max_length=20000)
     units: Optional[list[ManualUnitIn]] = None
 

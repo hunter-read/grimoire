@@ -607,3 +607,81 @@ def test_merging_a_user_moves_their_armies():
         assert [a.name for a in db.query(Army).filter_by(user_id=target)] == ["Moved"]
     finally:
         db.close()
+
+
+def _flagged_rosz(xml: bytes, *, encrypted: bool = False, method: int = 0) -> bytes:
+    """A .rosz whose one member claims encryption, or a compression method, it lacks."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("list.ros", xml)
+    raw = bytearray(buf.getvalue())
+    local = raw.index(b"PK\x03\x04")
+    central = raw.index(b"PK\x01\x02")
+    if encrypted:
+        raw[local + 6] |= 0x1
+        raw[central + 8] |= 0x1
+    if method:
+        raw[local + 8 : local + 10] = method.to_bytes(2, "little")
+        raw[central + 10 : central + 12] = method.to_bytes(2, "little")
+    return bytes(raw)
+
+
+def _nested(depth: int) -> bytes:
+    opening = '<selections><selection name="x" type="unit">' * depth
+    closing = "</selection></selections>" * depth
+    return (
+        '<roster name="Deep"><forces><force name="F">'
+        f"{opening}{closing}</force></forces></roster>"
+    ).encode()
+
+
+@pytest.mark.parametrize(
+    "raw,filename",
+    [
+        (_nested(1000), "deep.ros"),
+        (_flagged_rosz(b"<roster/>", encrypted=True), "x.rosz"),
+        (_flagged_rosz(b"<roster/>", method=99), "x.rosz"),
+        (_flagged_rosz(b"<roster/>", method=8), "x.rosz"),
+    ],
+    ids=["nested", "encrypted", "unknown-compression", "bad-deflate"],
+)
+def test_import_refuses_a_malformed_roster(client, player_headers, roster_dir, raw, filename):
+    r = _import(client, player_headers, raw, filename)
+    assert r.status_code == 400, r.text
+
+
+def test_nesting_within_the_limit_still_reads():
+    data = battlescribe.parse_roster(_nested(battlescribe.MAX_DEPTH))
+    assert data["forces"][0]["units"][0]["name"] == "x"
+    deep_forces = (
+        "<roster>" + "<forces><force>" * (battlescribe.MAX_DEPTH + 2)
+        + "</force></forces>" * (battlescribe.MAX_DEPTH + 2) + "</roster>"
+    ).encode()
+    with pytest.raises(battlescribe.RosterError):
+        battlescribe.parse_roster(deep_forces)
+
+
+@pytest.mark.parametrize("value", ["inf", "-inf", "nan", "1e999", "1e30", "-1e30"])
+def test_import_clamps_numbers_out_of_range(client, player_headers, roster_dir, value):
+    xml = (
+        f'<roster name="Big"><costs><cost name="pts" value="{value}"/></costs>'
+        f'<costLimits><costLimit name="pts" value="{value}"/></costLimits>'
+        '<forces><force name="F"><selections>'
+        f'<selection name="U" number="{value}"><costs><cost name="pts" value="{value}"/></costs>'
+        "</selection></selections></force></forces></roster>"
+    ).encode()
+    r = _import(client, player_headers, xml, "big.ros")
+    assert r.status_code == 201, r.text
+    army = r.json()
+    assert abs(army["points"]) <= battlescribe.MAX_NUMBER
+    assert army["points_limit"] is None or army["points_limit"] <= battlescribe.MAX_NUMBER
+    unit = army["data"]["forces"][0]["units"][0]
+    assert abs(unit["number"]) <= battlescribe.MAX_NUMBER
+
+
+def test_roster_totals_are_clamped():
+    unit = {"costs": [{"name": "pts", "value": battlescribe.MAX_NUMBER}], "children": []}
+    data = {"forces": [{"units": [unit] * 2000, "forces": []}]}
+    assert battlescribe.roster_points(data, "pts") == battlescribe.MAX_TOTAL
+    data = {"costs": [{"name": "pts", "value": -10 * battlescribe.MAX_TOTAL}]}
+    assert battlescribe.roster_points(data, "pts") == -battlescribe.MAX_TOTAL

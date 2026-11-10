@@ -276,6 +276,12 @@ environment:
 
 ## Endpoints
 
+**Malformed requests.** A body that fails validation is a `422` whose `detail`
+lists each problem as `{type, loc, msg, input?}`. `input` echoes the value sent,
+unless it can't be written back as JSON (`NaN`, `Infinity`, or a value nested
+thousands deep). JSON text that isn't valid Unicode - a lone surrogate escape
+such as `"\ud800"` - is a `422` of type `unicode_error`, whatever the route.
+
 ### Health
 
 | Endpoint | Method | Auth | Description |
@@ -599,7 +605,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 |----------|--------|------|-------------|
 | `/api/books/:id` | GET | any | Book detail with game system. Carries `game_type` (`ttrpg` or `wargame`) and `factions` (`[{id, name, parent_id}]`, the innermost faction folders a wargame book sits in; empty for a role-playing book) - so do the book rows of `GET /api/systems/:id` and `/api/systems/:id/books`. `game_system` is `{id, name, slug, game_type, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (1-500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
-| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
+| `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year` (0–9999), `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). Accepted for OCR'd and image-only PDFs, and for PDFs whose own text covers less than `OCR_MIN_TEXT_COVERAGE` of their pages - the same rule as the book's `can_reocr` field. 400 otherwise (an embedded text layer, nothing to OCR). The book is read in full, without the artwork sample a thin-text book gets when it is indexed. Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -1426,7 +1432,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/bookmarks?book_id=` | GET | any | List user's bookmarks for a book, sorted by page |
-| `/api/bookmarks` | POST | any | Create a bookmark. Body: `{book_id, page_number, label?, notes?, selected_text?}`. `404` when the book doesn't exist or the caller can't read it. |
+| `/api/bookmarks` | POST | any | Create a bookmark. Body: `{book_id, page_number, label?, notes?, selected_text?}`; `page_number` is 0-1,000,000. `404` when the book doesn't exist or the caller can't read it. |
 | `/api/bookmarks/:id` | PATCH | any | Update `label` or `notes` |
 | `/api/bookmarks/:id` | DELETE | any | Delete a bookmark |
 
@@ -2955,8 +2961,8 @@ or typed.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/armies` | GET | any (league guests too) | Your own armies, most recently changed first: `[{id, name, user_id, game_system_id, game_system_name, system_name, faction: {id, name}?, points, points_limit, cost_name, source, source_filename, updated_at}]`. `source` is `battlescribe` or `manual` |
-| `/api/armies` | POST | any (league guests too) | Build an army by hand. Body `{name, game_system_id?, faction_id?, points_limit?, notes?, units: [{id?, name, number?, points?, category?, categories?, notes?}]}`. 201 with the army's detail |
-| `/api/armies/import` | POST | any (league guests too) | Import a BattleScribe / New Recruit roster: multipart `file` (`.ros` or `.rosz`, at most 20 MB) and optional `name`. Its game system and first force's catalogue are matched to a wargame system and faction the caller may see, by name. The file is kept byte for byte. 400 for anything that is not a roster (a DOCTYPE is refused, in any encoding, as is a roster of more than 10,000 entries), 413 when too large |
+| `/api/armies` | POST | any (league guests too) | Build an army by hand. Body `{name, game_system_id?, faction_id?, points_limit? (0-1,000,000), notes?, units: [{id?, name, number?, points?, category?, categories?, notes?}]}`. 201 with the army's detail |
+| `/api/armies/import` | POST | any (league guests too) | Import a BattleScribe / New Recruit roster: multipart `file` (`.ros` or `.rosz`, at most 20 MB) and optional `name`. Its game system and first force's catalogue are matched to a wargame system and faction the caller may see, by name. The file is kept byte for byte. 400 for anything that is not a roster (a DOCTYPE is refused, in any encoding, as is a roster of more than 10,000 entries or one nesting entries or forces more than 50 deep, and a damaged or encrypted `.rosz`). A cost, count or limit past ±1,000,000, or not a number, is read as that bound or 0, 413 when too large |
 | `/api/armies/:id` | GET | owner, admin, league people | The army: the summary fields plus `data` (the parsed list: `forces` of `units` with `costs`, `categories`, `profiles`, `rules`, the `publication` and `page` each cites, and nested `children`), `progress` (`{unit_id: {experience, honours, notes}}`), `notes`, `can_edit`, `publications` (every publication cited, in order) and `publication_links` (`{publication: {book_id, book_title, page_offset}}`, only books the caller may read). 404 for an army the caller may not see |
 | `/api/armies/:id` | PATCH | owner, admin | Change `name`, `points_limit`, `notes`, `game_system_id`, `faction_id`, or a hand-built army's `units` (an imported list is read-only: 400). A faction must belong to the army's system; a faction given with no system brings its own; moving to another system without naming a faction clears it |
 | `/api/armies/:id` | DELETE | owner, admin | Delete the army and its roster file. 204 |
@@ -2980,7 +2986,7 @@ Session or API key (`armies` permission). A campaign's guests get 403.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/leagues` | GET | any (not guest) | Leagues you organise or play in, newest first: `[{id, name, description, organizer_id, organizer_name, game_system_id, game_system_name, points_limit, points_win, points_draw, points_loss, status, member_count, created_at}]` |
-| `/api/leagues` | POST | GM, admin | Start a league. Body `{name, description?, game_system_id?, points_limit?, points_win? (3), points_draw? (1), points_loss? (0)}`. The system must be a wargame. The organiser is not a member until they add themselves |
+| `/api/leagues` | POST | GM, admin | Start a league. Body `{name, description?, game_system_id?, points_limit? (0-1,000,000), points_win? (3), points_draw? (1), points_loss? (0)}`. The system must be a wargame. The organiser is not a member until they add themselves |
 | `/api/leagues/:id` | GET | league people | The league plus `can_manage`, `is_member`, `members` (`[{user_id, name, army, is_guest}]`), `games` (newest first: `{id, played_on, mission, notes, player_a, player_b, army_a, army_b, score_a, score_b, result, can_edit}`) and `standings` (`[{user_id, name, played, won, drawn, lost, score_for, score_against, points}]`, by league points, then score difference, then score) |
 | `/api/leagues/:id` | PATCH | organiser, admin | Change any of the create fields, or `status` (`active` / `finished`) |
 | `/api/leagues/:id` | DELETE | organiser, admin | Delete the league with its members, games and shared books; the armies stay, and so do its guests' accounts. 204 |

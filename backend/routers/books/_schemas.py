@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ...services import tag_service
 from ...services.library_fs import is_category_name
@@ -39,7 +39,7 @@ class BookUpdate(BaseModel):
     version: Optional[str] = None
     language: Optional[str] = None
     license: Optional[str] = None
-    year: Optional[int] = None
+    year: Optional[int] = Field(default=None, ge=0, le=9999)
     month: Optional[int] = None
     day: Optional[int] = None
     tags: Optional[list[str]] = None
