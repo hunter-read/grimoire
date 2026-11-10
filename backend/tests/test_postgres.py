@@ -315,3 +315,21 @@ class TestSearchMarkupMigration:
         assert len(expressions) == 2
         assert all("translate(" in e for _, e in expressions)
 
+
+
+@pytest.mark.postgres_only
+def test_0059_cannot_be_downgraded_on_postgresql():
+    """Every later revision downgrades; 0059 says plainly why it cannot."""
+    url = scratch_database("down0059")
+    init_db(url)
+    engine = postgres_engine(url)
+    with engine.connect() as conn:
+        command.downgrade(_alembic_config(conn), "6e92be54a9d4")  # 0059
+        conn.commit()
+        with pytest.raises(RuntimeError, match="0059 .* cannot be downgraded on PostgreSQL"):
+            command.downgrade(_alembic_config(conn), "8b3f6d2a9c41")
+        conn.rollback()
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == (
+            "6e92be54a9d4"
+        )
+    engine.dispose()
