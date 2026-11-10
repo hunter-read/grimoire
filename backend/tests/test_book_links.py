@@ -228,6 +228,23 @@ class TestAccess:
         row = next(b for b in rows if b["id"] == book.id)
         assert row["is_linked"] is True
         assert row["linked_from"] is None
+        # Nor may its id or its folders name it, as /books and /books/{id} hide them.
+        assert row["game_system_id"] is None
+        assert home.name not in row["relative_path"]
+        assert row["relative_path"] == f"books/Core/{book.title}.pdf"
+        full = client.get(f"/api/systems/{other.id}", headers=player_headers).json()
+        full_row = next(b for b in full["books"] if b["id"] == book.id)
+        assert full_row["game_system_id"] is None
+        assert home.name not in full_row["relative_path"]
+        # Someone who can see the home system still gets it in full.
+        admin_rows = client.get(
+            f"/api/systems/{other.id}/books",
+            params={"category": "core", "folder": ""},
+            headers=admin_headers,
+        ).json()["books"]
+        admin_row = next(b for b in admin_rows if b["id"] == book.id)
+        assert admin_row["game_system_id"] == home.id
+        assert admin_row["relative_path"] == book.relative_path
 
     def test_a_restricted_target_is_hidden_from_the_books_list(self, client, admin_headers, player_headers):
         home, secret = _system(), _system(access_level="gm")
@@ -237,11 +254,86 @@ class TestAccess:
         assert listed.status_code == 200
         assert listed.json() == []
 
+    def test_an_explicit_book_is_hidden_from_a_reader_who_opted_out(
+        self, client, admin_headers, player_headers, player_id
+    ):
+        book = _book(_system(), is_explicit=True)
+        db = SessionLocal()
+        try:
+            from backend.models import User
+
+            db.query(User).filter_by(id=player_id).update({"allow_explicit": False})
+            db.commit()
+            resp = client.get(f"/api/books/{book.id}/systems", headers=player_headers)
+            assert resp.status_code == 404
+        finally:
+            db.query(User).filter_by(id=player_id).update({"allow_explicit": True})
+            db.commit()
+            db.close()
+
+    def test_a_gm_cannot_unlink_from_a_system_they_cannot_see(
+        self, client, admin_headers, gm_headers
+    ):
+        home, secret = _system(), _system(access_level="admin")
+        book = _book(home)
+        _link(client, admin_headers, book, secret)
+        resp = client.delete(f"/api/books/{book.id}/systems/{secret.id}", headers=gm_headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "System not found"
+        db = SessionLocal()
+        try:
+            assert book_links.linked_system_ids(db, [book.id]) == {book.id: [secret.id]}
+        finally:
+            db.close()
+
     def test_a_guest_cannot_list_links(self, client, admin_headers):
         book = _book(_system())
         # No session at all is refused before the guest check, which is enough
         # to show the route is not open; the guest inventory test covers guests.
         assert client.get(f"/api/books/{book.id}/systems").status_code == 401
+
+
+class TestElsewhere:
+    def test_page_search_in_a_system_reaches_its_linked_books(self, client, admin_headers):
+        from backend.tests._mcp import index_page
+
+        home, other = _system(), _system()
+        book = _book(home)
+        word = _uid("zorblax")
+        index_page(book.id, 3, f"the {word} appears here")
+        _link(client, admin_headers, book, other)
+        resp = client.get(
+            "/api/search", params={"q": word, "system_id": other.id}, headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+        assert {r["id"] for r in resp.json()["results"]} == {book.id}
+
+    def test_the_campaign_picker_reaches_linked_books(self, client, admin_headers):
+        home, other = _system(), _system()
+        book = _book(home)
+        own = _book(other)
+        _link(client, admin_headers, book, other)
+        rows = client.get(
+            "/api/campaigns/resources/search",
+            params={"resource_type": "book", "system_id": other.id},
+            headers=admin_headers,
+        ).json()
+        assert {book.id, own.id} <= {r["resource_id"] for r in rows}
+
+    def test_cleanup_keeps_a_shelf_holding_only_linked_books(self, client, admin_headers):
+        from backend.models import GameSystem
+        from backend.services.library_cleanup import _prune_orphaned_systems
+
+        home, collector = _system(), _system()
+        book = _book(home)
+        _link(client, admin_headers, book, collector)
+        db = SessionLocal()
+        try:
+            _prune_orphaned_systems(db)
+            assert db.get(GameSystem, collector.id) is not None
+            assert db.query(BookSystemLink).filter_by(game_system_id=collector.id).count() == 1
+        finally:
+            db.close()
 
 
 class TestCascade:

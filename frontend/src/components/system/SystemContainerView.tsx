@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuLibrary, LuPencil } from 'react-icons/lu'
 import SystemCard from '../library/SystemCard'
@@ -55,6 +55,10 @@ export interface SystemContainerViewProps {
   onChildrenChange: (update: (children: ChildSystem[]) => ChildSystem[]) => void
   /** The container's own book shelf, shown under its systems; omitted when it has none. */
   books?: ReactNode
+  /** The book shelf below is selecting: this grid leaves select mode, so only one bar shows. */
+  booksSelecting?: boolean
+  /** Called as this grid enters or leaves select mode, so the book shelf can leave its own. */
+  onSelectingChange?: (selecting: boolean) => void
 }
 
 export default function SystemContainerView({
@@ -67,6 +71,8 @@ export default function SystemContainerView({
   onCoverChange,
   onChildrenChange,
   books,
+  booksSelecting = false,
+  onSelectingChange,
 }: SystemContainerViewProps) {
   const { t, i18n } = useTranslation()
   const pins = usePins('systems')
@@ -76,6 +82,17 @@ export default function SystemContainerView({
   const children = system.children || []
   const library = useSystemLibrary(children, onChildrenChange)
   const { bulk } = library
+  // One select mode at a time on a page holding both systems and books: each
+  // has its own action bar, and two stacked at the bottom act on different
+  // selections. Entering one leaves the other.
+  useEffect(() => {
+    onSelectingChange?.(bulk.bulkMode)
+    // Reports this grid's own transitions only.
+  }, [bulk.bulkMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (booksSelecting && bulk.bulkMode) bulk.exit()
+    // Reacts to the shelf entering select mode, not to this grid's own entry.
+  }, [booksSelecting]) // eslint-disable-line react-hooks/exhaustive-deps
   const systemFilters = useSavedFilters('systems')
   // Kept per container, so coming back from a child restores this grid's own
   // search and filters rather than the main library's.

@@ -126,7 +126,8 @@ def search_resources_global(
             db, variants.parents_only(db.query(Book), Book), access_user
         )
         if system_id:
-            query = query.filter(Book.game_system_id.in_(_system_id_filter(db, system_id)))
+            # Books linked onto those shelves too (issue #446).
+            query = query.filter(book_links.on_any_shelf(_system_id_filter(db, system_id)))
         if like is not None:
             # A book's tree path is built from its system name, relative path and
             # category, so match any of those to keep folder search working.

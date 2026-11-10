@@ -19,7 +19,7 @@ from sqlalchemy.orm import Query, Session
 
 from ..models import Book, BookSystemLink, GameSystem
 from ..models.game_types import GAME_TYPE_TTRPG
-from .systems import visible_systems_by_id
+from .systems import book_relative_path, visible_systems_by_id
 
 
 class BookLinkError(Exception):
@@ -174,10 +174,13 @@ def homes_for(
 ) -> dict[str, dict[str, Any]]:
     """For each book on ``shelf_id`` through a link, where it really lives.
 
-    ``{book_id: {"linked": True, "system": <system or None>}}``, with only the
-    linked books as keys: a book in its own folder has nothing to say. The
+    ``{book_id: {"linked": True, "system": <system or None>, ...}}``, with only
+    the linked books as keys: a book in its own folder has nothing to say. The
     home system is named only when ``current_user`` may see it - a book can be
     open inside a restricted system, and its shelf mark must not name that.
+    For such a book the entry also carries ``hidden: True`` and the book's path
+    with the hidden system's folders cut out, which the row shows instead of
+    its own ``relative_path`` and ``game_system_id`` - both would name it too.
     """
     linked = [b for b in books if b.game_system_id != shelf_id]
     if not linked:
@@ -186,5 +189,9 @@ def homes_for(
     out: dict[str, dict[str, Any]] = {}
     for book in linked:
         home = visible.get(book.game_system_id or "")
-        out[book.id] = {"linked": True, "system": serialize_system(home) if home else None}
+        entry: dict[str, Any] = {"linked": True, "system": serialize_system(home) if home else None}
+        if home is None and book.game_system_id:
+            entry["hidden"] = True
+            entry["relative_path"] = book_relative_path(db, book, None)
+        out[book.id] = entry
     return out

@@ -718,6 +718,10 @@ export default function SystemDetailView() {
         onChildrenChange={(update: (children: System['children']) => System['children']) =>
           setSystem((s) => (s ? { ...s, children: update(s.children) } : s))
         }
+        booksSelecting={bulkMode}
+        onSelectingChange={(selecting) => {
+          if (selecting && bulkMode) bulk.exit()
+        }}
         books={
           system.book_count > 0 ? (
             <>

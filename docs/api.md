@@ -611,9 +611,9 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id` | GET | any | Book detail with game system. Carries `game_type` (`ttrpg` or `wargame`) and `factions` (`[{id, name, parent_id}]`, the innermost faction folders a wargame book sits in; empty for a role-playing book) - so do the book rows of `GET /api/systems/:id` and `/api/systems/:id/books`. `game_system` is `{id, name, slug, game_type, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (1-500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year` (0–9999), `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
-| `/api/books/:id/systems` | GET | any (not guest) | The other systems this book is [linked onto](#books-on-more-than-one-shelf), besides the one its folder gives it: `[{id, name, game_type, is_one_page}]`, by name. Only systems the caller can see are listed. `GET /api/books/:id` carries the same list as `linked_systems` |
+| `/api/books/:id/systems` | GET | any (not guest) | The other systems this book is [linked onto](#books-on-more-than-one-shelf), besides the one its folder gives it: `[{id, name, game_type, is_one_page}]`, by name. Only systems the caller can see are listed; 404 for an explicit book when the caller has explicit content off. `GET /api/books/:id` carries the same list as `linked_systems` |
 | `/api/books/:id/systems` | POST | gm/admin | Show the book on another system's shelf too. Body: `{system_id}`. Linking twice is a no-op. 400 for the book's own system, for a version of a book (link its main entry), and across the library/armory divide; 404 for a book or system the caller cannot see. Returns the book's links |
-| `/api/books/:id/systems/:system_id` | DELETE | gm/admin | Take the book off that system's shelf; its own shelf is unaffected. 404 when it was not linked there. Returns the book's links |
+| `/api/books/:id/systems/:system_id` | DELETE | gm/admin | Take the book off that system's shelf; its own shelf is unaffected. 404 when it was not linked there, or for a book or system the caller cannot see. Returns the book's links |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). Accepted for OCR'd and image-only PDFs, and for PDFs whose own text covers less than `OCR_MIN_TEXT_COVERAGE` of their pages - the same rule as the book's `can_reocr` field. 400 otherwise (an embedded text layer, nothing to OCR). The book is read in full, without the artwork sample a thin-text book gets when it is indexed. Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -646,8 +646,10 @@ follow a moved book; deleting the book or the system removes them. See
 
 Everything that lists a system's books includes its linked books:
 `GET /api/systems/:id`, the shelf routes (`/books`, `/book-groups`,
-`/book-facets`), `GET /api/books?system_id=`, a system's in-system search, its
-OPDS feed, the campaign resource picker, and the system and category downloads.
+`/book-facets`), `GET /api/books?system_id=`, a system's in-system search (page
+text and title matches), its OPDS feed, the campaign resource picker (search and
+suggestions), and the system and category downloads. Library cleanup counts them
+too, so a system holding only linked books is never pruned as empty.
 `book_count` and `total_page_count` on a system count them too. A linked book's
 folders belong to its own system, so on the linked shelf it stands at the top
 of its category: `/book-groups` reports it under `path: ""` with `dir: ""`, and
@@ -658,7 +660,9 @@ cover and access level all resolve from its own system, so a link never shows a
 book to anyone who could not already open it. Book rows on a system's shelf
 carry `game_system_id` (the system the book lives in), `is_linked` (on this
 shelf through a link) and `linked_from` (`{id, name, game_type, is_one_page}` of
-that system, or `null` when it is hidden from the caller). A system never takes
+that system, or `null` when it is hidden from the caller - and then
+`game_system_id` is `null` and `relative_path` leaves out the hidden system's
+folders, as on `GET /api/books/:id`). A system never takes
 a linked book as its automatic cover.
 
 #### Custom book covers

@@ -72,9 +72,13 @@ def search_library(
             scope_sql = "AND book_id = :book_id"
             params["book_id"] = book_id
         elif system_id:
+            # The system's shelf: its own books and those linked onto it
+            # (issue #446).
             scope_sql = (
                 "AND book_id IN (SELECT id FROM books "
-                "WHERE game_system_id = :system_id AND variant_parent_id IS NULL)"
+                "WHERE (game_system_id = :system_id OR id IN ("
+                "SELECT book_id FROM book_system_links WHERE game_system_id = :system_id"
+                ")) AND variant_parent_id IS NULL)"
             )
             params["system_id"] = system_id
         else:

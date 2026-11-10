@@ -282,11 +282,11 @@ books/
     └── 5.5e/
 ```
 
-`shared-library` is a reserved name in parent-system, family, publisher, and generic containers (any capitalization): it never becomes a system, and its books belong to the container itself. Lay it out like any system folder - category folders and subfolders work the same inside it. A one-page collection has no shared shelf, since each of its folders is a game of its own.
+`shared-library` is a reserved name in parent-system, family, publisher, and generic containers (any capitalization, but spelled exactly - no `(nsfw)` suffix or sort prefix): it never becomes a system, and its books belong to the container itself. Lay it out like any system folder - category folders and subfolders work the same inside it. A one-page collection has no shared shelf, since each of its folders is a game of its own.
 
 On the container's page, the systems come first in the system view and the shared books follow underneath in the book view, with the usual sorting, filters, grouping, and bulk edit. With **Group collections** switched off, a container that holds shared books keeps its own card in the grid beside its systems, so those books are never out of reach. A container without any keeps dropping out as before.
 
-> If you made a `shared-library` folder inside a container before this was reserved, it scanned as a system of its own. The next rescan moves its books onto the container and removes the empty system.
+> If you made a `shared-library` folder inside a container before this was reserved, it scanned as a system of its own. The next rescan moves its books onto the container, and the old system, left empty, is pruned like any system whose folder is gone.
 
 #### A book in more than one system
 
@@ -294,7 +294,7 @@ A book that belongs to two systems that share no container - the Midgard Worldbo
 
 A link works like a symlink: the file stays where it is and there is still only one book, with one set of tags, bookmarks, favorites, and reading progress. It appears on the other system's shelf at the top of its category, marked **Linked**, and the badge names the system it lives in. Its category, tags, cover, and [access level](users-and-permissions.md#restricting-books) all come from the book itself, so a link never shows a book to anyone who couldn't already open it.
 
-Links are stored by Grimoire, not in the library, so they work on a read-only library and survive every rescan, and a book that is moved or renamed keeps them. Deleting the book or the system removes its links. A link only joins shelves of the same kind - a role-playing book can't be linked onto a wargame in the armory.
+Links are stored by Grimoire, not in the library, so they work on a read-only library and survive every rescan, and a book that is moved or renamed keeps them. Deleting the book or the system removes its links; a system whose shelf holds nothing but linked books is not empty, so library cleanup keeps it. A link only joins shelves of the same kind - a role-playing book can't be linked onto a wargame in the armory.
 
 ### Marking a system as explicit
 

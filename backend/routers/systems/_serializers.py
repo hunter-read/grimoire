@@ -38,7 +38,7 @@ def serialize_book(
     rather than its folder (issue #446) - ``book_links.homes_for`` - and names
     the system it lives in, when the reader may see that system.
     """
-    return {
+    out = {
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
@@ -95,6 +95,12 @@ def serialize_book(
         "is_linked": bool(linked_from),
         "linked_from": (linked_from or {}).get("system"),
     }
+    if linked_from and linked_from.get("hidden"):
+        # Its home is hidden from the reader: neither its id nor its folders
+        # may name it, as `/books` and `/books/{id}` already ensure.
+        out["game_system_id"] = None
+        out["relative_path"] = linked_from["relative_path"]
+    return out
 
 
 def serialize_system_summary(

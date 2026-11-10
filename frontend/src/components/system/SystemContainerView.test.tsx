@@ -263,6 +263,39 @@ describe('SystemContainerView', () => {
       expect(screen.queryByText('common.select')).not.toBeInTheDocument()
     })
 
+    // Issue #446: the container's book shelf has a select mode of its own, and
+    // only one of the two may be on, or two action bars stack at the bottom.
+    it('leaves select mode when the book shelf below enters its own', async () => {
+      const onSelectingChange = vi.fn()
+      const { rerender } = render(
+        <SystemContainerView
+          {...unset}
+          system={twoChildren()}
+          canEdit
+          onBack={vi.fn()}
+          onSelectingChange={onSelectingChange}
+        />
+      )
+      await userEvent.click(screen.getByText('common.select'))
+      expect(onSelectingChange).toHaveBeenLastCalledWith(true)
+      expect(screen.getByText('bulk.addTags')).toBeInTheDocument()
+
+      rerender(
+        <MemoryRouter>
+          <SystemContainerView
+            {...unset}
+            system={twoChildren()}
+            canEdit
+            onBack={vi.fn()}
+            onSelectingChange={onSelectingChange}
+            booksSelecting
+          />
+        </MemoryRouter>
+      )
+      await waitFor(() => expect(screen.queryByText('bulk.addTags')).not.toBeInTheDocument())
+      expect(onSelectingChange).toHaveBeenLastCalledWith(false)
+    })
+
     it('bulk tags the selected children and patches them in place', async () => {
       ;(bulkApi.addTags as unknown as Mock).mockResolvedValue({ tags: { c2: ['tiny'] } })
       const onChildrenChange = vi.fn()
