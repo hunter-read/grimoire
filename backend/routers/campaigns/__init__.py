@@ -105,6 +105,29 @@ from .guests import (
     guest_share_template,
 )
 from .wiki_io import export_wiki, import_wiki
+from .gm_screen import (
+    apply_gm_screen_preset,
+    browse_gm_screen_presets,
+    copy_gm_screen,
+    create_gm_panel,
+    delete_gm_panel,
+    export_gm_screen,
+    get_gm_screen,
+    get_gm_screen_party,
+    import_gm_screen,
+    list_gm_screen_sources,
+    reset_gm_screen,
+    update_gm_layout,
+    update_gm_panel,
+)
+from ._gm_screen_schemas import (
+    GmBoardExport,
+    GmPanelOut,
+    GmPartyOut,
+    GmPresetListOut,
+    GmScreenOut,
+    GmSourcesOut,
+)
 from .wiki_templates import (
     browse_wiki_templates,
     create_wiki_template,
@@ -924,4 +947,99 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Delete a category (mode: uncategorize | delete_items)",
     status_code=204,
+)
+
+
+# GM screen (issue #764): the campaign owner's board of tools.
+_GM = "/{campaign_id}/gm-screen"
+router.add_api_route(
+    _GM,
+    get_gm_screen,
+    methods=["GET"],
+    summary="Get the GM screen's panels",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/panels",
+    create_gm_panel,
+    methods=["POST"],
+    summary="Add a panel to the GM screen",
+    response_model=GmPanelOut,
+)
+router.add_api_route(
+    f"{_GM}/panels/{{panel_id}}",
+    update_gm_panel,
+    methods=["PATCH"],
+    summary="Update a GM screen panel",
+    response_model=GmPanelOut,
+)
+router.add_api_route(
+    f"{_GM}/panels/{{panel_id}}",
+    delete_gm_panel,
+    methods=["DELETE"],
+    summary="Remove a GM screen panel",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/layout",
+    update_gm_layout,
+    methods=["PUT"],
+    summary="Move and resize GM screen panels",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/reset",
+    reset_gm_screen,
+    methods=["POST"],
+    summary="End a scene or session, or rest: clear marked panels",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/sources",
+    list_gm_screen_sources,
+    methods=["GET"],
+    summary="Other campaigns with a GM screen to copy",
+    response_model=GmSourcesOut,
+)
+router.add_api_route(
+    f"{_GM}/copy",
+    copy_gm_screen,
+    methods=["POST"],
+    summary="Copy another campaign's GM screen",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/export",
+    export_gm_screen,
+    methods=["GET"],
+    summary="Export the GM screen as a board document",
+    response_model=GmBoardExport,
+)
+router.add_api_route(
+    f"{_GM}/import",
+    import_gm_screen,
+    methods=["POST"],
+    summary="Put a board document on the GM screen",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/presets",
+    browse_gm_screen_presets,
+    methods=["GET"],
+    summary="Browse community GM screen presets",
+    response_model=GmPresetListOut,
+)
+router.add_api_route(
+    f"{_GM}/presets/apply",
+    apply_gm_screen_preset,
+    methods=["POST"],
+    summary="Apply a community GM screen preset",
+    response_model=GmScreenOut,
+)
+router.add_api_route(
+    f"{_GM}/party",
+    get_gm_screen_party,
+    methods=["GET"],
+    summary="The party's characters and values for the GM screen",
+    response_model=GmPartyOut,
 )

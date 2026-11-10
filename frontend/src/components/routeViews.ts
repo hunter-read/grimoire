@@ -26,6 +26,7 @@ export const DuplicateCompareView = lazyWithPreload(() => import('../views/Dupli
 export const CampaignsView = lazyWithPreload(() => import('../views/CampaignsView'))
 export const CampaignDetailView = lazyWithPreload(() => import('../views/CampaignDetailView'))
 export const CampaignNotesView = lazyWithPreload(() => import('../views/CampaignNotesView'))
+export const GmScreenView = lazyWithPreload(() => import('../views/GmScreenView'))
 export const CharactersView = lazyWithPreload(() => import('../views/CharactersView'))
 export const CharacterDetailView = lazyWithPreload(() => import('../views/CharacterDetailView'))
 export const ArmiesView = lazyWithPreload(() => import('../views/ArmiesView'))

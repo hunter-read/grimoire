@@ -385,6 +385,29 @@ describe('CampaignDetailView owner actions', () => {
 })
 
 describe('CampaignDetailView permissions', () => {
+  it('links its GM, and only its GM, to the GM screen', async () => {
+    mockLoad()
+    const { unmount } = renderView()
+    await screen.findByText('Lost Mines')
+    expect(screen.getByRole('link', { name: 'GM screen' })).toHaveAttribute(
+      'href',
+      '/campaigns/c1/gm-screen'
+    )
+    unmount()
+
+    for (const user of [
+      { id: 'p1', role: 'player', campaign_access: true },
+      { id: 'someadmin', role: 'admin', campaign_access: true },
+    ]) {
+      mockUser = user
+      mockLoad()
+      const view = renderView()
+      await screen.findByText('Lost Mines')
+      expect(screen.queryByRole('link', { name: 'GM screen' })).not.toBeInTheDocument()
+      view.unmount()
+    }
+  })
+
   it('hides owner actions for a non-owner player', async () => {
     mockUser = { id: 'p1', role: 'player', campaign_access: true }
     mockLoad()

@@ -147,6 +147,20 @@ TTRPG_GUEST_REACHABLE = {
     "/api/campaigns/{campaign_id}/sessions/{session_id}/notes/player": "PUT",
     "/api/campaigns/{campaign_id}/sheet-sources": "GET",
     "/api/campaigns/{campaign_id}/wiki": "GET POST",
+    # The GM screen (issue #764): every route answers 403 to anyone but the
+    # campaign's owner, which a guest never is.
+    "/api/campaigns/{campaign_id}/gm-screen": "GET",
+    "/api/campaigns/{campaign_id}/gm-screen/copy": "POST",
+    "/api/campaigns/{campaign_id}/gm-screen/export": "GET",
+    "/api/campaigns/{campaign_id}/gm-screen/import": "POST",
+    "/api/campaigns/{campaign_id}/gm-screen/layout": "PUT",
+    "/api/campaigns/{campaign_id}/gm-screen/panels": "POST",
+    "/api/campaigns/{campaign_id}/gm-screen/panels/{panel_id}": "DELETE PATCH",
+    "/api/campaigns/{campaign_id}/gm-screen/party": "GET",
+    "/api/campaigns/{campaign_id}/gm-screen/presets": "GET",
+    "/api/campaigns/{campaign_id}/gm-screen/presets/apply": "POST",
+    "/api/campaigns/{campaign_id}/gm-screen/reset": "POST",
+    "/api/campaigns/{campaign_id}/gm-screen/sources": "GET",
     "/api/campaigns/{campaign_id}/wiki/export": "GET",
     "/api/campaigns/{campaign_id}/wiki/import": "POST",
     "/api/campaigns/{campaign_id}/wiki/reorder": "PUT",
@@ -483,6 +497,27 @@ def test_guest_cannot_create_or_list_share_links(client, guest, gm_headers, camp
     assert client.post("/api/share-links", json=body, headers=headers).status_code == 403
     assert client.get("/api/share-links", headers=headers).status_code == 403
     assert client.get("/api/share-links/permission", headers=headers).status_code == 403
+
+
+def test_guest_is_refused_the_gm_screen(client, gm_headers, campaign, guest):
+    # The GM screen is the campaign owner's; a guest of that very campaign
+    # reads none of it and writes none of it.
+    headers, _ = guest
+    base = f"/api/campaigns/{campaign}/gm-screen"
+    panel = client.post(f"{base}/panels", json={"kind": "scratch"}, headers=gm_headers).json()
+    for method, url, body in (
+        ("get", base, None),
+        ("get", f"{base}/party", None),
+        ("get", f"{base}/export", None),
+        ("get", f"{base}/sources", None),
+        ("post", f"{base}/panels", {"kind": "scratch"}),
+        ("patch", f"{base}/panels/{panel['id']}", {"state": {"text": "x"}}),
+        ("post", f"{base}/reset", {"scope": "scene"}),
+    ):
+        kwargs = {"headers": headers} if body is None else {"headers": headers, "json": body}
+        assert getattr(client, method)(url, **kwargs).status_code == 403, (method, url)
+    resp = client.delete(f"{base}/panels/{panel['id']}", headers=gm_headers)
+    assert resp.status_code == 200
 
 
 def test_guest_cannot_use_the_otfbm_export(client, gm_headers, campaign, guest, tmp_path):

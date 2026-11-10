@@ -1908,6 +1908,26 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 
 > **RSVP does not travel back over a subscription.** A subscribed ICS feed is fetched by HTTP `GET`; iCalendar defines no write path back, so Accept/Tentative/Decline is inert in Google Calendar, Apple Calendar, and Outlook for subscribed events. Genuine RSVP requires iMIP (emailed `METHOD:REQUEST` invitations with replies parsed from a mailbox) or a CalDAV server - neither of which Grimoire implements. The deep link in every event is the round trip instead.
 
+#### GM screen
+
+A campaign's GM screen is a board of built-in tools on a twelve-column snap grid, for the campaign's owner alone: every route below answers 403 to anyone else, members and admins included. See [GM screen](gm-screen.md). Each panel has a `kind` (`note`, `party`, `counter`, `clocks`, `pools`, `scratch`, `initiative`), a `title`, a cell (`x`, `y`, `w`, `h` in grid units; `x + w` is at most 12), a `config` (how the tool is set up) and a `state` (what is on it now). Both are rebuilt from the keys the kind declares and every value is bounded, so an unreadable value becomes the default rather than an error; an unknown `kind` is 400. A board holds at most 60 panels. Writes follow the campaign's lock like every other campaign write.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/campaigns/:id/gm-screen` | GET | owner | `{panels}`, top to bottom. |
+| `/api/campaigns/:id/gm-screen/panels` | POST | owner | Add a panel. Body: `{kind, title?, x?, y?, w?, h?, config?, state?}`. Without `x`/`y` it takes the first gap it fits. A `note` panel's `config.page_id` must be a page of this campaign (404 otherwise); a `page_slug` alone pins the page of that slug here, if there is one. |
+| `/api/campaigns/:id/gm-screen/panels/:panel_id` | PATCH | owner | Change any of `title`, `x`, `y`, `w`, `h`, `config`, `state`. `state` replaces the panel's state whole; a new `config` re-cleans the state against it. Returns the panel. |
+| `/api/campaigns/:id/gm-screen/panels/:panel_id` | DELETE | owner | Remove a panel. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/layout` | PUT | owner | Move and resize several panels at once. Body: `{panels: [{id, x, y, w, h}]}`. A cell naming a panel not on this board is ignored. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/reset` | POST | owner | Body: `{scope: "scene" \| "session" \| "rest"}`. Clears what is marked to clear: a counter returns to its start, a pool's tokens to 0 (the pools stay), a countdown's ticks to 0, an initiative tracker's turn order empties. `session` also clears what clears with a scene. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/sources` | GET | owner | `{campaigns: [{id, name, panel_count}]}` - the caller's other campaigns with a board to copy. |
+| `/api/campaigns/:id/gm-screen/copy` | POST | owner | Body: `{source_campaign_id, replace?}` (default `true`; `false` adds the board below this one). Copies the layout and each panel's config; every state starts at its default, and a note panel pins the page with the same slug here. The source must be another campaign the caller owns (404 otherwise); an empty source is 400. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/export` | GET | owner | The board as a document: `{format: "grimoire://gm-screen/v1", name, panels}`, with note pages named by `page_slug`. |
+| `/api/campaigns/:id/gm-screen/import` | POST | owner | Body: `{document, replace?}`. Puts a board document on this campaign - an export, or one written by hand. Overlapping panels move to the first free cell. 400 for a document with no panels or a panel of unknown kind. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/presets` | GET | owner | The community preset catalogue: `{presets: [{id, name, version, system, description, author, author_url, license, panel_count, index_url}], errors: [{url, error}]}`. Read from `gm-screens/index.json` beside the configured add-on sources. 403 when community installs are disabled. |
+| `/api/campaigns/:id/gm-screen/presets/apply` | POST | owner | Body: `{preset_id, index_url?, replace?}`. Downloads the preset, checks it against the catalogue's digest and puts it on the board. 404 for a preset the catalogue doesn't list, 502 for one that fails to download, fails its integrity check or is not a valid board. Returns `{panels}`. |
+| `/api/campaigns/:id/gm-screen/party` | GET | owner | The campaign's characters for the party overview: `{characters: [{id, name, user_id, owner_name, status, editable, schema_ref, schema_name, portrait_path, portrait_version, portrait_crop, values}], fields: [{name, label, type, source}]}`. `values` holds each character's scalar fields and computed values, worked out against the caller's copy of the sheet or, failing that, the player's. `editable` is true for the caller's own characters and those whose player let the GM edit; changes go through `PUT /api/characters/:id`. `fields` lists every scalar field (`source: "field"`) and computed value (`source: "computed"`) across the party's sheets. |
+
 ### Settings *(admin only)*
 
 | Endpoint | Method | Description |

@@ -91,6 +91,7 @@ erDiagram
     campaigns ||--o{ wiki_pages : contains
     campaigns ||--o{ wiki_templates : owns
     campaigns ||--o{ wiki_page_links : "scoped to"
+    campaigns ||--o{ gm_screen_panels : "GM screen"
     campaigns ||--o{ campaigns : "parent of"
 
     campaign_resources ||--o{ campaign_resource_shares : "shared via"
@@ -208,6 +209,7 @@ its migration in the same change (and the reverse).
 | `wiki_page_hidden.page_id` | `wiki_pages.id` | |
 | `wiki_page_hidden.user_id` | `users.id` | |
 | `wiki_page_links.campaign_id` | `campaigns.id` | |
+| `gm_screen_panels.campaign_id` | `campaigns.id` | `ON DELETE CASCADE`: a deleted campaign takes its GM screen |
 | `wiki_page_links.source_page_id` | `wiki_pages.id` | |
 | `wiki_page_links.target_page_id` | `wiki_pages.id` | |
 | `resource_tags.tag_id` | `tags.id` | `ON DELETE CASCADE`; `resource_id` is a polymorphic soft link (not a FK) |
@@ -351,6 +353,7 @@ path-keyed feature.
 | `wiki_page_hidden` | A wiki page one user has hidden from their own view. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. Per-user decluttering, not a permission: available on any page the user can see, and invisible to everyone else. Hiding a parent hides its subtree, derived at read time from `parent_id` rather than stored per descendant. |
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
 | `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything - a GM may keep several copies of the same community template. |
+| `gm_screen_panels` | One tool on a campaign's GM screen (issue #764; model in [`backend/models/gm_screen.py`](../backend/models/gm_screen.py)) - one row per panel, so ticking a countdown on one device does not overwrite a panel moved on another. Only the campaign's owner reads or writes them. | FK `campaign_id` (cascades, migration 0068; index `ix_gm_screen_panels_campaign_id`). `kind` ∈ `note`/`party`/`counter`/`clocks`/`pools`/`scratch`/`initiative`. `x`/`y`/`w`/`h` place it on a twelve-column grid. `config` (the tool's setup, copied with the board) and `state` (what is on it now, reset when copied) are JSON whose shape depends on `kind`, rebuilt by [`backend/services/gm_screen/panels.py`](../backend/services/gm_screen/panels.py) on every write. |
 
 ### Armies and leagues - [`backend/models/armies.py`](../backend/models/armies.py), [`backend/models/leagues.py`](../backend/models/leagues.py)
 

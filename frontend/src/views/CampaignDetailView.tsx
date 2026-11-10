@@ -13,6 +13,7 @@ import {
   LuLink,
   LuLock,
   LuLogOut,
+  LuLayoutDashboard,
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
 import type { ResponseOf } from '../api'
@@ -509,6 +510,28 @@ export default function CampaignDetailView() {
             >
               <LuNotebook size={15} /> {t('campaignDetail.openNotes')}
             </Link>
+            {/* The GM's own board of trackers (issue #764) - theirs alone. */}
+            {isGmCampaign && campaign.owner_id === user?.id && (
+              <Link
+                to={`/campaigns/${campaignId}/gm-screen`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                <LuLayoutDashboard size={15} aria-hidden="true" />{' '}
+                {t('campaignDetail.openGmScreen')}
+              </Link>
+            )}
             {/* Edit / Convert / Archive share one kebab menu so the header keeps
                 a single primary action (Open notes). Convert is personal ->
                 group promotion: one-way, so it drops out once the campaign is a

@@ -2280,7 +2280,8 @@
     "leave": "Kampagne verlassen",
     "leaveHint": "Dich selbst aus dieser Kampagne entfernen. Die Kampagne und ihre Notizen bleiben beim Spielleiter.",
     "leaveConfirm": "\"{{name}}\" verlassen? Du verlierst den Zugriff auf Ressourcen, Wiki und Zeitplan. Der Spielleiter kann dich erneut einladen.",
-    "actionsMenu": "Kampagnenaktionen"
+    "actionsMenu": "Kampagnenaktionen",
+    "openGmScreen": "SL-Schirm"
   },
   "campaignEditor": {
     "titleNew": "Neue Kampagne",
@@ -4677,6 +4678,199 @@
         "private": "Ausgewählte Mitglieder",
         "organizer": "Nur Organisator"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "SL-Schirm - {{name}}",
+    "heading": "SL-Schirm",
+    "back": "Kampagne",
+    "gmOnly": "Nur die Spielleitung dieser Kampagne kann ihren SL-Schirm öffnen.",
+    "locked": "Diese Kampagne ist schreibgeschützt. Ihr SL-Schirm lässt sich erst ändern, wenn sie wieder entsperrt ist.",
+    "toolbar": "Werkzeuge des SL-Schirms",
+    "addTool": "Werkzeug hinzufügen",
+    "dismiss": "Schließen",
+    "empty": "Dein SL-Schirm ist leer. Beginne mit einer einfachen Tafel, nutze eine Community-Vorlage, kopiere eine aus einer anderen Kampagne oder füge Werkzeuge einzeln hinzu.",
+    "startBasic": "Mit einer einfachen Tafel beginnen",
+    "kinds": {
+      "party": "Gruppe",
+      "note": "Angeheftete Notiz",
+      "counter": "Zähler",
+      "clocks": "Countdowns",
+      "pools": "Marken-Pools",
+      "initiative": "Initiative",
+      "scratch": "Notizzettel"
+    },
+    "panel": {
+      "move": "{{title}} verschieben",
+      "moveHint": "Zum Verschieben ziehen. Mit der Tastatur verschieben die Pfeiltasten, Umschalt+Pfeiltasten ändern die Größe.",
+      "resizeHint": "Zum Ändern der Größe ziehen",
+      "settings": "Einstellungen für {{title}}",
+      "remove": "{{title}} entfernen",
+      "removeConfirm": "{{title}} vom SL-Schirm entfernen? Alles darin geht verloren.",
+      "title": "Titel",
+      "done": "Fertig"
+    },
+    "stepper": {
+      "decrease": "{{label}} verringern",
+      "increase": "{{label}} erhöhen"
+    },
+    "counter": {
+      "ofMax": "{{value}} von {{max}}",
+      "range": "{{min}} bis {{max}}",
+      "min": "Niedrigster Wert",
+      "max": "Höchster Wert",
+      "noMax": "Keine Grenze",
+      "start": "Beginnt bei",
+      "style": "Anzeigen als",
+      "styleNumber": "Zahl",
+      "stylePips": "Kästchen"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Noch keine Countdowns.",
+        "clock": "Noch keine Uhren."
+      },
+      "add": {
+        "countdown": "Countdown hinzufügen",
+        "clock": "Uhr hinzufügen"
+      },
+      "unnamed": "Unbenannt",
+      "name": "Name",
+      "newName": "Neuen benennen",
+      "left_one": "noch {{count}}",
+      "left_other": "noch {{count}}",
+      "filled": "{{ticks}} von {{size}}",
+      "triggered": "Ausgelöst",
+      "loop": "{{name}} neu starten",
+      "remove": "{{name}} entfernen",
+      "note": "Was beim Auslösen passiert",
+      "notePlaceholder": "Wenn er auslöst ...",
+      "options": "Optionen",
+      "boxes": "Kästchen",
+      "loops": "Beginnt nach dem Auslösen von vorn",
+      "mode": "Zählen",
+      "modeCountdown": "Abwärts, zeigt verbleibende Kästchen (Countdowns)",
+      "modeClock": "Aufwärts, zeigt gefüllte Kästchen (Uhren)"
+    },
+    "pools": {
+      "empty": "Noch keine Pools.",
+      "unnamed": "Unbenannter Pool",
+      "name": "Name des Pools",
+      "newName": "Neuen Pool benennen",
+      "add": "Pool hinzufügen",
+      "remove": "{{name}} entfernen",
+      "note": "Wofür die Marken sind",
+      "notePlaceholder": "Wofür die Marken sind ...",
+      "resets": "Pools leeren"
+    },
+    "scratch": {
+      "placeholder": "Namen, Regelentscheidungen, wer wem was schuldet ..."
+    },
+    "initiative": {
+      "round": "Runde {{round}}",
+      "empty": "Noch niemand in der Zugreihenfolge.",
+      "newName": "Name",
+      "score": "Wert",
+      "side": "Seite",
+      "add": "Hinzufügen",
+      "addParty_one": "Gruppe hinzufügen ({{count}})",
+      "addParty_other": "Gruppe hinzufügen ({{count}})",
+      "previous": "Zurück",
+      "next": "Nächster Zug",
+      "sort": "Nach Wert sortieren",
+      "remove": "{{name}} entfernen",
+      "roundOver": "Alle haben in dieser Runde gehandelt.",
+      "sideUp": "{{side}} ist am Zug",
+      "nextRound": "Nächste Runde",
+      "goesFirst": "beginnt",
+      "makeFirst": "Beginnt",
+      "acted": "{{name}} hat gehandelt",
+      "mode": "Züge",
+      "modeOrdered": "Nacheinander, nach Wert",
+      "modeSides": "Seiten wechseln sich ab",
+      "sides": "Seiten",
+      "sideName": "Seite {{number}}",
+      "removeSide": "{{side}} entfernen",
+      "newSide": "Neue Seite",
+      "addSide": "Seite hinzufügen",
+      "resets": "Zugreihenfolge leeren"
+    },
+    "note": {
+      "choose": "Wähle in den Einstellungen dieses Felds eine Notiz zum Anheften.",
+      "missing": "Die angeheftete Notiz gibt es nicht mehr. Wähle in den Einstellungen dieses Felds eine andere.",
+      "open": "{{title}} in den Notizen öffnen",
+      "page": "Notiz",
+      "none": "Keine"
+    },
+    "party": {
+      "empty": "In dieser Kampagne gibt es noch keine Charaktere.",
+      "noStats": "Wähle in den Einstellungen dieses Felds, welche Werte angezeigt werden.",
+      "noFields": "Noch kein Charakter dieser Kampagne nutzt einen Bogen mit anzeigbaren Werten.",
+      "unnamed": "Unbenannt",
+      "statLabel": "Beschriftung",
+      "statStyle": "Anzeigen als",
+      "styleNumber": "Zahl",
+      "stylePipsOf": "Kästchen, von {{field}}",
+      "moveUp": "{{stat}} nach oben",
+      "moveDown": "{{stat}} nach unten",
+      "removeStat": "{{stat}} entfernen",
+      "addStat": "Wert hinzufügen",
+      "pickField": "Wert wählen ...",
+      "computed": "berechnet",
+      "add": "Hinzufügen",
+      "includeInactive": "Auch ausgeschiedene und tote Charaktere zeigen"
+    },
+    "resets": {
+      "label": "Wird geleert",
+      "never": "Nie",
+      "scene": "Am Ende einer Szene",
+      "session": "Am Ende einer Sitzung",
+      "rest": "Bei einer Rast",
+      "action": {
+        "scene": "Szene beenden",
+        "session": "Sitzung beenden",
+        "rest": "Rast"
+      },
+      "hint": {
+        "scene": "Alles leeren, was am Ende einer Szene geleert wird",
+        "session": "Alles leeren, was am Ende einer Szene oder Sitzung geleert wird",
+        "rest": "Alles leeren, was bei einer Rast geleert wird"
+      },
+      "done": {
+        "scene": "Szene beendet.",
+        "session": "Sitzung beendet.",
+        "rest": "Gerastet."
+      }
+    },
+    "board": {
+      "menu": "Tafel",
+      "presets": "Community-Vorlagen",
+      "copy": "Aus einer anderen Kampagne kopieren",
+      "export": "Exportieren",
+      "import": "Importieren",
+      "importReplace": "Die aktuelle Tafel durch die importierte ersetzen? Mit Abbrechen wird sie darunter angefügt.",
+      "imported": "Tafel importiert.",
+      "notJson": "Diese Datei ist keine SL-Schirm-Tafel.",
+      "panelCount_one": "{{count}} Feld",
+      "panelCount_other": "{{count}} Felder",
+      "whereLegend": "Einfügen",
+      "replace": "Anstelle dieser Tafel",
+      "append": "Unter dieser Tafel"
+    },
+    "copy": {
+      "title": "SL-Schirm kopieren",
+      "none": "Keine deiner anderen Kampagnen hat bisher einen SL-Schirm.",
+      "help": "Das Layout und die Einstellungen jedes Werkzeugs werden kopiert. Die Werte beginnen von vorn, und eine angeheftete Notiz sucht hier nach einer Notiz mit demselben Namen.",
+      "from": "Kopieren aus",
+      "action": "Kopieren"
+    },
+    "presets": {
+      "title": "Community-Vorlagen",
+      "none": "Aus den eingerichteten Add-on-Quellen sind keine Vorlagen verfügbar.",
+      "by": "von {{author}}",
+      "apply": "Verwenden",
+      "applyNamed": "{{name}} verwenden",
+      "sourceError": "{{url}} konnte nicht gelesen werden: {{error}}"
     }
   }
 }

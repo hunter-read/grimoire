@@ -2280,7 +2280,8 @@
     "leave": "Sair da campanha",
     "leaveHint": "Remover-se desta campanha. O mestre mantém a campanha e as suas notas.",
     "leaveConfirm": "Sair de \"{{name}}\"? Perderá o acesso aos recursos, wiki e horário. O mestre pode convidá-lo novamente.",
-    "actionsMenu": "Ações da campanha"
+    "actionsMenu": "Ações da campanha",
+    "openGmScreen": "Escudo do mestre"
   },
   "campaignEditor": {
     "titleNew": "Nova campanha",
@@ -4677,6 +4678,199 @@
         "private": "Membros escolhidos",
         "organizer": "Só o organizador"
       }
+    }
+  },
+  "gmScreen": {
+    "pageTitle": "Escudo do mestre - {{name}}",
+    "heading": "Escudo do mestre",
+    "back": "Campanha",
+    "gmOnly": "Só o mestre desta campanha pode abrir o escudo do mestre dela.",
+    "locked": "Esta campanha é só de leitura, por isso o escudo do mestre não pode ser alterado até ela ser desbloqueada.",
+    "toolbar": "Ferramentas do escudo do mestre",
+    "addTool": "Adicionar ferramenta",
+    "dismiss": "Dispensar",
+    "empty": "O seu escudo do mestre está vazio. Comece com um quadro básico, use um modelo da comunidade, copie um de outra campanha ou adicione ferramentas uma a uma.",
+    "startBasic": "Começar com um quadro básico",
+    "kinds": {
+      "party": "Grupo",
+      "note": "Nota fixada",
+      "counter": "Contador",
+      "clocks": "Contagens regressivas",
+      "pools": "Reservas de fichas",
+      "initiative": "Iniciativa",
+      "scratch": "Rascunho"
+    },
+    "panel": {
+      "move": "Mover {{title}}",
+      "moveHint": "Arraste para mover. No teclado, as setas movem e Shift+setas redimensionam.",
+      "resizeHint": "Arraste para redimensionar",
+      "settings": "Definições de {{title}}",
+      "remove": "Remover {{title}}",
+      "removeConfirm": "Remover {{title}} do escudo do mestre? Tudo o que ele guarda será perdido.",
+      "title": "Título",
+      "done": "Concluído"
+    },
+    "stepper": {
+      "decrease": "Diminuir {{label}}",
+      "increase": "Aumentar {{label}}"
+    },
+    "counter": {
+      "ofMax": "{{value}} de {{max}}",
+      "range": "De {{min}} a {{max}}",
+      "min": "Mínimo",
+      "max": "Máximo",
+      "noMax": "Sem limite",
+      "start": "Começa em",
+      "style": "Mostrar como",
+      "styleNumber": "Um número",
+      "stylePips": "Caixas"
+    },
+    "clocks": {
+      "empty": {
+        "countdown": "Nenhuma contagem regressiva ainda.",
+        "clock": "Nenhum relógio ainda."
+      },
+      "add": {
+        "countdown": "Adicionar contagem regressiva",
+        "clock": "Adicionar relógio"
+      },
+      "unnamed": "Sem nome",
+      "name": "Nome",
+      "newName": "Nome de uma nova",
+      "left_one": "Falta {{count}}",
+      "left_other": "Faltam {{count}}",
+      "filled": "{{ticks}} de {{size}}",
+      "triggered": "Disparou",
+      "loop": "Reiniciar {{name}}",
+      "remove": "Remover {{name}}",
+      "note": "O que acontece quando dispara",
+      "notePlaceholder": "Quando disparar...",
+      "options": "Opções",
+      "boxes": "Caixas",
+      "loops": "Recomeça quando dispara",
+      "mode": "Contar",
+      "modeCountdown": "Para baixo, caixas restantes (contagens regressivas)",
+      "modeClock": "Para cima, caixas preenchidas (relógios)"
+    },
+    "pools": {
+      "empty": "Nenhuma reserva ainda.",
+      "unnamed": "Reserva sem nome",
+      "name": "Nome da reserva",
+      "newName": "Nome de uma nova reserva",
+      "add": "Adicionar reserva",
+      "remove": "Remover {{name}}",
+      "note": "Para que servem as fichas",
+      "notePlaceholder": "Para que servem as fichas...",
+      "resets": "Esvaziar as reservas"
+    },
+    "scratch": {
+      "placeholder": "Anote nomes, decisões de regras, quem deve o quê a quem..."
+    },
+    "initiative": {
+      "round": "Rodada {{round}}",
+      "empty": "Ninguém na ordem de turnos ainda.",
+      "newName": "Nome",
+      "score": "Valor",
+      "side": "Lado",
+      "add": "Adicionar",
+      "addParty_one": "Adicionar o grupo ({{count}})",
+      "addParty_other": "Adicionar o grupo ({{count}})",
+      "previous": "Voltar",
+      "next": "Próximo turno",
+      "sort": "Ordenar por valor",
+      "remove": "Remover {{name}}",
+      "roundOver": "Todos já agiram nesta rodada.",
+      "sideUp": "Vez de {{side}}",
+      "nextRound": "Próxima rodada",
+      "goesFirst": "começa",
+      "makeFirst": "Começa",
+      "acted": "{{name}} já agiu",
+      "mode": "Turnos",
+      "modeOrdered": "Um após o outro, por valor",
+      "modeSides": "Os lados revezam-se",
+      "sides": "Lados",
+      "sideName": "Lado {{number}}",
+      "removeSide": "Remover {{side}}",
+      "newSide": "Novo lado",
+      "addSide": "Adicionar lado",
+      "resets": "Esvaziar a ordem de turnos"
+    },
+    "note": {
+      "choose": "Escolha uma nota para fixar nas definições deste painel.",
+      "missing": "A nota fixada não existe mais. Escolha outra nas definições deste painel.",
+      "open": "Abrir {{title}} nas notas",
+      "page": "Nota",
+      "none": "Nenhuma"
+    },
+    "party": {
+      "empty": "Ainda não existem personagens nesta campanha.",
+      "noStats": "Escolha quais valores mostrar nas definições deste painel.",
+      "noFields": "Nenhum personagem desta campanha usa ainda uma ficha com valores para mostrar.",
+      "unnamed": "Sem nome",
+      "statLabel": "Rótulo",
+      "statStyle": "Mostrar como",
+      "styleNumber": "Um número",
+      "stylePipsOf": "Caixas, de {{field}}",
+      "moveUp": "Subir {{stat}}",
+      "moveDown": "Descer {{stat}}",
+      "removeStat": "Remover {{stat}}",
+      "addStat": "Adicionar um valor",
+      "pickField": "Escolha um valor...",
+      "computed": "calculado",
+      "add": "Adicionar",
+      "includeInactive": "Mostrar também personagens aposentados e mortos"
+    },
+    "resets": {
+      "label": "Esvazia",
+      "never": "Nunca",
+      "scene": "No fim de uma cena",
+      "session": "No fim de uma sessão",
+      "rest": "Num descanso",
+      "action": {
+        "scene": "Encerrar cena",
+        "session": "Encerrar sessão",
+        "rest": "Descansar"
+      },
+      "hint": {
+        "scene": "Esvaziar tudo o que esvazia no fim de uma cena",
+        "session": "Esvaziar tudo o que esvazia no fim de uma cena ou de uma sessão",
+        "rest": "Esvaziar tudo o que esvazia num descanso"
+      },
+      "done": {
+        "scene": "Cena encerrada.",
+        "session": "Sessão encerrada.",
+        "rest": "Descanso feito."
+      }
+    },
+    "board": {
+      "menu": "Quadro",
+      "presets": "Modelos da comunidade",
+      "copy": "Copiar de outra campanha",
+      "export": "Exportar",
+      "import": "Importar",
+      "importReplace": "Substituir o quadro atual pelo importado? Cancelar adiciona-o por baixo.",
+      "imported": "Quadro importado.",
+      "notJson": "Esse ficheiro não é um quadro de escudo do mestre.",
+      "panelCount_one": "{{count}} painel",
+      "panelCount_other": "{{count}} painéis",
+      "whereLegend": "Colocar",
+      "replace": "No lugar deste quadro",
+      "append": "Por baixo deste quadro"
+    },
+    "copy": {
+      "title": "Copiar um escudo do mestre",
+      "none": "Nenhuma das suas outras campanhas tem um escudo do mestre ainda.",
+      "help": "O layout e as definições de cada ferramenta são copiados. Os valores começam do zero, e uma nota fixada procura aqui uma nota com o mesmo nome.",
+      "from": "Copiar de",
+      "action": "Copiar"
+    },
+    "presets": {
+      "title": "Modelos da comunidade",
+      "none": "Não existem modelos disponíveis nas fontes de complementos configuradas.",
+      "by": "por {{author}}",
+      "apply": "Usar",
+      "applyNamed": "Usar {{name}}",
+      "sourceError": "Não foi possível ler {{url}}: {{error}}"
     }
   }
 }
