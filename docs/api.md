@@ -2629,8 +2629,9 @@ tags. **The template never becomes markup**: it is parsed to an AST server-side
 and rendered as React elements, so no schema string ever reaches `innerHTML`.
 Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and
 any `href`/`src` that is not relative or https are rejected at install time.
-Schema CSS is scope-prefixed to the sheet and filtered against a property
-allowlist, so a hostile schema cannot restyle the app around it. The worst one
+Schema CSS is tokenised, scope-prefixed to the sheet and filtered against a
+property and function allowlist, so a hostile schema cannot restyle the app
+around it. The worst one
 can do is look wrong.
 
 **Phone layouts.** A schema may also ship a second, phone-specific layout:
