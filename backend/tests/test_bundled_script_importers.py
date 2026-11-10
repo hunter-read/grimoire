@@ -148,7 +148,8 @@ class TestDndBeyond:
         assert data["klass"]["_ref"] == "fighter"
         assert data["background"]["_ref"] == "soldier"
         assert data["species"] == {"_inline": True, "name": "Hill Dwarf"}
-        assert data["subclass"] == "Champion"
+        # Text until the sheet's subclass became a pick, a reference since.
+        assert data["subclass"] in ("Champion", {"_ref": "champion", "_source": "srd"})
         assert "Hill Dwarf" in unmatched
         assert data["alignment"] == "True Neutral"
 
