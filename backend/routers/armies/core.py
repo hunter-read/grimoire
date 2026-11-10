@@ -85,7 +85,7 @@ async def import_army(
     cost_name = battlescribe.main_cost_name(document)
     system = matching.match_system(db, current_user, document.get("game_system_name", ""))
     catalogue = next((f.get("catalogue") for f in document.get("forces") or []), "") or ""
-    faction = matching.match_faction(db, system.id if system else None, catalogue)
+    faction = matching.match_faction(db, current_user, system.id if system else None, catalogue)
     filename = os.path.basename(file.filename or "roster.rosz")
     title = (name or "").strip() or document.get("name") or os.path.splitext(filename)[0]
     army = Army(
@@ -308,6 +308,6 @@ def list_game_factions(
     return {
         "factions": [
             {key: f[key] for key in ("id", "name", "parent_id", "depth")}
-            for f in faction_service.system_factions(db, system_id)
+            for f in faction_service.system_factions(db, system_id, current_user)
         ]
     }

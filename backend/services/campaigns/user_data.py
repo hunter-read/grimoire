@@ -226,6 +226,19 @@ def detach_campaign_characters(db: Session, campaign_ids: List[str]) -> None:
     )
 
 
+def detach_child_campaigns(db: Session, campaign_ids: List[str]) -> None:
+    """Clear the parent link of campaigns that sit under ones about to be deleted.
+
+    The child campaigns are kept, now standing on their own, so the parents'
+    rows can go. Does not commit.
+    """
+    if not campaign_ids:
+        return
+    db.query(Campaign).filter(Campaign.parent_campaign_id.in_(campaign_ids)).update(
+        {Campaign.parent_campaign_id: None}, synchronize_session=False
+    )
+
+
 def purge_user_data(db: Session, user_id: str) -> None:
     """Remove everything that would dangle if ``user_id`` were deleted.
 
@@ -260,6 +273,7 @@ def purge_user_data(db: Session, user_id: str) -> None:
     )
     owned_guests = [(m.user_id, m.guest_code) for m in owned_members]
     detach_campaign_characters(db, [c.id for c in owned])
+    detach_child_campaigns(db, [c.id for c in owned])
     for campaign in owned:
         db.delete(campaign)
     if owned_guests:

@@ -112,7 +112,7 @@ def test_faction_helpers_handle_empty_input():
     db = SessionLocal()
     try:
         assert factions_for_books(db, []) == {}
-        assert system_factions(db, "no-such-system") == []
+        assert system_factions(db, "no-such-system", None) == []
     finally:
         db.close()
 

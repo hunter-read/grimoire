@@ -14,6 +14,7 @@ from ...models import Army, Faction, League, LeagueMember
 from ...models.base import utc_iso
 from ...services.armies import battlescribe, guests, links
 from ...services.armies.matching import wargame_system
+from ...services.factions import hidden_faction_ids
 
 
 def is_admin(user: CurrentUser) -> bool:
@@ -67,13 +68,18 @@ def check_system_and_faction(
     The system must be a wargame in the library the caller may see, and the
     faction one of its own. A faction given without a system brings its system.
     A guest's faction must be one of their leagues' games', and any other reads
-    as missing, so an id cannot be probed.
+    as missing, so an id cannot be probed - as does one whose books are all
+    kept from the caller.
     """
     if faction_id:
         faction = db.query(Faction).filter_by(id=faction_id).first()
         if faction is not None and guests.is_guest(user):
             if faction.game_system_id not in guests.league_system_ids(db, user.id):
                 faction = None
+        if faction is not None and faction.id in hidden_faction_ids(
+            db, faction.game_system_id, user
+        ):
+            faction = None
         if faction is None:
             raise HTTPException(400, "That faction is not in the library")
         if game_system_id and faction.game_system_id != game_system_id:
@@ -87,15 +93,23 @@ def check_system_and_faction(
 def summary(db: Session, army: Army, user: CurrentUser) -> dict[str, Any]:
     """The list view's shape.
 
-    The system is named only when the caller may see it. A league's guest
-    reading another member's army in some other game is given neither its id
-    nor its faction, which would name library entries outside their leagues.
+    The system is named only when the caller may see it, and the faction only
+    with it, and only when a book of the faction is not all kept from them. A
+    league's guest reading another member's army in some other game is given
+    not the system's id either, which would name a library entry outside their
+    leagues.
     """
     system = wargame_system(db, user, army.game_system_id) if army.game_system_id else None
-    faction = db.query(Faction).filter_by(id=army.faction_id).first() if army.faction_id else None
+    faction = (
+        db.query(Faction).filter_by(id=army.faction_id).first()
+        if army.faction_id and system is not None
+        else None
+    )
+    if faction is not None and faction.id in hidden_faction_ids(db, faction.game_system_id, user):
+        faction = None
     system_id = army.game_system_id
     if guests.is_guest(user) and system is None:
-        system_id, faction = None, None
+        system_id = None
     return {
         "id": army.id,
         "name": army.name,

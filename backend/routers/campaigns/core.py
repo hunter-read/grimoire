@@ -26,6 +26,7 @@ from ._helpers import (
     can_link_resource,
     can_see_resource,
     can_view,
+    check_parent_campaign,
     clamp_visibility_for_access,
     get_campaign_or_404,
     is_gm_or_admin,
@@ -35,7 +36,11 @@ from ._helpers import (
     serialize_campaign,
     user_has_campaign_access,
 )
-from ...services.campaigns.user_data import detach_campaign_characters, release_guest_membership
+from ...services.campaigns.user_data import (
+    detach_campaign_characters,
+    detach_child_campaigns,
+    release_guest_membership,
+)
 from ._writable import ARCHIVED, writable_while
 from ._schemas import (
     CampaignArchive,
@@ -166,13 +171,14 @@ def create_campaign(
         # Only a system the creator can see: one hidden from them answers like
         # an id that does not exist.
         load_browsable_system(db, data.system_id, current_user)
+    parent_id = check_parent_campaign(db, data.parent_campaign_id, current_user)
     campaign = Campaign(
         name=data.name.strip(),
         description=data.description,
         owner_id=current_user.id,
         is_gm_campaign=data.is_gm_campaign,
         gm_title=data.gm_title.strip() if data.gm_title else "Game Master",
-        parent_campaign_id=data.parent_campaign_id,
+        parent_campaign_id=parent_id,
         system_id=data.system_id,
         # A linked library system takes precedence over a free-text name.
         system_name=(data.system_name.strip() or None)
@@ -295,6 +301,8 @@ def update_campaign(
         if c.system_name:
             c.system_id = None  # free-text name replaces any linked system
     if data.parent_campaign_id is not None:
+        if data.parent_campaign_id and data.parent_campaign_id != c.parent_campaign_id:
+            check_parent_campaign(db, data.parent_campaign_id, current_user, c.id)
         c.parent_campaign_id = data.parent_campaign_id or None
 
     db.commit()
@@ -391,6 +399,7 @@ def delete_campaign(
         for m in db.query(CampaignMember).filter_by(campaign_id=c.id, is_guest=True).all()
     ]
     detach_campaign_characters(db, [c.id])
+    detach_child_campaigns(db, [c.id])
     db.delete(c)
     db.flush()
     for uid, code in guests:

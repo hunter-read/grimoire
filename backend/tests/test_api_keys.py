@@ -959,20 +959,22 @@ class TestSessionOnlyChanges:
         )
         assert resp.status_code == 200, resp.text
 
-    def test_the_admin_role_is_granted_from_a_session_only(
-        self, client, admin_headers, admin_key
-    ):
+    def test_a_role_is_changed_from_a_session_only(self, client, admin_headers, admin_key):
         user_id, _ = _user(client, admin_headers, "player", keys=False)
-        resp = client.patch(f"/api/users/{user_id}", json={"role": "admin"}, headers=admin_key)
+        for role in ("admin", "gm"):
+            resp = client.patch(f"/api/users/{user_id}", json={"role": role}, headers=admin_key)
+            assert resp.status_code == 403, role
+        other_admin, _ = _user(client, admin_headers, "admin", keys=False)
+        resp = client.patch(f"/api/users/{other_admin}", json={"role": "player"}, headers=admin_key)
         assert resp.status_code == 403
-        # Other roles, and other fields, are still the key's to change.
+        # The same role, and other fields, are still the key's to set.
         resp = client.patch(
             f"/api/users/{user_id}",
-            json={"role": "gm", "allow_explicit": False},
+            json={"role": "player", "allow_explicit": False},
             headers=admin_key,
         )
         assert resp.status_code == 200, resp.text
-        assert resp.json()["role"] == "gm"
+        assert resp.json()["role"] == "player"
 
     def test_a_users_email_is_changed_from_a_session_only(
         self, client, admin_headers, admin_key
@@ -992,8 +994,10 @@ class TestSessionOnlyChanges:
 
         assert create(password="new-pass-for-key-test").status_code == 403
         assert create(role="admin").status_code == 403
-        resp = create(role="player")
-        assert resp.status_code == 201, resp.text
+        assert create(email=f"{uuid.uuid4().hex[:8]}@example.com").status_code == 403
+        for role in ("player", "gm"):
+            resp = create(role=role)
+            assert resp.status_code == 201, resp.text
 
     def test_converting_a_guest_with_a_password_needs_a_session(
         self, client, admin_key
