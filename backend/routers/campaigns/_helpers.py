@@ -19,21 +19,35 @@ from ...text.wikilinks import FENCE_RE
 _GM_SECRET_RE = re.compile(r"\|\|.*?\|\|", re.DOTALL)
 
 
+def _blank(text: str, spans: list[tuple[int, int]]) -> str:
+    """``text`` with each span overwritten by NULs - same length, so offsets hold."""
+    out, last = [], 0
+    for start, end in sorted(spans):
+        out.append(text[last:start])
+        out.append("\0" * (end - start))
+        last = end
+    out.append(text[last:])
+    return "".join(out)
+
+
 def _secret_spans(body: str) -> list[tuple[int, int]]:
     """The ``(start, end)`` of every ||...|| GM-only span in ``body``, in order.
 
-    Markers pair within one stretch of text: prose with prose, and inside a
-    fenced code block only with each other. A ``||`` that is part of the code -
+    Markers pair within one stretch of text first: prose with prose, and inside
+    a fenced code block only with each other. A ``||`` that is part of the code -
     an ER diagram's cardinality, ``a || b`` - then has no partner in its fence
     and stays literal, instead of pairing with the next marker in the prose
     after it. A prose secret may still wrap whole fences; those go with it.
+
+    Markers left without a partner then pair with each other, left to right,
+    wherever they sit. Where a fence starts or ends decides which stretch a
+    marker is in, so a secret written around a fence's opening or closing line
+    - or one a later fence line above it re-cuts - has its two markers in
+    different stretches. Pairing the leftovers hides it anyway. A single
+    leftover stays literal, which is what keeps one ER ``||`` drawn.
     """
     fences = [m.span() for m in FENCE_RE.finditer(body)]
-    # Blank the fences (same length, so offsets hold) to pair the prose markers.
-    masked = body
-    for start, end in fences:
-        masked = masked[:start] + "\0" * (end - start) + masked[end:]
-    spans = [m.span() for m in _GM_SECRET_RE.finditer(masked)]
+    spans = [m.span() for m in _GM_SECRET_RE.finditer(_blank(body, fences))]
     prose = list(spans)
     for start, end in fences:
         # A prose span starts and ends in prose, so it holds a fence whole or
@@ -41,7 +55,16 @@ def _secret_spans(body: str) -> list[tuple[int, int]]:
         if any(s <= start and end <= e for s, e in prose):
             continue
         spans.extend(m.span() for m in _GM_SECRET_RE.finditer(body, start, end))
-    return sorted(spans)
+    # Every leftover marker is outside the spans so far, so a span this finds
+    # holds any of those it reaches whole.
+    spans.extend(m.span() for m in _GM_SECRET_RE.finditer(_blank(body, spans)))
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if merged and start < merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def strip_gm_secrets(body: str) -> str:
@@ -50,9 +73,9 @@ def strip_gm_secrets(body: str) -> str:
     This is what a non-owner receives: the hidden text is gone without a trace —
     no placeholder, no marker — so a player never learns a secret exists or where
     it sits, whether in the rendered page, the raw editor body, or a search
-    snippet. An unterminated trailing ``||`` (no closing pair) is left as-is,
-    and markers pair within a code fence or within the prose around it, never
-    across the two (see ``_secret_spans``).
+    snippet. An unterminated trailing ``||`` (no closing pair) is left as-is.
+    Markers pair within a code fence or within the prose around it first, and
+    the ones left over then pair with each other (see ``_secret_spans``).
 
     A non-owner edits this stripped body; on save ``merge_gm_secrets`` re-weaves
     the stored secrets back in by matching the surrounding text. See
@@ -130,6 +153,8 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
       below it — the secret does not drift past later paragraphs.
     * If the text on *both* sides of a secret's boundary was rewritten (the anchor
       is gone), the secret is appended at the end so it is preserved, never lost.
+    * If the merged body no longer reads as the same secrets - the player's code
+      fences now cut across one - a 400 is raised rather than storing it.
 
     ``new_body`` is returned unchanged when the stored body had no secrets.
     """
@@ -173,6 +198,18 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
         orphans.sort()
         sep = "" if not result or result.endswith("\n") else "\n"
         result = result + sep + "\n".join(s for _, s in orphans)
+
+    # The secrets go back whole, but the fences around them are the player's
+    # now, and a fence line decides which markers pair. If the edit has re-cut
+    # them - a code block opened above a secret that holds one, say - the GM's
+    # text would no longer read as secret, so the save is refused instead.
+    secrets = sorted(secret for secret, _ in positioned)
+    if sorted(result[s:e] for s, e in _secret_spans(result)) != secrets:
+        raise HTTPException(
+            400,
+            "This edit leaves a code block open or closes one early. Check that "
+            "every ``` or ~~~ line has its match, then save again.",
+        )
     return result
 
 

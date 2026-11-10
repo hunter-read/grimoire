@@ -755,6 +755,59 @@ class TestWikiGmSecrets:
         hit = next(r for r in resp2.json()["results"] if r["title"] == "Findable")
         assert "treasure" not in hit["snippet"]
 
+    # A secret wrapped around a whole diagram, on a page the party can edit.
+    FENCED = (
+        "Public intro\n\n||\n```mermaid\nflowchart LR\n  Steward --> Traitor\n```\n||\n\n"
+        "Public outro\n"
+    )
+
+    def _served(self, client, cid, pid, headers):
+        """Everything a member is sent for the page: the body, and their export."""
+        bundle = client.get(
+            f"/api/campaigns/{cid}/wiki/export?format=json", headers=headers
+        ).json()
+        return self._get(client, cid, pid, headers)["body"] + str(bundle["pages"])
+
+    def test_a_code_block_opened_above_a_secret_keeps_it_hidden(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        page = _create(
+            client, gm_headers, cid, title="Plot", body=self.FENCED, visibility="group"
+        ).json()
+        seen = self._get(client, cid, page["id"], player_headers)["body"]
+        assert seen == "Public intro\n\n\n\nPublic outro\n"
+        # The new opening line is closed by the secret's own closing fence.
+        assert self._patch(client, cid, page["id"], "```\n" + seen, player_headers).status_code == 200
+        assert self._get(client, cid, page["id"], gm_headers)["body"] == "```\n" + self.FENCED
+        assert "Traitor" not in self._served(client, cid, page["id"], player_headers)
+
+    def test_an_edit_that_re_cuts_a_secret_is_refused(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        # The diagram's own marker would pair with the secret's opening one.
+        body = self.FENCED.replace(
+            "flowchart LR\n  Steward --> Traitor", "erDiagram\n  STEWARD ||--o{ Traitor : hides"
+        )
+        page = _create(client, gm_headers, cid, title="Plot", body=body, visibility="group").json()
+        seen = self._get(client, cid, page["id"], player_headers)["body"]
+        resp = self._patch(client, cid, page["id"], "```\n" + seen, player_headers)
+        assert resp.status_code == 400
+        assert "code block" in resp.json()["detail"]
+        assert self._get(client, cid, page["id"], gm_headers)["body"] == body
+        assert "Traitor" not in self._served(client, cid, page["id"], player_headers)
+
+    def test_a_secret_around_an_unclosed_fence_stays_hidden(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        cid = campaign_with_member
+        body = "Intro\n||The vault code is\n```\nSWORDFISH\n|| public tail\n"
+        page = _create(client, gm_headers, cid, title="Vault", body=body, visibility="group").json()
+        served = self._served(client, cid, page["id"], player_headers)
+        assert "SWORDFISH" not in served and "vault code" not in served
+        assert self._get(client, cid, page["id"], player_headers)["body"] == "Intro\n public tail\n"
+
     def _authored_page_with_secret(self, client, gm_headers, player_headers, cid, body):
         """Player authors a group page; the GM edits it to a body with ||secret||s.
         Returns (page_id, player's clean stripped view of the body).
