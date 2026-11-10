@@ -12,7 +12,8 @@ The objects added here:
   no stopwords - so page search behaves like SQLite's ``porter unicode61`` FTS5
   tokenizer: ``café`` finds ``cafe`` and a search for ``the`` still matches;
 * ``book_pages`` with a generated ``tsvector`` column and its GIN index, the
-  PostgreSQL counterpart of ``book_pages`` + the ``book_search`` FTS5 index;
+  PostgreSQL counterpart of ``book_pages`` + the ``book_search`` FTS5 index
+  (markup-like text is indexed as plain words, see ``MARKUP_CHARS``);
 * ``content_search``, the character-builder catalogue index, likewise;
 * the case-insensitive unique index on ``users`` (``usernames.ensure_unique_index``);
 * the default lookup rows (genres, system families, licenses, dice materials)
@@ -49,6 +50,34 @@ def _varchar_without_length(type_: Any, compiler: Any, **kw: Any) -> str:
 # rather than index; no real page comes near it.
 INDEXED_CHARS = 250_000
 
+# Characters that open what PostgreSQL's text search parser takes for markup:
+# "<" an XML tag, "&" an entity. The parser drops a whole tag - "<goblin king>" -
+# and an entity - "&amp;" - where SQLite's FTS5 tokenizer just splits on the
+# punctuation and indexes the words. Both are swapped for a space before the
+# text is parsed, in the index and in every search term (services.pg_search), so
+# the same words are found on both databases.
+MARKUP_CHARS = "<&"
+
+
+def searchable(expr: str) -> str:
+    """SQL for the text ``expr`` with ``MARKUP_CHARS`` turned into spaces."""
+    return f"translate({expr}, '{MARKUP_CHARS}', '{' ' * len(MARKUP_CHARS)}')"
+
+
+def book_pages_search_sql() -> str:
+    """The ``book_pages.search`` generation expression."""
+    return (
+        f"to_tsvector('{SEARCH_CONFIG}'::regconfig, "
+        f"{searchable(f'left(content, {INDEXED_CHARS})')})"
+    )
+
+
+def content_search_sql() -> str:
+    """The ``content_search.search`` generation expression."""
+    text_sql = f"left(coalesce(name, '') || ' ' || coalesce(body, ''), {INDEXED_CHARS})"
+    return f"to_tsvector('{SEARCH_CONFIG}'::regconfig, {searchable(text_sql)})"
+
+
 _TEXT_SEARCH = (
     # Trusted since PostgreSQL 13: the database owner can create it, no superuser.
     "CREATE EXTENSION IF NOT EXISTS unaccent",
@@ -78,9 +107,7 @@ _TABLES = (
         book_id TEXT NOT NULL,
         page_number INTEGER NOT NULL,
         content TEXT NOT NULL,
-        search tsvector GENERATED ALWAYS AS (
-            to_tsvector('{SEARCH_CONFIG}'::regconfig, left(content, {INDEXED_CHARS}))
-        ) STORED
+        search tsvector GENERATED ALWAYS AS ({book_pages_search_sql()}) STORED
     )
     """,
     "CREATE INDEX IF NOT EXISTS ix_book_pages_book_page ON book_pages (book_id, page_number)",
@@ -94,12 +121,7 @@ _TABLES = (
         content_type TEXT,
         name TEXT,
         body TEXT,
-        search tsvector GENERATED ALWAYS AS (
-            to_tsvector(
-                '{SEARCH_CONFIG}'::regconfig,
-                left(coalesce(name, '') || ' ' || coalesce(body, ''), {INDEXED_CHARS})
-            )
-        ) STORED
+        search tsvector GENERATED ALWAYS AS ({content_search_sql()}) STORED
     )
     """,
     "CREATE INDEX IF NOT EXISTS ix_content_search_pack ON content_search (pack_row)",

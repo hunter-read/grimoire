@@ -285,3 +285,54 @@ class TestSnippetEscaping:
         snippet = self._snippet(client, admin_headers, booby_trapped_book.id, "ritual")
         assert "" not in snippet
         assert "" not in snippet
+
+
+@pytest.fixture(scope="module")
+def bracketed_book():
+    """Page text with words inside angle brackets and an HTML-style entity."""
+    sys = make_game_system()
+    book = make_book(system_id=sys.id, title="Bracketed Lore", indexed=True)
+    db = SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO book_pages (book_id, page_number, content) "
+                "VALUES (:bid, 1, :content)"
+            ),
+            {
+                "bid": book.id,
+                "content": "Roll on the <quasitronic engine> table, then "
+                "<b>hexwardens</b> and the zorblax&amp;glimmerfen rite",
+            },
+        )
+        db.commit()
+    finally:
+        db.close()
+    return book
+
+
+class TestBracketedText:
+    """Text inside <...> is found on both databases.
+
+    SQLite's FTS5 tokenizer treats ``<`` and ``>`` as separators; PostgreSQL's
+    parser took ``<quasitronic engine>`` for an XML tag and indexed nothing of it.
+    """
+
+    def _hits(self, client, admin_headers, query):
+        resp = client.get("/api/search", params={"q": query}, headers=admin_headers)
+        assert resp.status_code == 200
+        return {r["id"]: r for r in resp.json()["results"]}
+
+    @pytest.mark.parametrize(
+        "query",
+        ["quasitronic", "engine", "hexwarden", '"quasitronic engine"', "<quasitronic",
+         "glimmerfen", "zorblax", "amp"],
+    )
+    def test_words_in_brackets_are_found(self, client, admin_headers, bracketed_book, query):
+        assert bracketed_book.id in self._hits(client, admin_headers, query)
+
+    def test_the_snippet_marks_them(self, client, admin_headers, bracketed_book):
+        hit = self._hits(client, admin_headers, "quasitronic")[bracketed_book.id]
+        assert "&lt;<mark>quasitronic</mark> engine&gt;" in hit["snippet"]
+        hit = self._hits(client, admin_headers, "glimmerfen")[bracketed_book.id]
+        assert "zorblax&amp;amp;<mark>glimmerfen</mark>" in hit["snippet"]

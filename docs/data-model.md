@@ -405,8 +405,10 @@ adds what the models cannot declare, and the database is stamped at head. Every 
 then on must run on both databases; `alembic check` runs against both in CI.
 
 - **Page search.** `book_pages` gains `search`, a generated `tsvector`
-  (`to_tsvector('grimoire', left(content, 250000))`) with a GIN index `ix_book_pages_search`;
-  its `id` is a `BIGINT` identity. There is no `book_search` table and no triggers. The
+  (`to_tsvector('grimoire', translate(left(content, 250000), '<&', '  '))`) with a GIN index
+  `ix_book_pages_search`; its `id` is a `BIGINT` identity. `<` and `&` become spaces first
+  because PostgreSQL's parser drops anything it takes for an XML tag (`<goblin king>`) or
+  entity (`&amp;`), where FTS5 indexes the words; search terms get the same treatment. There is no `book_search` table and no triggers. The
   `grimoire` text search configuration is Snowball English with no stopwords, after the
   `unaccent` dictionary, so it matches the FTS5 `porter unicode61` tokenizer's behaviour.
   `content_search` is an ordinary table with the same generated column over `name` and

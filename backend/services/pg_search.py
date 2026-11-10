@@ -17,7 +17,7 @@ adjacency), then OR.
 import re
 from typing import Optional
 
-from ..models.postgres import SEARCH_CONFIG
+from ..models.postgres import MARKUP_CHARS, SEARCH_CONFIG
 
 # A token of the FTS5 grammar to_fts_query writes: a "quoted phrase" (embedded
 # quotes doubled) or a bare run of non-space characters.
@@ -29,8 +29,10 @@ _BAREWORD = re.compile(r"^[A-Za-z0-9_]+$")
 SNIPPET_OPEN = ""
 SNIPPET_CLOSE = ""
 SNIPPET_ELLIPSIS = "..."
-# Stands in for "<" while ts_headline runs (see headline_sql).
-_LESS_THAN = "\ue002"
+# Stand in for "<" and "&" while ts_headline runs (see headline_sql).
+_MARKUP_STAND_INS = "\ue002\ue003"
+# What the index turns them into (models.postgres.searchable), for search terms.
+_UNMARKUP = str.maketrans(MARKUP_CHARS, " " * len(MARKUP_CHARS))
 _HEADLINE_OPTIONS = (
     f"StartSel={SNIPPET_OPEN}, StopSel={SNIPPET_CLOSE}, "
     "MaxWords=40, MinWords=20, ShortWord=0, MaxFragments=1, FragmentDelimiter=..."
@@ -46,7 +48,7 @@ def _term_sql(token: str, params: dict, prefix: str) -> str:
         return f"to_tsquery('{SEARCH_CONFIG}', :{name})"
     if token.startswith('"') and token.endswith('"') and len(token) >= 2:
         token = token[1:-1].replace('""', '"')
-    params[name] = token
+    params[name] = token.translate(_UNMARKUP)
     return f"phraseto_tsquery('{SEARCH_CONFIG}', :{name})"
 
 
@@ -116,20 +118,21 @@ def headline_sql(content: str, query: str) -> str:
     that reaches the end of the page gets the page's own closing punctuation
     back ("...turns to stone." rather than "...turns to stone...").
 
-    ts_headline also drops anything its parser takes for an HTML tag, which
-    snippet() keeps (as escaped text): "<" is swapped for a placeholder on the
-    way in and back on the way out, so the page's own text survives.
+    ts_headline also drops anything its parser takes for an HTML tag, and does
+    not mark a word inside an entity, where snippet() keeps and marks both: "<"
+    and "&" are swapped for placeholders on the way in and back on the way out,
+    so the page's own text survives and reads as the index does.
     """
-    source = f"replace({content}, '<', '{_LESS_THAN}')"
+    source = f"translate({content}, '{MARKUP_CHARS}', '{_MARKUP_STAND_INS}')"
     plain = f"replace(replace(h.t, '{SNIPPET_OPEN}', ''), '{SNIPPET_CLOSE}', '')"
     edge_start, edge_end = r"'^[\s[:punct:]]+'", r"'[\s[:punct:]]+$'"
     return (
-        "(SELECT replace("
+        "(SELECT translate("
         f"CASE WHEN starts_with(x.p_head, x.f_head) THEN '' ELSE '{SNIPPET_ELLIPSIS}' END"
         f" || regexp_replace(x.t, {edge_end}, '')"
         " || CASE WHEN right(x.p_tail, length(x.f_tail)) = x.f_tail"
         f" THEN substr(x.p, length(x.p_tail) + 1) ELSE '{SNIPPET_ELLIPSIS}' END,"
-        f" '{_LESS_THAN}', '<')"
+        f" '{_MARKUP_STAND_INS}', '{MARKUP_CHARS}')"
         " FROM (SELECT y.t, y.p,"
         f" regexp_replace(y.p, {edge_start}, '') AS p_head,"
         f" regexp_replace(y.f, {edge_start}, '') AS f_head,"
