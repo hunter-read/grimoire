@@ -173,6 +173,11 @@ class CampaignResource(Base):
     sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
     campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="resources")
+    # Gives the unit of work an ordering constraint: when the campaign goes, its
+    # resources are deleted before the categories they are filed under, which
+    # the FK (no ON DELETE) requires. Deleting one category clears or removes its
+    # resources itself (see routers/campaigns/categories.py).
+    category: Mapped[Optional["CampaignCategory"]] = relationship("CampaignCategory")
     shares: Mapped[list["CampaignResourceShare"]] = relationship(
         "CampaignResourceShare", back_populates="resource", cascade="all, delete-orphan"
     )
@@ -310,6 +315,9 @@ class WikiPage(Base):
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="wiki_pages")
+    # Orders a legacy-filed page's delete before its category's, as
+    # CampaignResource.category does.
+    category: Mapped[Optional["CampaignCategory"]] = relationship("CampaignCategory")
     shares: Mapped[list["WikiPageShare"]] = relationship(
         "WikiPageShare", back_populates="page", cascade="all, delete-orphan"
     )
