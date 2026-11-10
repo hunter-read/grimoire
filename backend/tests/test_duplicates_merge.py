@@ -13,7 +13,14 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from backend.config import SessionLocal
-from backend.models import Book, CampaignResource, Favorite, GameSystem, ResourceTag
+from backend.models import (
+    Book,
+    BookSystemLink,
+    CampaignResource,
+    Favorite,
+    GameSystem,
+    ResourceTag,
+)
 from backend.models.access import UserAccessGrant
 from backend.models.audio_sets import AudioSet
 from backend.models.campaigns import CampaignResourceShare, WikiPage
@@ -221,6 +228,28 @@ class TestReferencesMove:
         db.close()
         _merge(client, admin_headers, keep.id, [drop.id])
         assert _query(lambda db: db.get(GameSystem, system.id).cover_book_id) == keep.id
+
+    def test_links_onto_other_shelves_follow_the_keeper(self, client, admin_headers, system):
+        """Issue #446: a merged copy's links move; ones the keeper has are dropped."""
+        keep, drop = make_book(system_id=system.id), make_book(system_id=system.id)
+        shared, extra = make_game_system(), make_game_system()
+        _add(
+            BookSystemLink(book_id=keep.id, game_system_id=shared.id),
+            BookSystemLink(book_id=drop.id, game_system_id=shared.id),
+            BookSystemLink(book_id=drop.id, game_system_id=extra.id),
+            # Onto the keeper's own shelf: nothing to carry over.
+            BookSystemLink(book_id=drop.id, game_system_id=system.id),
+        )
+        body = _merge(client, admin_headers, keep.id, [drop.id]).json()
+        assert body["references"]["system_links"] == {"moved": 1, "deduplicated": 2}
+        links = _query(
+            lambda db: {
+                (link.book_id, link.game_system_id) for link in db.query(BookSystemLink).filter(
+                    BookSystemLink.book_id.in_([keep.id, drop.id])
+                )
+            }
+        )
+        assert links == {(keep.id, shared.id), (keep.id, extra.id)}
 
     def test_note_embeds_are_rewritten(self, client, admin_headers, admin_id, system):
         keep, drop = make_book(system_id=system.id), make_book(system_id=system.id)

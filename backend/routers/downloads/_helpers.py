@@ -14,7 +14,7 @@ from ...http_headers import content_disposition
 from ...filenames import is_undecodable
 from ...models import Model3D, Audio, Book, GameSystem, GenericMap, Token, User
 from ...models.collections import COLLECTIONS
-from ...services import access_control, tag_service
+from ...services import access_control, book_links, tag_service
 
 
 _FORMATS = {
@@ -305,7 +305,8 @@ def _files_for_system(db, system_id: str, see_explicit: bool, user=None) -> tupl
     if user is not None and not access_control.can_access_system(db, user, system):
         raise HTTPException(404, "System not found")
 
-    q = db.query(Book).filter_by(game_system_id=system_id)
+    # The whole shelf, books linked onto it included (issue #446).
+    q = db.query(Book).filter(book_links.on_shelf(system_id))
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
     q = _visible(db, q, user)
@@ -329,7 +330,7 @@ def _files_for_system_category(
     if user is not None and not access_control.can_access_system(db, user, system):
         raise HTTPException(404, "System not found")
 
-    q = db.query(Book).filter_by(game_system_id=system_id, category=category)
+    q = db.query(Book).filter(book_links.on_shelf(system_id), Book.category == category)
     if not see_explicit:
         q = q.filter(Book.is_explicit != True)
     q = _visible(db, q, user)

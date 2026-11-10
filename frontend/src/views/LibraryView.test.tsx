@@ -521,6 +521,21 @@ describe('LibraryView', () => {
       expect(mockUserPrefs.systemsGrouped).toBe(false)
     })
 
+    // Issue #446: a container's shared-library/ books are on no child's shelf,
+    // so the flattened grid keeps the container's card for them.
+    it('keeps a container holding shared books when flattened', async () => {
+      mockGet.mockResolvedValue(
+        withContainer().map((s) => (s.id === 'ctr' ? { ...s, book_count: 3 } : s))
+      )
+      renderView()
+      await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
+
+      await userEvent.click(toggle())
+
+      expect(screen.getByText('D&D 5e')).toBeInTheDocument()
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument()
+    })
+
     it('starts flattened when the stored preference says so', async () => {
       mockUserPrefs = { ...mockUserPrefs, systemsGrouped: false }
       mockGet.mockResolvedValue(withContainer())

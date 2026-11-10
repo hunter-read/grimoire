@@ -1661,6 +1661,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/books/{book_id}/systems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the other systems a book appears in
+         * @description The systems whose shelves this book is linked onto, besides the one its folder gives it. Only systems the caller can see are listed.
+         */
+        get: operations["list_book_systems_api_books__book_id__systems_get"];
+        put?: never;
+        /**
+         * Show a book on another system's shelf
+         * @description Links the book onto another system's shelf, like a symlink: one file and one row, listed in both places, with its category, tags and access level read from the book itself. Body: {system_id}. Linking twice is a no-op; the book's own system, a version of a book, and a system across the library/armory divide are refused with 400. GM or admin role required. Returns the book's links.
+         */
+        post: operations["add_book_system_api_books__book_id__systems_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/books/{book_id}/systems/{system_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take a book off another system's shelf
+         * @description Removes one link. The book stays on its own system's shelf. 404 when it was not linked there. GM or admin role required. Returns the book's links.
+         */
+        delete: operations["remove_book_system_api_books__book_id__systems__system_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/books/{book_id}/thumbnail": {
         parameters: {
             query?: never;
@@ -9100,6 +9144,11 @@ export interface components {
             language: string;
             /** License */
             license: string;
+            /**
+             * Linked Systems
+             * @default []
+             */
+            linked_systems?: components["schemas"]["LinkedSystemRef"][];
             /** Mime Type */
             mime_type?: string | null;
             /** Month */
@@ -9307,6 +9356,8 @@ export interface components {
             file_size?: number | null;
             /** Filename */
             filename: string;
+            /** Game System Id */
+            game_system_id?: string | null;
             /**
              * Game Type
              * @default ttrpg
@@ -9331,6 +9382,11 @@ export interface components {
             indexed?: boolean | null;
             /** Is Explicit */
             is_explicit: boolean;
+            /**
+             * Is Linked
+             * @default false
+             */
+            is_linked?: boolean;
             /** Is Missing */
             is_missing: boolean;
             /** Isbn */
@@ -9339,6 +9395,7 @@ export interface components {
             language: string;
             /** License */
             license: string;
+            linked_from?: components["schemas"]["LinkedSystemRef"] | null;
             /** Mime Type */
             mime_type?: string | null;
             /** Month */
@@ -9404,6 +9461,14 @@ export interface components {
             has_thumbnail?: boolean;
             /** Title */
             title: string;
+        };
+        /**
+         * BookSystemLinkCreate
+         * @description Link a book onto another system's shelf.
+         */
+        BookSystemLinkCreate: {
+            /** System Id */
+            system_id: string;
         };
         /**
          * BookSystemRef
@@ -13236,6 +13301,26 @@ export interface components {
             sort_order?: number | null;
             /** Visibility */
             visibility?: string | null;
+        };
+        /**
+         * LinkedSystemRef
+         * @description A system a book is linked to, or the system a linked book lives in.
+         */
+        LinkedSystemRef: {
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
+            /** Id */
+            id: string;
+            /**
+             * Is One Page
+             * @default false
+             */
+            is_one_page?: boolean;
+            /** Name */
+            name: string;
         };
         /**
          * LogEntry
@@ -22741,6 +22826,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["backend__routers__books___schemas__StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_book_systems_api_books__book_id__systems_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedSystemRef"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_book_system_api_books__book_id__systems_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookSystemLinkCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedSystemRef"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_book_system_api_books__book_id__systems__system_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedSystemRef"][];
                 };
             };
             /** @description Validation Error */

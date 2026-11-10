@@ -33,7 +33,7 @@ from ...config import get_db
 from ...models import Book, Favorite, GameSystem, ResourceTag, Tag, User
 from ...models.browse import natural_key
 from ...models.dialect import is_postgres
-from ...services import access_control, tag_service, variants
+from ...services import access_control, book_links, tag_service, variants
 from ...services.browse.paths import relative_folder
 from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
 from ...services.search_query import parse_query
@@ -152,7 +152,8 @@ class ShelfBrowser:
     def base(self, columns: Optional[list] = None) -> Any:
         """Every book on this shelf the user may see, before any filter."""
         q = self.db.query(*columns) if columns else self.db.query(Book)
-        q = q.filter(Book.game_system_id == self.system.id, variants.parent_filter(Book))
+        # Its own books, and those linked onto it from another system (issue #446).
+        q = q.filter(book_links.on_shelf(self.system.id), variants.parent_filter(Book))
         if not self.see_explicit:
             q = q.filter(Book.is_explicit != True)  # noqa: E712
         return access_control.visible_books(self.db, q, self.access_user)
@@ -244,7 +245,12 @@ class ShelfBrowser:
             q = q.filter(Book.category == params.category)
         if params.folder is not None and params.category is not None:
             folders = self._folders_in_category(params.category, params.folder)
-            q = q.filter(Book.folder_path.in_(folders) if folders else literal_column("0") == 1)
+            in_folders = Book.folder_path.in_(folders) if folders else literal_column("0") == 1
+            if params.folder.strip("/") == "":
+                # A linked book's folders are another system's, so it stands at
+                # the top of its category here (see ``groups``).
+                in_folders = or_(in_folders, book_links.is_linked_here(self.system.id))
+            q = q.filter(in_folders)
         return q
 
     def order_by(self, params: BookBrowse) -> list:
@@ -313,7 +319,22 @@ class ShelfBrowser:
         desc = params.order == "desc"
         if column is not None:
             cols.append(func.max(column) if desc else func.min(column))
-        rows = self.query(params, columns=cols).group_by(Book.category, Book.folder_path).all()
+        rows = (
+            self.query(params, columns=cols)
+            .filter(Book.game_system_id == self.system.id)
+            .group_by(Book.category, Book.folder_path)
+            .all()
+        )
+        # Linked books (issue #446) sit in folders of their own system's, which
+        # mean nothing on this shelf: each category gets them at its top level,
+        # with no directory of this system's to rescan.
+        linked_cols = [Book.category, literal_column("NULL"), *cols[2:]]
+        rows += (
+            self.query(params, columns=linked_cols)
+            .filter(book_links.is_linked_here(self.system.id))
+            .group_by(Book.category)
+            .all()
+        )
 
         firsts: dict[tuple, Any] = {}
         if params.sort == "product_code":
@@ -340,11 +361,13 @@ class ShelfBrowser:
     def _first_codes(self, params: BookBrowse, desc: bool) -> dict[tuple, Optional[str]]:
         """Per stored folder, the code that sorts first naturally (None if none)."""
         rows = self.query(
-            params, columns=[Book.category, Book.folder_path, Book.product_code]
+            params,
+            columns=[Book.category, Book.folder_path, Book.product_code, Book.game_system_id],
         ).filter(~_is_blank(Book.product_code))
         best: dict[tuple, tuple] = {}
-        for category, folder, code in rows:
-            key = (category, folder)
+        for category, folder, code, home in rows:
+            # Linked books are grouped under no folder (see ``groups``).
+            key = (category, folder if home == self.system.id else None)
             nat = natural_key(code)
             if key not in best or (nat > best[key][0] if desc else nat < best[key][0]):
                 best[key] = (nat, code)
@@ -419,6 +442,7 @@ def list_system_books(
     book_tags = tag_service.display_tags_for_resources(db, "book", ids)
     vcounts = variants.variant_counts(db, Book, ids, current_user)
     book_factions = factions_for_books(db, ids)
+    homes = book_links.homes_for(db, books, system.id, current_user)
     return {
         "total": total,
         "books": [
@@ -427,6 +451,7 @@ def list_system_books(
                 tags=book_tags.get(b.id, []),
                 variant_count=vcounts.get(b.id, 0),
                 factions=book_factions.get(b.id, []),
+                linked_from=homes.get(b.id),
             )
             for b in books
         ],

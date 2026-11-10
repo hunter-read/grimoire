@@ -13,7 +13,7 @@ from ..config import LIBRARY_PATH, logger
 from ..indexer.metadata import resolve_collection_dir
 from ..models.collections import CollectionSpec, iter_specs
 from ..models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
-from . import tag_service
+from . import book_links, tag_service
 from .books.covers import prune_orphan_covers
 from .library_fs.references import purge_many_references, purge_system_references
 
@@ -197,8 +197,10 @@ def _prune_orphaned_systems(db: Session) -> int:
     for system in sorted(systems, key=_depth, reverse=True):
         # Deliberately counts variants too: a system whose only remaining
         # books are printer-friendly cuts is NOT empty, and pruning it here
-        # would cascade through GameSystem.books and delete them.
-        book_count = db.query(Book).filter_by(game_system_id=system.id).count()
+        # would cascade through GameSystem.books and delete them. Books linked
+        # onto its shelf count as well (issue #446): a shelf made to collect
+        # links has no files of its own, and deleting it would take the links.
+        book_count = db.query(Book).filter(book_links.on_shelf(system.id)).count()
         if book_count > 0:
             continue
         campaign_count = db.query(Campaign).filter_by(system_id=system.id).count()

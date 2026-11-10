@@ -5,6 +5,7 @@ from typing import Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
 from ...services import tag_service
+from .._book_link_schemas import LinkedSystemRef
 from .._bulk_schemas import bulk_update_model
 from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import (
@@ -188,6 +189,9 @@ class BookOut(VariantCountMixin, BaseModel):
     # `title`/`filename`/`relative_path` are NOT NULL on the model.
     title: str
     filename: str
+    # The system the book's folder gives it (issue #446): on a shelf it is only
+    # linked onto, another system's id.
+    game_system_id: Optional[str] = None
     relative_path: str
     category: Optional[str] = None
     # "ttrpg" for a book under books/, "wargame" under armory/.
@@ -241,6 +245,11 @@ class BookOut(VariantCountMixin, BaseModel):
     # When the book first appeared in the library (issue #199) - drives the
     # "new" badge and the date-added sort. Null for a legacy row.
     added_at: Optional[datetime] = None
+    # On this shelf through a link rather than its folder (issue #446).
+    # `linked_from` is the system it lives in, null when that is hidden from
+    # the reader.
+    is_linked: bool = False
+    linked_from: Optional[LinkedSystemRef] = None
 
     # These columns are free-form JSON; normalize legacy shapes rather than
     # failing the response. See `_json_list_coercion`.

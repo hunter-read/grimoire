@@ -13,7 +13,7 @@ This page is the full reference. For the shape at a glance, see the
 
 - [Books - one folder per game system](#books---one-folder-per-game-system)
 - [Book formats](#book-formats) and [archive files](#archive-files)
-- [Special collections](#special-collections-system-agnostic--one-page) and [system containers](#system-containers-parent-systems--sub-libraries)
+- [Special collections](#special-collections-system-agnostic--one-page) and [system containers](#system-containers-parent-systems--sub-libraries), with [shared books](#shared-books-in-a-container) and [books in more than one system](#a-book-in-more-than-one-system)
 - [The armory - wargame books](#the-armory---wargame-books), with [factions](#factions)
 - [Book metadata from OPF files](#book-metadata-from-opf-files)
 - [Maps](#maps---organize-by-creator-or-collection), [tokens](#tokens---organize-by-type), [audio](#audio---organize-by-category-or-creator), [3D models](#3d-models---organize-by-creature-set-or-creator)
@@ -246,7 +246,7 @@ If a folder somehow carries more than one declaration, the most specific kind wi
 
 **Reorganizing an existing library.** If you move a flat `books/Dungeons & Dragons 5e/` into `books/Dungeons & Dragons/5e/`, the generated child name matches the system you already have - so Grimoire adopts that existing system rather than creating a duplicate. Its books, metadata, tags, and cover all follow it into the container.
 
-**Cover art.** A container holds no books of its own, so there's no thumbnail to derive a cover from. Give it art either way:
+**Cover art.** A container never borrows a cover from a book - not even one on its [shared shelf](#shared-books-in-a-container) - so give it art either way:
 
 ```
 books/
@@ -263,6 +263,38 @@ Or set one from the container's page (**Cover image**, GM/admin only) - upload a
 One-page collections are the deliberate exception - they stay grouped either way. Keeping a pile of tiny one-book games out of the main grid is the whole reason that collection exists, so flattening leaves its chip in the Special Collections strip and its games reachable by drilling in.
 
 > **Note:** systems nested inside a container count toward your library's game-system total. If you already used a `One-Page RPGs` folder, expect that number to rise after the first rescan as each game inside it becomes its own system.
+
+#### Shared books in a container
+
+Some books belong to the whole container rather than one of its systems - a Forgotten Realms sourcebook that works with both D&D 5e and 5.5e, a bestiary a whole system family shares. Put them in a `shared-library` folder inside the container:
+
+```
+books/
+└── Dungeons & Dragons/
+    ├── .parent-system-container
+    ├── shared-library/          ← the container's own shelf, not a system
+    │   ├── core/
+    │   │   └── Forgotten Realms Adventures.pdf
+    │   └── adventures/
+    │       └── Sword Coast/
+    │           └── Lost Mine.pdf
+    ├── 5e/
+    └── 5.5e/
+```
+
+`shared-library` is a reserved name in parent-system, family, publisher, and generic containers (any capitalization, but spelled exactly - no `(nsfw)` suffix or sort prefix): it never becomes a system, and its books belong to the container itself. Lay it out like any system folder - category folders and subfolders work the same inside it. A one-page collection has no shared shelf, since each of its folders is a game of its own.
+
+On the container's page, the systems come first in the system view and the shared books follow underneath in the book view, with the usual sorting, filters, grouping, and bulk edit. With **Group collections** switched off, a container that holds shared books keeps its own card in the grid beside its systems, so those books are never out of reach. A container without any keeps dropping out as before.
+
+> If you made a `shared-library` folder inside a container before this was reserved, it scanned as a system of its own. The next rescan moves its books onto the container, and the old system, left empty, is pruned like any system whose folder is gone.
+
+#### A book in more than one system
+
+A book that belongs to two systems that share no container - the Midgard Worldbook works with both Pathfinder and D&D, an OSR module statted for three games - can be **linked** onto another system's shelf instead of copied. Open the book's editor (GM or admin) and use **Also shown in → Show on another system**.
+
+A link works like a symlink: the file stays where it is and there is still only one book, with one set of tags, bookmarks, favorites, and reading progress. It appears on the other system's shelf at the top of its category, marked **Linked**, and the badge names the system it lives in. Its category, tags, cover, and [access level](users-and-permissions.md#restricting-books) all come from the book itself, so a link never shows a book to anyone who couldn't already open it.
+
+Links are stored by Grimoire, not in the library, so they work on a read-only library and survive every rescan, and a book that is moved or renamed keeps them. Deleting the book or the system removes its links; a system whose shelf holds nothing but linked books is not empty, so library cleanup keeps it. A link only joins shelves of the same kind - a role-playing book can't be linked onto a wargame in the armory.
 
 ### Marking a system as explicit
 

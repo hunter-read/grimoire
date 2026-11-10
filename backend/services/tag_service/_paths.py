@@ -10,6 +10,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from ...indexer.categories import holds_shared_library
 from ...models import GameSystem
 
 
@@ -22,11 +23,18 @@ def system_category_depth(db: Session, system_id: Optional[str]) -> int:
     nest arbitrarily (issue #301), so the depth is ``2 + <ancestor count>``
     rather than a flag on ``parent_id``.
 
+    A container's own books sit in its ``shared-library/`` folder (issue #446),
+    one segment deeper again: ``books/{Container}/shared-library/{categoryDir}/``.
+
     Mirrors the indexer's ``system_depth`` (``2 + depth`` in ``scan.py``) and the
     frontend's ``categoryDepth``. Prefer ``system_category_depths`` when
     resolving many books at once — this walks the chain with a query per level.
     """
     depth = 2
+    if system_id:
+        kind = db.query(GameSystem.container_kind).filter(GameSystem.id == system_id).scalar()
+        if holds_shared_library(kind):
+            depth += 1
     seen: set[str] = set()
     current = system_id
     while current and current not in seen:
@@ -46,12 +54,12 @@ def system_category_depths(db: Session) -> dict[str, int]:
     each book's system without a query per book. Cycles (which the schema does
     not prevent) stop the walk rather than hang it.
     """
-    parents: dict[str, Optional[str]] = {
-        sid: pid for sid, pid in db.query(GameSystem.id, GameSystem.parent_id).all()
-    }
+    rows = db.query(GameSystem.id, GameSystem.parent_id, GameSystem.container_kind).all()
+    parents: dict[str, Optional[str]] = {sid: pid for sid, pid, _ in rows}
+    shared = {sid for sid, _, kind in rows if holds_shared_library(kind)}
     depths: dict[str, int] = {}
     for sid in parents:
-        depth = 2
+        depth = 3 if sid in shared else 2
         seen: set[str] = {sid}
         current = parents.get(sid)
         while current and current in parents and current not in seen:

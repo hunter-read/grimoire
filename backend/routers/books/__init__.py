@@ -15,6 +15,7 @@ from .core import (
     serve_book_thumbnail,
 )
 from .covers import delete_book_cover, set_book_cover_from_source, upload_book_cover
+from .links import add_book_system, list_book_systems, remove_book_system
 from .metadata import (
     fetch_metadata,
     list_metadata_sources,
@@ -23,6 +24,7 @@ from .metadata import (
 from .pages import get_book_toc, serve_book_page, get_page_text, get_page_words
 from .tiles import serve_book_page_tile
 from .export import detect_book_page_shapes, export_book, get_book_page_size, save_book_export
+from .._book_link_schemas import LinkedSystemRef
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._page_export import DetectShapesResponse, PageSizeResponse, SaveExportResponse
 from .._metadata_lookup import (
@@ -70,6 +72,45 @@ router.add_api_route(
     methods=["PATCH"],
     summary="Update book metadata",
     response_model=StatusResponse,
+)
+# A book on more than one system's shelf (issue #446).
+router.add_api_route(
+    "/{book_id}/systems",
+    list_book_systems,
+    methods=["GET"],
+    summary="List the other systems a book appears in",
+    description=(
+        "The systems whose shelves this book is linked onto, besides the one its "
+        "folder gives it. Only systems the caller can see are listed."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=list[LinkedSystemRef],
+)
+router.add_api_route(
+    "/{book_id}/systems",
+    add_book_system,
+    methods=["POST"],
+    summary="Show a book on another system's shelf",
+    description=(
+        "Links the book onto another system's shelf, like a symlink: one file and "
+        "one row, listed in both places, with its category, tags and access level "
+        "read from the book itself. Body: {system_id}. Linking twice is a no-op; "
+        "the book's own system, a version of a book, and a system across the "
+        "library/armory divide are refused with 400. GM or admin role required. "
+        "Returns the book's links."
+    ),
+    response_model=list[LinkedSystemRef],
+)
+router.add_api_route(
+    "/{book_id}/systems/{system_id}",
+    remove_book_system,
+    methods=["DELETE"],
+    summary="Take a book off another system's shelf",
+    description=(
+        "Removes one link. The book stays on its own system's shelf. 404 when it "
+        "was not linked there. GM or admin role required. Returns the book's links."
+    ),
+    response_model=list[LinkedSystemRef],
 )
 # Bulk routes (issue #270). Applying a selection one PATCH per item raced on tag
 # creation and 500'd; these take the whole batch in one transaction.

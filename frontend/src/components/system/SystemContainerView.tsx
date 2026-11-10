@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuLibrary, LuPencil } from 'react-icons/lu'
 import SystemCard from '../library/SystemCard'
@@ -35,8 +35,9 @@ import { systemPath } from '../../utils/armory'
  * saved presets, multi-select and view mode (issue #500) - since a container is
  * a smaller library in its own right.
  *
- * Any books sitting loose at the container's own root are rendered underneath by
- * the caller, which owns the normal book-list rendering.
+ * The container's own books - its `shared-library/` folder, and books linked
+ * onto it (issue #446) - are rendered underneath as `books`, by the caller,
+ * which owns the normal book-list rendering.
  *
  * @param onChildrenChange  (updater) => void, patches the children after a bulk
  *   tag or edit so the grid updates without a refetch
@@ -52,6 +53,12 @@ export interface SystemContainerViewProps {
   onBack: () => void
   onCoverChange?: (cover: CoverChange) => void
   onChildrenChange: (update: (children: ChildSystem[]) => ChildSystem[]) => void
+  /** The container's own book shelf, shown under its systems; omitted when it has none. */
+  books?: ReactNode
+  /** The book shelf below is selecting: this grid leaves select mode, so only one bar shows. */
+  booksSelecting?: boolean
+  /** Called as this grid enters or leaves select mode, so the book shelf can leave its own. */
+  onSelectingChange?: (selecting: boolean) => void
 }
 
 export default function SystemContainerView({
@@ -63,6 +70,9 @@ export default function SystemContainerView({
   onBack,
   onCoverChange,
   onChildrenChange,
+  books,
+  booksSelecting = false,
+  onSelectingChange,
 }: SystemContainerViewProps) {
   const { t, i18n } = useTranslation()
   const pins = usePins('systems')
@@ -72,6 +82,17 @@ export default function SystemContainerView({
   const children = system.children || []
   const library = useSystemLibrary(children, onChildrenChange)
   const { bulk } = library
+  // One select mode at a time on a page holding both systems and books: each
+  // has its own action bar, and two stacked at the bottom act on different
+  // selections. Entering one leaves the other.
+  useEffect(() => {
+    onSelectingChange?.(bulk.bulkMode)
+    // Reports this grid's own transitions only.
+  }, [bulk.bulkMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (booksSelecting && bulk.bulkMode) bulk.exit()
+    // Reacts to the shelf entering select mode, not to this grid's own entry.
+  }, [booksSelecting]) // eslint-disable-line react-hooks/exhaustive-deps
   const systemFilters = useSavedFilters('systems')
   // Kept per container, so coming back from a child restores this grid's own
   // search and filters rather than the main library's.
@@ -280,6 +301,12 @@ export default function SystemContainerView({
               </ul>
             )}
           />
+        )}
+
+        {books && (
+          <section aria-labelledby="container-books-heading" style={{ marginTop: 40 }}>
+            {books}
+          </section>
         )}
       </div>
 

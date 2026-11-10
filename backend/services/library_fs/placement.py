@@ -20,6 +20,7 @@ from ...indexer.categories import (
     agnostic_category,
     detect_container_kind,
     guess_category,
+    is_shared_library_folder,
     is_special_collection_folder,
     slugify,
     strip_container_suffix,
@@ -102,6 +103,24 @@ def _is_container(db: Session, parts: list[str], depth: int) -> bool:
         return False
     parent = db.query(GameSystem).filter(GameSystem.id == parent_id).first()
     return parent is not None and parent.name == _system_folder_name(parts[depth])
+
+
+def _is_shared_shelf(parts: list[str], depth: int) -> bool:
+    """Whether the folder at ``parts[depth - 1]`` is a container's ``shared-library/``.
+
+    ``depth`` is what :func:`_system_depth_for` returned, so that folder stands
+    in the system slot, just inside the last container on the path.
+    """
+    if depth < 3:
+        return False
+    container = library_root().joinpath(*parts[: depth - 1])
+    return is_shared_library_folder(parts[depth - 1], _container_kind_at(container))
+
+
+def _container_kind_at(folder: Path) -> str:
+    """The container kind a books folder declares, by marker, suffix, or name."""
+    _, suffix_kind = strip_container_suffix(folder.name)
+    return suffix_kind or detect_container_kind(folder, folder.name)
 
 
 def _container_child_slug(parts: list[str], depth: int) -> str:
@@ -210,12 +229,15 @@ def read_book_placement(db: Session, dest_file: Path) -> BookPlacement:
     depth = _system_depth_for(db, parts)
     # The system folder is the last segment before the category folder, so it
     # walks right with the depth: `parts[1]` unnested, `parts[2]` inside one
-    # container, `parts[3]` inside two (issue #413).
+    # container, `parts[3]` inside two (issue #413). A container's
+    # `shared-library/` stands where a system folder would, but its books belong
+    # to the container itself (issue #446).
+    owner_depth = depth - 1 if _is_shared_shelf(parts, depth) else depth
     system = _match_system(
         db,
-        parts[depth - 1],
+        parts[owner_depth - 1],
         game_type=game_type,
-        slug=_container_child_slug(parts, depth) if depth > 2 else "",
+        slug=_container_child_slug(parts, owner_depth) if owner_depth > 2 else "",
     )
     if system is None and depth > 2:
         # An unregistered nested folder should still land on the container row
@@ -304,11 +326,14 @@ def category_folder_for(
     if root is None or not root.is_dir():
         return None
 
+    # The category folder sits right inside ``root``, however deep that is: a
+    # system in a container, or a container's ``shared-library/`` (issue #446).
+    root_depth = len(to_relative(root).split("/"))
     try:
         for child in sorted(root.iterdir(), key=lambda c: c.name.lower()):
             if not child.is_dir() or child.name.startswith("."):
                 continue
-            if guess_category(f"{to_relative(child)}/x.pdf") == category:
+            if guess_category(f"{to_relative(child)}/x.pdf", system_depth=root_depth) == category:
                 return child if _within(root, child) else None
     except OSError as e:
         logger.warning("Could not read %s while resolving a category folder: %s", root, e)

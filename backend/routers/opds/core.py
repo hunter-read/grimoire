@@ -39,7 +39,7 @@ from ... import token_vault
 from ...clock import utcnow_naive
 from ...config import get_db, release_connection
 from ...models import Book, GameSystem, User
-from ...services import access_control, tag_service
+from ...services import access_control, book_links, tag_service
 
 
 _ATOM_NS = 'xmlns="http://www.w3.org/2005/Atom"'
@@ -388,7 +388,7 @@ def catalog_system_v2(
         # indistinguishable from one that does not exist.
         raise HTTPException(404, "Game system not found")
     root = _v2_root(token)
-    books = _visible_books(db, user).filter(Book.game_system_id == system.id)
+    books = _visible_books(db, user).filter(book_links.on_shelf(system.id))
     return _books_feed(db, system.name, f"{root}/system/{system.id}", root, books, paging)
 
 

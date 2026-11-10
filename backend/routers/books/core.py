@@ -23,7 +23,14 @@ from ...metadata import settings as sidecar_settings
 from ...models import Book
 from ...models.base import utc_iso
 from ...models.game_types import GAME_TYPE_TTRPG
-from ...services import access_control, bulk_service, library_fs, tag_service, variants
+from ...services import (
+    access_control,
+    book_links,
+    bulk_service,
+    library_fs,
+    tag_service,
+    variants,
+)
 from ...services.content_cache import content_token
 from ...services.factions import factions_for_books
 from ...services.systems import (
@@ -100,7 +107,8 @@ def list_books(
     # can actually see.
     q = access_control.visible_books(db, q, access_control.load_user(db, current_user))
     if system_id:
-        q = q.filter_by(game_system_id=system_id)
+        # Its own books and those linked onto its shelf (issue #446).
+        q = q.filter(book_links.on_shelf(system_id))
     if category:
         q = q.filter_by(category=category)
     if not can_see_explicit:
@@ -282,6 +290,7 @@ def get_book(
         }
         if system
         else None,
+        "linked_systems": book_links.linked_systems(db, book, current_user),
     }
 
 

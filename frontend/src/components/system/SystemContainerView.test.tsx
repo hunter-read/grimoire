@@ -121,6 +121,23 @@ describe('SystemContainerView', () => {
     expect(screen.getByText('1 systems in this collection')).toBeInTheDocument()
   })
 
+  it("renders the container's own books under its systems", () => {
+    render(
+      <SystemContainerView
+        {...unset}
+        system={makeContainer()}
+        onBack={vi.fn()}
+        books={<h2 id="container-books-heading">Shared shelf</h2>}
+      />
+    )
+    expect(screen.getByRole('region', { name: 'Shared shelf' })).toBeInTheDocument()
+  })
+
+  it('has no book section when the container holds no books', () => {
+    render(<SystemContainerView {...unset} system={makeContainer()} onBack={vi.fn()} />)
+    expect(screen.queryByRole('region')).not.toBeInTheDocument()
+  })
+
   it('prefers the container description over the generated summary', () => {
     render(
       <SystemContainerView
@@ -244,6 +261,39 @@ describe('SystemContainerView', () => {
     it('only offers multi-select to editors', () => {
       render(<SystemContainerView {...unset} system={twoChildren()} onBack={vi.fn()} />)
       expect(screen.queryByText('common.select')).not.toBeInTheDocument()
+    })
+
+    // Issue #446: the container's book shelf has a select mode of its own, and
+    // only one of the two may be on, or two action bars stack at the bottom.
+    it('leaves select mode when the book shelf below enters its own', async () => {
+      const onSelectingChange = vi.fn()
+      const { rerender } = render(
+        <SystemContainerView
+          {...unset}
+          system={twoChildren()}
+          canEdit
+          onBack={vi.fn()}
+          onSelectingChange={onSelectingChange}
+        />
+      )
+      await userEvent.click(screen.getByText('common.select'))
+      expect(onSelectingChange).toHaveBeenLastCalledWith(true)
+      expect(screen.getByText('bulk.addTags')).toBeInTheDocument()
+
+      rerender(
+        <MemoryRouter>
+          <SystemContainerView
+            {...unset}
+            system={twoChildren()}
+            canEdit
+            onBack={vi.fn()}
+            onSelectingChange={onSelectingChange}
+            booksSelecting
+          />
+        </MemoryRouter>
+      )
+      await waitFor(() => expect(screen.queryByText('bulk.addTags')).not.toBeInTheDocument())
+      expect(onSelectingChange).toHaveBeenLastCalledWith(false)
     })
 
     it('bulk tags the selected children and patches them in place', async () => {

@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import CodexPanel from '../codex/CodexPanel'
 import BookVersionsSection from './BookVersionsSection'
+import BookSystemLinksSection from './BookSystemLinksSection'
 import BookCoverUpload from './BookCoverUpload'
 import type { BookCoverChange } from './BookCoverUpload'
 import useMetadataSources from './useMetadataSources'
@@ -378,6 +379,12 @@ export default function BookEditor({
           button is going to commit. */}
       <BookCoverUpload book={book} onChange={onCoverChange} />
       <BookVersionsSection book={book} onChanged={onVariantsChanged} />
+      {/* Opened on a shelf the book is only linked onto, unlinking can take it
+          off this very shelf, so the shelf reloads as for a version change. */}
+      <BookSystemLinksSection
+        book={book}
+        onChanged={book.is_linked ? () => onVariantsChanged?.(null) : undefined}
+      />
       <CodexPanel
         kind="books"
         resourceId={book.id}

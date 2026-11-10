@@ -548,9 +548,9 @@ blank, so a row written before the check (or by an add-on) is never served as on
 
 **Multi-value metadata** (issue #202): `genres` and `dice_materials` are string arrays; `genres` supersedes the legacy single `genre`, and `urls`/`character_builder_urls` supersede the legacy single-URL fields (the legacy fields remain accepted for backward compatibility). Systems in the special one-page collection carry `is_one_page: true` (grouped with `is_system_agnostic` in the library UI).
 
-**Cover art:** a system's cover resolves in precedence order - a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Container folders hold no books, so the endpoint is their only source of art.
+**Cover art:** a system's cover resolves in precedence order - a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Containers never take a book's thumbnail, not even one on their shared shelf, so the endpoint is their only source of art.
 
-**System containers:** a books folder can hold *systems* rather than categories (issues #261/#262/#301) - a parent system with its editions (`books/Dungeons & Dragons/5e/…`), a one-page/micro-RPG collection where each subfolder and loose file is its own small game, a system family grouping related-but-distinct systems (`books/d20 System/Pathfinder/…`), a publisher grouping one company's systems, or a bare `.container` shelf that groups without claiming any relationship. Family and publisher containers populate their children's `system_family`/`publishers` from the container name, and containers may nest (a family holding a parent-system container). Only a parent-system container sets its children's `parent_system` - the other kinds hold independent systems, not variants. Every system summary carries `container_kind` (`""`, `"parent"`, `"one-page"`, `"family"`, `"publisher"`, `"generic"`), `parent_id`, `child_count`, `name_is_custom`, and `category_depth`. `category_depth` is the index of the category dir within the system's book paths - 2 for a top-level system, one deeper per enclosing container - so clients can split a book's `relative_path` into subfolder segments without walking the container chain themselves (issue #357). Container children are omitted from `GET /api/systems` unless `parent_id` or `include_children` is passed, and `GET /api/systems/:id` returns them in `children`. Renaming a system via `PATCH` sets `name_is_custom`, which stops the scanner reverting the name on the next rescan.
+**System containers:** a books folder can hold *systems* rather than categories (issues #261/#262/#301) - a parent system with its editions (`books/Dungeons & Dragons/5e/…`), a one-page/micro-RPG collection where each subfolder and loose file is its own small game, a system family grouping related-but-distinct systems (`books/d20 System/Pathfinder/…`), a publisher grouping one company's systems, or a bare `.container` shelf that groups without claiming any relationship. Family and publisher containers populate their children's `system_family`/`publishers` from the container name, and containers may nest (a family holding a parent-system container). Only a parent-system container sets its children's `parent_system` - the other kinds hold independent systems, not variants. Every system summary carries `container_kind` (`""`, `"parent"`, `"one-page"`, `"family"`, `"publisher"`, `"generic"`), `parent_id`, `child_count`, `name_is_custom`, and `category_depth`. `category_depth` is the index of the category dir within the system's book paths - 2 for a top-level system, one deeper per enclosing container, and one deeper again for a container's own books, which sit in its `shared-library/` folder - so clients can split a book's `relative_path` into subfolder segments without walking the container chain themselves (issue #357). A parent-system, family, publisher or generic container's `shared-library/` folder is its own shelf (issue #446), never a child system: its books sit on the container row (`books/Dungeons & Dragons/shared-library/core/…` is a `core` book of the container), so the container's `book_count` and shelf routes cover them, and a scan scoped to `books/{Container}/shared-library` rescans just that shelf. Container children are omitted from `GET /api/systems` unless `parent_id` or `include_children` is passed, and `GET /api/systems/:id` returns them in `children`. Renaming a system via `PATCH` sets `name_is_custom`, which stops the scanner reverting the name on the next rescan.
 
 **Parent system / edition:** `parent_system` (e.g. `"Dungeons & Dragons"`) is the mid-tier grouping between the broad `system_family` (`"d20 System"`) and a concrete system; `edition` (`"5e"`, `"Red"`, `"2020"`) combines with it for display (`"Cyberpunk Red"`). Both are free-text; `parent_system` values are curated via the `/api/parent-systems` lookup. Both are filterable on `/api/systems`.
 
@@ -611,6 +611,9 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id` | GET | any | Book detail with game system. Carries `game_type` (`ttrpg` or `wargame`) and `factions` (`[{id, name, parent_id}]`, the innermost faction folders a wargame book sits in; empty for a role-playing book) - so do the book rows of `GET /api/systems/:id` and `/api/systems/:id/books`. `game_system` is `{id, name, slug, game_type, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (1-500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year` (0–9999), `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
+| `/api/books/:id/systems` | GET | any (not guest) | The other systems this book is [linked onto](#books-on-more-than-one-shelf), besides the one its folder gives it: `[{id, name, game_type, is_one_page}]`, by name. Only systems the caller can see are listed; 404 for an explicit book when the caller has explicit content off. `GET /api/books/:id` carries the same list as `linked_systems` |
+| `/api/books/:id/systems` | POST | gm/admin | Show the book on another system's shelf too. Body: `{system_id}`. Linking twice is a no-op. 400 for the book's own system, for a version of a book (link its main entry), and across the library/armory divide; 404 for a book or system the caller cannot see. Returns the book's links |
+| `/api/books/:id/systems/:system_id` | DELETE | gm/admin | Take the book off that system's shelf; its own shelf is unaffected. 404 when it was not linked there, or for a book or system the caller cannot see. Returns the book's links |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). Accepted for OCR'd and image-only PDFs, and for PDFs whose own text covers less than `OCR_MIN_TEXT_COVERAGE` of their pages - the same rule as the book's `can_reocr` field. 400 otherwise (an embedded text layer, nothing to OCR). The book is read in full, without the artwork sample a thin-text book gets when it is indexed. Returns `{status: "reindex_queued", ocr_dpi}`. |
@@ -631,6 +634,36 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/export/save` | POST | admin | The same export written into a library folder instead - see [Page export](#page-export) |
 
 **Book list response:** `{"total": int, "books": [...]}`
+
+#### Books on more than one shelf
+
+A book belongs to the system its folder gives it. A link (issue #446) also puts
+it on another system's shelf, like a symlink - one file and one row, so its
+tags, bookmarks, favorites and reading progress are never split. Links are
+stored in the database, keyed on the book, so they survive every rescan and
+follow a moved book; deleting the book or the system removes them. See
+[A book in more than one system](library-structure.md#a-book-in-more-than-one-system).
+
+Everything that lists a system's books includes its linked books:
+`GET /api/systems/:id`, the shelf routes (`/books`, `/book-groups`,
+`/book-facets`), `GET /api/books?system_id=`, a system's in-system search (page
+text and title matches), its OPDS feed, the campaign resource picker (search and
+suggestions), and the system and category downloads. Library cleanup counts them
+too, so a system holding only linked books is never pruned as empty.
+`book_count` and `total_page_count` on a system count them too. A linked book's
+folders belong to its own system, so on the linked shelf it stands at the top
+of its category: `/book-groups` reports it under `path: ""` with `dir: ""`, and
+`/books` with `folder=""` includes it.
+
+What the shelf shows of a linked book is the book's own: its category, tags,
+cover and access level all resolve from its own system, so a link never shows a
+book to anyone who could not already open it. Book rows on a system's shelf
+carry `game_system_id` (the system the book lives in), `is_linked` (on this
+shelf through a link) and `linked_from` (`{id, name, game_type, is_one_page}` of
+that system, or `null` when it is hidden from the caller - and then
+`game_system_id` is `null` and `relative_path` leaves out the hidden system's
+folders, as on `GET /api/books/:id`). A system never takes
+a linked book as its automatic cover.
 
 #### Custom book covers
 

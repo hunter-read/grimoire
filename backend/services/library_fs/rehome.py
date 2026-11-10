@@ -13,6 +13,7 @@ could afford to strand:
 * share links, book-scoped access grants, soundboard and playlist entries, and a
   system's fallback cover book, which a delete leaves dangling as harmless
   orphans but a merge would otherwise silently break;
+* a book's links onto other systems' shelves, which a delete cascades away;
 * ``[[book:ID]]``-style embeds in campaign notes, which are the GM's handout
   links and carry the id in their text.
 
@@ -30,6 +31,7 @@ from sqlalchemy.orm import Session
 from ...models import (
     Audio,
     Book,
+    BookSystemLink,
     CampaignResource,
     Favorite,
     GameSystem,
@@ -74,6 +76,7 @@ REFERENCE_KINDS: tuple[str, ...] = (
     "access_grants",
     "audio_sets",
     "system_covers",
+    "system_links",
     "notes",
 )
 
@@ -272,6 +275,32 @@ def _system_covers(db: Session, from_id: str, to_id: str) -> dict[str, int]:
     return _tally(moved=len(rows))
 
 
+def _system_links(db: Session, from_id: str, to_id: str) -> dict[str, int]:
+    """The other shelves a book is linked onto (issue #446).
+
+    A link the keeper already has, or one onto the keeper's own system, would
+    say nothing new, so it is dropped rather than moved.
+    """
+    keeper = db.get(Book, to_id)
+    taken = {
+        sid
+        for (sid,) in db.query(BookSystemLink.game_system_id).filter_by(book_id=to_id).all()
+    }
+    if keeper is not None and keeper.game_system_id:
+        taken.add(keeper.game_system_id)
+    out = _tally()
+    for link in db.query(BookSystemLink).filter_by(book_id=from_id).all():
+        if link.game_system_id in taken:
+            out["deduplicated"] += 1
+        else:
+            # The pair is the primary key, so the row is replaced, not edited.
+            db.add(BookSystemLink(book_id=to_id, game_system_id=link.game_system_id))
+            taken.add(link.game_system_id)
+            out["moved"] += 1
+        db.delete(link)
+    return out
+
+
 def _embed_pattern(item_type: str, record_id: str) -> re.Pattern[str]:
     # The prefix is matched case-insensitively, as `is_embed` does; the id must
     # end at a boundary the embed syntax allows (`]`, `:PAGE`, or `|label`) so
@@ -313,6 +342,7 @@ def rehome_references(db: Session, model: Any, from_id: str, to_id: str) -> dict
         report["bookmarks"] = _bookmarks(db, from_id, to_id)
         report["access_grants"] = _access_grants(db, from_id, to_id)
         report["system_covers"] = _system_covers(db, from_id, to_id)
+        report["system_links"] = _system_links(db, from_id, to_id)
     if model is Audio:
         report["audio_sets"] = _audio_sets(db, from_id, to_id)
     report["favorites"] = _favorites(db, item_type, from_id, to_id)

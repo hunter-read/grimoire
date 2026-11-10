@@ -1142,6 +1142,69 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     )
   })
 
+  // Issue #446: books in the container's shared-library/ folder (and books
+  // linked onto it) are listed under its systems, in the book view.
+  it("lists a container's own books under its systems", async () => {
+    serveSystem(
+      makeContainer({
+        name: 'Dungeons & Dragons',
+        is_one_page: false,
+        container_kind: 'parent',
+        book_count: 1,
+        category_depth: 3,
+        books: [
+          makeBook({
+            title: 'Forgotten Realms',
+            relative_path: 'books/Dungeons & Dragons/shared-library/core/fr.pdf',
+          }),
+        ],
+      })
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Forgotten Realms')).toBeInTheDocument())
+    expect(screen.getByText('Honey Heist')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Shared books' })).toBeInTheDocument()
+    // The shelf brings its own grouping and collapse controls.
+    expect(screen.getByRole('button', { name: /collapse all/i })).toBeInTheDocument()
+  })
+
+  it("keeps one select mode at a time between a container's systems and books", async () => {
+    serveSystem(
+      makeContainer({
+        name: 'Dungeons & Dragons',
+        is_one_page: false,
+        container_kind: 'parent',
+        book_count: 1,
+        category_depth: 3,
+        books: [
+          makeBook({
+            title: 'Forgotten Realms',
+            relative_path: 'books/Dungeons & Dragons/shared-library/core/fr.pdf',
+          }),
+        ],
+      })
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Forgotten Realms')).toBeInTheDocument())
+    // The toggle reads "Cancel" while its select mode is on.
+    const [systemsToggle, booksToggle] = screen.getAllByRole('button', { name: 'Select' })
+    await userEvent.click(booksToggle)
+    await waitFor(() => expect(booksToggle).toHaveAccessibleName('Cancel'))
+    await userEvent.click(systemsToggle)
+    await waitFor(() => expect(systemsToggle).toHaveAccessibleName('Cancel'))
+    await waitFor(() => expect(booksToggle).toHaveAccessibleName('Select'))
+    await userEvent.click(booksToggle)
+    await waitFor(() => expect(booksToggle).toHaveAccessibleName('Cancel'))
+    await waitFor(() => expect(systemsToggle).toHaveAccessibleName('Select'))
+  })
+
+  it('shows no book shelf for a container without books of its own', async () => {
+    serveSystem(makeContainer({ book_count: 0 }))
+    renderView()
+    await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Shared books' })).not.toBeInTheDocument()
+  })
+
   it('falls back to the normal book view when a container has no children yet', async () => {
     serveSystem({
       ...makeSystem([makeBook({ title: 'Loose Book' })]),

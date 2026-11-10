@@ -193,7 +193,8 @@
     "empty": "Inga system hittades i den här samlingen än.",
     "noMatch": "Inga system i den här samlingen matchar de aktuella filtren.",
     "count_one": "{{count}} system",
-    "count_other": "{{count}} system"
+    "count_other": "{{count}} system",
+    "sharedBooks": "Delade böcker"
   },
   "systemDetail": {
     "backToLibrary": "Tillbaka till biblioteket",
@@ -3540,7 +3541,20 @@
     "fileSize": "Filstorlek",
     "format": "Format",
     "path": "Sökväg",
-    "productCode": "Produktkod"
+    "productCode": "Produktkod",
+    "linkedFrom": "Länkad från"
+  },
+  "bookLinks": {
+    "heading": "Visas även i",
+    "hint": "Filen ligger kvar där den är. Dessa systems hyllor visar den också, med samma taggar, behörighet och läsframsteg.",
+    "none": "Bara på det egna systemets hylla.",
+    "add": "Visa i ett annat system",
+    "pick": "Välj ett system",
+    "addButton": "Lägg till",
+    "remove": "Ta bort från {{name}}",
+    "badge": "Länkad",
+    "linkedFrom": "Länkad från {{name}}",
+    "linkedHidden": "Länkad från ett annat system"
   },
   "appearance": {
     "title": "Utseende",
@@ -4277,6 +4291,8 @@
         "audio_sets_other": "{{count}} poster i ljudbord eller spellistor",
         "system_covers_one": "{{count}} systemomslag",
         "system_covers_other": "{{count}} systemomslag",
+        "system_links_one": "{{count}} länk till ett annat system",
+        "system_links_other": "{{count}} länkar till andra system",
         "notes_one": "{{count}} kampanjanteckning som bäddar in den",
         "notes_other": "{{count}} kampanjanteckningar som bäddar in den"
       },

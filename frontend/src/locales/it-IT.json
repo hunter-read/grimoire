@@ -193,7 +193,8 @@
     "empty": "Nessun sistema trovato in questa collezione per ora.",
     "noMatch": "Nessun sistema di questa raccolta corrisponde ai filtri attuali.",
     "count_one": "{{count}} sistema",
-    "count_other": "{{count}} sistemi"
+    "count_other": "{{count}} sistemi",
+    "sharedBooks": "Libri condivisi"
   },
   "systemDetail": {
     "backToLibrary": "Torna alla libreria",
@@ -3540,7 +3541,20 @@
     "fileSize": "Dimensione file",
     "format": "Formato",
     "path": "Percorso",
-    "productCode": "Codice prodotto"
+    "productCode": "Codice prodotto",
+    "linkedFrom": "Collegato da"
+  },
+  "bookLinks": {
+    "heading": "Mostrato anche in",
+    "hint": "Il file resta dov’è. Anche gli scaffali di questi sistemi lo elencano, con gli stessi tag, lo stesso accesso e lo stesso avanzamento di lettura.",
+    "none": "Solo sullo scaffale del proprio sistema.",
+    "add": "Mostra in un altro sistema",
+    "pick": "Scegli un sistema",
+    "addButton": "Aggiungi",
+    "remove": "Rimuovi da {{name}}",
+    "badge": "Collegato",
+    "linkedFrom": "Collegato da {{name}}",
+    "linkedHidden": "Collegato da un altro sistema"
   },
   "appearance": {
     "title": "Aspetto",
@@ -4277,6 +4291,8 @@
         "audio_sets_other": "{{count}} voci di soundboard o playlist",
         "system_covers_one": "{{count}} copertina di sistema",
         "system_covers_other": "{{count}} copertine di sistema",
+        "system_links_one": "{{count}} collegamento a un altro sistema",
+        "system_links_other": "{{count}} collegamenti ad altri sistemi",
         "notes_one": "{{count}} nota di campagna che lo incorpora",
         "notes_other": "{{count}} note di campagna che lo incorporano"
       },
