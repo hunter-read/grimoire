@@ -185,6 +185,16 @@ for every ecosystem the repo pins. Security updates arrive on their own, whateve
 | GitHub Actions | `.github/workflows/` | Monthly | All actions in one PR |
 | Docker | `Dockerfile` base images | Monthly | One PR per image |
 
+The PostgreSQL service containers in `ci.yml` and `test-order.yml` are pinned by digest, the
+tag kept for readability (`postgres:18-alpine@sha256:...`), the same way the actions are pinned
+by commit. Dependabot does not update images in workflow files, so move them by hand now and
+then - when a PostgreSQL minor release comes out, say - in both files at once:
+
+```bash
+docker buildx imagetools inspect postgres:18-alpine --format '{{json .Manifest.Digest}}'
+docker buildx imagetools inspect postgres:15-alpine --format '{{json .Manifest.Digest}}'
+```
+
 The Docker updates skip Python minor/major and Node major versions on purpose. The image has
 to build and run on the same runtimes `ci.yml` tests with, so a runtime move is done by hand,
 changing the `Dockerfile` and `ci.yml` in the same PR. Patch and digest bumps of those images,
