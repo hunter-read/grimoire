@@ -467,3 +467,16 @@ def test_a_rule_saved_at_the_same_moment_is_replaced(db, shelf, monkeypatch):
     assert [(r.path, r.level) for r in db.query(FolderAccessRule).filter_by(path=path)] == [
         (path, LEVEL_ADMIN)
     ]
+
+
+def test_a_path_stored_with_backslashes_is_covered_in_lists_too(db):
+    """A library scanned on Windows: the list filter agrees with the by-id check."""
+    _rule(db, "books/S/Core/GM", LEVEL_GM)
+    book = make_book(make_game_system().id, relative_path="books\\S\\Core\\GM\\dmg.pdf")
+    player = _User("player")
+    assert not ac.can_access_book(db, player, book)
+    listed = {b.id for b in ac.visible_books(db, db.query(Book).filter_by(id=book.id), player)}
+    assert listed == set()
+    assert {b.id for b in ac.visible_books(db, db.query(Book).filter_by(id=book.id), _User("gm"))} == {
+        book.id
+    }

@@ -11,6 +11,7 @@ import httpx
 from joserfc import jwt
 from joserfc.errors import JoseError
 from joserfc.jwk import KeySet, KeySetSerialization
+from joserfc.jws import JWSRegistry
 from sqlalchemy import or_
 
 from ...models import User
@@ -141,6 +142,19 @@ _DECODE_ERRORS = (JoseError, ValueError, TypeError, KeyError)
 CLAIMS_LEEWAY = 30  # seconds
 
 
+class _IdTokenRegistry(JWSRegistry):
+    """joserfc's JWS checks, with room for what providers put in an ID token.
+
+    The default 512-byte header refuses a token whose header carries its
+    signing certificate chain (``x5c``), which some providers send; a chain of
+    a few certificates is several kilobytes. A signature from a 8192-bit RSA
+    key is 1,366 characters, past the default 1,024.
+    """
+
+    max_header_length = 16 * 1024
+    max_signature_length = 2048
+
+
 def _decode(id_token: str, keys: dict, alg: str) -> jwt.Token:
     """Verify ``id_token``'s signature against ``keys``, accepting only ``alg``.
 
@@ -151,7 +165,10 @@ def _decode(id_token: str, keys: dict, alg: str) -> jwt.Token:
     # The provider's JSON, unchecked: a set without "keys", or a key that can't
     # be read, raises one of _DECODE_ERRORS like a bad signature does.
     key_set = KeySet.import_key_set(cast(KeySetSerialization, keys))
-    return jwt.decode(id_token, key_set, algorithms=[alg])
+    # A registry passed to decode replaces its ``algorithms``, so the pin is
+    # the registry's own.
+    registry = _IdTokenRegistry(algorithms=[alg])
+    return jwt.decode(id_token, key_set, algorithms=[alg], registry=registry)
 
 
 def _check_claims(claims: dict, *, issuer: str, client_id: str) -> None:

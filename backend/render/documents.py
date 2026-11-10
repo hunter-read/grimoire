@@ -3,8 +3,9 @@
 EPUB is reflowable: ``len(doc)`` depends on the layout box passed to
 ``Document.layout()``. If the indexer and the reader laid out differently, a
 search hit on "page 12" would point at different text than the reader shows on
-page 12. ``EPUB_LAYOUT`` pins one layout app-wide so page numbers mean the same
-thing everywhere; ``open_document`` applies it on every open.
+page 12. ``EPUB_LAYOUT_WIDTH``, ``_HEIGHT`` and ``_FONTSIZE`` pin one layout
+app-wide so page numbers mean the same thing everywhere; ``open_document``
+applies it (``apply_reflow_layout``) on every open.
 
 A leaf module, importing only PyMuPDF, so a render worker can open documents
 without loading the indexer package (and SQLAlchemy with it).

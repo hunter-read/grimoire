@@ -111,6 +111,13 @@ class TestAccepted:
         claims, _ = _validate(_sign(_claims(), key=key, alg=alg), jwks=_jwks(key), alg=alg)
         assert claims["sub"] == "user-1"
 
+    @pytest.mark.parametrize("size", [600, 6000])
+    def test_a_header_carrying_a_certificate_chain(self, size):
+        """Some providers put the signing certificates (x5c) in the header."""
+        chain = [_b64(b"c" * (size // 2)), _b64(b"d" * (size // 2))]
+        claims, _ = _validate(_sign(_claims(), x5c=chain))
+        assert claims["sub"] == "user-1"
+
     def test_a_rotated_key_after_one_forced_refresh(self):
         claims, fetch = _validate(
             _sign(_claims(), key=KEY_B), jwks=_jwks(KEY_A), refreshed=_jwks(KEY_B)
@@ -181,6 +188,9 @@ class TestRefused:
     @pytest.mark.parametrize("jwks", [{}, {"keys": []}, {"keys": [{"kty": "RSA"}]}])
     def test_an_unusable_key_set(self, jwks):
         self._refused(_sign(_claims()), "signature invalid", jwks=jwks)
+
+    def test_a_header_past_the_limit(self):
+        self._refused(_sign(_claims(), x5c=[_b64(b"c" * 20000)]), "signature invalid")
 
     def test_a_rotated_key_that_never_appears(self):
         self._refused(

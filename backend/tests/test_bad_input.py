@@ -163,3 +163,143 @@ def test_a_client_that_goes_away_is_passed_on():
     ]
     read, sent = _run(parts)
     assert read == parts and sent == []
+
+
+# --- Values a handler could not use -----------------------------------------
+
+
+@pytest.fixture
+def library_dir():
+    """A fresh folder under books/, removed afterwards."""
+    import os
+    import shutil
+    import uuid
+
+    from backend.config import LIBRARY_PATH
+
+    rel = f"books/BadInput-{uuid.uuid4().hex[:8]}/core"
+    os.makedirs(os.path.join(LIBRARY_PATH, rel))
+    yield rel
+    shutil.rmtree(os.path.join(LIBRARY_PATH, rel.split("/core")[0]), ignore_errors=True)
+
+
+def test_a_sheet_with_an_impossible_date_is_a_400(client, admin_headers):
+    resp = client.post(
+        "/api/characters/schemas", json={"text": "when: 2026-13-45"}, headers=admin_headers
+    )
+    assert resp.status_code == 400, resp.text
+
+
+def test_an_empty_system_id_links_no_system(client, gm_headers):
+    campaign = client.post("/api/campaigns", json={"name": "x", "system_id": ""}, headers=gm_headers)
+    assert campaign.status_code == 201, campaign.text
+    assert campaign.json()["system_id"] is None
+    league = client.post("/api/leagues", json={"name": "x", "game_system_id": ""}, headers=gm_headers)
+    assert league.status_code == 201, league.text
+    assert league.json()["game_system_id"] is None
+    resp = client.patch(
+        f"/api/leagues/{league.json()['id']}", json={"game_system_id": ""}, headers=gm_headers
+    )
+    assert resp.status_code == 200, resp.text
+    army = client.post(
+        "/api/armies", json={"name": "x", "game_system_id": "", "faction_id": "", "units": []},
+        headers=gm_headers,
+    )
+    assert army.status_code == 201, army.text
+
+
+@pytest.mark.parametrize("url", ["/api/campaigns", "/api/leagues", "/api/armies"])
+def test_a_blank_name_is_refused(client, gm_headers, url):
+    resp = client.post(url, json={"name": "   ", "units": []}, headers=gm_headers)
+    assert resp.status_code == 422, resp.text
+
+
+def test_a_name_is_trimmed(client, gm_headers):
+    resp = client.post("/api/leagues", json={"name": "  Spring Cup  "}, headers=gm_headers)
+    assert resp.json()["name"] == "Spring Cup"
+    resp = client.patch(f"/api/leagues/{resp.json()['id']}", json={"name": "  "}, headers=gm_headers)
+    assert resp.status_code == 422
+
+
+def test_a_list_field_sent_as_a_number_is_a_422(client, admin_headers):
+    from .conftest import make_book, make_game_system
+
+    system = make_game_system()
+    book = make_book(system.id)
+    cases = [
+        ("patch", f"/api/books/{book.id}", {"genres": 1}),
+        ("patch", f"/api/books/{book.id}", {"tags": "one"}),
+        ("patch", f"/api/systems/{system.id}", {"tags": 1}),
+        ("patch", f"/api/systems/{system.id}", {"genres": 1}),
+        ("patch", f"/api/systems/{system.id}", {"dice_materials": 1}),
+        ("post", "/api/systems/bulk", {"items": [{"id": system.id, "genres": 1}]}),
+        ("post", "/api/books/bulk/tags", {"ids": [book.id], "tags": 1}),
+    ]
+    for method, url, body in cases:
+        resp = getattr(client, method)(url, json=body, headers=admin_headers)
+        assert resp.status_code == 422, (url, body, resp.text)
+
+
+@pytest.mark.parametrize(
+    "url", ["/api/genres", "/api/system-families", "/api/parent-systems", "/api/licenses", "/api/dice-materials"]
+)
+def test_a_lookup_name_past_the_column_is_a_422(client, admin_headers, url):
+    resp = client.post(url, json={"name": "g" * 70000}, headers=admin_headers)
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.parametrize("level", [{"a": 1}, ["gm"], 5])
+def test_a_category_level_that_is_not_a_level_is_a_400(client, admin_headers, level):
+    resp = client.patch(
+        "/api/settings", json={"restricted_categories": {"adventure": level}}, headers=admin_headers
+    )
+    assert resp.status_code == 400, resp.text
+
+
+def test_an_upload_name_past_the_limit_is_a_400(client, admin_headers, library_dir):
+    resp = client.post(
+        "/api/files/upload",
+        headers=admin_headers,
+        data={"destination": library_dir},
+        files={"file": ("x" * 600 + ".pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    assert resp.status_code == 400, resp.text
+
+
+def test_an_upload_name_at_the_limit_is_kept(client, admin_headers, library_dir):
+    name = "x" * 251 + ".pdf"  # 255 bytes: no room for the temporary ".part" name
+    resp = client.post(
+        "/api/files/upload",
+        headers=admin_headers,
+        data={"destination": library_dir},
+        files={"file": (name, b"%PDF-1.4", "application/pdf")},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == name
+
+
+def test_a_malformed_uvtt_reads_as_unreadable(tmp_path):
+    import base64
+    import struct
+    import zlib
+
+    from backend.services.media import maps
+
+    deep = tmp_path / "deep.uvtt"
+    deep.write_text("[" * 50000 + "]" * 50000)
+    with pytest.raises(ValueError):
+        maps.load_vtt(str(deep))
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    # A PNG header claiming 60000 x 60000 pixels, with no real image behind it.
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 60000, 60000, 8, 2, 0, 0, 0))
+        + chunk(b"IEND", b"")
+    )
+    bomb = tmp_path / "bomb.uvtt"
+    bomb.write_text(json.dumps({"format": 0.3, "image": base64.b64encode(png).decode()}))
+    assert maps.vtt_image_size(str(bomb)) == (None, None)

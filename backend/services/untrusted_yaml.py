@@ -13,7 +13,9 @@ blow the stack:
 
 Both are refused while the document is being composed, before any of it is
 built. The error is a ``yaml.YAMLError``, so callers already handling a
-malformed document need no new ``except``.
+malformed document need no new ``except``. So is a value that reads as a type
+but cannot be built - ``2026-13-45`` looks like a date and is not one - which
+``yaml.safe_load`` lets out as a bare ``ValueError``.
 """
 from typing import IO, Any, Union
 
@@ -59,6 +61,10 @@ def safe_load(stream: Union[str, bytes, IO[str], IO[bytes]]) -> Any:
     loader = _BoundedLoader(stream)
     try:
         return loader.get_single_data()
+    except (ValueError, OverflowError) as exc:
+        raise yaml.constructor.ConstructorError(
+            None, None, f"a value could not be read: {exc}", None
+        ) from exc
     finally:
         loader.dispose()
 

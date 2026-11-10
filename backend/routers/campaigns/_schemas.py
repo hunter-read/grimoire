@@ -5,6 +5,7 @@ from typing import Optional, List
 from pydantic import BaseModel, field_validator
 
 from .._link_urls import require_http_url
+from .._names import Name, OptionalId
 
 # Icon tint accepted from clients: a preset palette token (resolved to a themed
 # CSS variable in the UI) or a "#rrggbb" literal. "" clears the tint.
@@ -34,12 +35,12 @@ class CampaignResourceInput(BaseModel):
 
 
 class CampaignCreate(BaseModel):
-    name: str
+    name: Name
     description: str = ""
     is_gm_campaign: bool = False
     gm_title: str = "Game Master"
-    parent_campaign_id: Optional[str] = None
-    system_id: Optional[str] = None
+    parent_campaign_id: OptionalId = None
+    system_id: OptionalId = None
     system_name: Optional[str] = None  # free text for a system not in the library
     # Explicit resources chosen in the create wizard. When omitted (None), no
     # resources are linked. An empty list also links nothing.
@@ -47,7 +48,7 @@ class CampaignCreate(BaseModel):
 
 
 class CampaignUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[Name] = None
     description: Optional[str] = None
     gm_title: Optional[str] = None
     system_id: Optional[str] = None

@@ -72,6 +72,9 @@ def dedupe_tags(tags: Iterable[str], *, validate: bool = False) -> list[str]:
     that file is the user's own and Grimoire treats it as read-only, so a slash
     there is still applied rather than failing their scan.
     """
+    if validate and tags is not None and not isinstance(tags, (list, tuple)):
+        # A bare string would otherwise be read a character at a time.
+        raise ValueError("Tags must be a list of names")
     seen: set[str] = set()
     result: list[str] = []
     for t in tags or []:

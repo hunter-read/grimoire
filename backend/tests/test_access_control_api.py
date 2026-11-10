@@ -604,23 +604,27 @@ class TestIndirectLeaks:
         """A count is a disclosure: "340 books" over a shelf of 320 says three exist."""
         book = make_book(make_game_system().id)
         before = client.get("/api/stats", headers=player_headers).json()["books"]
+        admin_before = client.get("/api/stats", headers=admin_headers).json()["books"]
         _set_level(book.id, "gm")
         after = client.get("/api/stats", headers=player_headers).json()["books"]
         assert after == before - 1
-        # An admin still sees the whole library.
-        assert client.get("/api/stats", headers=admin_headers).json()["books"] == before
+        # An admin still sees the whole library. Compared with the admin's own
+        # count: books earlier tests left restricted (or explicit, for a player
+        # with explicit content off) already separate the two.
+        assert client.get("/api/stats", headers=admin_headers).json()["books"] == admin_before
 
     def test_sizes_exclude_restricted_books(self, client, admin_headers, player_headers):
         """Bytes leak existence the same way counts do — both size stats scope."""
         book = make_book(make_game_system().id, file_size=8 * 1048576)
         before = client.get("/api/stats", headers=player_headers).json()
+        admin_before = client.get("/api/stats", headers=admin_headers).json()
         _set_level(book.id, "gm")
         after = client.get("/api/stats", headers=player_headers).json()
         assert after["total_size_mb"] == pytest.approx(before["total_size_mb"] - 8.0, abs=0.05)
         assert after["library_size_mb"] == pytest.approx(before["library_size_mb"] - 8.0, abs=0.05)
         # An admin still sees the whole library.
         admin = client.get("/api/stats", headers=admin_headers).json()
-        assert admin["library_size_mb"] == pytest.approx(before["library_size_mb"], abs=0.05)
+        assert admin["library_size_mb"] == pytest.approx(admin_before["library_size_mb"], abs=0.05)
 
     def test_metadata_sources_404_for_restricted_book(self, client, gm_headers):
         """The metadata routes are gm/admin, but GM is who admin-only excludes."""
@@ -1058,6 +1062,21 @@ class TestTagsAndStatsCountOnlyVisible:
         rows = client.get("/api/tags", headers=player_headers).json()["tags"]
         assert tag in {t["internal"] for t in rows}
 
+    def test_a_tag_on_hidden_books_only_reads_as_missing(
+        self, client, player_headers, admin_headers
+    ):
+        tag = f"hiddenonly{uuid.uuid4().hex[:6]}"
+        book = make_book(make_game_system().id, tags=[tag])
+        _set_level(book.id, "gm")
+        assert client.get(f"/api/tags/{tag}/items", headers=player_headers).status_code == 404
+        assert client.get(f"/api/tags/nosuch{tag}/items", headers=player_headers).status_code == 404
+        admin = client.get(f"/api/tags/{tag}/items", headers=admin_headers)
+        assert admin.status_code == 200 and admin.json()["total"] == 1
+        # A tag carried by nothing hides nothing.
+        empty = f"empty{uuid.uuid4().hex[:6]}"
+        client.post("/api/tags", json={"value": empty}, headers=admin_headers)
+        assert client.get(f"/api/tags/{empty}/items", headers=player_headers).status_code == 200
+
     def test_tag_folder_groups_skip_hidden_systems(self, client, player_headers, admin_headers):
         from backend.models import BookFolder
 
@@ -1069,9 +1088,10 @@ class TestTagsAndStatsCountOnlyVisible:
         db.close()
         try:
             _set_system_level(system.id, "gm")
+            # The tag's only folder is in a system kept from the player, so the
+            # tag reads as missing rather than as an empty one.
             body = client.get(f"/api/tags/{tag}/items", headers=player_headers)
-            assert body.status_code == 200
-            assert body.json()["folders"] == []
+            assert body.status_code == 404
             admin = client.get(f"/api/tags/{tag}/items", headers=admin_headers).json()
             assert [f["key"] for f in admin["folders"]] == [f"{system.id}/adventure/Deep"]
         finally:

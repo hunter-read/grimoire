@@ -1,11 +1,11 @@
 """Pydantic schemas for the genre / system-family lookup API (issue #202)."""
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class GenreCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=120)
     parent_id: Optional[str] = None
 
     @field_validator("name")
@@ -18,7 +18,7 @@ class GenreCreate(BaseModel):
 
 
 class SystemFamilyCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=150)
 
     @field_validator("name")
     @classmethod
@@ -30,7 +30,7 @@ class SystemFamilyCreate(BaseModel):
 
 
 class ParentSystemCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=150)
 
     @field_validator("name")
     @classmethod
@@ -42,7 +42,7 @@ class ParentSystemCreate(BaseModel):
 
 
 class LicenseCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=150)
 
     @field_validator("name")
     @classmethod
@@ -54,7 +54,7 @@ class LicenseCreate(BaseModel):
 
 
 class DiceMaterialCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=120)
     group: Optional[str] = "Custom"
 
     @field_validator("name")

@@ -1347,3 +1347,13 @@ class TestGrantingSeveralEntries:
     def test_rejects_a_malformed_rule(self, rule, message):
         with pytest.raises(svc.SchemaError, match=message):
             self._schema(rule)
+
+
+def test_an_expression_past_the_length_limit_is_refused():
+    from backend.services.characters import expressions
+
+    long_sum = " + ".join(["1"] * (expressions.MAX_EXPRESSION_LENGTH // 4 + 1))
+    with pytest.raises(expressions.ExpressionError, match="longer than"):
+        expressions.parse(long_sum)
+    assert expressions.evaluate(long_sum, {}, default=None) is None
+    assert expressions.parse(" + ".join(["1"] * 1000))

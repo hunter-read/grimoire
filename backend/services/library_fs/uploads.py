@@ -7,6 +7,7 @@ promoted with a single rename, so a failed or aborted upload never leaves a
 half-written file where the scanner would index it.
 """
 import os
+import uuid
 from pathlib import Path
 from typing import AbstractSet, Any, Callable, Optional
 
@@ -25,7 +26,14 @@ from ...indexer.constants import (
 )
 from .constants import _UPLOAD_CHUNK, LibraryFSError
 from .moves import _dest_for
-from .paths import assert_writable, collection_of, in_book_section, safe_join, to_relative
+from .paths import (
+    MAX_SEGMENT_BYTES,
+    assert_writable,
+    collection_of,
+    in_book_section,
+    safe_join,
+    to_relative,
+)
 from ...models import Book
 
 def allowed_upload_exts(destination: Path) -> AbstractSet[str]:
@@ -211,7 +219,11 @@ def _stream_into(target: Path, stream: Any, max_bytes: Optional[int]) -> int:
     filesystem, so ``target`` holds either its old contents or the complete new
     ones — never a truncated mix the scanner could index.
     """
-    tmp = target.with_name(f".{target.name}.part")
+    tmp_name = f".{target.name}.part"
+    if len(os.fsencode(tmp_name)) > MAX_SEGMENT_BYTES:
+        # A name near the limit leaves no room for the dot and ".part".
+        tmp_name = f".upload-{uuid.uuid4().hex}.part"
+    tmp = target.with_name(tmp_name)
     written = 0
     try:
         with open(tmp, "wb") as out:

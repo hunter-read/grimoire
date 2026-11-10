@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from .._names import Name, OptionalId
+
 
 class ManualUnitIn(BaseModel):
     """One unit of a hand-built list. ``id`` keeps a unit's progress across edits."""
@@ -19,9 +21,9 @@ class ManualUnitIn(BaseModel):
 class ArmyCreate(BaseModel):
     """A hand-built army."""
 
-    name: str = Field(min_length=1, max_length=255)
-    game_system_id: Optional[str] = None
-    faction_id: Optional[str] = None
+    name: Name
+    game_system_id: OptionalId = None
+    faction_id: OptionalId = None
     points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     units: list[ManualUnitIn] = Field(default_factory=list)
     notes: str = Field(default="", max_length=20000)
@@ -30,9 +32,9 @@ class ArmyCreate(BaseModel):
 class ArmyUpdate(BaseModel):
     """Fields to change. ``units`` replaces a hand-built army's list (an imported one is read-only)."""
 
-    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    game_system_id: Optional[str] = None
-    faction_id: Optional[str] = None
+    name: Optional[Name] = None
+    game_system_id: OptionalId = None
+    faction_id: OptionalId = None
     points_limit: Optional[int] = Field(default=None, ge=0, le=1000000)
     notes: Optional[str] = Field(default=None, max_length=20000)
     units: Optional[list[ManualUnitIn]] = None

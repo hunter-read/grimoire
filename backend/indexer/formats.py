@@ -169,7 +169,7 @@ def is_fitz_mime(mime: Optional[str]) -> bool:
 def is_reflowable(ext: str) -> bool:
     """True when the format re-paginates according to the layout box.
 
-    Only reflowable formats need ``EPUB_LAYOUT`` applied; a PDF has fixed pages
-    and calling ``layout()`` on it is a no-op at best.
+    Only reflowable formats need the pinned layout (``apply_reflow_layout``);
+    a PDF has fixed pages and calling ``layout()`` on it is a no-op at best.
     """
     return ext.lower() == ".epub"

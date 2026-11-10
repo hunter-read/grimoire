@@ -70,7 +70,7 @@ class User(Base):
     # Per-user override for creating share links (issue #541). NULL follows the
     # user's role (admins and, by default, GMs may; players only when an admin
     # allows the role); True/False grants or denies it regardless of role. See
-    # ``backend/services/share_links.py``.
+    # ``backend/services/share_links/__init__.py``.
     share_links_enabled: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=None)
     # The OPDS feed token, never stored as itself (issue #583): `_hash` is what
     # feed requests are matched on and `_sealed` the token encrypted so the
