@@ -414,3 +414,13 @@ _TEXT_FILE_SIZE_CAP = 32 * 1024 * 1024
 _COMIC_PAGE_SIZE_CAP = 128 * 1024 * 1024
 # ComicInfo.xml is a few kilobytes of XML; one this large is not a real one.
 _COMIC_INFO_SIZE_CAP = 1024 * 1024
+
+# Thumbnail box per media collection, shared by the scan and by a file replaced
+# through upload (issue #870), so both render the same size. Models are square:
+# a miniature is rendered into a fixed box rather than cropped from a source
+# image, so there is no aspect to preserve.
+MEDIA_THUMB_SIZES: dict[str, tuple[int, int]] = {
+    "maps": (300, 400),
+    "tokens": (200, 200),
+    "models": (300, 300),
+}

@@ -18,13 +18,11 @@ from fastapi import BackgroundTasks, Depends, File, Form, HTTPException, UploadF
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
-from ...config import DATA_PATH, get_db, logger
+from ...config import get_db, logger
 from ...filenames import display_name, is_undecodable
-from ...indexer import refresh_book_file, reset_book_index
 from ...indexer.constants import SINGLETON_CONTAINER_KINDS
-from ...indexer.formats import can_index
-from ...models import Book
 from ...services import library_fs as fs
+from .replace import replace_file
 from ._schemas import (
     BrowseEntry,
     BrowseResponse,
@@ -469,7 +467,7 @@ def scaffold_categories(
 
 
 # How a name clash is resolved on upload. ``replace`` is the only one that
-# overwrites, and only an indexed book (issue #497).
+# overwrites, and only a file Grimoire indexes (issues #497, #870).
 UPLOAD_CONFLICT_POLICIES = ("rename", "skip", "replace")
 
 
@@ -496,8 +494,8 @@ def upload_file(
     an upload is an explicit "add this", so landing it under a suffixed name is
     friendlier than discarding it — and it still never overwrites.
 
-    ``replace`` is the exception: it overwrites an indexed book's file and keeps
-    the book's record — see ``_replace_book``.
+    ``replace`` is the exception: it overwrites an indexed file - a book, map,
+    token, audio file or 3D model - and keeps its record; see ``replace.py``.
     """
     try:
         if on_conflict not in UPLOAD_CONFLICT_POLICIES:
@@ -506,7 +504,9 @@ def upload_file(
                 detail=f"on_conflict must be one of: {', '.join(UPLOAD_CONFLICT_POLICIES)}",
             )
         if on_conflict == "replace":
-            return _replace_book(db, background_tasks, destination, relative_dir, file)
+            return replace_file(
+                db, background_tasks, destination, relative_dir, file, MAX_UPLOAD_BYTES
+            )
         return fs.save_upload(
             destination,
             file.filename or "",
@@ -519,97 +519,3 @@ def upload_file(
         raise _http(e) from e
     finally:
         file.file.close()
-
-
-def _replace_book(
-    db: Session,
-    background_tasks: BackgroundTasks,
-    destination: str,
-    relative_dir: str,
-    file: UploadFile,
-) -> dict:
-    """Overwrite a book's file with the upload and re-read it, keeping its id.
-
-    Nothing read from the old file is trusted afterwards: the new one may differ
-    by a corrected typo or by every page, so the hash, size, page count, cover,
-    page renders, search text and OCR checkpoint are all rebuilt. Nothing the
-    user wrote is touched — title, tags, description and the rest of the
-    metadata stay as they are, and bookmarks and favorites stay on the same id.
-
-    The cheap re-read happens here, before responding, so the content hash
-    changes (and with it every page URL) before anyone can load a page of the
-    new file under the old file's cache key. Search text and OCR can take far
-    longer: the book is queued for the background re-index (``services.library_scan.reindex_queue``),
-    with progress on ``GET /api/scan-status``.
-
-    Refused while a library scan or a standalone OCR run is going, and while the
-    re-index queue is busy with this same book. The OCR worker resumes from a
-    page checkpoint on its own copy of the row; swapping the file under it would
-    splice the new file's pages onto the old file's text and then write the
-    stale checkpoint back over the reset. The re-index queue working on *other*
-    books - earlier replaces, or single-book rescans - does not block it (issue
-    #657), so a batch of replaces runs back to back while their text is read in
-    the background.
-    """
-    from ...services.library_scan import claims, reindex_queue
-    from ...services.library_scan.runner import scan_in_progress
-
-    live = scan_in_progress()
-    if live and not reindex_queue.reindex_running():
-        raise HTTPException(
-            status_code=409,
-            detail="A library scan or OCR run is in progress - replace the file once it finishes",
-        )
-
-    claimed: list[str] = []
-
-    def claim(book_id: str) -> None:
-        # With no job running, a claim still held was left by one that died.
-        if not claims.claim_book(book_id, force=not live):
-            raise HTTPException(
-                status_code=409,
-                detail="This book is being re-indexed - replace the file once it finishes",
-            )
-        claimed.append(book_id)
-
-    try:
-        result = fs.replace_upload(
-            db,
-            destination,
-            file.filename or "",
-            file.file,
-            relative_dir=relative_dir,
-            max_bytes=MAX_UPLOAD_BYTES,
-            before_write=claim,
-        )
-        book = db.get(Book, result["record_id"])
-        if book is None:  # pragma: no cover - deleted between the write and here
-            return result
-        try:
-            book.is_missing = False
-            book.scan_failed = False
-            refresh_book_file(book, DATA_PATH, db)
-            if can_index(book.mime_type):
-                # Commits the refresh above along with the reset. Queued before the
-                # claim is released, so a drain that skipped the book while it was
-                # claimed finds it again.
-                reset_book_index(book, db)
-                reindex_queue.queue_reindex(book.id)
-                background_tasks.add_task(reindex_queue.drain_reindex_queue)
-            else:
-                db.commit()
-        except Exception as e:
-            # The new file is already in place. A later scan sees its new size and
-            # mtime and rebuilds the book the way it does any file replaced on disk.
-            db.rollback()
-            logger.error("Could not re-read replaced book %s: %s", result["path"], e)
-        finally:
-            # The cached (path, hash) lookup may have been refilled with the old hash
-            # by a request that landed during the re-read.
-            from ...services.books.documents import invalidate_book_cache
-
-            invalidate_book_cache()
-        return result
-    finally:
-        for book_id in claimed:
-            claims.release_book(book_id)

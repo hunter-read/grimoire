@@ -169,6 +169,9 @@ from .text_index import (  # noqa: E402,F401
     text_too_thin,
 )
 
+# --- A media file replaced in place --------------------------------------------
+from .media_refresh import MEDIA_SECTIONS, refresh_media_file  # noqa: E402,F401
+
 # --- Library scan --------------------------------------------------------------
 from .scan import (  # noqa: E402,F401
     _count_eligible_files,

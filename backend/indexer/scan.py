@@ -71,6 +71,7 @@ from .constants import (
     IMAGE_EXTS,
     MAP_IMAGE_EXTS,
     MEDIA_ARCHIVE_EXTS,
+    MEDIA_THUMB_SIZES,
 )
 from .added_dates import first_import_done, mark_first_import_done
 from .factions import prune_empty_factions
@@ -268,13 +269,17 @@ def scan_library(
             return stats
 
     if scan_maps and maps_walk_dir.exists():
-        _scan_media(ctx, maps_walk_dir, "maps", MAP_IMAGE_EXTS, GenericMap, (300, 400))
+        _scan_media(
+            ctx, maps_walk_dir, "maps", MAP_IMAGE_EXTS, GenericMap, MEDIA_THUMB_SIZES["maps"]
+        )
         ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
     if scan_tokens and tokens_walk_dir.exists():
-        _scan_media(ctx, tokens_walk_dir, "tokens", IMAGE_EXTS, Token, (200, 200))
+        _scan_media(
+            ctx, tokens_walk_dir, "tokens", IMAGE_EXTS, Token, MEDIA_THUMB_SIZES["tokens"]
+        )
         ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
@@ -286,15 +291,13 @@ def scan_library(
             return stats
 
     if scan_models and models_walk_dir.exists():
-        # Square thumbnails: a miniature is rendered into a fixed box rather
-        # than cropped from a source image, so there is no aspect to preserve.
         _scan_media(
             ctx,
             models_walk_dir,
             "models",
             MODEL_EXTS,
             Model3D,
-            (300, 300),
+            MEDIA_THUMB_SIZES["models"],
             enrich=_enrich_model,
         )
         ctx.emit_progress(force=True)
