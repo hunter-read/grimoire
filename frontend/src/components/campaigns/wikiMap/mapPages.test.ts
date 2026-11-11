@@ -4,9 +4,10 @@ vi.mock('../../../api', () => ({
   mediaUrl: (path: string, params: Record<string, unknown> = {}) =>
     `/api${path}?${new URLSearchParams(params as Record<string, string>)}`,
   campaigns: { fileUrl: (cid: string, id: string) => `/api/campaigns/${cid}/files/${id}` },
+  imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail` },
 }))
 
-import { isImageMapName, mapImageUrl, pinName } from './mapPages'
+import { choiceToMap, isImageMapName, mapImageUrl, mapThumbUrl, pinName } from './mapPages'
 
 describe('mapPages', () => {
   it('knows the maps a page can show', () => {
@@ -24,6 +25,25 @@ describe('mapPages', () => {
     )
     expect(mapImageUrl('c1', { source: 'missing', has_thumbnail: false })).toBeNull()
     expect(mapImageUrl('c1', null)).toBeNull()
+  })
+
+  it('turns a picker choice into the map the page will show', () => {
+    expect(choiceToMap({ map_id: 'm1' }, 'coast.png')).toEqual({
+      source: 'library',
+      id: 'm1',
+      name: 'coast.png',
+    })
+    expect(choiceToMap({ map_file_id: 'f1' }, 'sketch.webp')).toEqual({
+      source: 'file',
+      id: 'f1',
+      name: 'sketch.webp',
+    })
+  })
+
+  it('builds a tile picture: the thumbnail, a small render without one, or the image', () => {
+    expect(mapThumbUrl('c1', 'library', 'm1', true)).toBe('/api/maps/m1/thumbnail')
+    expect(mapThumbUrl('c1', 'library', 'm1', false)).toBe('/api/maps/m1/page/1?width=480')
+    expect(mapThumbUrl('c1', 'file', 'f1')).toBe('/api/campaigns/c1/files/f1')
   })
 
   it('names a pin by its label, else its page', () => {

@@ -2967,7 +2967,9 @@
     "fromLibrary": "From the library",
     "searchLibrary": "Search library maps",
     "noLibraryMatches": "No image maps match.",
-    "uploadImage": "Upload an image"
+    "uploadImage": "Upload an image",
+    "previewAlt": "Map: {{name}}",
+    "previewAltUnnamed": "The page's map"
   },
   "campaignNotes": {
     "backToOverview": "Back to overview"

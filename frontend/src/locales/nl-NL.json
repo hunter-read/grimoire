@@ -2967,7 +2967,9 @@
     "fromLibrary": "Uit de bibliotheek",
     "searchLibrary": "Kaarten in de bibliotheek zoeken",
     "noLibraryMatches": "Geen beeldkaarten gevonden.",
-    "uploadImage": "Afbeelding uploaden"
+    "uploadImage": "Afbeelding uploaden",
+    "previewAlt": "Kaart: {{name}}",
+    "previewAltUnnamed": "De kaart van de pagina"
   },
   "campaignNotes": {
     "backToOverview": "Terug naar overzicht"

@@ -2967,7 +2967,9 @@
     "fromLibrary": "Depuis la bibliothèque",
     "searchLibrary": "Chercher dans les cartes de la bibliothèque",
     "noLibraryMatches": "Aucune carte image ne correspond.",
-    "uploadImage": "Téléverser une image"
+    "uploadImage": "Téléverser une image",
+    "previewAlt": "Carte : {{name}}",
+    "previewAltUnnamed": "La carte de la page"
   },
   "campaignNotes": {
     "backToOverview": "Retour à l'aperçu"

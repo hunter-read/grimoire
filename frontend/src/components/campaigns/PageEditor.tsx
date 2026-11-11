@@ -20,7 +20,9 @@ import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
 import WikiLinkAutocomplete, { findActiveLinkQuery, linkOptionId } from './WikiLinkAutocomplete'
 import ShareAccessTable from './ShareAccessTable'
-import MapPicker, { type MapChoice } from './wikiMap/MapPicker'
+import MapPicker from './wikiMap/MapPicker'
+import MapPreview from './wikiMap/MapPreview'
+import { choiceToMap, mapImageUrl, type MapChoice } from './wikiMap/mapPages'
 import { buildTitleTrie, type TitlePage, type TrieEntry } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
 import useFillViewport from './useFillViewport'
@@ -104,6 +106,9 @@ export default function PageEditor({
   const [mapChoice, setMapChoice] = useState<MapChoice | null>(null)
   const [mapChoiceName, setMapChoiceName] = useState('')
   const [pickingMap, setPickingMap] = useState(false)
+  // The map drawn above the text: the one just picked, else the page's own.
+  const previewMap = mapChoice ? choiceToMap(mapChoice, mapChoiceName) : page?.map
+  const previewSrc = isMap ? mapImageUrl(campaign.id, previewMap) : null
 
   // Pages eligible as a parent: every page except this one and its descendants.
   const excluded = page?.id ? descendantIds(page.id, allPages) : new Set<string>()
@@ -406,7 +411,8 @@ export default function PageEditor({
       </div>
 
       {/* A new map page picks its map here; an existing one replaces it from
-          the page, where its pins are. */}
+          the page, where its pins are. Either way the map is shown above the
+          text, so its description is written looking at it. */}
       {isNew && isMap && (
         <div
           style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}
@@ -420,6 +426,7 @@ export default function PageEditor({
           </button>
         </div>
       )}
+      {previewSrc && <MapPreview src={previewSrc} name={previewMap?.name} />}
       {pickingMap && (
         <MapPicker
           campaignId={campaign.id}
