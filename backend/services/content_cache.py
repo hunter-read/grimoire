@@ -142,6 +142,50 @@ def invalidate_book_content(
     )
 
 
+def _glob_escape(value: str) -> str:
+    """``value`` with Valkey's glob characters escaped, to match it literally."""
+    return "".join(f"\\{c}" if c in "*?[]\\" else c for c in value)
+
+
+def invalidate_map_renders(filepath: str) -> None:
+    """Drop the renders cached from a map file whose bytes were replaced (issue #870).
+
+    A map's previews and PDF pages are keyed by its *path* in Valkey, and a PDF
+    map's pages by a hash of the path on disk, so a file replaced under the same
+    path would keep serving the old picture until the cache expired. The raster
+    preview's disk copy is keyed on the file's mtime as well and goes stale on
+    its own; the size sweep reclaims it. Best-effort, like
+    ``invalidate_book_content``: a cache failure is logged, never raised.
+    """
+    literal = _glob_escape(filepath)
+    for prefix in ("mappreview", "mappage"):
+        try:
+            purge_valkey_keys(f"{prefix}:{literal}:*")
+        except Exception as e:
+            logger.warning(f"Could not purge Valkey {prefix} renders for {filepath}: {e}")
+
+    prefix = f"map_{page_cache_prefix(filepath)}_"
+    try:
+        with os.scandir(PAGE_CACHE_DIR) as entries:
+            targets = [e.path for e in entries if e.name.startswith(prefix)]
+    except OSError as e:
+        logger.warning(f"Page cache scan failed: {e}")
+        targets = []
+    for path in targets:
+        try:
+            os.remove(path)
+        except OSError as e:
+            logger.debug("Could not remove cached map page %s: %s", path, e)
+
+    # A PDF map renders through the same pool of open documents as books.
+    from ..render import pool as render_pool
+
+    try:
+        render_pool.evict(filepath)
+    except Exception as e:
+        logger.warning(f"Could not evict cached PDF handle for {filepath}: {e}")
+
+
 def sweep_page_cache(max_mb: Optional[int] = None) -> int:
     """Trim the on-disk page cache to ``PAGE_CACHE_MAX_MB``, oldest first.
 

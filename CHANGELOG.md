@@ -39,6 +39,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Replacing a file through the upload API (`on_conflict=replace`) now works for maps, tokens, audio and 3D models as well as books. The file is swapped in place and keeps its record - tags, description, variant links, favourites and campaign links stay - while its size, thumbnail, a model's triangle count and a track's duration are read again from the new file. Before, replacing a map that turned out to be the wrong rendering meant deleting it and uploading it again, which lost all of that
 - Searching for text with `%` or `_` in it - a title, a tag, a wiki page - finds that text, instead of treating the character as a wildcard that matched almost anything
 - Code blocks in wiki pages show exactly what was typed. A `[[...]]` inside one no longer turns into a link or creates an empty page, and a GM secret in a code block no longer splits it in two
 - Inline code in wiki pages sits inside its sentence again instead of breaking out onto a line of its own

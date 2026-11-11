@@ -121,6 +121,7 @@ class TestReplaceUploadService:
             "name": "core.pdf",
             "size": 10,
             "record_id": book.id,
+            "record_type": "book",
             "replaced": True,
         }
         with open(os.path.join(LIB, rel, "core.pdf"), "rb") as f:
@@ -154,7 +155,7 @@ class TestReplaceUploadService:
         assert exc.value.code == "conflict"
         assert not os.path.exists(os.path.join(LIB, rel, "typo.pdf"))
 
-    def test_refuses_outside_the_books_tree(self):
+    def test_refuses_a_map_that_is_not_indexed(self):
         stamp = str(uuid.uuid4())[:8]
         rel = f"maps/Replace-{stamp}"
         os.makedirs(os.path.join(LIB, rel), exist_ok=True)
@@ -377,7 +378,7 @@ class TestReplaceEndpoint:
         rel, system = shelf
         book = _shelve(rel, system.id, "core.pdf", b"old", file_size=3)
         with patch(
-            "backend.routers.files.core.refresh_book_file", side_effect=RuntimeError("boom")
+            "backend.routers.files.replace.refresh_book_file", side_effect=RuntimeError("boom")
         ), patch.object(reindex_queue, "drain_reindex_queue") as rescan:
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("new"))
         assert resp.status_code == 200, resp.text

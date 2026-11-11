@@ -117,9 +117,10 @@ router.add_api_route(
     description=(
         "Multipart upload of one file. Send files individually so progress can be "
         "reported per file and failures retried in isolation. `on_conflict` is "
-        "`rename` (default), `skip`, or `replace`, which overwrites an indexed "
-        "book's file and keeps its record (409 when the path is not an indexed "
-        "book, or while a scan or OCR run is in progress)."
+        "`rename` (default), `skip`, or `replace`, which overwrites the file of an "
+        "indexed book, map, token, audio file or 3D model and keeps its record "
+        "(409 when nothing indexed is at that path, or while a scan or OCR run is "
+        "in progress)."
     ),
     response_model=UploadResponse,
 )

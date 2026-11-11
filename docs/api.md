@@ -3581,9 +3581,10 @@ check the delete itself performs.
 
 **`POST /api/files/upload`** - multipart form: `file`, `destination`,
 `relative_dir` (optional), `on_conflict` (`rename` (default), `skip`, or
-`replace`). Returns `{path, name, size, record_id, replaced}`; `record_id` is
-`null` and `replaced` is `false` unless the upload replaced a book. Any other
-`on_conflict` value is a `400`.
+`replace`). Returns `{path, name, size, record_id, record_type, replaced}`;
+`record_id` and `record_type` are `null` and `replaced` is `false` unless the
+upload replaced an indexed file. `record_type` is then `book`, `map`, `token`,
+`audio` or `model`. Any other `on_conflict` value is a `400`.
 
 **One file per request, by design.** A batch endpoint would make a 200-file
 import succeed or fail as a unit, leaving no way to say which files landed or to
@@ -3612,16 +3613,18 @@ container marker and reclassify a shelf. Single files are capped at 8 GB
 `webkitRelativePath` minus the file name) so a dropped folder keeps its
 structure; it is validated against the library root like any other path.
 
-**Replacing a book's file (`on_conflict=replace`).** Overwrites the file of a
-book that is already indexed and keeps its record, so the same id keeps its tags,
-metadata edits, variant links, favorites, bookmarks, and campaign links. Use it
-for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
+**Replacing an indexed file (`on_conflict=replace`).** Overwrites the file of a
+book, map, token, audio file or 3D model that is already indexed and keeps its
+record, so the same id keeps its tags, metadata edits, variant links, favorites,
+bookmarks, and campaign links. Use it for a corrected file: a better scan, a
+re-OCRed text layer, an errata printing, or a map whose gridded and gridless
+renderings were filed under each other's names.
 
-- The upload must land on the exact path of an indexed book under `books/`
-  (`destination` + `relative_dir` + the file's name). Anything else - a loose
-  file, a name with nothing there, a map or token - is refused with `409`, so a
-  mistyped name never adds a second copy instead. A `relative_dir` that does not
-  exist is a `404`.
+- The upload must land on the exact path of an indexed file under `books/`, the
+  armory, `maps/`, `tokens/`, `audio/` or `models/` (`destination` +
+  `relative_dir` + the file's name). Anything else - a loose file, or a name with
+  nothing there - is refused with `409`, so a mistyped name never adds a second
+  copy instead. A `relative_dir` that does not exist is a `404`.
 - Refused with `409` while a library scan or an OCR run
   (`POST /api/books/:id/reindex`) is in progress, and while the background
   re-index queue is working on this same book. The OCR worker resumes from a
@@ -3658,6 +3661,30 @@ for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
 - If the re-read fails, the response still reports the saved file. The next
   scan sees the changed size and mtime and rebuilds the book, as it does for any
   file replaced on disk.
+
+For a **map, token, audio file or 3D model**, the same guards apply except the
+re-index queue, which only reads books: a replace is refused while a library
+scan or OCR run is going, and not while the queue re-indexes books. Everything
+is re-read before the response returns:
+
+- The content hash, size and mtime, and the thumbnail. The old thumbnail is
+  removed first, so a new file that cannot be thumbnailed shows none rather than
+  the old picture. Thumbnail and map image URLs keep their address but their
+  `ETag` follows the content hash, so a browser holding the old image gets the
+  new one. A map's cached previews and PDF page renders are dropped. Archives
+  get no thumbnail, as when they are scanned.
+- For a 3D model, the triangle count. A mesh too heavy to render inline is left
+  for the deferred preview queue (`thumbnail_pending`), which the next rescan
+  drains, exactly as a scan leaves it.
+- For an audio file, the duration, and whether it has artwork (a cover set in
+  the UI, art embedded in the new file, or a folder cover).
+- Nothing you wrote is touched: the description, tags, variant links, a map's
+  grid override and authored walls, lights and doors, a model's presupported
+  flag, and a track's title, artist, album and track numbers stay as they are.
+  A map's authored geometry is in grid units, so it still lines up if the new
+  image has the same grid.
+- If the re-read fails, the response still reports the saved file, which is
+  served as it is; only the record's size, hash and thumbnail lag behind.
 
 **`POST /api/files/folder/scaffold`** - `{path}`. Creates the standard category
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,

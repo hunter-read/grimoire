@@ -4863,7 +4863,7 @@ export interface paths {
         put?: never;
         /**
          * Upload a single file into a library folder
-         * @description Multipart upload of one file. Send files individually so progress can be reported per file and failures retried in isolation. `on_conflict` is `rename` (default), `skip`, or `replace`, which overwrites an indexed book's file and keeps its record (409 when the path is not an indexed book, or while a scan or OCR run is in progress).
+         * @description Multipart upload of one file. Send files individually so progress can be reported per file and failures retried in isolation. `on_conflict` is `rename` (default), `skip`, or `replace`, which overwrites the file of an indexed book, map, token, audio file or 3D model and keeps its record (409 when nothing indexed is at that path, or while a scan or OCR run is in progress).
          */
         post: operations["upload_file_api_files_upload_post"];
         delete?: never;
@@ -18503,8 +18503,9 @@ export interface components {
         /**
          * UploadResponse
          * @description Where an uploaded file landed. `name` may differ from what was sent when
-         *     the conflict policy suffixed it. `record_id` and `replaced` are set when
-         *     `on_conflict=replace` overwrote an indexed book, which keeps its id.
+         *     the conflict policy suffixed it. `record_id`, `record_type` and `replaced`
+         *     are set when `on_conflict=replace` overwrote an indexed file, which keeps
+         *     its id. `record_type` is `book`, `map`, `token`, `audio` or `model`.
          */
         UploadResponse: {
             /** Name */
@@ -18513,6 +18514,8 @@ export interface components {
             path: string;
             /** Record Id */
             record_id?: string | null;
+            /** Record Type */
+            record_type?: string | null;
             /**
              * Replaced
              * @default false

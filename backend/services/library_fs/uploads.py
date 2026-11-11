@@ -34,7 +34,18 @@ from .paths import (
     safe_join,
     to_relative,
 )
-from ...models import Book
+from ...models import Audio, Book, GenericMap, Model3D, Token
+
+# What ``on_conflict=replace`` may overwrite, per collection: the record type
+# reported back, the ORM model, and the noun a refusal names (issue #870).
+_REPLACEABLE: dict[str, tuple[str, Any, str]] = {
+    "books": ("book", Book, "book"),
+    "armory": ("book", Book, "book"),
+    "maps": ("map", GenericMap, "map"),
+    "tokens": ("token", Token, "token"),
+    "audio": ("audio", Audio, "audio file"),
+    "models": ("model", Model3D, "model"),
+}
 
 def allowed_upload_exts(destination: Path) -> AbstractSet[str]:
     """The file extensions worth uploading into ``destination``.
@@ -140,23 +151,25 @@ def replace_upload(
     *,
     relative_dir: str = "",
     max_bytes: Optional[int] = None,
-    before_write: Optional[Callable[[str], None]] = None,
+    before_write: Optional[Callable[[str, str], None]] = None,
 ) -> dict:
-    """Overwrite an indexed book's file with an upload, keeping its record (#497).
+    """Overwrite an indexed file with an upload, keeping its record (#497, #870).
 
     The one upload that is allowed to overwrite, and only a file Grimoire already
-    tracks as a book: everything the user attached to it — tags, metadata edits,
-    variant links, bookmarks, favorites, campaign links — is keyed by the row's
-    id, and the row is keyed by path, so writing the new bytes to the same path
-    keeps all of it. A path holding no indexed book is refused rather than
-    treated as a plain upload, so a mistyped name cannot silently add a second
-    copy of a book the caller meant to correct.
+    tracks - a book, map, token, audio file or 3D model: everything the user
+    attached to it — tags, metadata edits, variant links, bookmarks, favorites,
+    campaign links — is keyed by the row's id, and the row is keyed by path, so
+    writing the new bytes to the same path keeps all of it. A path holding no
+    indexed record is refused rather than treated as a plain upload, so a
+    mistyped name cannot silently add a second copy of the file the caller meant
+    to correct.
 
-    Only the file is written here. Re-reading it (hash, pages, cover, search
+    Only the file is written here. Re-reading it (hash, pages, thumbnail, search
     text) is the caller's job, because the caller owns the scan-status guard and
     the background queue the text indexing runs on. ``before_write`` is called
-    with the book's id once it is known and before a byte is written, so the
-    caller can claim the book (issue #657); it refuses the upload by raising.
+    with the record's type and id once they are known and before a byte is
+    written, so the caller can claim a book (issue #657); it refuses the upload
+    by raising.
 
     The new bytes land under a temporary name and replace the old file in one
     rename, so an interrupted upload leaves the original intact.
@@ -166,25 +179,27 @@ def replace_upload(
     target = dest_dir / name
     if target.is_dir():
         raise LibraryFSError(f"'{name}' is a folder, not a file", code="invalid")
-    book = (
-        db.query(Book).filter(Book.relative_path == to_relative(target)).first()
-        if in_book_section(target)
-        else None
-    )
-    if book is None:
+    # validate_upload_name has already refused anything outside these trees.
+    replaceable = _REPLACEABLE.get(collection_of(target) or "")
+    if replaceable is None:  # pragma: no cover - refused as an upload above
+        raise LibraryFSError(f"'{name}' is not a file that can be replaced", code="conflict")
+    record_type, model, noun = replaceable
+    record = db.query(model).filter(model.relative_path == to_relative(target)).first()
+    if record is None:
         raise LibraryFSError(
-            f"There is no indexed book named '{name}' there to replace", code="conflict"
+            f"There is no indexed {noun} named '{name}' there to replace", code="conflict"
         )
     assert_writable(dest_dir)
     if before_write is not None:
-        before_write(book.id)
+        before_write(record_type, record.id)
     written = _stream_into(target, stream, max_bytes)
     logger.info("Replaced %s with an upload (%d bytes)", to_relative(target), written)
     return {
         "path": to_relative(target),
         "name": target.name,
         "size": written,
-        "record_id": book.id,
+        "record_id": record.id,
+        "record_type": record_type,
         "replaced": True,
     }
 
