@@ -14,6 +14,7 @@ import {
   LuUpload,
 } from 'react-icons/lu'
 import { campaigns, gmScreen, type Schema } from '../api'
+import BetaBadge from '../components/BetaBadge'
 import Spinner from '../components/Spinner'
 import { emptyState, ghostBtn, goldBtn } from '../components/characters/characterStyles'
 import CopyBoardDialog from '../components/gmScreen/CopyBoardDialog'
@@ -150,6 +151,7 @@ export default function GmScreenView() {
           </Link>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
             {t('gmScreen.heading')}
+            <BetaBadge style={{ marginRight: 2 }} />
             <span
               style={{ fontSize: 15, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 10 }}
             >

@@ -10,7 +10,11 @@ vi.mock('../../../api', () => ({
     searchResources: vi.fn(),
     addResource: vi.fn(),
     uploadImage: vi.fn(),
+    fileUrl: (cid: string, id: string) => `/api/campaigns/${cid}/files/${id}`,
   },
+  imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail` },
+  mediaUrl: (path: string, params: Record<string, unknown> = {}) =>
+    `/api${path}?${new URLSearchParams(params as Record<string, string>)}`,
 }))
 
 import { campaigns } from '../../../api'
@@ -18,7 +22,14 @@ import { campaigns } from '../../../api'
 const api = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const linked = [
-  { id: 'r1', resource_type: 'map', resource_id: 'm1', name: 'coast.png', is_image: false },
+  {
+    id: 'r1',
+    resource_type: 'map',
+    resource_id: 'm1',
+    name: 'coast.png',
+    is_image: false,
+    has_thumbnail: true,
+  },
   { id: 'r2', resource_type: 'map', resource_id: 'm2', name: 'atlas.pdf', is_image: false },
   { id: 'r3', resource_type: 'file', resource_id: 'f1', name: 'sketch.webp', is_image: true },
   { id: 'r4', resource_type: 'file', resource_id: 'f2', name: 'notes.txt', is_image: false },
@@ -55,6 +66,29 @@ describe('MapPicker', () => {
     for (const name of ['atlas.pdf', 'notes.txt', 'Atlas.png']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
     }
+  })
+
+  it("shows each choice's picture", async () => {
+    api.searchResources.mockResolvedValue([
+      { resource_type: 'map', resource_id: 'm9', name: 'harbour.jpg', subtitle: 'Ports' },
+    ])
+    mount()
+    const coast = await screen.findByRole('button', { name: 'coast.png' })
+    expect(coast.querySelector('img')).toHaveAttribute('src', '/api/maps/m1/thumbnail')
+    const sketch = screen.getByRole('button', { name: 'sketch.webp' })
+    expect(sketch.querySelector('img')).toHaveAttribute('src', '/api/campaigns/c1/files/f1')
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'harbour' } })
+    // No thumbnail made yet: a small render of the map stands in.
+    const hit = await screen.findByRole('button', { name: /harbour\.jpg/ })
+    expect(hit.querySelector('img')).toHaveAttribute('src', '/api/maps/m9/page/1?width=480')
+  })
+
+  it('falls back to an icon when a picture fails to load', async () => {
+    mount()
+    const coast = await screen.findByRole('button', { name: 'coast.png' })
+    fireEvent.error(coast.querySelector('img')!)
+    expect(coast.querySelector('img')).toBeNull()
+    expect(coast.querySelector('svg')).not.toBeNull()
   })
 
   it('links a library map to the campaign before using it', async () => {

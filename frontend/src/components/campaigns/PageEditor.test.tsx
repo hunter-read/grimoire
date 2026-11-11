@@ -10,7 +10,11 @@ vi.mock('../../api', () => ({
     createWikiPage: vi.fn(),
     updateWikiPage: vi.fn(),
     wikiTitles: vi.fn(),
+    fileUrl: (cid: string, id: string) => `/api/campaigns/${cid}/files/${id}`,
   },
+  imageSources: { thumbUrl: vi.fn() },
+  mediaUrl: (path: string, params: Record<string, unknown> = {}) =>
+    `/api${path}?${new URLSearchParams(params as Record<string, string>)}`,
 }))
 vi.mock('./WikiMarkdown', () => ({
   default: ({ body }: ComponentProps<typeof import('./WikiMarkdown').default>) => (
@@ -622,6 +626,13 @@ describe('PageEditor map pages', () => {
     await user.click(screen.getByRole('button', { name: 'pick-map-stub' }))
     expect(screen.getByText('coast.png')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Replace map' })).toBeInTheDocument()
+    // The chosen map is shown above the text being written for it.
+    const preview = screen.getByRole('img', { name: 'Map: coast.png' })
+    expect(preview).toHaveAttribute('src', '/api/maps/m1/page/1?width=3000')
+    expect(
+      preview.compareDocumentPosition(screen.getByRole('textbox', { name: 'Markdown' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(campaignsMock.createWikiPage).toHaveBeenCalledWith(
@@ -640,6 +651,28 @@ describe('PageEditor map pages', () => {
         'c1',
         expect.objectContaining({ page_type: 'session' })
       )
+    )
+  })
+
+  it('shows no map until one is chosen, and none on an ordinary page', () => {
+    const { unmount } = renderEditor({ page: null, defaultPageType: 'map' })
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    unmount()
+    renderEditor({ page: existing })
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it("shows an existing map page's map while its text is edited", () => {
+    renderEditor({
+      page: {
+        ...existing,
+        page_type: 'map',
+        map: { source: 'file', id: 'f1', name: 'sketch.webp', has_thumbnail: true },
+      },
+    })
+    expect(screen.getByRole('img', { name: 'Map: sketch.webp' })).toHaveAttribute(
+      'src',
+      '/api/campaigns/c1/files/f1'
     )
   })
 

@@ -389,7 +389,7 @@ describe('CampaignDetailView permissions', () => {
     mockLoad()
     const { unmount } = renderView()
     await screen.findByText('Lost Mines')
-    expect(screen.getByRole('link', { name: 'GM screen' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'GM screen Beta' })).toHaveAttribute(
       'href',
       '/campaigns/c1/gm-screen'
     )
@@ -403,7 +403,7 @@ describe('CampaignDetailView permissions', () => {
       mockLoad()
       const view = renderView()
       await screen.findByText('Lost Mines')
-      expect(screen.queryByRole('link', { name: 'GM screen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /GM screen/ })).not.toBeInTheDocument()
       view.unmount()
     }
   })

@@ -2967,7 +2967,9 @@
     "fromLibrary": "Aus der Bibliothek",
     "searchLibrary": "Karten der Bibliothek durchsuchen",
     "noLibraryMatches": "Keine passenden Bildkarten.",
-    "uploadImage": "Bild hochladen"
+    "uploadImage": "Bild hochladen",
+    "previewAlt": "Karte: {{name}}",
+    "previewAltUnnamed": "Die Karte der Seite"
   },
   "campaignNotes": {
     "backToOverview": "Zurück zur Übersicht"

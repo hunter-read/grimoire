@@ -19,6 +19,7 @@ import api, { campaigns } from '../api'
 import type { ResponseOf } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useUISettings } from '../context/UISettingsContext'
+import BetaBadge from '../components/BetaBadge'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
@@ -530,6 +531,7 @@ export default function CampaignDetailView() {
               >
                 <LuLayoutDashboard size={15} aria-hidden="true" />{' '}
                 {t('campaignDetail.openGmScreen')}
+                <BetaBadge style={{ marginLeft: 2 }} />
               </Link>
             )}
             {/* Edit / Convert / Archive share one kebab menu so the header keeps

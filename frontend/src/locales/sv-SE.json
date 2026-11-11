@@ -2967,7 +2967,9 @@
     "fromLibrary": "Från biblioteket",
     "searchLibrary": "Sök bland bibliotekets kartor",
     "noLibraryMatches": "Inga bildkartor matchar.",
-    "uploadImage": "Ladda upp en bild"
+    "uploadImage": "Ladda upp en bild",
+    "previewAlt": "Karta: {{name}}",
+    "previewAltUnnamed": "Sidans karta"
   },
   "campaignNotes": {
     "backToOverview": "Tillbaka till översikt"

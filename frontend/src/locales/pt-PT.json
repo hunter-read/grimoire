@@ -2967,7 +2967,9 @@
     "fromLibrary": "Da biblioteca",
     "searchLibrary": "Procurar mapas da biblioteca",
     "noLibraryMatches": "Nenhum mapa de imagem corresponde.",
-    "uploadImage": "Carregar uma imagem"
+    "uploadImage": "Carregar uma imagem",
+    "previewAlt": "Mapa: {{name}}",
+    "previewAltUnnamed": "O mapa da página"
   },
   "campaignNotes": {
     "backToOverview": "Voltar à visão geral"

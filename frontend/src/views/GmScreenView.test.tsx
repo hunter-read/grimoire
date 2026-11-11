@@ -84,7 +84,9 @@ describe('GmScreenView', () => {
 
   it('shows the board under the campaign’s name, with a way back', async () => {
     renderView()
-    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('GM screenThe Tithe')
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
+      'GM screenBetaThe Tithe'
+    )
     expect(await screen.findByRole('heading', { name: 'Fear' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Campaign/ })).toHaveAttribute(
       'href',

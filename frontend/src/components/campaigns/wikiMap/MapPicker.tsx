@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuImage, LuMap, LuPlus, LuSearch, LuX } from 'react-icons/lu'
+import { LuPlus, LuSearch, LuX } from 'react-icons/lu'
 import { campaigns, type ApiError, type Schema } from '../../../api'
 import Spinner from '../../Spinner'
 import useDialogFocus from '../../../hooks/useDialogFocus'
 import ImageUploadPanel from '../ImageUploadPanel'
-import { isImageMapName } from './mapPages'
+import MapTile from './MapTile'
+import { isImageMapName, mapThumbUrl, type MapChoice } from './mapPages'
 
-/** What a map page can show: a library map or one of the campaign's images. */
-export type MapChoice = { map_id: string } | { map_file_id: string }
+export type { MapChoice }
 
 interface MapPickerProps {
   campaignId: string
@@ -25,7 +25,8 @@ interface MapPickerProps {
  * Choose the picture for a map page (issue #578).
  *
  * Lists the image maps linked to the campaign and its uploaded images - what
- * every member can already see. The GM can also search the whole library,
+ * every member can already see - as tiles with each map's picture, since maps
+ * are told apart by sight far more easily than by file name. The GM can also search the whole library,
  * which links the chosen map to the campaign first (so guests can open it),
  * or upload a new image.
  */
@@ -143,19 +144,25 @@ export default function MapPicker({
                 {isOwner ? t('wikiMap.noLinkedMapsGm') : t('wikiMap.noLinkedMaps')}
               </p>
             ) : (
-              <ul role="list" style={list}>
-                {choices.map((r) => (
-                  <li key={r.id}>
-                    <button type="button" onClick={() => pickLinked(r)} style={row}>
-                      {r.resource_type === 'map' ? (
-                        <LuMap size={15} color="var(--type-map)" aria-hidden="true" />
-                      ) : (
-                        <LuImage size={15} color="var(--type-file)" aria-hidden="true" />
-                      )}
-                      <span style={rowName}>{r.name}</span>
-                    </button>
-                  </li>
-                ))}
+              <ul role="list" style={grid}>
+                {choices.map((r) => {
+                  const isMap = r.resource_type === 'map'
+                  return (
+                    <li key={r.id}>
+                      <MapTile
+                        name={r.name}
+                        kind={isMap ? 'map' : 'file'}
+                        src={mapThumbUrl(
+                          campaignId,
+                          isMap ? 'library' : 'file',
+                          r.resource_id,
+                          r.has_thumbnail
+                        )}
+                        onClick={() => pickLinked(r)}
+                      />
+                    </li>
+                  )
+                })}
               </ul>
             )}
 
@@ -175,18 +182,16 @@ export default function MapPicker({
                 </div>
                 {hits && hits.length === 0 && <p style={empty}>{t('wikiMap.noLibraryMatches')}</p>}
                 {hits && hits.length > 0 && (
-                  <ul role="list" style={list}>
+                  <ul role="list" style={grid}>
                     {hits.map((h) => (
                       <li key={h.resource_id}>
-                        <button type="button" onClick={() => void pickFromLibrary(h)} style={row}>
-                          <LuMap size={15} color="var(--type-map)" aria-hidden="true" />
-                          <span style={rowName}>{h.name}</span>
-                          {h.subtitle && (
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                              {h.subtitle}
-                            </span>
-                          )}
-                        </button>
+                        <MapTile
+                          name={h.name}
+                          subtitle={h.subtitle}
+                          kind="map"
+                          src={mapThumbUrl(campaignId, 'library', h.resource_id, h.has_thumbnail)}
+                          onClick={() => void pickFromLibrary(h)}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -229,8 +234,9 @@ const panel: CSSProperties = {
   borderRadius: 16,
   padding: 24,
   width: '100%',
-  maxWidth: 480,
-  maxHeight: '80vh',
+  // Wide enough for three or four map tiles a row.
+  maxWidth: 640,
+  maxHeight: '85vh',
   display: 'flex',
   flexDirection: 'column',
   position: 'relative',
@@ -255,13 +261,13 @@ const sectionLabel: CSSProperties = {
   margin: '0 0 6px',
 }
 
-const list: CSSProperties = {
+const grid: CSSProperties = {
   listStyle: 'none',
   margin: 0,
   padding: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+  gap: 8,
 }
 
 const row: CSSProperties = {
@@ -277,14 +283,6 @@ const row: CSSProperties = {
   cursor: 'pointer',
   fontSize: 13,
   textAlign: 'left',
-}
-
-const rowName: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
 }
 
 const empty: CSSProperties = { fontSize: 13, color: 'var(--text-muted)', margin: '4px 0' }
