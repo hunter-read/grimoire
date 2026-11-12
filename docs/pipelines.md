@@ -54,51 +54,70 @@ change to a request or response shape therefore has to land with its frontend ty
 frontend job's `tsc` checks the code against them. It installs both toolchains: Python
 exports the schema from the app, Node turns it into TypeScript.
 
-**Backend:**
-- `ruff check backend/` - lint
-- `python -c "import backend.main"` - import smoke check
-- `pytest` with coverage, including the community add-on contract tests (below), on four
-  workers (`-n 4 --dist loadgroup`, pytest-xdist). The tests share one database and lean on
-  what earlier files left behind, so `conftest.py` gives each worker a contiguous run of test
-  files in their usual order rather than handing them out one at a time: each slice runs
-  exactly as it would serially. The worker count is pinned, not `auto`, so the slices are the
-  same on every run. Coverage is measured with `COVERAGE_CORE=sysmon`, Python 3.12's
-  low-overhead tracing hook. Locally, `python3 -m pytest -n 4 --dist loadgroup` does the same.
-- the same `pytest` run again on PostgreSQL (a `postgres:18-alpine` service container,
-  `TEST_DATABASE_URL`), with `--cov-append`, so the coverage gate sees the code that only
-  runs on PostgreSQL too. Each worker gets its own database, dropped and created afresh
-  (`backend/tests/_postgres.py`). Tests marked `sqlite_only` skip there, and `postgres_only`
-  ones skip on SQLite. Locally:
-  `TEST_DATABASE_URL=postgresql://user:pw@localhost/postgres python3 -m pytest -n 4 --dist loadgroup`
-  (the user needs `CREATEDB`). A test that removes `DATABASE_URL` or `TEST_DATABASE_URL`
-  from the environment, or leaves the app engine on the other database, fails in teardown
-  and has them put back: the next `importlib.reload(backend.config)` would otherwise move
-  the rest of the run onto a SQLite file. Code that clears the real environment (the add-on
-  worker's credential scrub) runs under `patch.dict(os.environ)` in tests.
+**Backend** is split the same way:
+- **Backend lint + types:** `ruff check backend/`, `python -c "import backend.main"` (an
+  import smoke check) and `mypy backend/`.
+- **Backend tests (database, 1/2 and 2/2):** the `pytest` suite on SQLite, on PostgreSQL 18
+  and on PostgreSQL 15 (the newest and oldest supported, see [PostgreSQL](postgresql.md)),
+  each cut in two with `--shard`, so six jobs run side by side. Each runs its half on four
+  workers (`-n 4 --dist loadgroup`, pytest-xdist). The SQLite and PostgreSQL 18 jobs measure
+  coverage, with `COVERAGE_CORE=sysmon` (Python 3.12's low-overhead tracing hook), and upload
+  the `.coverage` data; PostgreSQL 15 only has to pass. The SQLite jobs also run the
+  community add-on contract tests (below).
+- **Backend lint + test:** the required check. It combines the four coverage data files
+  (`coverage combine`) into the `coverage.json` one run of the whole suite on both databases
+  writes - the coverage gate has to see the code that only runs on PostgreSQL too - then
+  runs the gate. It always runs and fails if the lint job or any test job failed.
 
-**Backend test (PostgreSQL 15):** the whole backend suite on the oldest supported PostgreSQL
-(see [PostgreSQL](postgresql.md)); the backend job covers the newest. No coverage or lint -
-those run once, in the backend job.
+**How the suite is split.** The tests share one database and lean on what earlier files left
+behind, so they are never handed out one file at a time. `conftest.py` cuts the files, in
+their usual order, into contiguous slices - one per worker - and each slice runs exactly as
+it would serially. `--shard I/N` first cuts the files into N contiguous parts and collects
+only the I-th, so CI's two jobs per database each import and run half the suite, sliced
+among their four workers. The worker count is pinned, not `auto`, so the slices are the
+same on every run.
 
-**Docker image (slim, ocr):** builds each image target (amd64, loaded rather than pushed,
-layers cached in the GitHub Actions cache) and runs
-[`backend/scripts/smoke_test_image.py`](../backend/scripts/smoke_test_image.py) against it.
-That generates a tiny library (a PDF, a CBR and an image map, from the standard library
-alone), starts the image on it with an empty `/data`, and checks through the API that it
-comes up healthy as a non-root user, first-run setup works, the scan indexes everything, the
-PDF is searchable and renders, thumbnails are made, `unar` extracts a file with an accented
-name, `ffmpeg` runs, (OCR only) `tesseract` reads a rendered page, and PyMuPDF's
-layout-analysis packages are absent. It then makes `/data` root-owned, as an install upgraded from the old
-root-run image has it, restarts, and checks the data is handed over. Every push to
-`main` runs it; a PR does when it touches the Dockerfile, dependencies, backend code or
-`ci.yml`. Not a required check, but it is the only one that builds `slim` before a release.
-Run it locally with `python3 backend/scripts/smoke_test_image.py <image> --target slim|ocr`.
+The slices are sized by time, not by test count: a few files (the migration tests, the ones
+that start a second Python) take as long as a thousand ordinary tests.
+[`backend/tests/timings.json`](../backend/tests/timings.json) lists what each file over a
+second takes and the averages for the rest. It only needs refreshing when the jobs drift
+apart - a stale file makes the slices uneven, nothing worse:
+
+```bash
+python3 -m pytest backend/tests/ -n 4 --dist loadgroup --write-timings
+```
+
+Locally, `python3 -m pytest -n 4 --dist loadgroup` runs the whole suite on four workers, and
+adding `--shard 1/2` runs exactly what CI's first job does.
+
+**What keeps the suite quick.** Two things `conftest.py` does for every test, both of which
+were most of the suite's time before:
+- Passwords are hashed at bcrypt's lowest cost (`password_hash.DEFAULT_ROUNDS`). At the
+  real cost every account created and every sign-in is a quarter of a second of CPU. The
+  tests of the cost itself put the real one back.
+- A book's text is read in-process rather than in the child process the app starts for it.
+  Every full scan tries to index each placeholder book earlier tests left in the shared
+  database, and a new Python apiece only to fail on a junk file added up to minutes. The
+  stand-in turns a failure into the error a dead child raises, so books end up marked as
+  before; the tests of the isolation itself call the real
+  `backend.indexer._subprocess.extract_text_isolated`.
+
+**On PostgreSQL** (`TEST_DATABASE_URL`, a `postgres:*-alpine` service container in CI) each
+worker gets its own database, dropped and created afresh (`backend/tests/_postgres.py`).
+Tests marked `sqlite_only` skip there, and `postgres_only` ones skip on SQLite. Locally:
+`TEST_DATABASE_URL=postgresql://user:pw@localhost/postgres python3 -m pytest -n 4 --dist loadgroup`
+(the user needs `CREATEDB`). A test that removes `DATABASE_URL` or `TEST_DATABASE_URL`
+from the environment, or leaves the app engine on the other database, fails in teardown
+and has them put back: the next `importlib.reload(backend.config)` would otherwise move
+the rest of the run onto a SQLite file. Code that clears the real environment (the add-on
+worker's credential scrub) runs under `patch.dict(os.environ)` in tests.
+
 
 **Community add-on contract tests:** nearly 400 tests (more as add-ons are added, since many are parametrised over them) load the add-ons actually published in
 [`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)
 (scrapers, character importers, sheets, content packs) and check them against this repo's
 interpreter, manifest models, importer and sheet renderer. A change on either side can break
-a published add-on without anything else failing, so the backend job checks that repo out
+a published add-on without anything else failing, so the SQLite test jobs check that repo out
 beside the code and points `COMMUNITY_ADDONS_PATH` at it.
 
 The checkout is pinned to a commit (`ref:` on the "Check out community add-ons" step in
@@ -220,13 +239,13 @@ bump is usually safe to merge as is.
 
 Runs the backend suite on `main` serially and on two workers, every day at 06:00 UTC or on
 demand. The backend tests share one database and one library folder, so a test can pass
-only because of the tests that run before it. CI's four-worker split (`conftest.py` gives
-each worker a contiguous run of files) fixes those predecessors, which can hide such a test
+only because of the tests that run before it. CI's split (`conftest.py` gives each worker
+a contiguous run of files) fixes those predecessors, which can hide such a test
 until a new file shifts the split and it fails on an unrelated PR. A serial run gives every
 file all its predecessors, and two workers start the second half without its own.
 
 Each split runs three times: on SQLite, and on PostgreSQL 15 and 18 (the oldest and newest
-supported), since CI's PostgreSQL jobs only ever run on four workers.
+supported), since CI's PostgreSQL jobs only ever run CI's own split.
 
 It is not a required check. A failure means an order-dependent test to fix: reproduce it
 with the same split locally (`pytest backend/tests/ -n 2 --dist loadgroup`, or serially),

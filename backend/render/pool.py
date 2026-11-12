@@ -34,11 +34,13 @@ import itertools
 import multiprocessing
 import os
 import pickle
+import socket
 import tempfile
 import threading
 import time
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
+from multiprocessing.connection import Connection
 from typing import Any, Optional
 
 from .. import config
@@ -58,6 +60,28 @@ _STOP_GRACE = 5.0
 # Seconds one export may run. An export is capped at 100 images or 200 cut-outs,
 # which at the highest resolution takes minutes, not tens of them.
 EXPORT_TIMEOUT = 600.0
+
+
+def _hang_up(conn: Connection) -> None:
+    """Close our end of a worker's pipe so that the worker sees it closed.
+
+    ``close()`` alone is not enough: the reader thread is blocked in ``recv()``
+    on the same connection, and on Linux a descriptor closed under a blocked
+    read stays open until that read returns - which it never does, since the
+    worker is waiting on us. The worker saw no EOF, so every stop waited out
+    ``_STOP_GRACE`` and ended in a kill. Shutting the socket down first ends
+    the read and reaches the worker at once.
+    """
+    try:
+        # The pipe is a socket pair; a second handle on it, to call shutdown().
+        with socket.socket(fileno=os.dup(conn.fileno())) as sock:
+            sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass  # already closed, or not a socket: closing is all there is to do
+    try:
+        conn.close()
+    except OSError:
+        pass
 
 
 class _WorkerGone(Exception):
@@ -189,10 +213,7 @@ class _Worker:
         with self.lock:
             self.alive = False
             self.stopping = True
-        try:
-            self.conn.close()
-        except OSError:
-            pass
+        _hang_up(self.conn)
         self._join(_STOP_GRACE)
         if self.proc.is_alive():
             self.kill()

@@ -290,6 +290,20 @@ class TestShutdown:
         assert not proc.is_alive()
         assert pool.page_text(pdf, 1) == "first page"
 
+    def test_a_stopped_worker_exits_by_itself_rather_than_being_killed(self, workers, pdf):
+        """Closing a pipe the reader thread is blocked on reaches nobody on
+        Linux: the worker saw no EOF, and every stop waited out the grace
+        period and ended in SIGKILL."""
+        workers(1)
+        pool.page_text(pdf, 1)
+        stopped = _worker_of(pdf)
+        started = time.monotonic()
+        pool.shutdown()
+        assert time.monotonic() - started < pool._STOP_GRACE
+        assert stopped.proc.exitcode == 0
+        stopped.reader.join(5)
+        assert not stopped.reader.is_alive()
+
     def test_requests_in_flight_at_shutdown_fail_without_a_crash_report(self, workers, pdf):
         workers(1)
         pool.page_text(pdf, 1)

@@ -1,13 +1,13 @@
 name: Test order
 
 # Runs the backend suite on main split differently from CI, so a test that only
-# passes because of where the four-worker split puts it shows up here rather
-# than on an unrelated PR. CI's split (see conftest.py) hands each worker a
-# contiguous run of files; serially every file sees all its predecessors, and on
-# two workers the second half loses them. Each split runs on SQLite and on the
-# oldest and newest supported PostgreSQL, since CI runs PostgreSQL only on four
-# workers. Not a required check - a failure here means an order-dependent test
-# to fix, not a broken main.
+# passes because of where CI's split puts it shows up here rather than on an
+# unrelated PR. CI's split (see conftest.py) hands each worker a contiguous run
+# of files, eight in all over two jobs; serially every file sees all its
+# predecessors, and on two workers the second half loses them. Each split runs
+# on SQLite and on the oldest and newest supported PostgreSQL, since CI runs
+# PostgreSQL only on its own split. Not a required check - a failure here means
+# an order-dependent test to fix, not a broken main.
 on:
   schedule:
     # 06:00 UTC daily, an hour before the nightly image build. Best-effort, like

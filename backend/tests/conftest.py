@@ -50,8 +50,44 @@ from backend.models import (  # noqa: E402
     Audio,
     Campaign,
 )
+from backend import indexer, password_hash, pdf_worker  # noqa: E402
+from backend.indexer._subprocess import PdfExtractionCrashError  # noqa: E402
 from backend.services import tag_service  # noqa: E402
-from backend.tests import community_addons  # noqa: E402
+from backend.tests import _slices, community_addons  # noqa: E402
+
+
+# bcrypt's cheapest cost. At the real one every account a test creates and every
+# sign-in costs a quarter of a second of CPU, which added up to a third of the
+# suite; what the hashes protect here is "adminpass123". The tests of the cost
+# itself (test_password_hash.py) put the real one back.
+REAL_BCRYPT_ROUNDS = password_hash.DEFAULT_ROUNDS
+password_hash.DEFAULT_ROUNDS = 4
+
+
+def _extract_text_in_process(filepath, should_stop=None, text_only=False):
+    """``extract_text_isolated`` without the child process.
+
+    The app reads a book's text in a spawned process so that a crash in MuPDF
+    can't take the server with it. The suite's books are placeholders - a path
+    nothing was written to, or a few junk bytes - and every full scan (the
+    rescan endpoint, each ``TestClient`` start-up) tries to index all of those
+    left in the shared database, paying for a new Python process apiece only
+    for it to fail on opening the file. That was the slowest thing the suite did.
+
+    This does what the child does, ``pdf_worker.run``, and turns its failure
+    into what the child's death raises, so the books end up marked just as they
+    were. The isolation itself - crashes, timeouts, the stop request - is
+    tested against the real function, imported from ``backend.indexer._subprocess``.
+    """
+    if should_stop and should_stop():
+        raise TimeoutError(f"Text extraction aborted by stop request for {filepath}")
+    try:
+        return pdf_worker.run(filepath, text_only=text_only)
+    except Exception:
+        raise PdfExtractionCrashError("extraction worker exited with code 1") from None
+
+
+indexer.extract_text_isolated = _extract_text_in_process
 
 
 def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
@@ -72,20 +108,57 @@ def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
 # ---------------------------------------------------------------------------
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--shard",
+        default="",
+        metavar="I/N",
+        help="run only the I-th of N contiguous parts of the suite (see _slices.py)",
+    )
+    parser.addoption(
+        "--write-timings",
+        action="store_true",
+        help="rewrite backend/tests/timings.json from this (full) run",
+    )
+
+
+def _shard(config) -> tuple[int, int]:
+    try:
+        return _slices.parse_shard(config.getoption("shard"))
+    except ValueError as e:
+        raise pytest.UsageError(str(e)) from None
+
+
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_shard_of: dict[str, int] = {}
+
+
+def pytest_ignore_collect(collection_path, config):
+    """With ``--shard I/N``, leave the other shards' test files uncollected.
+
+    Skipped here rather than deselected later, so a shard doesn't spend its
+    start-up importing thousands of tests it won't run. A file named on the
+    command line is always collected: pytest doesn't ask about those.
+    """
+    shard, shards = _shard(config)
+    if shards < 2 or str(collection_path.parent) != _TESTS_DIR:
+        return None
+    if not _shard_of:
+        _shard_of.update(_slices.shard_files(_TESTS_DIR, shards, _slices.load_timings()))
+    # None for anything that isn't a test file: not ours to rule on.
+    return _shard_of.get(collection_path.name, shard - 1) != shard - 1 or None
+
+
 # tryfirst: xdist's own hook turns xdist_group marks into scheduling groups,
 # so they have to be on the items before it runs.
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config, items):
-    """Split the suite into one contiguous run of files per xdist worker.
+    """Cut the suite into one contiguous run of files per xdist worker.
 
-    The tests share one database and one library folder, and plenty of them
-    lean on what earlier files left behind. Run serially that order is fixed,
-    so it works; handed out file by file, each worker would see a different,
-    changing mix, and those dependencies surface as failures that move from
-    run to run. So with ``--dist loadgroup`` each worker gets a contiguous
-    slice of the files in their usual order, sized by test count, and runs it
-    exactly as a serial run would - only the first file of each slice loses
-    its predecessors. Without xdist this does nothing.
+    With ``--dist loadgroup`` each worker gets one slice of the files, in their
+    usual order, and runs it exactly as a serial run would (see ``_slices.py``
+    for why, and for how the slices are sized). Under ``--shard`` the files
+    are this shard's only. Without xdist this does nothing.
     """
     for item in items:
         if ON_POSTGRES and item.get_closest_marker("sqlite_only"):
@@ -95,16 +168,16 @@ def pytest_collection_modifyitems(config, items):
     workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT") or 0)
     if workers < 2 or not items:
         return
-    per_chunk = len(items) / workers
-    chunk_of: dict[str, int] = {}
-    seen = 0
+    counts: dict[str, int] = {}
     for item in items:
-        path = item.nodeid.split("::", 1)[0]
-        if path not in chunk_of:
-            chunk_of[path] = min(workers - 1, int(seen / per_chunk))
-        seen += 1
+        name = _slices.file_of(item.nodeid)
+        counts[name] = counts.get(name, 0) + 1
+    timings = _slices.load_timings()
+    chunk_of = _slices.assign(
+        [(name, timings.of_file(name, tests)) for name, tests in counts.items()], workers
+    )
     for item in items:
-        chunk = chunk_of[item.nodeid.split("::", 1)[0]]
+        chunk = chunk_of[_slices.file_of(item.nodeid)]
         item.add_marker(pytest.mark.xdist_group(f"chunk-{chunk}"))
 
 
@@ -138,8 +211,12 @@ def pytest_runtest_makereport(item, call):
 _community_skips: list[str] = []
 
 
+_timings = _slices.Recorder()
+
+
 def pytest_runtest_logreport(report):
     """Note every contract test that skipped for want of the community checkout."""
+    _timings.add(report.nodeid, report.duration)
     if (
         community_addons.REQUIRED
         and report.skipped
@@ -162,6 +239,16 @@ def pytest_terminal_summary(terminalreporter):
 
 
 def pytest_sessionfinish(session, exitstatus):
+    # Only the process that saw every report writes (not an xdist worker), and
+    # only what a clean run of the whole suite measured.
+    config = session.config
+    whole = not (config.getoption("shard") or config.getoption("keyword") or config.getoption("markexpr"))
+    if config.getoption("write_timings") and not hasattr(config, "workerinput"):
+        if whole and exitstatus == pytest.ExitCode.OK:
+            _timings.write()
+        else:
+            session.exitstatus = pytest.ExitCode.USAGE_ERROR
+            print("\n--write-timings needs a passing run of the whole suite; nothing written.")
     # A skip is not a pass here: it means the contract went unchecked.
     if _community_skips and exitstatus == pytest.ExitCode.OK:
         session.exitstatus = pytest.ExitCode.TESTS_FAILED

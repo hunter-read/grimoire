@@ -3,6 +3,7 @@ import pytest
 
 from backend import password_hash
 from backend.auth import hash_password, verify_password
+from backend.tests.conftest import REAL_BCRYPT_ROUNDS
 
 # Written by passlib 1.7.4 (bcrypt 4.0.1) before it was removed, so hashes
 # already stored in users.hashed_password / share_links.password_hash keep
@@ -74,7 +75,10 @@ def test_new_hash_round_trips_in_passlib_v2_format():
     assert verify_password("lantern harbor crossinG", hashed) is False
 
 
-def test_default_cost_matches_passlib():
+def test_default_cost_matches_passlib(monkeypatch):
+    # conftest lowers the cost for the suite; this is the one the app ships.
+    assert REAL_BCRYPT_ROUNDS == 12
+    monkeypatch.setattr(password_hash, "DEFAULT_ROUNDS", REAL_BCRYPT_ROUNDS)
     assert hash_password("x").startswith("$bcrypt-sha256$v=2,t=2b,r=12$")
 
 
@@ -121,6 +125,7 @@ def test_missing_hash_still_pays_for_a_hash(monkeypatch):
 
     monkeypatch.setattr(password_hash.bcrypt, "hashpw", spy)
     monkeypatch.setattr(password_hash, "_dummy_hash", None)
+    monkeypatch.setattr(password_hash, "DEFAULT_ROUNDS", REAL_BCRYPT_ROUNDS)
     assert verify_password("anything", None) is False
     # Built once at the default cost, then checked against.
     assert len(calls) == 2
