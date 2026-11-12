@@ -28,12 +28,19 @@ describe('renderMermaid', () => {
     await expect(renderMermaid('m1', 'flowchart LR\n A-->B', 'default')).resolves.toBe(
       '<svg></svg>'
     )
-    expect(mermaid.initialize).toHaveBeenCalledWith({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      htmlLabels: false,
-      theme: 'default',
-    })
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        htmlLabels: false,
+        theme: 'default',
+      })
+    )
+    // A diagram's own config can't undo that, nor Mermaid's defaults.
+    const { secure } = mermaid.initialize.mock.calls[0][0] as { secure: string[] }
+    expect(secure).toEqual(
+      expect.arrayContaining(['secure', 'securityLevel', 'maxTextSize', 'htmlLabels', 'themeCSS'])
+    )
     expect(mermaid.render).toHaveBeenCalledWith('m1', 'flowchart LR\n A-->B')
   })
 
@@ -91,15 +98,15 @@ describe('tidyDiagram', () => {
     expect(a.getAttribute('target')).toBe('_blank')
   })
 
-  it('drops form fields and frames, and keeps the rest of the drawing', () => {
+  it('drops HTML labels, form fields and frames, and keeps the rest of the drawing', () => {
     const svg =
-      '<svg><g class="node"><rect></rect><foreignObject><div><span>Label</span>' +
-      '<form action="/x"><input name="pw"><button>Go</button></form><iframe></iframe>' +
-      '</div></foreignObject></g></svg>'
+      '<svg><g class="node"><rect></rect><switch><foreignObject><div><span>Label</span>' +
+      '<form action="/x"><input name="pw"><button>Go</button></form>' +
+      '</div></foreignObject><text>Label</text></switch><iframe></iframe></g></svg>'
     const out = parse(tidyDiagram(svg))
-    expect(out.querySelector('form, input, button, iframe')).toBeNull()
+    expect(out.querySelector('foreignObject, div, form, input, button, iframe')).toBeNull()
     expect(out.querySelector('rect')).not.toBeNull()
-    expect(out.querySelector('span')?.textContent).toBe('Label')
+    expect(out.querySelector('switch > text')?.textContent).toBe('Label')
   })
 
   it('passes renderMermaid output through it', async () => {

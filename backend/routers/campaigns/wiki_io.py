@@ -53,6 +53,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import WikiPage
 from ...services import untrusted_yaml
+from ...unicode_guard import holds_lone_surrogate
 from ._helpers import (
     assert_can_manage,
     can_view,
@@ -847,27 +848,31 @@ class _Foldered:
         return _folder_records(self.folders, set(self.claimed)) + self.md
 
 
-# What reading one member of an uploaded zip can raise once its directory has
-# opened: RuntimeError for an encrypted member, NotImplementedError for a
-# compression method zipfile lacks (Deflate64, ...), and the rest for a corrupt
-# one - a bad CRC, a broken compressed stream, or data that ends early.
+# What opening an uploaded zip, or reading one of its members, can raise:
+# RuntimeError for an encrypted member, NotImplementedError for a compression
+# method zipfile lacks (Deflate64, ...), UnicodeDecodeError (a ValueError) for
+# an entry name flagged UTF-8 that isn't, and the rest for a corrupt archive -
+# a bad CRC, a broken compressed stream, a negative or impossible offset, or
+# data that ends early.
 _ZIP_READ_ERRORS = (
     zipfile.BadZipFile,
     RuntimeError,
     NotImplementedError,
+    ValueError,
     OSError,
     EOFError,
     zlib.error,
     lzma.LZMAError,
 )
 ZIP_MEMBER_UNREADABLE = "A file in that archive is encrypted or damaged"
+NOT_UNICODE = "That file holds text that is not valid Unicode"
 
 
 def _records_from_zip(data: bytes) -> tuple:
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile:
-        raise HTTPException(400, "File is not a valid zip archive")
+    except _ZIP_READ_ERRORS as exc:
+        raise HTTPException(400, "File is not a valid zip archive") from exc
 
     foldered = _Foldered()
     lk_objs: list = []
@@ -1116,6 +1121,10 @@ def import_wiki(
         if not data:
             raise HTTPException(400, "Empty file")
         records, fmt = _parse_upload(file.filename, data)
+    # JSON and YAML frontmatter can both spell half a surrogate pair ("\ud800"),
+    # which can't be stored as UTF-8.
+    if holds_lone_surrogate(records):
+        raise HTTPException(400, NOT_UNICODE)
 
     if not records:
         raise HTTPException(400, "No pages found to import")

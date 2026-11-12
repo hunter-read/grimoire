@@ -43,6 +43,7 @@ from ...config import get_db
 from ...models import WikiPage, WikiTemplate
 from ...services import untrusted_yaml
 from ...services import wiki_template_catalogue as catalogue
+from ...unicode_guard import holds_lone_surrogate
 from ._frontmatter import (
     clean_page_type,
     clean_visibility,
@@ -58,6 +59,7 @@ from ._schemas import (
 from .wiki import _ensure_unique_slug, _page_summary, rebuild_links, slugify
 from .wiki_io import (
     _ZIP_READ_ERRORS,
+    NOT_UNICODE,
     ZIP_MEMBER_UNREADABLE,
     _remap_links,
     parse_markdown_file,
@@ -353,6 +355,9 @@ def upload_wiki_template(
         fields = {"name": record["title"], "body": body}
     else:
         raise HTTPException(400, "Upload a Markdown (.md) file or a template .zip")
+    # The manifest and frontmatter are YAML, which can spell half a surrogate pair.
+    if holds_lone_surrogate(fields):
+        raise HTTPException(400, NOT_UNICODE)
 
     t = WikiTemplate(
         campaign_id=campaign_id,
@@ -379,7 +384,7 @@ def _template_from_zip(data: bytes) -> dict:
     """
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile as exc:
+    except _ZIP_READ_ERRORS as exc:
         raise HTTPException(400, "That file is not a valid zip archive") from exc
 
     body_name = None

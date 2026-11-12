@@ -24,7 +24,7 @@ from ...models import Book, GameSystem
 from ...render import pool as render_pool
 from ...render.ops import PageOutOfRange, RenderError
 from ..books.core import book_thumbnail_path
-from ...services.books.covers import custom_cover_path
+from ...services.books.covers import COVER_MAX_SOURCE_PIXELS, custom_cover_path
 from ...services.systems import resolve_cover_book_id
 from ..systems.covers import resolve_cover_file
 
@@ -60,10 +60,19 @@ def _read(path: str) -> Optional[Cover]:
         return None
     if ext in _ACCEPTED and len(data) <= _MAX_BYTES:
         return Cover(data, _ACCEPTED[ext])
+    box = (COVER_WIDTH * 2, COVER_WIDTH * 3)
     try:
         with Image.open(io.BytesIO(data)) as source:
+            width, height = source.size
+            if width * height > COVER_MAX_SOURCE_PIXELS:
+                logger.warning("Cover %s is %dx%d, too large to send", path, width, height)
+                return None
+            # Shrink before converting, so a large image is never held at full size twice.
+            source.draft(None, box)
+            if source.mode in ("L", "LA", "RGB", "RGBA"):
+                source.thumbnail(box)
             img = source.convert("RGBA" if source.mode in ("RGBA", "LA", "P") else "RGB")
-        img.thumbnail((COVER_WIDTH * 2, COVER_WIDTH * 3))
+        img.thumbnail(box)
         out = io.BytesIO()
         img.save(out, "WEBP", quality=85)
     except (OSError, ValueError, Image.DecompressionBombError):

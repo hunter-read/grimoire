@@ -30,6 +30,7 @@ from ._helpers import (
     clamp_visibility_for_access,
     get_campaign_or_404,
     readable_book_ids,
+    require_known_users,
 )
 from ._schemas import ResourceAdd, ResourceBulkAdd, ResourceReorder, ResourceUpdate
 
@@ -104,8 +105,9 @@ def _serialize(db, r: CampaignResource, share_map=None, include_shares=False) ->
 
 
 def _apply_shares(db, resource_id: str, user_ids) -> None:
+    wanted = require_known_users(db, user_ids)
     db.query(CampaignResourceShare).filter_by(resource_id=resource_id).delete()
-    for uid in set(user_ids or []):
+    for uid in wanted:
         db.add(CampaignResourceShare(resource_id=resource_id, user_id=uid))
 
 

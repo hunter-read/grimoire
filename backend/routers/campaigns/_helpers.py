@@ -230,6 +230,21 @@ def user_has_campaign_access(db, user_id: str) -> bool:
     return u.campaign_access is None or bool(u.campaign_access)
 
 
+def require_known_users(db, user_ids) -> set[str]:
+    """The distinct ids in ``user_ids``, refusing any that names no user.
+
+    A share row for a user who doesn't exist breaks the foreign key at commit;
+    this answers 400 first, so nothing of the request is kept.
+    """
+    wanted = {uid for uid in (user_ids or [])}
+    if not wanted:
+        return wanted
+    found = {uid for (uid,) in db.query(User.id).filter(User.id.in_(wanted))}
+    if wanted - found:
+        raise HTTPException(400, "Can't share with a user who doesn't exist")
+    return wanted
+
+
 def get_campaign_or_404(db, campaign_id: str) -> Campaign:
     c = db.query(Campaign).filter_by(id=campaign_id).first()
     if not c:

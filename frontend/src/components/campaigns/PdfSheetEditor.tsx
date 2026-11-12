@@ -10,8 +10,10 @@ import { campaigns } from '../../api'
 import Spinner from '../Spinner'
 import { overlay, goldBtn, ghostBtn } from './sheetEditorStyles'
 
-// Links inside a fillable character sheet aren't the point here, so a no-op
-// link service satisfies the annotation layer's interface without navigating.
+// Links inside a fillable character sheet aren't the point here: the sheet's
+// link annotations are left out, and this link service satisfies the annotation
+// layer's interface without making anything a link - an anchor it is handed
+// gets no href, so a click can't leave the editor and lose unsaved edits.
 const NOOP_LINK_SERVICE = {
   externalLinkTarget: 0,
   externalLinkRel: 'noopener noreferrer nofollow',
@@ -19,9 +21,7 @@ const NOOP_LINK_SERVICE = {
   getDestinationHash: () => '#',
   getAnchorUrl: () => '#',
   setHash: () => {},
-  addLinkAttributes: (link: HTMLAnchorElement, url: string) => {
-    link.href = url || '#'
-  },
+  addLinkAttributes: () => {},
   goToDestination: () => Promise.resolve(),
   goToPage: () => {},
   isPageVisible: () => true,
@@ -192,7 +192,9 @@ export default function PdfSheetEditor({
           }
           if (signal.cancelled) return
 
-          const annotations = await page.getAnnotations({ intent: 'display' })
+          const annotations = (await page.getAnnotations({ intent: 'display' })).filter(
+            (a: { subtype?: string }) => a.subtype !== 'Link'
+          )
           const layer = new pdfjs.AnnotationLayer({
             div: annotationDiv,
             page,

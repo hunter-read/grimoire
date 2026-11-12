@@ -490,6 +490,27 @@ class TestUploadExport:
         assert resp.status_code == 400, resp.text
         assert resp.json()["detail"] == "A file in that archive is encrypted or damaged"
 
+    @pytest.mark.parametrize("variant", sorted(unreadable_zips.UNOPENABLE))
+    def test_a_zip_that_wont_open_is_rejected(self, client, gm_headers, variant):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/templates/upload",
+            files={"file": ("t.zip", unreadable_zips.UNOPENABLE[variant](), "application/zip")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "That file is not a valid zip archive"
+
+    def test_a_manifest_holding_text_that_is_not_unicode_is_rejected(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = self._upload_zip(
+            client, gm_headers, c["id"], {"x/x.yml": 'name: "\\ud800"\n', "x/x.md": "Body\n"}
+        )
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "That file holds text that is not valid Unicode"
+        templates = client.get(f"/api/campaigns/{c['id']}/wiki/templates", headers=gm_headers)
+        assert templates.json()["templates"] == []
+
     def test_a_zip_renamed_to_md_is_still_read_as_a_zip(self, client, gm_headers):
         """Sniffed by magic bytes, so a mislabelled archive isn't stored as
         a body of binary noise."""

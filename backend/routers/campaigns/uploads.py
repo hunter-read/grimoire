@@ -19,6 +19,7 @@ from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember, User, WikiPage
 from ...security import INERT_DOCUMENT_HEADERS
+from ...services.books.covers import COVER_MAX_SOURCE_PIXELS
 from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._wiki_helpers import can_view_page
@@ -123,24 +124,58 @@ def _validate_image(data: bytes) -> None:
 _BANNER_THUMB_MAX_W = 1000
 
 
+def _check_banner_size(data: bytes) -> None:
+    """Refuse an image with more pixels than a banner is ever made from.
+
+    Reads only the header. A highly compressible PNG can be a small file that
+    decodes to hundreds of megabytes, so the size is held to the cover limit.
+    """
+    try:
+        with open_upload_image(data) as img:
+            width, height = img.size
+    except Exception:
+        raise HTTPException(400, "File is not a valid image")
+    if width * height > COVER_MAX_SOURCE_PIXELS:
+        raise HTTPException(400, "Image is too large")
+
+
+# Modes Pillow can shrink before conversion with a proper resampling filter.
+# Palette and bilevel images resize nearest-neighbour, so those convert first.
+_SHRINK_FIRST_MODES = ("L", "LA", "RGB", "RGBA")
+
+
 def _make_banner_thumb(
-    data: bytes, formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_FORMATS
+    data: bytes,
+    formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_FORMATS,
+    max_pixels: Optional[int] = COVER_MAX_SOURCE_PIXELS,
 ) -> Optional[bytes]:
     """Downscale banner bytes to a <=1000px-wide WebP. Returns None on failure.
 
     ``formats`` bounds which decoders may run: the upload formats by default,
-    or a picked source's own (``image_source.source_formats``).
+    or a picked source's own (``image_source.source_formats``). An image over
+    ``max_pixels`` is not decoded at all (``None`` for the library's own art).
+    The image is shrunk before its colour mode is converted, so a large one is
+    never held at full size in RGB.
     """
     from PIL import Image
 
+    box = (_BANNER_THUMB_MAX_W, 10_000)
     try:
-        img: Image.Image = open_upload_image(data, formats)
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
-        # Only ever scale down — never upscale a banner that's already small.
-        img.thumbnail((_BANNER_THUMB_MAX_W, 10_000), Image.Resampling.LANCZOS)
-        out = io.BytesIO()
-        img.save(out, "WEBP", quality=80)
+        with open_upload_image(data, formats) as source:
+            width, height = source.size
+            if max_pixels is not None and width * height > max_pixels:
+                logger.warning("Banner image is %dx%d, too large to downscale", width, height)
+                return None
+            # draft() lets the JPEG decoder skip detail; it keeps both sides at
+            # least the size asked for, so the width stays >= the target.
+            source.draft(None, (_BANNER_THUMB_MAX_W, _BANNER_THUMB_MAX_W))
+            # Only ever scale down — never upscale a banner that's already small.
+            if source.mode in _SHRINK_FIRST_MODES:
+                source.thumbnail(box, Image.Resampling.LANCZOS)
+            img = source if source.mode in ("RGB", "RGBA") else source.convert("RGB")
+            img.thumbnail(box, Image.Resampling.LANCZOS)
+            out = io.BytesIO()
+            img.save(out, "WEBP", quality=80)
         return out.getvalue()
     except Exception as e:
         logger.warning("Failed to generate banner thumbnail: %s", e)
@@ -240,6 +275,7 @@ def upload_banner(
     assert_can_manage(c, current_user, db)
     data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
+    _check_banner_size(data)
 
     filename = _store_banner(c, data, ext)
     db.commit()
@@ -277,7 +313,11 @@ def set_banner_from_source(
 
     # Everything is normalised to WebP: a source may be any format the library
     # holds, and the stored extension only has to describe these bytes.
-    normalised = _make_banner_thumb(data, formats)
+    # A campaign file is a user's upload, held to the upload size limit; the
+    # library's own art (a large map) is the operator's, and may be bigger.
+    normalised = _make_banner_thumb(
+        data, formats, COVER_MAX_SOURCE_PIXELS if formats is not None else None
+    )
     if normalised is None:
         raise HTTPException(400, "Source image could not be processed")
     filename = _store_banner(c, normalised, ".webp")
