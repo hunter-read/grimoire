@@ -3,9 +3,9 @@
 The tests share one database and one library folder, and plenty of them lean on
 what earlier files left behind, so the suite is never dealt out file by file.
 It is cut into contiguous slices of the files in their usual order, one per
-worker (and, in CI, ``--shard I/N`` keeps one job's share of them), and each
-slice runs exactly as a serial run would: only its first file loses its
-predecessors.
+worker, and each slice runs exactly as a serial run would: only its first file
+loses its predecessors. In CI ``--shard I/N`` first cuts the files into N
+contiguous parts, one per job, which a job then slices among its workers.
 
 The slices are sized by how long the files take, not by how many tests they
 hold: a handful of files (the migration tests, the ones that start a second
@@ -38,36 +38,57 @@ def parse_shard(value: str) -> tuple[int, int]:
     return shard
 
 
-def load_timings(path: str = TIMINGS_PATH) -> tuple[dict[str, float], float]:
-    """``(seconds per listed file, seconds per test for the rest)``."""
+class Timings:
+    """What ``timings.json`` holds: seconds for each listed (slow) file, and the
+    averages every other file is costed at."""
+
+    def __init__(self, files: dict[str, float], per_test: float, per_file: float) -> None:
+        self.files = files
+        self.per_test = per_test
+        self.per_file = per_file
+
+    def of_file(self, name: str, tests: int | None = None) -> float:
+        """What ``name`` takes; by its test count when that is known."""
+        if name in self.files:
+            return self.files[name]
+        return self.per_file if tests is None else tests * self.per_test
+
+
+def load_timings(path: str = TIMINGS_PATH) -> Timings:
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except FileNotFoundError:
         # No timings: every test weighs the same, which sizes slices by count.
-        return {}, 1.0
-    return dict(data["files"]), float(data["per_test"])
+        return Timings({}, 1.0, 1.0)
+    return Timings(dict(data["files"]), float(data["per_test"]), float(data["per_file"]))
 
 
-def assign(
-    files: Sequence[tuple[str, int]],
-    slices: int,
-    seconds: dict[str, float],
-    per_test: float,
-) -> dict[str, int]:
-    """The slice each file falls in: ``files`` is ``(name, test count)`` in run order.
+def assign(files: Sequence[tuple[str, float]], slices: int) -> dict[str, int]:
+    """The slice each file falls in: ``files`` is ``(name, seconds)`` in run order.
 
-    A file goes where its midpoint lands on the suite's timeline, so the slice
-    numbers never go backwards and a file is never split.
+    A file goes where its midpoint lands on the timeline, so the slice numbers
+    never go backwards and a file is never split.
     """
-    weights = [seconds.get(name, count * per_test) for name, count in files]
-    per_slice = (sum(weights) / slices) or 1.0
+    per_slice = (sum(weight for _, weight in files) / slices) or 1.0
     result: dict[str, int] = {}
     elapsed = 0.0
-    for (name, _), weight in zip(files, weights):
+    for name, weight in files:
         result[name] = min(slices - 1, int((elapsed + weight / 2) / per_slice))
         elapsed += weight
     return result
+
+
+def shard_files(directory: str, shards: int, timings: Timings) -> dict[str, int]:
+    """Which shard (from 0) each test file in ``directory`` belongs to.
+
+    Decided from the file names alone, before anything is collected, so a
+    shard never imports the files it leaves to the others.
+    """
+    names = sorted(
+        name for name in os.listdir(directory) if name.startswith("test_") and name.endswith(".py")
+    )
+    return assign([(name, timings.of_file(name)) for name in names], shards)
 
 
 def file_of(nodeid: str) -> str:
@@ -102,11 +123,16 @@ def summarise(files: Iterable[tuple[str, int, float]]) -> dict:
     listed: dict[str, float] = {}
     other_seconds = 0.0
     other_tests = 0
+    other_files = 0
     for name, count, took in sorted(files):
         if took >= _LISTED_FROM:
             listed[name] = round(took, 1)
         else:
             other_seconds += took
             other_tests += count
-    per_test = round(other_seconds / other_tests, 4) if other_tests else 0.0
-    return {"per_test": per_test, "files": listed}
+            other_files += 1
+    return {
+        "per_test": round(other_seconds / other_tests, 4) if other_tests else 0.0,
+        "per_file": round(other_seconds / other_files, 3) if other_files else 0.0,
+        "files": listed,
+    }

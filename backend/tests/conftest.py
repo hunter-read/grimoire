@@ -122,6 +122,33 @@ def pytest_addoption(parser):
     )
 
 
+def _shard(config) -> tuple[int, int]:
+    try:
+        return _slices.parse_shard(config.getoption("shard"))
+    except ValueError as e:
+        raise pytest.UsageError(str(e)) from None
+
+
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_shard_of: dict[str, int] = {}
+
+
+def pytest_ignore_collect(collection_path, config):
+    """With ``--shard I/N``, leave the other shards' test files uncollected.
+
+    Skipped here rather than deselected later, so a shard doesn't spend its
+    start-up importing thousands of tests it won't run. A file named on the
+    command line is always collected: pytest doesn't ask about those.
+    """
+    shard, shards = _shard(config)
+    if shards < 2 or str(collection_path.parent) != _TESTS_DIR:
+        return None
+    if not _shard_of:
+        _shard_of.update(_slices.shard_files(_TESTS_DIR, shards, _slices.load_timings()))
+    # None for anything that isn't a test file: not ours to rule on.
+    return _shard_of.get(collection_path.name, shard - 1) != shard - 1 or None
+
+
 # tryfirst: xdist's own hook turns xdist_group marks into scheduling groups,
 # so they have to be on the items before it runs.
 @pytest.hookimpl(tryfirst=True)
@@ -130,9 +157,8 @@ def pytest_collection_modifyitems(config, items):
 
     With ``--dist loadgroup`` each worker gets one slice of the files, in their
     usual order, and runs it exactly as a serial run would (see ``_slices.py``
-    for why, and for how the slices are sized). ``--shard I/N`` cuts N times as
-    many and keeps the I-th worker-count of them, which is how CI spreads the
-    suite over several runners. Without xdist or ``--shard`` this does nothing.
+    for why, and for how the slices are sized). Under ``--shard`` the files
+    are this shard's only. Without xdist this does nothing.
     """
     for item in items:
         if ON_POSTGRES and item.get_closest_marker("sqlite_only"):
@@ -140,31 +166,19 @@ def pytest_collection_modifyitems(config, items):
         if not ON_POSTGRES and item.get_closest_marker("postgres_only"):
             item.add_marker(pytest.mark.skip(reason="needs TEST_DATABASE_URL (PostgreSQL)"))
     workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT") or 0)
-    try:
-        shard, shards = _slices.parse_shard(config.getoption("shard"))
-    except ValueError as e:
-        raise pytest.UsageError(str(e)) from None
-    per_shard = max(workers, 1)
-    if per_shard * shards < 2 or not items:
+    if workers < 2 or not items:
         return
     counts: dict[str, int] = {}
     for item in items:
         name = _slices.file_of(item.nodeid)
         counts[name] = counts.get(name, 0) + 1
-    slice_of = _slices.assign(list(counts.items()), per_shard * shards, *_slices.load_timings())
-    first = (shard - 1) * per_shard
-    kept, dropped = [], []
+    timings = _slices.load_timings()
+    chunk_of = _slices.assign(
+        [(name, timings.of_file(name, tests)) for name, tests in counts.items()], workers
+    )
     for item in items:
-        chunk = slice_of[_slices.file_of(item.nodeid)]
-        if not first <= chunk < first + per_shard:
-            dropped.append(item)
-            continue
-        kept.append(item)
-        if workers >= 2:
-            item.add_marker(pytest.mark.xdist_group(f"chunk-{chunk}"))
-    if dropped:
-        config.hook.pytest_deselected(items=dropped)
-        items[:] = kept
+        chunk = chunk_of[_slices.file_of(item.nodeid)]
+        item.add_marker(pytest.mark.xdist_group(f"chunk-{chunk}"))
 
 
 # ---------------------------------------------------------------------------

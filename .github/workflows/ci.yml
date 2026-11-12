@@ -240,7 +240,7 @@ jobs:
   # (docs/postgresql.md: 15 and newer), each split in two and all six parts in
   # parallel: run back to back in one job they took fifteen minutes. A part is a
   # contiguous half of the test files (`--shard`, see backend/tests/_slices.py),
-  # run on four workers. The SQLite and PostgreSQL 18 parts measure coverage -
+  # which is all it collects, run on four workers. The SQLite and PostgreSQL 18 parts measure coverage -
   # PostgreSQL-only code only runs on PostgreSQL - and upload it for the
   # `backend` job below to combine; PostgreSQL 15 only has to pass.
   backend-tests:
@@ -317,6 +317,13 @@ jobs:
         run: |
           pip install -r backend/requirements.txt
           pip install -r requirements-test.txt
+
+      # The controller and the four workers each import the app as they start.
+      # On a fresh checkout that is five processes compiling the same modules
+      # at once; compiled here, once and on every core, they only load them.
+      # Not the tests: pytest compiles those itself, to rewrite their asserts.
+      - name: Compile the app
+        run: python -m compileall -q -j 0 -x 'backend/tests/' backend
 
       # Four workers, one per runner core (pytest-xdist). conftest.py hands each
       # a contiguous run of test files in their usual order, so the tests see

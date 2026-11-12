@@ -72,14 +72,15 @@ exports the schema from the app, Node turns it into TypeScript.
 **How the suite is split.** The tests share one database and lean on what earlier files left
 behind, so they are never handed out one file at a time. `conftest.py` cuts the files, in
 their usual order, into contiguous slices - one per worker - and each slice runs exactly as
-it would serially. `--shard I/N` cuts N times as many slices and keeps the I-th
-worker-count of them, so CI's two jobs per database run slices 1-4 and 5-8. The worker
-count is pinned, not `auto`, so the slices are the same on every run.
+it would serially. `--shard I/N` first cuts the files into N contiguous parts and collects
+only the I-th, so CI's two jobs per database each import and run half the suite, sliced
+among their four workers. The worker count is pinned, not `auto`, so the slices are the
+same on every run.
 
 The slices are sized by time, not by test count: a few files (the migration tests, the ones
 that start a second Python) take as long as a thousand ordinary tests.
 [`backend/tests/timings.json`](../backend/tests/timings.json) lists what each file over a
-second takes and the average for the rest. It only needs refreshing when the jobs drift
+second takes and the averages for the rest. It only needs refreshing when the jobs drift
 apart - a stale file makes the slices uneven, nothing worse:
 
 ```bash
