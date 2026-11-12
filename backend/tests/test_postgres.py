@@ -318,6 +318,32 @@ class TestSearchMarkupMigration:
 
 
 @pytest.mark.postgres_only
+def test_a_database_from_before_leagues_upgrades_to_head():
+    """0061 onwards were written after PostgreSQL support, so each must run there."""
+    url = scratch_database("leagues")
+    init_db(url)
+    engine = postgres_engine(url)
+    with engine.connect() as conn:
+        command.downgrade(_alembic_config(conn), "521c4f179a46")  # 0060
+        conn.commit()
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO users (id, username, role, is_guest) VALUES "
+                 "('g1', 'guest_old', 'guest', TRUE), ('u1', 'member_old', 'player', FALSE)")
+        )
+    with engine.connect() as conn:
+        command.upgrade(_alembic_config(conn), "head")
+        conn.commit()
+    with engine.connect() as conn:
+        # A guest from before leagues is a campaign's.
+        assert conn.execute(
+            text("SELECT id, guest_scope FROM users ORDER BY id")
+        ).all() == [("g1", "ttrpg"), ("u1", None)]
+        command.check(_alembic_config(conn))
+    engine.dispose()
+
+
+@pytest.mark.postgres_only
 def test_0059_cannot_be_downgraded_on_postgresql():
     """Every later revision downgrades; 0059 says plainly why it cannot."""
     url = scratch_database("down0059")

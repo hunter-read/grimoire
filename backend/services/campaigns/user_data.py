@@ -12,7 +12,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ... import token_vault
-from ...models import Army, Campaign, CampaignMember, Character, Ruleset, User
+from ...models import (
+    Army,
+    Campaign,
+    CampaignMember,
+    Character,
+    League,
+    LeagueMember,
+    Ruleset,
+    User,
+)
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..armies import storage as roster_storage
 from ..characters.images import remove_files_after_commit
@@ -192,10 +201,11 @@ def _purge_leagues(db: Session, user_id: str) -> None:
 
     A league goes with its organiser, as a campaign does with its owner, and
     the books shared with it go too. Its guests stay: a league guest's account
-    and armies outlive the league (see ``User.guest_code``). A game the user
-    played in leaves the other player's record: it was against nobody left in
-    the league. Does not commit.
+    and armies outlive the league (see ``User.guest_code``). Their codes do
+    not (``_retire_guest_codes``). A game the user played in leaves the other
+    player's record: it was against nobody left in the league. Does not commit.
     """
+    _retire_guest_codes(db, user_id)
     params = {"uid": user_id}
     owned = "SELECT id FROM leagues WHERE organizer_id = :uid"
     books = f"SELECT id FROM league_resources WHERE league_id IN ({owned})"
@@ -207,6 +217,45 @@ def _purge_leagues(db: Session, user_id: str) -> None:
     db.execute(
         text("DELETE FROM league_games WHERE player_a_id = :uid OR player_b_id = :uid"), params
     )
+
+
+def _retire_guest_codes(db: Session, organizer_id: str) -> None:
+    """Give new codes to the guests whose code ``organizer_id`` was shown.
+
+    That is every guest whose leagues are all this organiser's: the person
+    whose account is going knows the code, and must not keep signing in as the
+    guest, exactly as for a campaign's guests (``release_guest_membership``).
+    The new code ends the guest's sessions. Nobody is shown it: the account
+    and its armies are kept for an admin to convert, merge or delete. A guest
+    who also plays in someone else's league has a code no organiser was shown
+    (``routers/leagues/guests.py``), so it stays. Run before the leagues are
+    deleted. Does not commit.
+    """
+    owned = [row[0] for row in db.query(League.id).filter_by(organizer_id=organizer_id).all()]
+    if not owned:
+        return
+    guest_ids = {
+        row[0]
+        for row in db.query(LeagueMember.user_id)
+        .filter(LeagueMember.league_id.in_(owned), LeagueMember.is_guest.is_(True))
+        .all()
+    }
+    if not guest_ids:
+        return
+    elsewhere = {
+        row[0]
+        for row in db.query(LeagueMember.user_id)
+        .filter(LeagueMember.user_id.in_(guest_ids), LeagueMember.league_id.notin_(owned))
+        .all()
+    }
+    guests = (
+        db.query(User)
+        .filter(User.id.in_(guest_ids - elsewhere), User.is_guest.is_(True))
+        .all()
+    )
+    for guest in guests:
+        guest.guest_code = generate_guest_code(db)
+        revoke_user_sessions(db, guest.id)
 
 
 def detach_campaign_characters(db: Session, campaign_ids: List[str]) -> None:

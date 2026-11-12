@@ -117,7 +117,10 @@ mirror image: never leagues or armies.
 **Regenerate** gives a guest a new code and ends their sessions. **Remove** takes
 them out of the league - but unlike a campaign's guest, their account is not
 deleted: their armies are theirs, so they keep signing in with the same code to
-reach and export them. The same happens when the league is deleted. An admin
+reach and export them. The same happens when the league is deleted. When the
+organiser's own account is deleted, their leagues go and each guest who played
+only in them gets a new code, so the old one stops working - an admin can
+convert or merge such a guest to keep their armies in reach. An admin
 deletes the account itself from **Settings → People**, which lists league guests
 with their league. Merging league guests works as for campaign guests; a
 campaign's guest and a league's guest cannot be merged into one guest. A guest

@@ -11,7 +11,14 @@ import uuid
 import pytest
 
 from backend.config import SessionLocal
-from backend.models import Faction, LeagueMember, LeagueResource, LeagueResourceShare, User
+from backend.models import (
+    AuthSession,
+    Faction,
+    LeagueMember,
+    LeagueResource,
+    LeagueResourceShare,
+    User,
+)
 from backend.tests.conftest import make_book, make_game_system
 
 from backend import config
@@ -550,7 +557,8 @@ def test_a_guest_may_leave(client, gm_headers, guest, league):
     assert client.get(f"/api/leagues/{league['id']}", headers=headers).status_code == 404
 
 
-def test_a_deleted_organiser_takes_the_league_not_the_guests(client, admin_headers):
+def _organiser(client, admin_headers):
+    """A new GM account: (headers, user id)."""
     name = f"org_{uid()}"
     client.post(
         "/api/users",
@@ -560,20 +568,49 @@ def test_a_deleted_organiser_takes_the_league_not_the_guests(client, admin_heade
     token = client.post("/api/auth/login", json={"username": name, "password": "orgpass12345"}).json()["token"]
     client.cookies.clear()
     org = {"Authorization": f"Bearer {token}"}
+    return org, client.get("/api/auth/me", headers=org).json()["id"]
+
+
+def test_a_deleted_organiser_takes_the_league_and_the_code_not_the_guests(client, admin_headers):
+    org, org_id = _organiser(client, admin_headers)
     lg = client.post("/api/leagues", json={"name": "Doomed"}, headers=org).json()
     created = _invite(client, org, lg["id"])
+    assert _login(client, created["guest_code"]).status_code == 200
     book = make_book(make_game_system().id)
     _share(client, org, lg["id"], book.id, "private", [created["user_id"]])
-    org_id = client.get("/api/auth/me", headers=org).json()["id"]
     assert client.delete(f"/api/users/{org_id}", headers=admin_headers).status_code in (200, 204)
     db = SessionLocal()
     try:
         assert db.query(LeagueResource).filter_by(league_id=lg["id"]).count() == 0
         assert db.query(LeagueResourceShare).filter_by(user_id=created["user_id"]).count() == 0
-        assert db.query(User).filter_by(id=created["user_id"]).first() is not None
+        kept = db.query(User).filter_by(id=created["user_id"]).first()
+        fresh = kept.guest_code
+        live = db.query(AuthSession).filter_by(user_id=kept.id, revoked_at=None).count()
     finally:
         db.close()
-    assert _login(client, created["guest_code"]).status_code == 200
+    # The organiser was shown the code, so it goes with them, and so does a
+    # session it opened; the account signs in with a new one.
+    assert _login(client, created["guest_code"]).status_code == 401
+    assert live == 0
+    assert fresh and fresh != created["guest_code"]
+    assert _login(client, fresh).status_code == 200
+
+
+def test_a_deleted_organiser_leaves_a_shared_guests_code(client, admin_headers, gm_headers, league):
+    """A guest who also plays in someone else's league has a code no organiser was shown."""
+    org, org_id = _organiser(client, admin_headers)
+    lg = client.post("/api/leagues", json={"name": "Doomed"}, headers=org).json()
+    a = _invite(client, org, lg["id"], "Alpha")
+    b = _invite(client, gm_headers, league["id"], "Beta")
+    r = client.post(
+        f"/api/users/{a['user_id']}/merge", json={"source_ids": [b["user_id"]]}, headers=admin_headers
+    )
+    assert r.status_code == 200, r.text
+    code = client.get(f"/api/leagues/{league['id']}/guests", headers=admin_headers).json()[0]["guest_code"]
+    assert client.delete(f"/api/users/{org_id}", headers=admin_headers).status_code in (200, 204)
+    login = _login(client, code)
+    assert login.status_code == 200
+    assert login.json()["league_id"] == league["id"]
 
 
 # ---------------------------------------------------------------------------
