@@ -521,7 +521,8 @@ def test_links_helpers():
     try:
         admin = auth.CurrentUser("x", "x", "admin")
         assert links.resolve(db, admin, "x", []) == {}
-        assert links.suggest(db, admin, None, "") == []
+        assert links.suggest(db, admin, None, [""]) == {"": []}
+        assert links.suggest(db, admin, None, []) == {}
         assert links.search_books(db, admin, "x") == []
         assert matching.match_system(db, admin, "") is None
         assert matching.match_faction(db, admin, None, "Necrons") is None
@@ -651,6 +652,51 @@ def _nested(depth: int) -> bytes:
 def test_import_refuses_a_malformed_roster(client, player_headers, roster_dir, raw, filename):
     r = _import(client, player_headers, raw, filename)
     assert r.status_code == 400, r.text
+
+
+def _citing(count: int) -> bytes:
+    """A roster of ``count`` units, each citing a publication of its own."""
+    pubs = "".join(f'<publication id="p{i}" name="Book {i}"/>' for i in range(count))
+    units = "".join(f'<selection id="s{i}" name="u" publicationId="p{i}"/>' for i in range(count))
+    return (
+        '<roster name="r" gameSystemName="Warhammer 40,000 10th Edition"><forces><force>'
+        f"<publications>{pubs}</publications><selections>{units}</selections>"
+        "</force></forces></roster>"
+    ).encode()
+
+
+def test_import_bounds_the_publications_a_roster_cites(client, player_headers, roster_dir):
+    r = _import(client, player_headers, _citing(5000), "library.ros")
+    assert r.status_code == 400, r.text
+    assert "publications" in r.json()["detail"]
+    army = _import(client, player_headers, _citing(battlescribe.MAX_PUBLICATIONS), "ok.ros")
+    assert army.status_code == 201, army.text[:200]
+    assert len(army.json()["publications"]) == battlescribe.MAX_PUBLICATIONS
+
+
+def test_a_list_stored_with_more_publications_reads_only_the_limit():
+    units = [{"publication": f"Book {i}"} for i in range(battlescribe.MAX_PUBLICATIONS + 5)]
+    cited = links.publications_in({"forces": [{"units": units}]})
+    assert cited == [f"Book {i}" for i in range(battlescribe.MAX_PUBLICATIONS)]
+
+
+def test_suggestions_for_every_publication_read_the_books_once(necrons):
+    system, _faction = necrons
+    codex = make_book(system.id, title="Codex: Necrons", game_type="wargame")
+    rules = make_book(system.id, title="Core Rules", game_type="wargame")
+    db = SessionLocal()
+    try:
+        admin = auth.CurrentUser("x", "x", "admin")
+        with patch.object(links, "_wargame_books", wraps=links._wargame_books) as books:
+            found = links.suggest(
+                db, admin, system.id, ["Codex: Necrons", "Warhammer Core Rules 10th", "Nope", " "]
+            )
+        assert books.call_count == 1
+    finally:
+        db.close()
+    assert [b["book_id"] for b in found["Codex: Necrons"]] == [codex.id]
+    assert [b["book_id"] for b in found["Warhammer Core Rules 10th"]] == [rules.id]
+    assert found["Nope"] == [] and found[" "] == []
 
 
 def test_nesting_within_the_limit_still_reads():

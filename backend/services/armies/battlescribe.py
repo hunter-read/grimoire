@@ -22,7 +22,8 @@ It becomes one JSON document (:func:`parse_roster`) the army builder reads
 whole. The file is untrusted, so its unzipped size is capped, it is parsed
 with defusedxml refusing any DOCTYPE (rosters never carry one, so no entity is
 ever declared or expanded, whatever the encoding), and the number of
-selections and the size of the document read from it are bounded.
+selections, the publications they cite and the size of the document read from
+it are bounded.
 """
 from __future__ import annotations
 
@@ -41,6 +42,9 @@ import defusedxml.ElementTree as SafeElementTree
 MAX_ROSTER_BYTES = 20 * 1024 * 1024
 #: The most selections read from one roster, nested ones included.
 MAX_SELECTIONS = 10_000
+#: The most publications one roster may cite. Real ones cite a handful: a
+#: rulebook, a codex or two, an errata. Each is looked up in the library.
+MAX_PUBLICATIONS = 500
 #: How deep selections and forces may nest. Real rosters go a handful deep.
 MAX_DEPTH = 50
 #: The largest cost, count or limit read, either way. Real ones are thousands.
@@ -137,13 +141,16 @@ class _Reader:
 
     def __init__(self, publications: dict[str, str]) -> None:
         self.publications = publications
+        self.cited: set[str] = set()
         self.selections = 0
 
     def _source(self, element: ElementTree.Element) -> dict[str, str]:
-        return {
-            "publication": self.publications.get(element.get("publicationId") or "", ""),
-            "page": element.get("page") or "",
-        }
+        publication = self.publications.get(element.get("publicationId") or "", "")
+        if publication and publication not in self.cited:
+            self.cited.add(publication)
+            if len(self.cited) > MAX_PUBLICATIONS:
+                raise RosterError("That roster cites too many publications to read")
+        return {"publication": publication, "page": element.get("page") or ""}
 
     def profile(self, element: ElementTree.Element) -> dict[str, Any]:
         characteristics = _children(_child(element, "characteristics"), "characteristic")

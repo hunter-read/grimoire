@@ -18,9 +18,12 @@ from ...models.game_types import GAME_TYPE_WARGAME
 from ..access_control import visible_books
 from ..campaigns.access import user_can_access_resource
 from . import guests
+from .battlescribe import MAX_PUBLICATIONS
 
 #: The most books a title search or a suggestion list returns.
 MAX_MATCHES = 10
+#: The most library books weighed as suggestions for an army's publications.
+MAX_CANDIDATES = 2000
 
 
 def system_key(system_name: str) -> str:
@@ -29,7 +32,11 @@ def system_key(system_name: str) -> str:
 
 
 def publications_in(data: dict[str, Any]) -> list[str]:
-    """Every publication an army's list cites, in first-cited order."""
+    """The publications an army's list cites, in first-cited order.
+
+    No more than :data:`MAX_PUBLICATIONS`, the most a roster may cite: a list
+    stored before that limit can hold more, and each one is looked up.
+    """
     seen: dict[str, None] = {}
 
     def visit(item: dict[str, Any]) -> None:
@@ -48,7 +55,7 @@ def publications_in(data: dict[str, Any]) -> list[str]:
 
     for force in data.get("forces") or []:
         visit_force(force)
-    return list(seen)
+    return list(seen)[:MAX_PUBLICATIONS]
 
 
 def resolve(
@@ -100,23 +107,32 @@ def _wargame_books(db: Session, user: Any, game_system_id: Optional[str]) -> Any
 
 
 def suggest(
-    db: Session, user: Any, game_system_id: Optional[str], publication: str
-) -> list[dict[str, str]]:
-    """Library books that may be ``publication``: titles naming it, or named by it.
+    db: Session, user: Any, game_system_id: Optional[str], publications: Iterable[str]
+) -> dict[str, list[dict[str, str]]]:
+    """For each of ``publications``, library books that may be it: titles naming it, or named by it.
 
-    Searched within the army's system when it has one, else every wargame book.
-    Suggestions serve whoever links a publication, so a guest gets none.
+    Searched within the army's system when it has one, else every wargame book;
+    the books are read once, whatever the number of publications. Suggestions
+    serve whoever links a publication, so a guest gets none.
     """
-    needle = (publication or "").strip().lower()
-    if not needle or guests.is_guest(user):
-        return []
-    out = []
-    for book_id, title in _wargame_books(db, user, game_system_id).limit(2000):
-        lowered = (title or "").lower()
-        if needle in lowered or (lowered and lowered in needle):
-            out.append({"book_id": book_id, "title": title})
-            if len(out) >= MAX_MATCHES:
-                break
+    wanted = list(publications)
+    out: dict[str, list[dict[str, str]]] = {pub: [] for pub in wanted}
+    needles = {pub: (pub or "").strip().lower() for pub in out}
+    if guests.is_guest(user) or not any(needles.values()):
+        return out
+    books = [
+        (book_id, title, (title or "").lower())
+        for book_id, title in _wargame_books(db, user, game_system_id).limit(MAX_CANDIDATES)
+    ]
+    for pub, needle in needles.items():
+        if not needle:
+            continue
+        matches = out[pub]
+        for book_id, title, lowered in books:
+            if needle in lowered or (lowered and lowered in needle):
+                matches.append({"book_id": book_id, "title": title})
+                if len(matches) >= MAX_MATCHES:
+                    break
     return out
 
 
