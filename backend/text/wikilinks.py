@@ -172,6 +172,23 @@ def slugify(title: Optional[str]) -> str:
     return slugs.slugify(title, chars="words", trim=False, fallback="untitled")
 
 
+# What a page title may not hold. A title is written into other pages' bodies
+# as `[[Title]]` when the page is renamed, so it must read there as a title and
+# nothing else: `[` / `]` would end the link early, `|` would start a label (and
+# `||` a GM secret marker), and a line break would split the link across lines.
+_TITLE_FORBIDDEN_RE = re.compile(r"[|\[\]\r\n]+")
+
+
+def title_is_linkable(title: Optional[str]) -> bool:
+    """Whether ``title`` can sit inside a `[[...]]` link without changing it."""
+    return not _TITLE_FORBIDDEN_RE.search(title or "")
+
+
+def clean_title(title: Optional[str]) -> str:
+    """``title`` with each run of characters a link can't hold turned into a space."""
+    return " ".join(_TITLE_FORBIDDEN_RE.sub(" ", title or "").split())
+
+
 # --- Heading extraction -------------------------------------------------------
 
 # ATX headings only (`# Text` .. `###### Text`), which is what the editor's

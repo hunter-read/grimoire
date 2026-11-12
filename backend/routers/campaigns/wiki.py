@@ -48,6 +48,7 @@ from ._wiki_helpers import (
     can_delete_page,
     can_edit_page,
     can_view_page,
+    check_page_title,
     hidden_page_ids,
     is_page_hidden,
     parse_page_link_titles,
@@ -303,7 +304,7 @@ def create_page(
     if not c.is_gm_campaign:
         visibility = "gm"
 
-    title = (data.title or "").strip() or "Untitled"
+    title = check_page_title(data.title)
     slug = _ensure_unique_slug(db, campaign_id, slugify(title))
     if data.session_date:
         try:
@@ -374,6 +375,9 @@ def update_page(
     if data.title is not None:
         new_title = data.title.strip() or "Untitled"
         if new_title != page.title:
+            # Checked only on a change, so a page an older version let through
+            # with one of these characters can still be saved under its name.
+            new_title = check_page_title(new_title)
             old_title = page.title
             page.title = new_title
             page.slug = _ensure_unique_slug(db, campaign_id, slugify(new_title), exclude_id=page.id)
