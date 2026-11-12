@@ -693,6 +693,43 @@ class TestMapPageIO:
             ("", 0.5, "page", None),
         ]
 
+    def test_pins_that_cant_be_read_are_dropped(self, client, gm_headers):
+        cid = self._target_campaign(client, gm_headers)
+        pins = [
+            {"x": 10**400, "y": 0.5, "label": "Too big"},
+            {"x": 0.25, "y": 0.75, "label": "Kept"},
+        ]
+        # json.dumps writes the integer out in full, as a hostile file would.
+        bundle = {
+            "grimoire_wiki_version": 1,
+            "pages": [{"title": "Big", "page_type": "map", "map_id": "m", "pins": pins}],
+        }
+        resp = client.post(
+            f"/api/campaigns/{cid}/wiki/import",
+            files={"file": ("w.json", json.dumps(bundle).encode(), "application/json")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        page = _get(client, gm_headers, cid, resp.json()["pages"][0]["id"])
+        assert [(p["label"], p["x"]) for p in page["pins"]] == [("Kept", 0.25)]
+
+    @pytest.mark.parametrize(
+        "pins",
+        ["[" * 100_000 + "]" * 100_000, '[{"x": 0.5, "y": 0.5, "label": "' + "x" * 1_100_000 + '"}]'],
+        ids=["nested", "oversized"],
+    )
+    def test_frontmatter_pins_that_cant_be_read_give_none(self, client, gm_headers, pins):
+        cid = self._target_campaign(client, gm_headers)
+        md = f"---\ntitle: Deep\npage_type: map\nmap: m\npins: {pins}\n---\nA map.\n"
+        resp = client.post(
+            f"/api/campaigns/{cid}/wiki/import",
+            files={"file": ("deep.md", md.encode(), "text/markdown")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        page = _get(client, gm_headers, cid, resp.json()["pages"][0]["id"])
+        assert page["page_type"] == "map" and page["pins"] == []
+
     def test_template_can_make_a_map_page(self, client, gm_headers, campaign_id):
         resp = client.post(
             f"/api/campaigns/{campaign_id}/wiki/templates",

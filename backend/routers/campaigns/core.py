@@ -33,6 +33,7 @@ from ._helpers import (
     member_summaries,
     members_for,
     readable_book_ids,
+    require_known_users,
     serialize_campaign,
     user_has_campaign_access,
 )
@@ -186,8 +187,10 @@ def create_campaign(
         else None,
     )
     db.add(campaign)
-    db.commit()
-    db.refresh(campaign)
+    # Flushed, not committed: the campaign and its resources are kept together
+    # or not at all, so a refused resource can't leave a half-made campaign
+    # behind for a retry to duplicate.
+    db.flush()
 
     # Only link the resources explicitly chosen in the create wizard. Deduplicate
     # by (type, id) and skip unknown resource types and items the creator cannot
@@ -217,9 +220,10 @@ def create_campaign(
             db.add(res)
             db.flush()
             if visibility == "private" and r.shared_user_ids:
-                for uid in set(r.shared_user_ids):
+                for uid in require_known_users(db, r.shared_user_ids):
                     db.add(CampaignResourceShare(resource_id=res.id, user_id=uid))
-        db.commit()
+    db.commit()
+    db.refresh(campaign)
 
     return serialize_campaign(campaign, [], db, current_user)
 

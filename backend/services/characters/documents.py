@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from ...unicode_guard import holds_lone_surrogate
 from .. import untrusted_yaml
 
 __all__ = ["DocumentError", "parse_document"]
@@ -76,6 +77,10 @@ def parse_document(text: str, *, what: str = "document") -> dict[str, Any]:
     # limit applies to JSON too, not only to YAML as it is composed.
     if untrusted_yaml.too_deep(parsed):
         raise DocumentError(_too_deep(what))
+    # JSON and YAML can both spell half a surrogate pair ("\ud800"), which
+    # can't be stored or sent back as UTF-8.
+    if holds_lone_surrogate(parsed):
+        raise DocumentError(f"That {what} holds text that is not valid Unicode")
     # What gets stored is the parsed document, so bound that as well as the text.
     if len(json.dumps(parsed, ensure_ascii=False, default=str)) > MAX_PARSED_BYTES:
         raise DocumentError(f"That {what} is too large")

@@ -357,3 +357,81 @@ def test_a_malformed_uvtt_reads_as_unreadable(tmp_path):
     bomb = tmp_path / "bomb.uvtt"
     bomb.write_text(json.dumps({"format": 0.3, "image": base64.b64encode(png).decode()}))
     assert maps.vtt_image_size(str(bomb)) == (None, None)
+
+
+class TestTextParsedFromAField:
+    """JSON or YAML a handler parses itself is held to the body's rule.
+
+    The middleware only reads the request body, so a sheet sent as text, or an
+    uploaded file, carried a lone surrogate past it - into the database, where
+    every later read of it failed.
+    """
+
+    SHEET = "surrogate-check-sheet"
+
+    def _sheet(self, label: str) -> str:
+        return json.dumps(
+            {"id": self.SHEET, "name": "Checked", "fields": {"hp": {"type": "number", "label": "HP"}}}
+        ).replace('"HP"', label)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # JSON spelling the escape inside the text field.
+            None,
+            # YAML's double-quoted escape.
+            f'id: {SHEET}\nname: "\\ud800"\nfields:\n  hp: {{type: number, label: HP}}\n',
+        ],
+        ids=["json", "yaml"],
+    )
+    def test_a_sheet_holding_one_is_refused_and_the_stored_one_still_reads(
+        self, client, player_headers, text
+    ):
+        good = client.post(
+            "/api/characters/schemas", json={"text": self._sheet('"HP"')}, headers=player_headers
+        )
+        assert good.status_code == 200, good.text
+        try:
+            bad = text if text is not None else self._sheet('"\\ud800"')
+            resp = client.post("/api/characters/schemas", json={"text": bad}, headers=player_headers)
+            assert resp.status_code == 400, resp.text
+            assert resp.json()["detail"] == "That sheet holds text that is not valid Unicode"
+            got = client.get(f"/api/characters/schemas/{self.SHEET}", headers=player_headers)
+            assert got.status_code == 200, got.text
+            assert "Checked" in got.text
+        finally:
+            client.delete(f"/api/characters/schemas/{self.SHEET}", headers=player_headers)
+
+    def test_a_wiki_import_holding_one_is_refused(self, client, gm_headers):
+        c = client.post(
+            "/api/campaigns", json={"name": "Surrogate import", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        data = b'{"grimoire_wiki_version": 1, "pages": [{"title": "\\ud800", "body": "x"}]}'
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/import",
+            files={"file": ("w.json", data, "application/json")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "That file holds text that is not valid Unicode"
+        assert client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json() == []
+        client.delete(f"/api/campaigns/{c['id']}", headers=gm_headers)
+
+    def test_a_character_import_file_holding_one_is_refused(self):
+        from fastapi import HTTPException
+
+        from backend.routers.characters.importers import _parse
+
+        with pytest.raises(HTTPException) as caught:
+            _parse('{"name": "\\udfff"}')
+        assert caught.value.status_code == 400
+        assert _parse('{"name": "\\ud83d\\ude00"}') == {"name": "\U0001f600"}
+
+
+def test_holds_lone_surrogate_walks_every_container():
+    from backend.unicode_guard import holds_lone_surrogate
+
+    assert holds_lone_surrogate({"a": [("x", {"b": "\ud800"})]})
+    assert holds_lone_surrogate({"\udc00": 1})
+    assert not holds_lone_surrogate({"a": ["plain", 1, None, ("\U0001f600",)]})

@@ -29,6 +29,7 @@ from ._helpers import (
     extract_snippet,
     get_campaign_or_404,
     merge_gm_secrets,
+    require_known_users,
     strip_gm_secrets,
 )
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
@@ -273,7 +274,7 @@ def _apply_shares(db, page: WikiPage, user_ids, write_user_ids=None) -> None:
     if page.visibility != "members":
         return
     writers = set(write_user_ids or [])
-    for uid in set(user_ids or []) | writers:
+    for uid in require_known_users(db, set(user_ids or []) | writers):
         if uid == page.created_by_id:
             continue
         db.add(WikiPageShare(page_id=page.id, user_id=uid, can_write=uid in writers))

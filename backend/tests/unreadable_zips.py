@@ -1,8 +1,9 @@
-"""Zip archives whose directory reads fine but whose one member cannot be read.
+"""Zip archives that are damaged in ways ``zipfile`` reports differently.
 
-``zipfile.ZipFile(...)`` only parses the central directory, so each of these
-opens without error and fails later, when the member is read - each with a
-different exception.
+``zipfile.ZipFile(...)`` only parses the central directory, so each archive in
+``ALL`` opens without error and fails later, when the member is read - each
+with a different exception. Those in ``UNOPENABLE`` fail in the constructor,
+with something other than ``BadZipFile``.
 """
 import io
 import struct
@@ -85,6 +86,41 @@ def corrupt_lzma() -> bytes:
     return bytes(data)
 
 
+def negative_offset() -> bytes:
+    """A directory that claims to start past where it does: a negative seek, ValueError."""
+    data = _build(zipfile.ZIP_STORED)
+    end = data.index(b"PK\x05\x06")
+    struct.pack_into("<I", data, end + 16, struct.unpack_from("<I", data, end + 16)[0] + 1)
+    return bytes(data)
+
+
+def bad_local_name() -> bytes:
+    """A local header name flagged UTF-8 that isn't: UnicodeDecodeError on read."""
+    data = _build(zipfile.ZIP_STORED)
+    local, _, _ = _offsets(data)
+    struct.pack_into("<H", data, local + 6, struct.unpack_from("<H", data, local + 6)[0] | 0x800)
+    data[local + 30] = 0xFF
+    return bytes(data)
+
+
+def future_version() -> bytes:
+    """A member needing a newer zip version than zipfile knows: NotImplementedError."""
+    data = _build(zipfile.ZIP_STORED)
+    _, central, _ = _offsets(data)
+    data[central + 6] = 119  # version 11.9
+    return bytes(data)
+
+
+def bad_central_name() -> bytes:
+    """A directory name flagged UTF-8 that isn't: UnicodeDecodeError on open."""
+    data = _build(zipfile.ZIP_STORED)
+    _, central, _ = _offsets(data)
+    at = central + 8
+    struct.pack_into("<H", data, at, struct.unpack_from("<H", data, at)[0] | 0x800)
+    data[central + 46] = 0xFF
+    return bytes(data)
+
+
 ALL = {
     "encrypted": encrypted,
     "deflate64": deflate64,
@@ -92,4 +128,11 @@ ALL = {
     "bad_crc": bad_crc,
     "corrupt_deflate": corrupt_deflate,
     "corrupt_lzma": corrupt_lzma,
+    "negative_offset": negative_offset,
+    "bad_local_name": bad_local_name,
+}
+
+UNOPENABLE = {
+    "future_version": future_version,
+    "bad_central_name": bad_central_name,
 }

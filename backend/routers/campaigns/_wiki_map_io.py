@@ -34,6 +34,8 @@ from ._wiki_maps import MAP_PAGE_TYPE, PIN_VISIBILITIES, visible_pins
 # Bounds a single imported page. A region map with a thousand places is
 # already unusual; this is a ceiling against a hostile file, not a design limit.
 _MAX_IMPORT_PINS = 1000
+# Room for that many pins written out in full in a page's frontmatter.
+_MAX_PINS_JSON = _MAX_IMPORT_PINS * 1024
 
 
 def export_pins(
@@ -89,9 +91,13 @@ def pins_markdown(pins: list[dict], title_of: Callable[[str], Optional[str]]) ->
 def _number(value: Any) -> Optional[float]:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    if value != value:  # NaN
+    try:
+        number = float(value)
+    except OverflowError:  # an integer too large for a float
         return None
-    return min(1.0, max(0.0, float(value)))
+    if number != number:  # NaN
+        return None
+    return min(1.0, max(0.0, number))
 
 
 def _text(value: Any, limit: int) -> Optional[str]:
@@ -110,13 +116,16 @@ def _icon_color(value: Any) -> Optional[str]:
 def clean_import_pins(raw: Any) -> list[dict]:
     """Pins from an imported file, rebuilt from what we accept and bounded.
 
-    A string is read as the frontmatter's JSON list. A pin without numeric
-    coordinates is dropped rather than parked in a corner.
+    A string is read as the frontmatter's JSON list; one longer than the most
+    pins kept could need, or nested past the parser's limit, gives none. A pin
+    without numeric coordinates is dropped rather than parked in a corner.
     """
     if isinstance(raw, str):
+        if len(raw) > _MAX_PINS_JSON:
+            return []
         try:
             raw = json.loads(raw)
-        except ValueError:
+        except (ValueError, RecursionError):
             return []
     if not isinstance(raw, list):
         return []

@@ -15,7 +15,10 @@ Two things JSON can spell that the rest of the app cannot hold:
   databases, so validation sees the text that will be stored.
 
 Form fields, paths and query strings are percent-decoded with replacement, so
-they never carry a lone surrogate; JSON bodies are the only way in.
+they never carry a lone surrogate; JSON bodies are the only way in through the
+request itself. JSON or YAML that a handler parses for itself - a document sent
+as a string field, or an uploaded file - can spell one too, so those parsers
+check what they read with :func:`holds_lone_surrogate`.
 
 Pure ASGI, like the other middleware here, so streamed responses are left
 alone. A body is buffered only when it is JSON, which FastAPI reads whole
@@ -58,7 +61,16 @@ def has_lone_surrogate(body: bytes) -> bool:
         data = json.loads(body)
     except (ValueError, RecursionError):
         return False  # not JSON: FastAPI answers that itself
-    stack: list[Any] = [data]
+    return holds_lone_surrogate(data)
+
+
+def holds_lone_surrogate(value: Any) -> bool:
+    """Whether ``value`` - parsed JSON or YAML - holds a string that is not valid Unicode.
+
+    Walks lists, tuples and mapping keys and values without recursing, so a
+    deeply nested document can't exhaust the stack.
+    """
+    stack: list[Any] = [value]
     while stack:
         item = stack.pop()
         if isinstance(item, str):
@@ -69,7 +81,7 @@ def has_lone_surrogate(body: bytes) -> bool:
         elif isinstance(item, dict):
             stack.extend(item.keys())
             stack.extend(item.values())
-        elif isinstance(item, list):
+        elif isinstance(item, (list, tuple)):
             stack.extend(item)
     return False
 

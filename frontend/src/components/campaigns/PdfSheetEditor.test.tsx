@@ -16,7 +16,7 @@ const fakeDoc = {
         clone: () => ({ width: 600, height: 800 }),
       }),
       render: (...a: unknown[]) => pageRender(...a),
-      getAnnotations: () => Promise.resolve([]),
+      getAnnotations: () => Promise.resolve([] as object[]),
     })
   ),
   saveDocument: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
@@ -30,6 +30,7 @@ const pageRender = vi.fn<(...a: unknown[]) => { promise: Promise<void> }>(() => 
   promise: Promise.resolve(),
 }))
 const annotationRender = vi.fn<(...a: unknown[]) => Promise<void>>(() => Promise.resolve())
+const layerInit = vi.fn<(...a: unknown[]) => void>()
 
 vi.mock('../../lib/pdfjs', () => ({
   WASM_URL: '/pdfjs-wasm/',
@@ -37,6 +38,9 @@ vi.mock('../../lib/pdfjs', () => ({
     getDocument: (...a: unknown[]) => getDocument(...a),
     AnnotationMode: { DISABLE: 0, ENABLE: 1, ENABLE_FORMS: 2, ENABLE_STORAGE: 3 },
     AnnotationLayer: class {
+      constructor(...a: unknown[]) {
+        layerInit(...a)
+      }
       render(...a: unknown[]) {
         return annotationRender(...a)
       }
@@ -204,5 +208,35 @@ describe('PdfSheetEditor', () => {
     renderEditor({ onClose })
     await userEvent.click(screen.getByRole('button', { name: /close/i }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('leaves links inside the sheet out, and never makes a link from one', async () => {
+    const link = { subtype: 'Link', url: 'https://example.com/login', rect: [0, 0, 600, 800] }
+    const field = { subtype: 'Widget', fieldName: 'name' }
+    fakeDoc.getPage.mockResolvedValueOnce({
+      getViewport: ({ scale = 1 }: { scale?: number }) => ({
+        width: 600 * scale,
+        height: 800 * scale,
+        rawDims: { pageWidth: 600, pageHeight: 800 },
+        clone: () => ({ width: 600, height: 800 }),
+      }),
+      render: () => ({ promise: Promise.resolve() }),
+      getAnnotations: () => Promise.resolve([link, field]),
+    })
+    const { container } = renderEditor()
+    await waitFor(() => expect(annotationRender).toHaveBeenCalled())
+    expect(annotationRender.mock.calls[0][0]).toMatchObject({ annotations: [field] })
+
+    // pdf.js hands a URL link's anchor to the link service, which must not
+    // give it anywhere to go.
+    const { div, linkService } = layerInit.mock.calls[0][0] as {
+      div: HTMLElement
+      linkService: { addLinkAttributes: (a: HTMLAnchorElement, url: string) => void }
+    }
+    const a = document.createElement('a')
+    linkService.addLinkAttributes(a, link.url)
+    div.append(a)
+    expect(a.hasAttribute('href')).toBe(false)
+    expect(container.querySelector('a[href]')).toBeNull()
   })
 })

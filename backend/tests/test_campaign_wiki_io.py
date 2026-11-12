@@ -1093,6 +1093,14 @@ class TestZipImportLimits:
         assert resp.json()["detail"] == "A file in that archive is encrypted or damaged"
         assert client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json() == []
 
+    @pytest.mark.parametrize("variant", sorted(unreadable_zips.UNOPENABLE))
+    def test_an_archive_that_wont_open_is_a_400(self, client, gm_headers, variant):
+        c = _campaign(client, gm_headers)
+        data = unreadable_zips.UNOPENABLE[variant]()
+        resp = _import(client, gm_headers, c["id"], "wiki.zip", data, "application/zip")
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "File is not a valid zip archive"
+
     def test_entry_count_is_capped(self, client, gm_headers, monkeypatch):
         from backend.routers.campaigns import wiki_io
 

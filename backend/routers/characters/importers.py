@@ -38,6 +38,7 @@ from ...models import Character, CharacterSchema
 from ...services import untrusted_yaml
 from ...services.characters import catalogue, importing
 from ...services.characters import images as char_images
+from ...unicode_guard import holds_lone_surrogate
 from . import _helpers as helpers
 from . import core
 from ._schemas import ExternalCharacterImport
@@ -345,6 +346,8 @@ def _parse(text: str) -> Any:
         raise too_deep from None
     if untrusted_yaml.too_deep(document):
         raise too_deep
+    if holds_lone_surrogate(document):
+        raise HTTPException(status_code=400, detail="That file holds text that is not valid Unicode")
     return document
 
 

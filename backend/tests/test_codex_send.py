@@ -440,6 +440,15 @@ def test_read_cover_files(tmp_path):
     assert _covers._read(str(tmp_path / "missing.png")) is None
 
 
+def test_a_cover_with_too_many_pixels_is_not_sent(tmp_path, monkeypatch):
+    monkeypatch.setattr(_covers, "COVER_MAX_SOURCE_PIXELS", 40 * 60 - 1)
+    bmp = tmp_path / "cover.bmp"
+    bmp.write_bytes(_image("BMP"))
+    assert _covers._read(str(bmp)) is None
+    monkeypatch.setattr(_covers, "COVER_MAX_SOURCE_PIXELS", 40 * 60)
+    assert _covers._read(str(bmp)).content_type == "image/webp"
+
+
 def test_book_cover_renders_the_first_page(tmp_path, monkeypatch):
     pdf = tmp_path / "book.pdf"
     pdf.write_bytes(b"%PDF")

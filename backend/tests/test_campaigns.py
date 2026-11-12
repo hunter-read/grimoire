@@ -1393,6 +1393,47 @@ class TestBannerUpload:
         assert img.headers["content-type"] == "image/webp"
         assert os.path.isfile(thumb)  # regenerated and cached
 
+    def test_rejects_an_image_with_too_many_pixels(self, client, gm_headers, campaign):
+        from PIL import Image
+
+        # A flat greyscale PNG over the cover limit is a small file that would
+        # decode to hundreds of megabytes.
+        buf = io.BytesIO()
+        Image.new("L", (6400, 6400), 0).save(buf, format="PNG")
+        assert len(buf.getvalue()) < 1024 * 1024
+        resp = client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", buf.getvalue(), "image/png")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Image is too large"
+        got = client.get(f"/api/campaigns/{campaign['id']}", headers=gm_headers).json()
+        assert got["has_banner"] is False
+
+    def test_a_greyscale_banner_is_downscaled_to_rgb(self, client, gm_headers, campaign):
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("L", (2000, 1000), 90).save(buf, format="PNG")
+        resp = client.post(
+            f"/api/campaigns/{campaign['id']}/banner",
+            files={"file": ("banner.png", buf.getvalue(), "image/png")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        img = client.get(f"/api/campaigns/{campaign['id']}/banner", headers=gm_headers)
+        with Image.open(io.BytesIO(img.content)) as thumb:
+            assert thumb.format == "WEBP" and thumb.size == (1000, 500)
+            assert thumb.mode == "RGB"
+
+    def test_an_oversized_image_is_not_downscaled(self):
+        from backend.routers.campaigns import uploads
+
+        data = _png_bytes(size=(8, 8))
+        assert uploads._make_banner_thumb(data, max_pixels=63) is None
+        assert uploads._make_banner_thumb(data, max_pixels=None) is not None
+
     def test_delete_removes_downscaled_copy(self, client, gm_headers, campaign):
         client.post(
             f"/api/campaigns/{campaign['id']}/banner",
@@ -1897,6 +1938,91 @@ class TestCreateWithResources:
         cid = resp.json()["id"]
         listed = client.get(f"/api/campaigns/{cid}/resources", headers=gm_headers).json()
         assert listed == []
+
+
+    def test_an_unknown_share_recipient_leaves_no_campaign(self, client, gm_headers):
+        from backend.config import SessionLocal
+        from backend.models import Campaign
+
+        book = make_book(system_id=make_game_system().id, category="core")
+        name = f"Partial {uid()}"
+        resp = client.post(
+            "/api/campaigns",
+            json={
+                "name": name,
+                "is_gm_campaign": True,
+                "resources": [
+                    {
+                        "resource_type": "book",
+                        "resource_id": book.id,
+                        "visibility": "private",
+                        "shared_user_ids": ["no-such-user"],
+                    }
+                ],
+            },
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400, resp.text
+        db = SessionLocal()
+        try:
+            assert db.query(Campaign).filter_by(name=name).count() == 0
+        finally:
+            db.close()
+
+    def test_shares_with_real_users_are_kept(self, client, gm_headers, player_id):
+        book = make_book(system_id=make_game_system().id, category="core")
+        resp = client.post(
+            "/api/campaigns",
+            json={
+                "name": f"Shared {uid()}",
+                "is_gm_campaign": True,
+                "resources": [
+                    {
+                        "resource_type": "book",
+                        "resource_id": book.id,
+                        "visibility": "private",
+                        "shared_user_ids": [player_id, player_id],
+                    }
+                ],
+            },
+            headers=gm_headers,
+        )
+        assert resp.status_code == 201, resp.text
+        listed = client.get(
+            f"/api/campaigns/{resp.json()['id']}/resources", headers=gm_headers
+        ).json()
+        assert [r["shared_user_ids"] for r in listed] == [[player_id]]
+
+    @pytest.mark.parametrize("path", ["resources", "resources/bulk"])
+    def test_adding_a_resource_for_an_unknown_user_is_refused(self, client, gm_headers, path):
+        book = make_book(system_id=make_game_system().id, category="core")
+        c = client.post(
+            "/api/campaigns", json={"name": f"Add {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        item = {
+            "resource_type": "book",
+            "resource_id": book.id,
+            "visibility": "private",
+            "shared_user_ids": ["no-such-user"],
+        }
+        body = {"resources": [item]} if path.endswith("bulk") else item
+        resp = client.post(f"/api/campaigns/{c['id']}/{path}", json=body, headers=gm_headers)
+        assert resp.status_code == 400, resp.text
+        assert client.get(f"/api/campaigns/{c['id']}/resources", headers=gm_headers).json() == []
+
+    def test_sharing_a_wiki_page_with_an_unknown_user_is_refused(self, client, gm_headers):
+        c = client.post(
+            "/api/campaigns", json={"name": f"Wiki {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki",
+            json={"title": "Secret", "visibility": "members", "shared_user_ids": ["no-such-user"]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400, resp.text
+        assert client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json() == []
 
 
 class TestSuggestedResources:
