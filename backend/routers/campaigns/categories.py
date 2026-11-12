@@ -22,6 +22,7 @@ from ._schemas import (
     CategoryUpdate,
     ResourceGroupOrder,
 )
+from ._wiki_maps import release_pins_to
 
 _KINDS = ("note", "resource")
 _TYPE_GROUP_KEYS = ("type:book", "type:map", "type:token", "type:audio", "type:file")
@@ -218,6 +219,7 @@ def delete_category(
                     | (WikiPageLink.target_page_id.in_(page_ids))
                 ).delete(synchronize_session=False)
             for p in pages:
+                release_pins_to(db, c, p, current_user)
                 db.delete(p)
         else:
             for p in pages:

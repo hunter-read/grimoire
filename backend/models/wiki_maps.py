@@ -10,8 +10,10 @@ pixels, so a pin stays on its spot when the map is re-exported at a different
 resolution or swapped for the campaign's copy of it.
 
 The target is a page id, never a title, so a pin keeps working when that page
-is renamed or moved in the tree. Deleting the target clears it, leaving an
-unlinked pin rather than a dead one.
+is renamed or moved in the tree. Deleting a public target clears it, leaving an
+unlinked pin rather than a dead one; a pin to a restricted page becomes GM-only
+or goes with the page instead, since an unlinked pin is shown to everyone who
+sees the map (``release_pins_to`` in the campaigns router).
 """
 import datetime
 from typing import Optional
@@ -34,7 +36,7 @@ class WikiMapPin(Base):
     x: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     y: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
     # The page the pin opens. Null for a pin that marks a spot without a page,
-    # and for one whose page was deleted.
+    # and for one whose (public) page was deleted.
     target_page_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("wiki_pages.id", ondelete="SET NULL"), nullable=True, index=True
     )
