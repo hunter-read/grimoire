@@ -11,7 +11,8 @@ Pins are the places on the map. Two rules decide who sees one:
 * a pin linking a page is seen only by those who can see that page too, so a
   public map never gives away a GM-only page's title, label or position.
 
-Whoever can see the map page sees its unlinked pins. The handlers live in
+Whoever can see the map page sees its unlinked pins - which is why deleting a
+pin's page must not simply unlink it (``release_pins_to``). The handlers live in
 ``wiki_pins.py``; this module is what they and ``wiki.get_page`` share.
 """
 
@@ -242,6 +243,46 @@ def pinned_source_ids(db: Session, target_page_id: str) -> set[str]:
             WikiMapPin.target_page_id == target_page_id, WikiMapPin.visibility != "gm"
         )
     }
+
+
+def release_pins_to(db: Session, campaign: Any, page: WikiPage, user: CurrentUser) -> None:
+    """Settle the pins linking ``page``, which ``user`` is about to delete.
+
+    An unlinked pin is shown to everyone who sees its map, so unlinking is only
+    safe when the page was public: nobody new sees the pin. A pin to a
+    restricted page was hidden from whoever could not read that page, and must
+    not surface to them once the page is gone:
+
+    * the GM deleting a restricted page of their own keeps the pin as a GM-only
+      one, on a map they can see - an unrevealed spot stays theirs;
+    * any other pin goes with the page. No pin setting reproduces "the people
+      this page was shared with", and a GM-only pin would hand a player's
+      private spot to the GM.
+
+    Call it before the delete, on every path that deletes a page: the foreign
+    key's ``SET NULL`` alone would leave each of these pins unlinked.
+    """
+    pins = db.query(WikiMapPin).filter_by(target_page_id=page.id).all()
+    if not pins:
+        return
+    gm_keeps = user.id == campaign.owner_id and page.created_by_id == user.id
+    map_pages = {
+        p.id: p
+        for p in db.query(WikiPage).filter(WikiPage.id.in_({pin.page_id for pin in pins})).all()
+    }
+    for pin in pins:
+        if page.visibility != "group":
+            map_page = map_pages.get(pin.page_id)
+            if not (
+                gm_keeps
+                and map_page is not None
+                and can_view_page(map_page, campaign, user, db)
+            ):
+                db.delete(pin)
+                continue
+            pin.visibility = "gm"
+        pin.target_page_id = None
+    db.flush()
 
 
 def resolve_pin_target(

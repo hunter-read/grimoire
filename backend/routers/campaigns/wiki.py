@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import User, WikiMapPin, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
+from ...models import User, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import (
     assert_not_archived,
     assert_not_locked,
@@ -38,6 +38,7 @@ from ._wiki_maps import (
     apply_map_choice,
     pinned_source_ids,
     pins_for,
+    release_pins_to,
     resolve_page_map,
 )
 from ._wiki_helpers import (
@@ -519,12 +520,10 @@ def delete_page(
         for row in db.query(WikiPageLink).filter_by(target_page_id=page_id).all()
         if row.source_page_id != page_id
     ]
-    # Pins pointing here stay on their maps, unlinked, rather than going dead
-    # (the FK would do this too; done here so the ORM state agrees). Their map
-    # pages' link rows to this page go with the rest just below.
-    db.query(WikiMapPin).filter_by(target_page_id=page_id).update(
-        {WikiMapPin.target_page_id: None}, synchronize_session=False
-    )
+    # Pins pointing here are unlinked, made GM-only or removed, so that none
+    # hidden with this page shows up once it is gone. Their map pages' link
+    # rows to this page go with the rest just below.
+    release_pins_to(db, c, page, current_user)
     # Drop link rows referencing this page from either side.
     db.query(WikiPageLink).filter(
         (WikiPageLink.source_page_id == page_id)

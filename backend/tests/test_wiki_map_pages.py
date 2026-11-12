@@ -406,6 +406,174 @@ class TestPinVisibility:
         assert _pin(client, player_headers, campaign_id, page["id"]).status_code == 404
 
 
+def _delete_page(client, headers, cid, page_id):
+    resp = client.delete(f"/api/campaigns/{cid}/wiki/{page_id}", headers=headers)
+    assert resp.status_code == 204, resp.text
+
+
+def _pin_rows(page_id):
+    from backend.config import SessionLocal
+    from backend.models import WikiMapPin
+
+    db = SessionLocal()
+    try:
+        return [
+            (p.label, p.target_page_id, p.visibility)
+            for p in db.query(WikiMapPin).filter_by(page_id=page_id).all()
+        ]
+    finally:
+        db.close()
+
+
+class TestDeletingAPinsTarget:
+    """A pin hidden with its page stays hidden once the page is deleted."""
+
+    def test_the_gms_hidden_page_leaves_a_gm_pin(
+        self, client, gm_headers, player_headers, campaign_id
+    ):
+        m = _link_map(client, gm_headers, campaign_id)
+        page = _map_page(client, gm_headers, campaign_id, m.id, title=f"Coast {uid()}")
+        secret = _page(client, gm_headers, campaign_id, title=f"Lair {uid()}", visibility="gm")
+        _pin(
+            client, gm_headers, campaign_id, page["id"], target_page_id=secret["id"],
+            label="Secret lair entrance",
+        )
+        assert _get(client, player_headers, campaign_id, page["id"])["pins"] == []
+
+        _delete_page(client, gm_headers, campaign_id, secret["id"])
+
+        player_view = _get(client, player_headers, campaign_id, page["id"])
+        assert player_view["pins"] == []
+        assert "Secret lair entrance" not in json.dumps(player_view)
+        for fmt in ("json", "md", "mdfile"):
+            export = client.get(
+                f"/api/campaigns/{campaign_id}/wiki/export?format={fmt}", headers=player_headers
+            )
+            assert export.status_code == 200, export.text
+            content = export.content
+            if fmt == "md":
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    content = b"".join(zf.read(n) for n in zf.namelist())
+            assert b"Secret lair entrance" not in content
+        # The GM keeps the spot, as a GM-only pin with no page.
+        gm_pins = _get(client, gm_headers, campaign_id, page["id"])["pins"]
+        assert [(p["label"], p["target_page_id"], p["visibility"]) for p in gm_pins] == [
+            ("Secret lair entrance", None, "gm")
+        ]
+
+    def test_a_shared_page_does_not_widen_to_the_whole_map(
+        self, client, gm_headers, player_headers, player_id, campaign_id
+    ):
+        m = _link_map(client, gm_headers, campaign_id)
+        page = _map_page(client, gm_headers, campaign_id, m.id)
+        shared = _page(
+            client, gm_headers, campaign_id, title=f"Rumour {uid()}", visibility="members",
+            shared_user_ids=[player_id],
+        )
+        _pin(client, gm_headers, campaign_id, page["id"], target_page_id=shared["id"], label="R")
+        assert len(_get(client, player_headers, campaign_id, page["id"])["pins"]) == 1
+        _delete_page(client, gm_headers, campaign_id, shared["id"])
+        assert _pin_rows(page["id"]) == [("R", None, "gm")]
+        assert _get(client, player_headers, campaign_id, page["id"])["pins"] == []
+
+    def test_a_players_hidden_page_takes_its_pin(
+        self, client, gm_headers, player_headers, campaign_id
+    ):
+        """Not handed to the GM, who could not read the page it pointed at."""
+        m = _link_map(client, gm_headers, campaign_id)
+        page = _map_page(client, gm_headers, campaign_id, m.id)
+        own = _page(client, player_headers, campaign_id, title=f"Stash {uid()}", visibility="gm")
+        resp = _pin(
+            client, player_headers, campaign_id, page["id"], target_page_id=own["id"], label="S"
+        )
+        assert resp.status_code == 201, resp.text
+        assert _get(client, gm_headers, campaign_id, page["id"])["pins"] == []
+        _delete_page(client, player_headers, campaign_id, own["id"])
+        assert _pin_rows(page["id"]) == []
+        assert _get(client, gm_headers, campaign_id, page["id"])["pins"] == []
+
+    def test_no_gm_pin_is_left_on_a_map_the_gm_cannot_see(
+        self, client, gm_headers, player_headers, player_id, campaign_id
+    ):
+        m = _link_map(client, gm_headers, campaign_id)
+        own_map = _map_page(client, player_headers, campaign_id, m.id, visibility="gm")
+        shared = _page(
+            client, gm_headers, campaign_id, title=f"Clue {uid()}", visibility="members",
+            shared_user_ids=[player_id],
+        )
+        resp = _pin(client, player_headers, campaign_id, own_map["id"], target_page_id=shared["id"])
+        assert resp.status_code == 201, resp.text
+        _delete_page(client, gm_headers, campaign_id, shared["id"])
+        assert _pin_rows(own_map["id"]) == []
+
+    def test_deleting_a_note_category_with_its_pages(
+        self, client, gm_headers, player_headers, campaign_id
+    ):
+        from backend.config import SessionLocal
+        from backend.models import CampaignCategory, WikiPage
+
+        m = _link_map(client, gm_headers, campaign_id)
+        page = _map_page(client, gm_headers, campaign_id, m.id)
+        secret = _page(client, gm_headers, campaign_id, title=f"Vault {uid()}", visibility="gm")
+        town = _page(client, gm_headers, campaign_id, title=f"Town {uid()}", visibility="group")
+        _pin(client, gm_headers, campaign_id, page["id"], target_page_id=secret["id"], label="V")
+        _pin(client, gm_headers, campaign_id, page["id"], target_page_id=town["id"], label="T")
+        # Note categories predate nesting, so nothing in the app files a page
+        # under one any more; older campaigns still hold them.
+        db = SessionLocal()
+        cat = CampaignCategory(campaign_id=campaign_id, name="Old", kind="note")
+        db.add(cat)
+        db.flush()
+        db.query(WikiPage).filter(WikiPage.id.in_([secret["id"], town["id"]])).update(
+            {WikiPage.category_id: cat.id}, synchronize_session=False
+        )
+        db.commit()
+        cat_id = cat.id
+        db.close()
+
+        resp = client.delete(
+            f"/api/campaigns/{campaign_id}/categories/{cat_id}?mode=delete_items",
+            headers=gm_headers,
+        )
+        assert resp.status_code in (200, 204), resp.text
+        assert sorted(_pin_rows(page["id"])) == [("T", None, "page"), ("V", None, "gm")]
+        pins = _get(client, player_headers, campaign_id, page["id"])["pins"]
+        assert [p["label"] for p in pins] == ["T"]
+
+    def test_deleting_a_pages_author_keeps_its_pin_hidden(
+        self, client, admin_headers, gm_headers, player_headers, campaign_id
+    ):
+        """The page outlives its author, unreadable, so the pin stays linked and unseen."""
+        from backend.config import SessionLocal
+        from backend.models import WikiMapPin, WikiPage
+
+        user = client.post(
+            "/api/users",
+            json={"username": f"gone{uid()}", "password": "refpass123-long", "role": "player"},
+            headers=admin_headers,
+        )
+        assert user.status_code == 201, user.text
+        m = _link_map(client, gm_headers, campaign_id)
+        page = _map_page(client, gm_headers, campaign_id, m.id)
+        db = SessionLocal()
+        note = WikiPage(
+            campaign_id=campaign_id, title="Theirs", slug=f"theirs-{uid()}", body="",
+            visibility="gm", page_type="note", created_by_id=user.json()["id"],
+        )
+        db.add(note)
+        db.flush()
+        db.add(WikiMapPin(page_id=page["id"], target_page_id=note.id, label="Theirs"))
+        db.commit()
+        note_id = note.id
+        db.close()
+
+        resp = client.delete(f"/api/users/{user.json()['id']}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+        assert _pin_rows(page["id"]) == [("Theirs", note_id, "page")]
+        for headers in (gm_headers, player_headers):
+            assert _get(client, headers, campaign_id, page["id"])["pins"] == []
+
+
 class TestMapPageIO:
     def _setup(self, client, gm_headers, campaign_id):
         m = _link_map(client, gm_headers, campaign_id)
