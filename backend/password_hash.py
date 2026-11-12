@@ -25,7 +25,8 @@ import bcrypt
 
 PREFIX = "$bcrypt-sha256$"
 
-# passlib's default cost for bcrypt_sha256.
+# passlib's default cost for bcrypt_sha256. Read when a password is hashed, not
+# when this module is imported, so the test suite can lower it (conftest.py).
 DEFAULT_ROUNDS = 12
 
 _V2_RE = re.compile(
@@ -52,8 +53,10 @@ def _v2_digest(password: bytes, salt: str) -> bytes:
     return hmac.new(salt.encode("ascii"), password, hashlib.sha256).digest()
 
 
-def hash_password(password: str, rounds: int = DEFAULT_ROUNDS) -> str:
+def hash_password(password: str, rounds: Optional[int] = None) -> str:
     """Hash ``password`` in passlib's v2 ``bcrypt_sha256`` format."""
+    if rounds is None:
+        rounds = DEFAULT_ROUNDS
     # gensalt() gives "$2b$<rounds>$<22-char salt>"; its last salt character
     # never carries the padding bits passlib refuses, since bcrypt encodes
     # exactly 16 random bytes.

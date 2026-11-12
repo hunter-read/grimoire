@@ -20,10 +20,11 @@ from backend.indexer import _subprocess
 from backend.indexer import (
     PdfExtractionCrashError,
     _fitz_open_with_timeout,
-    extract_text_isolated,
     index_book_text,
     scan_library,
 )
+# The real one: conftest swaps the package's for an in-process stand-in.
+from backend.indexer._subprocess import extract_text_isolated
 from backend.models import Book, GenericMap, Token
 
 # What a real page of a rulebook holds, as opposed to a running header: enough
