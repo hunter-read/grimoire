@@ -15,8 +15,11 @@ from ...text.wikilinks import FENCE_RE
 
 # A GM-only secret span in a wiki body: ||text the players must never see||.
 # Non-greedy so adjacent spans on one line don't merge; DOTALL so a secret may
-# wrap multiple lines.
-_GM_SECRET_RE = re.compile(r"\|\|.*?\|\|", re.DOTALL)
+# wrap multiple lines. A ``|`` right after a backslash is a literal pipe, as in
+# markdown, so neither marker may follow one: ``\||`` is never a marker. That
+# is the form ``escape_player_pipes`` leaves a player's pipes in, and the wiki
+# renderer (WikiMarkdown.tsx) reads markers the same way.
+_GM_SECRET_RE = re.compile(r"(?<!\\)\|\|.*?(?<!\\)\|\|", re.DOTALL)
 
 
 def _blank(text: str, spans: list[tuple[int, int]]) -> str:
@@ -105,9 +108,11 @@ def escape_player_pipes(body: str) -> str:
     they see. Runs are matched rather than exact pairs so ``||||`` can't survive
     as a pair once alternate characters are escaped.
 
-    Only ever applied to a non-GM's submission — see ``update_page``. An
-    already-escaped ``\\|\\|`` is left alone, so a player re-saving their own
-    page doesn't accumulate backslashes.
+    Only ever applied to a non-GM's submission — see ``update_page``. A pipe
+    right after a backslash is left alone, so a player re-saving their own page
+    doesn't accumulate backslashes. That leaves ``\\||`` as typed, which is safe
+    only because ``_GM_SECRET_RE`` never takes a ``||`` after a backslash as a
+    marker: every ``||`` this returns has one in front of it.
     """
     if not body:
         return body

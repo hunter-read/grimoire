@@ -141,6 +141,33 @@ describe('WikiMarkdown', () => {
     )
   })
 
+  it("shows a player's escaped pipes as plain text, not a secret", () => {
+    const { container } = renderMd({ body: 'a \\|\\| b \\|\\| c' })
+    expect(container.querySelector('[title="GM only - hidden from players"]')).toBeNull()
+    expect(container.textContent).toBe('a || b || c')
+  })
+
+  it('tints only the GM secret beside pipes typed after a backslash', () => {
+    const { container } = renderMd({ body: '\\|| we met ||the barkeep|| here' })
+    const secrets = container.querySelectorAll('[title="GM only - hidden from players"]')
+    expect(secrets).toHaveLength(1)
+    expect(secrets[0].textContent).toContain('the barkeep')
+    expect(secrets[0].textContent).not.toContain('we met')
+  })
+
+  it('tints only the GM block secret below pipes typed after a backslash', () => {
+    const { container } = renderMd({ body: '\\|| we met\n\n||the barkeep||\n' })
+    const secrets = container.querySelectorAll('[title="GM only - hidden from players"]')
+    expect(secrets).toHaveLength(1)
+    expect(secrets[0].textContent).toBe('the barkeep')
+    expect(container.querySelector('p')!.textContent).toBe('|| we met')
+  })
+
+  it('shows the pipes of a secret written inside inline code', () => {
+    const { container } = renderMd({ body: 'Run `a ||b|| c` now' })
+    expect(container.querySelector('code')!.textContent).toBe('a ||b|| c')
+  })
+
   it('renders a multiline ||GM secret|| as a tinted block keeping all its text', () => {
     const { container } = renderMd({ body: '||\nsecret text\nmore secret text\n||' })
     expect(container.textContent).toContain('secret text')

@@ -173,6 +173,42 @@ class TestStripGmSecrets:
         assert strip_gm_secrets(body) == "a\n\nb"
 
 
+class TestBackslashBeforePipes:
+    """A ``||`` right after a backslash is never a marker, so a player's pipes,
+    which are stored that way, never pair with a GM's secret."""
+
+    @pytest.mark.parametrize("typed", ["\\||", "\\|||", "\\\\||", "|\\||"])
+    def test_a_players_pipes_never_pair_with_a_secret(self, typed):
+        body = escape_player_pipes(typed) + "\n||x||"
+        assert strip_gm_secrets(body) == escape_player_pipes(typed) + "\n"
+
+    def test_the_gm_secret_after_one_is_hidden_and_the_prose_shown(self):
+        body = "\\|| Session 1: a tavern.\n||GM: a doppelganger.||\n||GM: cursed.||\n"
+        assert strip_gm_secrets(body) == "\\|| Session 1: a tavern.\n\n\n"
+
+    def test_a_marker_after_a_backslash_does_not_close_a_secret(self):
+        assert strip_gm_secrets("a ||b \\|| c|| d") == "a  d"
+
+    @pytest.mark.parametrize("seed", range(4))
+    def test_nothing_a_player_types_pairs_with_a_secret(self, seed):
+        rng = random.Random(seed)
+        for _ in range(500):
+            typed = "".join(rng.choice("\\|x\n") for _ in range(rng.randint(1, 12)))
+            mine = escape_player_pipes(typed)
+            # Escaping twice changes nothing, and the GM's secret hides itself only.
+            assert escape_player_pipes(mine) == mine, typed
+            assert strip_gm_secrets(mine) == mine, typed
+            assert strip_gm_secrets(f"{mine}\n||x||\n{mine}") == f"{mine}\n\n{mine}", typed
+
+    def test_an_edit_leaving_a_backslash_before_a_secret_is_refused(self):
+        # The secret goes back right after the player's backslash, where its
+        # opening marker would read as literal pipes: refused, not stored.
+        stored = "ab||s||c"
+        assert merge_gm_secrets(stored, "abc") == stored
+        with pytest.raises(HTTPException):
+            merge_gm_secrets(stored, escape_player_pipes("a\\c"))
+
+
 class TestMergeGmSecrets:
     """merge_gm_secrets re-weaves stored ||secrets|| into a body the player edited.
 

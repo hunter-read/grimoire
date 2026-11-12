@@ -9,7 +9,7 @@ import LazyImg from '../LazyImg'
 import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
-import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
+import { rehypeInlineSecrets, SECRET_MARK, standsAlone } from './wikiSecrets'
 import { CODE_BLOCK_STYLE, maskFences } from './wikiFences'
 import MermaidDiagram from './MermaidDiagram'
 import type { Element } from 'hast'
@@ -64,8 +64,10 @@ export function prefetchedBookEmbeds(body: string | null | undefined): Set<strin
 // ||GM-only text||. Only the owner ever receives a body still containing these
 // (the backend strips them entirely for everyone else — no text, no marker), so
 // rendering them tinted just helps the owner see what players won't. The match
-// spans newlines so a secret can wrap several lines/paragraphs.
-const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
+// spans newlines so a secret can wrap several lines/paragraphs. A pipe right
+// after a backslash is literal, so neither marker may follow one - the backend's
+// _GM_SECRET_RE reads them the same way, and stores a player's pipes like that.
+const SECRET_RE = /(?<!\\)\|\|([\s\S]*?)(?<!\\)\|\|/g
 
 function escapeLinkText(text: string): string {
   // Keep link text from breaking the markdown link syntax. Escape backslashes
@@ -94,7 +96,7 @@ function rewriteLinks(text: string): string {
 // its line (a whole paragraph of GM notes), becomes its own block segment. A
 // secret inside running text can't be split out — doing so would break its
 // paragraph in two — so it stays in the surrounding segment with its pipes
-// escaped, for rehypeInlineSecrets to wrap. Its inner markdown is untouched, so
+// swapped for SECRET_MARK, for rehypeInlineSecrets to wrap. Its inner markdown is untouched, so
 // [[links]] and formatting inside still work.
 //
 // Fenced code is masked out of both passes (see wikiFences.ts): a `||` or
@@ -128,7 +130,7 @@ function splitSecrets(body: string | null | undefined): Segment[] {
       segments.push({ block: true, text: restore(rewriteLinks(inner)) })
     } else {
       // Inline secret: keep it in the flow of the paragraph it lives in.
-      buf += `\\|\\|${inner}\\|\\|`
+      buf += `${SECRET_MARK}${inner}${SECRET_MARK}`
     }
     last = m.index + m[0].length
   }
