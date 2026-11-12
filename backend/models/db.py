@@ -732,7 +732,9 @@ def postgres_url(url: str) -> str:
     """``url`` with the psycopg 3 driver, which is the one installed.
 
     ``postgres://`` and a bare ``postgresql://`` would otherwise pick psycopg2.
-    Raises ValueError for any database other than PostgreSQL.
+    Raises ValueError for any database other than PostgreSQL, and for a URL
+    whose password holds an ``@`` that was not percent-encoded: the rest of the
+    password would be taken for the host, and named in the connection error.
     """
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
@@ -741,6 +743,12 @@ def postgres_url(url: str) -> str:
         raise ValueError(
             "DATABASE_URL must be a PostgreSQL URL (postgresql://user:password@host/db); "
             f"got a {parsed.get_backend_name()!r} URL. Leave it unset to use SQLite."
+        )
+    if "@" in (parsed.host or ""):
+        # Says nothing of the value: part of it is the password.
+        raise ValueError(
+            "DATABASE_URL has more than one \"@\" before the host. An \"@\" in the "
+            "password must be written %40 (percent-encoded)."
         )
     return parsed.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
 

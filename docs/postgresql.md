@@ -55,7 +55,8 @@ and you're prompted to create the admin account as usual.
   any `+driver` part out (or use `postgresql+psycopg://`).
 - Characters such as `@`, `:` or `/` in the password must be
   [percent-encoded](https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding) in
-  the URL. A hex password (as above) needs none.
+  the URL. A hex password (as above) needs none. Grimoire refuses to start on a URL with
+  an unencoded `@` in the password.
 - Connection options go on the end, e.g. `?sslmode=require` for a server that requires TLS.
 
 ## Moving an existing install
@@ -136,8 +137,6 @@ A few results can differ from a SQLite install of the same library:
   back in a different order.
 - **Stemming.** PostgreSQL uses the newer Snowball English stemmer, which treats a handful of
   words differently from SQLite's Porter stemmer. A prefix search (`fire*`) is stemmed too.
-- **Words with punctuation.** Hyphenated words, email addresses and URLs are kept whole as
-  well as split into their parts.
 - **Highlighting.** In a result's snippet, a quoted phrase is highlighted word by word rather
   than as one block.
 - **Names with accents.** Matching titles, filenames and tags ignores case for accented letters

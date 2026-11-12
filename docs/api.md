@@ -282,7 +282,9 @@ environment:
 lists each problem as `{type, loc, msg, input?}`. `input` echoes the value sent,
 unless it can't be written back as JSON (`NaN`, `Infinity`, or a value nested
 thousands deep). JSON text that isn't valid Unicode - a lone surrogate escape
-such as `"\ud800"` - is a `422` of type `unicode_error`, whatever the route.
+such as `"\ud800"` - is a `422` of type `unicode_error`, whatever the route. A NUL
+(`"\u0000"`) in a JSON body is dropped from the text before it is validated, so a
+name of nothing else is blank.
 
 **Names and links.** A campaign's, league's or army's `name` is trimmed, and a
 `422` when nothing is left. An optional link to another row sent as `""` -
@@ -1412,7 +1414,7 @@ top of their view. Per user; guests have none.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/pins` | GET | any (not guest) | The user's pins, oldest first. Optional query `collection` limits to one view (400 for an unknown one). Returns `{pins: [{id, collection, target}]}` |
-| `/api/pins` | POST | any (not guest) | Pin. Body `{collection, target}`. Pinning something already pinned returns the existing pin. At most 100 pins per view (400 beyond that) |
+| `/api/pins` | POST | any (not guest) | Pin. Body `{collection, target}` (`target` at most 1000 bytes of UTF-8, 422 beyond). Pinning something already pinned returns the existing pin. At most 100 pins per view (400 beyond that) |
 | `/api/pins/:id` | DELETE | any (not guest) | Unpin. Someone else's pin is a 404, the same as a missing one |
 
 `collection` is the view: `systems` (a `target` is a game system's id) or
@@ -1955,7 +1957,7 @@ A campaign's GM screen is a board of built-in tools on a twelve-column snap grid
 | `/api/settings/oidc-button-icon` | POST | Upload the OIDC button icon. Multipart `file`: PNG, JPEG, WebP, GIF or SVG, max 1 MB (413 above that, 400 for anything that isn't a decodable image). The image is re-encoded - SVGs are rasterized - to a PNG at most 192 px on its longest side, so the uploaded bytes are never served. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
 | `/api/settings/oidc-button-icon` | DELETE | Remove the uploaded icon. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
 | `/api/settings/folder-access` | GET | Admin-only. Every folder restriction: `{rules: [{path, level, exists, books}]}`, sorted by path. `exists` is false once the folder is gone from disk; `books` is how many books the rule covers now. See [Access levels](#access-levels-issue-258). |
-| `/api/settings/folder-access` | PUT | Admin-only. Restrict a folder. Body `{path, level: "gm"\|"admin"}`; `path` is library-relative (`books/D&D 5e/Core/GM`) and must be a folder *inside* `books/` or the armory (400 otherwise, 422 for another level, 404 when the folder does not exist). The path is stored as the folder is spelled on disk, so a stray space at either end is dropped; a listed rule's `exists` is false when its stored path names no folder. Replaces any level the folder had, and demotes campaign shares of the books it restricts to GM-only. Returns the rule. |
+| `/api/settings/folder-access` | PUT | Admin-only. Restrict a folder. Body `{path, level: "gm"\|"admin"}`; `path` is library-relative (`books/D&D 5e/Core/GM`) and must be a folder *inside* `books/` or the armory (400 otherwise or for a path past 2000 bytes, 422 for another level, 404 when the folder does not exist). The path is stored as the folder is spelled on disk, so a stray space at either end is dropped; a listed rule's `exists` is false when its stored path names no folder. Replaces any level the folder had, and demotes campaign shares of the books it restricts to GM-only. Returns the rule. |
 | `/api/settings/folder-access?path=` | DELETE | Admin-only. Lift a folder's restriction. 404 when it has none. Shares demoted by it stay GM-only. |
 
 The settings response no longer carries a `stats_api_key`, and `PATCH` ignores

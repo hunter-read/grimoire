@@ -16,7 +16,7 @@ from . import backup_scheduler, config, library_watch, scheduler, session_creato
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .log_context import LogUserMiddleware
-from .unicode_guard import LoneSurrogateMiddleware
+from .unicode_guard import JsonTextMiddleware
 from .validation_errors import request_validation_handler
 from .security import (
     RateLimitExceeded,
@@ -379,7 +379,7 @@ app.add_exception_handler(RequestValidationError, request_validation_handler)
 # A JSON body with a lone surrogate ("\ud800") is a 422 before any handler
 # reads it, rather than a UnicodeEncodeError wherever the text is used. Added
 # before the security headers so its answer carries them too.
-app.add_middleware(LoneSurrogateMiddleware)
+app.add_middleware(JsonTextMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 # Attributes each request's log lines to the user it authenticates as, for the
 # log viewer's user filter (issue #576).

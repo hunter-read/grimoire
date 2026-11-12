@@ -6,7 +6,8 @@ import pytest
 
 from backend.usernames import USERNAME_MAX_LENGTH, clean_username
 
-BAD = ["", "   ", "a", " a ", "ab\x00", "tab\there", "x" * (USERNAME_MAX_LENGTH + 1)]
+# A NUL is dropped from a JSON body before validation, which leaves one character.
+BAD = ["", "   ", "a", " a ", "a\x00", "tab\there", "x" * (USERNAME_MAX_LENGTH + 1)]
 BAD_IDS = ["empty", "blank", "one", "one-padded", "nul", "tab", "too-long"]
 
 

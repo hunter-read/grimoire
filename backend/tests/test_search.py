@@ -336,3 +336,61 @@ class TestBracketedText:
         assert "&lt;<mark>quasitronic</mark> engine&gt;" in hit["snippet"]
         hit = self._hits(client, admin_headers, "glimmerfen")[bracketed_book.id]
         assert "zorblax&amp;amp;<mark>glimmerfen</mark>" in hit["snippet"]
+
+
+@pytest.fixture(scope="module")
+def joined_book():
+    """Page text whose words are joined by punctuation rather than spaces."""
+    sys = make_game_system()
+    book = make_book(system_id=sys.id, title="Joined Lore", indexed=True)
+    db = SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO book_pages (book_id, page_number, content) "
+                "VALUES (:bid, 1, :content)"
+            ),
+            {
+                "bid": book.id,
+                "content": "Wield a vorpalsword/gleamshield or a krenlance.The ogrekin "
+                "strikes at -7731.Thenceforth see www.zympaizo.com or "
+                "orc@quexample.com for a +8842 bonus, a snake_cased~tildeword, "
+                "C:\\dungeonfile and a half-quillon.",
+            },
+        )
+        db.commit()
+    finally:
+        db.close()
+    return book
+
+
+class TestJoinedWords:
+    """Words joined by a slash, a full stop and the like are found on both databases.
+
+    SQLite's FTS5 tokenizer splits on any punctuation. PostgreSQL's parser read
+    ``vorpalsword/gleamshield`` as a file path, ``krenlance.The`` as a host name
+    and ``-7731`` as a signed number, and indexed each whole and nothing else.
+    """
+
+    def _hits(self, client, admin_headers, query):
+        resp = client.get("/api/search", params={"q": query}, headers=admin_headers)
+        assert resp.status_code == 200
+        return {r["id"]: r for r in resp.json()["results"]}
+
+    @pytest.mark.parametrize(
+        "query",
+        ["vorpalsword", "gleamshield", "krenlance", "ogrekin", "7731", "Thenceforth",
+         "zympaizo", "quexample", "8842", "snake", "cased", "tildeword", "dungeonfile",
+         "quillon", "half-quillon", "vorpalsword/gleamshield", "www.zympaizo.com",
+         "orc@quexample.com", '"krenlance the ogrekin"', "snake_cas*", "zympa*"],
+    )
+    def test_each_word_is_found(self, client, admin_headers, joined_book, query):
+        assert joined_book.id in self._hits(client, admin_headers, query)
+
+    def test_the_snippet_marks_them(self, client, admin_headers, joined_book):
+        hit = self._hits(client, admin_headers, "gleamshield")[joined_book.id]
+        assert "vorpalsword/<mark>gleamshield</mark> or" in hit["snippet"]
+        hit = self._hits(client, admin_headers, "zympaizo")[joined_book.id]
+        assert "www.<mark>zympaizo</mark>.com" in hit["snippet"]
+        # The page's closing full stop is its own, not a cut.
+        assert hit["snippet"].endswith("half-quillon.")

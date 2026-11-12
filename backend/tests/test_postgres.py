@@ -35,6 +35,23 @@ class TestPostgresUrl:
             postgres_url(url)
 
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "postgresql://grimoire:Hunter2@Secret@127.0.0.1/grimoire",
+            "postgres://grimoire:a@b@c@db.internal:5432/grimoire",
+        ],
+    )
+    def test_refuses_an_unencoded_at_sign_without_echoing_it(self, url):
+        with pytest.raises(ValueError, match="%40") as refused:
+            postgres_url(url)
+        assert "Secret" not in str(refused.value) and "127.0.0.1" not in str(refused.value)
+        assert "b@c" not in str(refused.value)
+
+    def test_an_encoded_at_sign_is_kept(self):
+        assert postgres_url("postgresql://u:a%40b@h/db") == "postgresql+psycopg://u:a%40b@h/db"
+
+
 class TestTsquery:
     """to_fts_query's FTS5 grammar read back as tsquery SQL, values bound."""
 
@@ -63,6 +80,13 @@ class TestTsquery:
         sql, params = self._sql('"lucky feat" fire* "say ""hi"""')
         assert "to_tsquery('grimoire', :tsq1)" in sql
         assert params == {"tsq0": "lucky feat", "tsq1": "'fire':*", "tsq2": 'say "hi"'}
+
+    def test_joining_punctuation_is_a_space_as_in_the_index(self):
+        _, params = self._sql('"sword/shield" "www.paizo.com" "a<b&c" snake_cas* "-2"')
+        assert params == {
+            "tsq0": "sword shield", "tsq1": "www paizo com", "tsq2": "a b c",
+            "tsq3": "'snake cas':*", "tsq4": " 2",
+        }
 
     def test_a_prefix_is_only_built_from_safe_characters(self):
         _, params = self._sql('"bad\'*"')
@@ -314,6 +338,65 @@ class TestSearchMarkupMigration:
         engine.dispose()
         assert len(expressions) == 2
         assert all("translate(" in e for _, e in expressions)
+
+
+@pytest.mark.postgres_only
+class TestSearchJoinedWordsMigration:
+    """0070 rebuilds the search columns so words joined by punctuation are indexed."""
+
+    _BEFORE = "3e7a1c5b9d24"  # 0069
+
+    def test_an_existing_index_is_rebuilt(self):
+        url = scratch_database("joined")
+        init_db(url)
+        engine = postgres_engine(url)
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+            conn.commit()
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO book_pages (book_id, page_number, content) "
+                     "VALUES ('j1', 1, 'a vorpalsword/gleamshield at -7731.Thenceforth <b>bold</b>')")
+            )
+            conn.execute(
+                text("INSERT INTO content_search (entry_row, name, body) "
+                     "VALUES ('e1', 'Rite', 'see www.zympaizo.com')")
+            )
+            # The old behaviour: markup was read as words, joined words were not.
+            assert _pages_matching(conn, "bold") == ["j1"]
+            assert _pages_matching(conn, "gleamshield") == []
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+            conn.commit()
+        with engine.connect() as conn:
+            for word in ("vorpalsword", "gleamshield", "7731", "thenceforth", "bold"):
+                assert _pages_matching(conn, word) == ["j1"], word
+            assert conn.execute(
+                text("SELECT entry_row FROM content_search "
+                     "WHERE search @@ to_tsquery('grimoire', 'zympaizo')")
+            ).scalars().all() == ["e1"]
+            indexes = {i["name"] for i in inspect(conn).get_indexes("book_pages")}
+            indexes |= {i["name"] for i in inspect(conn).get_indexes("content_search")}
+            assert {"ix_book_pages_search", "ix_content_search_search"} <= indexes
+            command.check(_alembic_config(conn))
+            # Upgrading again finds nothing to do.
+            command.upgrade(_alembic_config(conn), "head")
+        engine.dispose()
+
+    def test_a_new_database_already_splits_them(self, url):
+        from backend.models.postgres import SPLIT_CHARS
+
+        engine = postgres_engine(url)
+        with engine.connect() as conn:
+            expressions = conn.execute(
+                text("SELECT generation_expression FROM information_schema.columns "
+                     "WHERE column_name = 'search' AND table_schema = current_schema()")
+            ).scalars().all()
+        engine.dispose()
+        assert len(expressions) == 2
+        # The migration's frozen copy of the set is the one the models build with.
+        assert all(f"'{SPLIT_CHARS}'" in e for e in expressions)
+        assert SPLIT_CHARS == "<&/.@\\_~+-:"
 
 
 

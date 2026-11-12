@@ -385,10 +385,18 @@ class TestAccountLimits:
             assert self._attempt(client, name, "wrongpassword", 30 + i).status_code == 429
         assert self._attempt(client, "admin-4", "adminpass123", 40).status_code == 429
 
-    @pytest.mark.parametrize("name", ["admin\x00", "ad\x00min", "admin\n", "admin\x7f", "admin\x85"])
+    @pytest.mark.parametrize("name", ["admin\n", "admin\x7f", "admin\x85"])
     def test_a_username_with_a_control_character_is_refused(self, client, admin_setup, name):
         resp = client.post("/api/auth/login", json={"username": name, "password": "adminpass123"})
         assert resp.status_code == 422
+
+    @pytest.mark.parametrize("name", ["admin\x00", "ad\x00min"])
+    def test_a_nul_in_a_username_is_dropped_before_it_is_read(self, client, admin_setup, name):
+        """No JSON body keeps a NUL, so the name is the account's own on both databases."""
+        resp = client.post("/api/auth/login", json={"username": name, "password": "adminpass123"})
+        assert resp.status_code == 200
+        resp = client.post("/api/auth/login", json={"username": name, "password": "wrongpassword"})
+        assert resp.status_code == 401
 
     @pytest.mark.postgres_only
     def test_a_nul_cannot_get_round_a_limited_account(self, client, admin_setup, rate_limited):
