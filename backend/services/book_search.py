@@ -61,8 +61,14 @@ def _any_of(column_clause_builder: Any, terms: list[str]) -> Any:
     return or_(*[column_clause_builder(t) for t in terms])
 
 
-def apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Optional[Any]:
+def apply_field_filters(
+    db: Session, query: Any, parsed: ParsedQuery, user: Any
+) -> Optional[Any]:
     """AND every recognised book filter onto ``query``.
+
+    ``user`` is who is searching: ``system:`` matches only the systems they can
+    see, so a book that is open inside a hidden system cannot be used to spell
+    out that system's name a letter at a time.
 
     Returns ``None`` when a filter cannot possibly match a book (a ``year:``
     range that is empty, say), so the caller can skip the query entirely rather
@@ -95,11 +101,17 @@ def apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Optiona
             # Match the system by name or slug. A subquery rather than a join so
             # repeated filters stay composable and books with no system simply
             # fail the IN rather than dropping out of a join.
-            sub = db.query(GameSystem.id).filter(
-                _any_of(
-                    lambda t: or_(icontains(GameSystem.name, t), icontains(GameSystem.slug, t)),
-                    values,
-                )
+            sub = access_control.visible_systems(
+                db,
+                db.query(GameSystem.id).filter(
+                    _any_of(
+                        lambda t: or_(
+                            icontains(GameSystem.name, t), icontains(GameSystem.slug, t)
+                        ),
+                        values,
+                    )
+                ),
+                user,
             )
             query = query.filter(Book.game_system_id.in_(sub))
         elif field_name == "tag":
@@ -181,7 +193,7 @@ def search_book_metadata(
         query = query.filter(book_links.on_shelf(system_id))
 
     if parsed.has_filters:
-        filtered = apply_field_filters(db, query, parsed)
+        filtered = apply_field_filters(db, query, parsed, user)
         if filtered is None:
             return []
         query = filtered

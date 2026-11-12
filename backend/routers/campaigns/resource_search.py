@@ -8,13 +8,14 @@ and the "add resource" flow. Split out of ``core.py`` (issue #152).
 from typing import Optional
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import ColumnElement, and_, or_
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Audio, Book, GameSystem, GenericMap, Token
-from ...services import access_control, book_links, variants
+from ...services import access_control, book_links, tag_service, variants
+from ...services.systems import path_without_hidden_system
 
 # Hard ceiling on how many rows one search may return per resource type. The
 # picker browses a whole collection as a folder tree, so this has to be large
@@ -64,14 +65,27 @@ def _book_folder(relative_path: str) -> str:
     return "/".join(parts[2:-1])
 
 
-def _book_subtitle(system_name: str, relative_path: str, category: str) -> str:
+def _hidden_system_path(relative_path: str, depth: int) -> str:
+    """What is left of a book's path once its hidden system's folders are cut:
+    the category chain and the filename, with no leading collection dir.
+
+    This is the only part of the path the picker may show for such a book, or
+    match a search against - the system's folder, and any container above it,
+    name what the reader cannot see.
+    """
+    shown = path_without_hidden_system(relative_path, depth)
+    parts = (shown or "").replace("\\", "/").split("/")
+    return "/".join(parts[1:]) if len(parts) >= 3 else parts[-1]
+
+
+def _book_subtitle(system_name: str, folder: str, category: str) -> str:
     """Folder-tree path for a book: ``<System>/<category>/<subcategory>/…``.
 
     The game system is the top level so the picker groups books by system, then
     by their nested category folders. Falls back to the flat category when the
     book has no nested folders, and drops the system segment when unknown.
     """
-    folder = _book_folder(relative_path) or (category or "")
+    folder = folder or (category or "")
     system = (system_name or "").strip()
     if system and folder:
         return f"{system}/{folder}"
@@ -128,17 +142,51 @@ def search_resources_global(
         if system_id:
             # Books linked onto those shelves too (issue #446).
             query = query.filter(book_links.on_any_shelf(_system_id_filter(db, system_id)))
+        # A book can be open inside a system its reader cannot see. Its path
+        # still runs through that system's folder, so for those books the path
+        # is cut down to the part below it before it is shown or searched.
+        hidden_ids = [
+            sid for (sid,) in db.query(GameSystem.id).all() if sid not in system_names
+        ]
+        depths = tag_service.system_category_depths(db) if hidden_ids else {}
+
+        def _hidden_path(system_id: Optional[str], relative_path: str) -> Optional[str]:
+            if system_id is None or system_id in system_names:
+                return None
+            return _hidden_system_path(relative_path, depths.get(system_id, 2))
+
         if like is not None:
             # A book's tree path is built from its system name, relative path and
             # category, so match any of those to keep folder search working.
             system_hits = [
                 sid for sid, name in system_names.items() if q_lower in (name or "").lower()
             ]
-            conditions = [
+            path_match = Book.relative_path.ilike(like, escape="\\")
+            conditions: list[ColumnElement[bool]] = [
                 Book.title.ilike(like, escape="\\"),
-                Book.relative_path.ilike(like, escape="\\"),
                 Book.category.ilike(like, escape="\\"),
             ]
+            if hidden_ids:
+                in_hidden = Book.game_system_id.in_(hidden_ids)
+                conditions.append(and_(path_match, or_(Book.game_system_id.is_(None), ~in_hidden)))
+                # The cut cannot be expressed in SQL, so narrow to the paths that
+                # match at all and keep those that still match once cut.
+                candidates = access_control.visible_books(
+                    db,
+                    db.query(Book.id, Book.game_system_id, Book.relative_path).filter(
+                        in_hidden, path_match
+                    ),
+                    access_user,
+                ).all()
+                path_hits = [
+                    bid
+                    for bid, sid, path in candidates
+                    if q_lower in (_hidden_path(sid, path) or "").lower()
+                ]
+                if path_hits:
+                    conditions.append(Book.id.in_(path_hits))
+            else:
+                conditions.append(path_match)
             if system_hits:
                 conditions.append(Book.game_system_id.in_(system_hits))
             query = query.filter(or_(*conditions))
@@ -146,8 +194,13 @@ def search_resources_global(
         for b in query.order_by(Book.title).limit(per_type).all():
             # Tree path: <System>/<category>/<subcategory>/... so the picker
             # groups books by system first, then by their nested folders.
+            hidden_path = _hidden_path(b.game_system_id, b.relative_path)
+            if hidden_path is None:
+                book_folder = _book_folder(b.relative_path)
+            else:
+                book_folder = "/".join(hidden_path.split("/")[:-1])
             folder = _book_subtitle(
-                system_names.get(b.game_system_id, ""), b.relative_path, b.category
+                system_names.get(b.game_system_id, ""), book_folder, b.category
             )
             row = {
                 "resource_type": "book",
