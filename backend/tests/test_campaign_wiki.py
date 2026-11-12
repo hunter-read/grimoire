@@ -709,6 +709,25 @@ class TestWikiGmSecrets:
         after = self._get(client, cid, page["id"], player_headers)["body"]
         assert "gm hidden" not in after and "mine" in after
 
+    def test_a_players_backslash_pipes_do_not_open_the_gms_secrets(
+        self, client, gm_headers, player_headers, campaign_with_member
+    ):
+        # The player's `\||` stays literal text; it must not pair with the
+        # opening marker of a secret the GM adds below it.
+        cid = campaign_with_member
+        log = "\\|| Session 1: we met in a tavern.\n"
+        page = _create(
+            client, player_headers, cid, title="Log", visibility="group", body=log
+        ).json()
+        annotated = log + "||GM: the barkeep is a doppelganger.|| ||GM: the amulet is cursed.||"
+        assert self._patch(client, cid, page["id"], annotated, gm_headers).status_code == 200
+        seen = self._get(client, cid, page["id"], player_headers)["body"]
+        assert seen == log + " "
+        search = client.get(f"/api/campaigns/{cid}/wiki/search?q=amulet", headers=player_headers)
+        assert search.json()["results"] == []
+        export = client.get(f"/api/campaigns/{cid}/wiki/export?format=json", headers=player_headers)
+        assert "amulet" not in str(export.json()["pages"])
+
     def test_player_pipes_escape_is_idempotent_across_saves(
         self, client, player_headers, campaign_with_member
     ):
