@@ -39,6 +39,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Grimoire stops promptly on Linux and in Docker. Each page-rendering worker took five seconds to stop - when idle ones were retired, and at shutdown or restart - and was then killed rather than exiting on its own
 - Renaming a wiki page no longer changes how the pages that link to it read. A title with `|`, `[` or `]` in it was written into their `[[links]]` as it stood and could break the text after the link. Page titles can't hold those characters or a line break now; an imported title, or one a link or map pin creates, has them replaced with a space
 - Replacing a file through the upload API (`on_conflict=replace`) now works for maps, tokens, audio and 3D models as well as books. The file is swapped in place and keeps its record - tags, description, variant links, favourites and campaign links stay - while its size, thumbnail, a model's triangle count and a track's duration are read again from the new file. Before, replacing a map that turned out to be the wrong rendering meant deleting it and uploading it again, which lost all of that
 - Searching for text with `%` or `_` in it - a title, a tag, a wiki page - finds that text, instead of treating the character as a wildcard that matched almost anything
