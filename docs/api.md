@@ -168,7 +168,9 @@ or widen keys - plus routes marked `x-api-key-access: none` because they change 
 credential or the account itself: `/api/users/me/password`, `DELETE /api/users/me`,
 `/api/users/me/opds*`, `/api/campaigns/calendar/subscription`, the guest invite
 code routes (`POST`/`GET /api/campaigns/{id}/guests`,
-`/api/campaigns/{id}/guests/{member_id}/regenerate` and `/share-template`), the
+`/api/campaigns/{id}/guests/{member_id}/regenerate` and `/share-template`, and
+`POST`/`GET /api/leagues/{id}/guests`, `/api/leagues/{id}/guests/{user_id}/regenerate`
+and `/share`), the
 OIDC login-button icon (`/api/settings/oidc-button-icon`), the add-on source
 settings (`PATCH /api/addons/settings`) and private source tokens
 (`/api/addons/sources/credential`). OPDS and the calendar feeds keep their
@@ -193,7 +195,7 @@ whatever its permissions; an admin reads them from a signed-in session.
 - `POST /api/addons/{id}/install` with `approve_script: true`, and
   `PATCH /api/addons/{id}` with `script_approved: true`.
 
-Campaign responses never carry a guest's `guest_code` to a key.
+Campaign and league responses never carry a guest's `guest_code` to a key.
 
 **Share links with a key.** Creating a share link or changing one in any way
 also needs the key to hold Read on the item's own area - `books`,

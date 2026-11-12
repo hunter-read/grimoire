@@ -187,6 +187,10 @@ class TestPermissionTable:
             ("/api/campaigns/{campaign_id}/guests", "POST"),
             ("/api/campaigns/{campaign_id}/guests/{member_id}/regenerate", "POST"),
             ("/api/campaigns/{campaign_id}/guests/{member_id}/share-template", "GET"),
+            ("/api/leagues/{league_id}/guests", "GET"),
+            ("/api/leagues/{league_id}/guests", "POST"),
+            ("/api/leagues/{league_id}/guests/{user_id}/regenerate", "POST"),
+            ("/api/leagues/{league_id}/guests/{user_id}/share", "GET"),
             ("/api/settings/oidc-button-icon", "POST"),
             ("/api/settings/oidc-button-icon", "DELETE"),
             ("/api/addons/settings", "PATCH"),
@@ -201,8 +205,14 @@ class TestPermissionTable:
         from typing import get_args
 
         from backend.routers.campaigns import _response_schemas as schemas
+        from backend.routers.leagues import _schemas as league_schemas
 
-        code_models = (schemas.GuestOut, schemas.GuestShareTemplateOut)
+        code_models = (
+            schemas.GuestOut,
+            schemas.GuestShareTemplateOut,
+            league_schemas.LeagueGuest,
+            league_schemas.GuestShareTemplate,
+        )
         found = []
         for route in _api_routes():
             model = getattr(route, "response_model", None)
@@ -210,8 +220,9 @@ class TestPermissionTable:
                 found.append((route.path, sorted(route.methods)))
                 assert route.openapi_extra == api_keys.EXCLUDED, route.path
                 assert api_keys.route_permission(route) is None, route.path
-        # The four invite code routes today; fewer means the walk missed them.
-        assert len(found) >= 4, found
+        # Four campaign and four league invite code routes today; fewer means the
+        # walk missed them.
+        assert len(found) >= 8, found
 
     @pytest.mark.parametrize(
         "path,method",
