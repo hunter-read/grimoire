@@ -60,6 +60,7 @@ from .constants import (
 )
 from .metadata import is_exported_cover_name, is_folder_cover_name, parse_opf_metadata
 from .thumbnails import archive_ext
+from .shared_shelf import carry_old_system_access
 from .systems import _SystemFolder, _register_system, _resolve_system_folder
 from ..models import Book, GameSystem
 from ..models.game_types import ARMORY_SECTION, GAME_TYPE_TTRPG, GAME_TYPE_WARGAME
@@ -401,6 +402,16 @@ def _scan_shared_library(
     was requested.
     """
     for shared_dir in shared_dirs:
+        try:
+            carry_old_system_access(ctx, container, shared_dir, f"{container_folder.slug}--")
+            _db_call(ctx.session.commit, f"commit shared shelf of '{container.name}'", ctx.session)
+        except SQLAlchemyError as e:
+            # The books would otherwise move onto the container without the
+            # level they had, so this shelf waits for the next scan.
+            logger.error(f"DB error preparing shared shelf of '{container.name}': {e}")
+            ctx.session.rollback()
+            ctx.stats["errors"] += 1
+            continue
         category_off = (
             category_inference_off
             or (container_folder.path / NO_AUTO_CATEGORY_MARKER).exists()
