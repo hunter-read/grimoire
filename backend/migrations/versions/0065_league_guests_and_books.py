@@ -62,7 +62,7 @@ def upgrade() -> None:
         op.add_column("users", sa.Column("guest_code_sealed", sa.Text(), nullable=True))
     if _CODE_INDEX not in _indexes("users"):
         op.create_index(_CODE_INDEX, "users", ["guest_code_hash"], unique=True)
-    op.execute("UPDATE users SET guest_scope = 'ttrpg' WHERE is_guest = 1 AND guest_scope IS NULL")
+    op.execute("UPDATE users SET guest_scope = 'ttrpg' WHERE is_guest IS TRUE AND guest_scope IS NULL")
 
     if "is_guest" not in _columns("league_members"):
         op.add_column(

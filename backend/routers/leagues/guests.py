@@ -10,7 +10,9 @@ A league guest belongs to the wargame side of the app for good
 characters. Their code is on the account rather than the membership, so it
 outlives the league. Removing a guest, or deleting the league, leaves the
 account with its armies - they keep signing in to reach and export them - and
-an admin removes the account itself from Settings → People.
+an admin removes the account itself from Settings → People. Deleting the
+organiser's account is the exception: the code they were shown is replaced
+(``services/campaigns/user_data.py``).
 
 The code signs in to every league the guest is in. Only an admin can put a
 guest in a second league (by merging guests), and when its organiser is someone
