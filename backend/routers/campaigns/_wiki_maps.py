@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser
 from ...models import CampaignFile, CampaignResource, CampaignResourceShare, GenericMap, WikiPage
 from ...models.wiki_maps import WikiMapPin
-from ...text.wikilinks import slugify
+from ...text.wikilinks import clean_title, slugify
 from ._helpers import can_see_resource
 from ._wiki_helpers import _ensure_unique_slug, can_edit_page, can_view_page
 from .uploads import can_read_campaign_file
@@ -267,7 +267,7 @@ def resolve_pin_target(
         if target.id == page.id:
             raise HTTPException(400, "A pin cannot link to its own map page")
         return target.id
-    title = (target_title or "").strip()
+    title = clean_title(target_title)
     if not title:
         return None
     existing = (

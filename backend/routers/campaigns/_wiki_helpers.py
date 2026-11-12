@@ -11,16 +11,26 @@ from typing import Optional
 from fastapi import HTTPException
 from ...auth import CurrentUser
 from ...models import WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
-from ._helpers import can_view
+from ._helpers import can_view, strip_gm_secrets
 from ...text.wikilinks import (
     LinkTarget,
     build_target,
+    clean_title,
     is_embed,
     parse_page_links,
     parse_target,
     slugify,
     sub_links,
+    title_is_linkable,
 )
+
+
+def check_page_title(title: Optional[str]) -> str:
+    """A submitted page title, stripped, or a 400 if a `[[link]]` can't hold it."""
+    title = (title or "").strip() or "Untitled"
+    if not title_is_linkable(title):
+        raise HTTPException(400, "A page title can't contain |, [, ] or a line break")
+    return title
 
 
 def parse_page_link_titles(body: str) -> list:
@@ -238,9 +248,12 @@ def rebuild_links(db, campaign, page: WikiPage, current_user: CurrentUser) -> No
         if target is None:
             if link.page_id:
                 continue  # stale pin — leave it broken rather than re-creating
+            # A link's title can still hold a `[` or a line break; the stub's
+            # title can't, or renaming it would write them into other pages. It
+            # resolves all the same, by slug.
             target = WikiPage(
                 campaign_id=campaign.id,
-                title=link.title,
+                title=clean_title(link.title) or "Untitled",
                 slug=_ensure_unique_slug(db, campaign.id, slugify(link.title)),
                 body="",
                 visibility=page.visibility,
@@ -295,9 +308,18 @@ def rewrite_inbound_titles(db, campaign_id: str, page: WikiPage, old_title: str)
             return f"[[{new_target}|{label}]]" if label else f"[[{new_target}]]"
 
         # A fence's `[[...]]` was never a link to this page; leave the code be.
-        updated = sub_links(repl, src.body or "")
-        if updated != src.body:
-            src.body = updated
+        body = src.body or ""
+        updated = sub_links(repl, body)
+        if updated == body:
+            continue
+        # The new title must change the links and nothing else a player reads:
+        # what they see afterwards has to be what they saw before with the
+        # same rewrite applied. A body where the rewrite would re-pair the GM's
+        # ||secret|| markers keeps its old link text instead, as a stale title
+        # is the lesser harm (merge_gm_secrets holds edits to the same rule).
+        if strip_gm_secrets(updated) != sub_links(repl, strip_gm_secrets(body)):
+            continue
+        src.body = updated
 
 
 def _resolve_parent(

@@ -76,7 +76,7 @@ from .wiki import (
     rebuild_links,
     slugify,
 )
-from ...text.wikilinks import build_target, parse_target, sub_links
+from ...text.wikilinks import build_target, clean_title, parse_target, sub_links
 
 BUNDLE_VERSION = 1
 _MAX_IMPORT_BYTES = 25 * 1024 * 1024  # 25 MB — bounds a single in-memory read.
@@ -366,7 +366,9 @@ def _record(title, body, *, visibility="gm", icon=None, icon_color=None, page_ty
     is_map = page_type == MAP_PAGE_TYPE
     title = (title or "").strip() or "Untitled"
     return {
-        "title": title,
+        # Links in the other records name it by its source key, which keeps the
+        # title as written; `_remap_links` points them at the cleaned one.
+        "title": clean_title(title) or "Untitled",
         "body": body or "",
         "visibility": visibility,
         "icon": (icon or None),
