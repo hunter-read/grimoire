@@ -239,7 +239,7 @@ class ShelfBrowser:
                 # text matches on a book, so the shelf finds the same books.
                 q = q.filter(free_text_clause(parsed.free_text))
             if parsed.metadata_fields:
-                filtered = apply_field_filters(self.db, q, parsed)
+                filtered = apply_field_filters(self.db, q, parsed, self.access_user)
                 q = filtered if filtered is not None else q.filter(literal_column("0") == 1)
         if params.category is not None:
             q = q.filter(Book.category == params.category)

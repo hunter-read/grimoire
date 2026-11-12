@@ -863,6 +863,103 @@ class TestListsShowOnlyVisible:
             f"/api/campaigns/resources/suggested/{system.id}", headers=player_headers
         ).json() == []
 
+    def _open_book_in_hidden_child(self):
+        """An open book inside an admin-only system that sits in a container."""
+        tag = uuid.uuid4().hex[:8].upper()
+        container = make_game_system(name=f"Family {tag}", container_kind="family")
+        system = make_game_system(
+            name=f"Cont ZQH{tag}", slug=f"cont-zqh{tag.lower()}", parent_id=container.id
+        )
+        book = make_book(
+            system.id,
+            title=f"Open In Child {tag}",
+            access_level="",
+            relative_path=f"books/Family {tag}/ZQH{tag}/Core/Deep {tag}/open-{tag}.pdf",
+        )
+        _set_system_level(system.id, "admin")
+        return f"ZQH{tag}", tag, book
+
+    def _picker(self, client, headers, q):
+        return client.get(
+            "/api/campaigns/resources/search",
+            params={"resource_type": "book", "q": q},
+            headers=headers,
+        ).json()
+
+    def test_resource_picker_drops_a_hidden_system_folder_from_the_path(
+        self, client, player_headers, admin_headers
+    ):
+        hidden, tag, book = self._open_book_in_hidden_child()
+        rows = self._picker(client, player_headers, book.title)
+        row = next(r for r in rows if r["resource_id"] == book.id)
+        # The category chain below the system is all that is left of the path.
+        assert row["subtitle"] == f"Core/Deep {tag}"
+        assert hidden.lower() not in str(rows).lower()
+        # Someone who can see the system still gets the whole tree path.
+        admin_row = next(
+            r for r in self._picker(client, admin_headers, book.title)
+            if r["resource_id"] == book.id
+        )
+        assert admin_row["subtitle"].startswith(f"Cont {hidden}/")
+
+    def test_resource_picker_search_does_not_match_a_hidden_system_folder(
+        self, client, player_headers, admin_headers
+    ):
+        hidden, tag, book = self._open_book_in_hidden_child()
+        # Neither the system's folder nor its container's confirms a guess.
+        assert self._picker(client, player_headers, hidden) == []
+        assert self._picker(client, player_headers, hidden[:5]) == []
+        assert self._picker(client, player_headers, f"Family {tag}") == []
+        # The folders below the system, and the filename, are still searchable.
+        for q in (f"Deep {tag}", f"open-{tag}"):
+            assert [r["resource_id"] for r in self._picker(client, player_headers, q)] == [
+                book.id
+            ]
+        assert book.id in [r["resource_id"] for r in self._picker(client, admin_headers, hidden)]
+
+    def test_resource_picker_still_matches_paths_in_visible_systems(self, client, player_headers):
+        hidden, tag, _book = self._open_book_in_hidden_child()
+        system = make_game_system()
+        shown = make_book(system.id, relative_path=f"books/Shown/Core/Vault {tag}/b.pdf")
+        loose = make_book(None, relative_path=f"books/Vault {tag}/loose.pdf")
+        ids = {r["resource_id"] for r in self._picker(client, player_headers, f"Vault {tag}")}
+        assert ids == {shown.id, loose.id}
+
+    def test_system_filter_does_not_match_a_hidden_system(
+        self, client, player_headers, admin_headers
+    ):
+        hidden, _tag, book = self._open_book_in_hidden_child()
+
+        def matches(headers, q):
+            resp = client.get("/api/search", params={"q": q}, headers=headers).json()
+            return [b["id"] for b in resp["book_matches"]]
+
+        for term in (hidden, hidden[:5], f"cont-{hidden.lower()}"):
+            assert matches(player_headers, f"system:{term}") == []
+        assert matches(admin_headers, f"system:{hidden}") == [book.id]
+        # The book is still found by what a player may know about it.
+        assert matches(player_headers, f"title:{book.title}") == [book.id]
+
+    def test_shelf_system_filter_does_not_match_a_hidden_system(
+        self, client, admin_headers, player_headers
+    ):
+        from .test_book_links import _link
+
+        hidden, _tag, book = self._open_book_in_hidden_child()
+        shelf = make_game_system()
+        _link(client, admin_headers, book, shelf)
+
+        def ids(headers):
+            resp = client.get(
+                f"/api/systems/{shelf.id}/books",
+                params={"q": f"system:{hidden}"},
+                headers=headers,
+            )
+            return [b["id"] for b in resp.json()["books"]]
+
+        assert ids(player_headers) == []
+        assert ids(admin_headers) == [book.id]
+
     def test_book_detail_and_search_never_name_a_hidden_system(
         self, client, player_headers, admin_headers
     ):
