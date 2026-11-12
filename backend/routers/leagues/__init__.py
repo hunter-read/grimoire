@@ -1,6 +1,7 @@
 """Leagues package - a group playing a wargame over time. A league's guests use it; a campaign's do not."""
 from fastapi import APIRouter, Depends
 
+from ... import api_keys
 from ...auth import require_wargame_access
 from ._schemas import (
     BookSearchResult,
@@ -143,6 +144,8 @@ router.add_api_route(
     methods=["GET"],
     summary="List the league's guests",
     response_model=list[LeagueGuest],
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{league_id}/guests",
@@ -156,6 +159,8 @@ router.add_api_route(
     ),
     status_code=201,
     response_model=LeagueGuest,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{league_id}/guests/{user_id}/regenerate",
@@ -164,6 +169,8 @@ router.add_api_route(
     summary="Give a guest a new code",
     description="The old code stops working and the guest's sessions end.",
     response_model=LeagueGuest,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{league_id}/guests/{user_id}/share",
@@ -171,6 +178,8 @@ router.add_api_route(
     methods=["GET"],
     summary="Invite text for a guest's code",
     response_model=GuestShareTemplate,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{league_id}/guests/{user_id}",

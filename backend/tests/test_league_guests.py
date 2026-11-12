@@ -16,6 +16,7 @@ from backend.tests.conftest import make_book, make_game_system
 
 from backend import config
 
+from .test_api_keys import _create as _create_key
 from .test_armies import _import, _roster
 
 
@@ -448,6 +449,35 @@ def test_regenerating_retires_the_old_code(client, gm_headers, league):
         f"/api/leagues/{league['id']}/guests/{created['user_id']}/share", headers=gm_headers
     ).json()
     assert share["code"] == fresh["guest_code"] and league["name"] in share["message"]
+
+
+def test_an_api_key_never_reaches_guest_codes(client, gm_headers, admin_headers, gm_id, league):
+    """Invite codes are logins, so only the organiser's signed-in session handles
+    them - a key with full armies access gets none, and changes none."""
+    created = _invite(client, gm_headers, league["id"])
+    base = f"/api/leagues/{league['id']}/guests"
+    grant = client.patch(f"/api/users/{gm_id}", json={"api_keys_enabled": True}, headers=admin_headers)
+    assert grant.status_code == 200, grant.text
+    try:
+        key, _ = _create_key(client, gm_headers, {"armies": "write"})
+        headers = {"X-API-Key": key}
+        # The league itself is a key's to read...
+        assert client.get(f"/api/leagues/{league['id']}", headers=headers).status_code == 200
+        # ...but not its guests' codes.
+        for method, path in [
+            ("get", base),
+            ("post", base),
+            ("post", f"{base}/{created['user_id']}/regenerate"),
+            ("get", f"{base}/{created['user_id']}/share"),
+        ]:
+            r = getattr(client, method)(path, headers=headers)
+            assert r.status_code == 403, (method, path, r.text)
+    finally:
+        client.patch(f"/api/users/{gm_id}", json={"api_keys_enabled": False}, headers=admin_headers)
+    # Nothing was minted or rotated: the one guest still signs in with its code.
+    guests = client.get(base, headers=gm_headers).json()
+    assert [g["user_id"] for g in guests] == [created["user_id"]]
+    assert _login(client, created["guest_code"]).status_code == 200
 
 
 def test_guest_routes_take_only_this_leagues_guests(client, gm_headers, league, player_id):
