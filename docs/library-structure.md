@@ -286,7 +286,7 @@ books/
 
 On the container's page, the systems come first in the system view and the shared books follow underneath in the book view, with the usual sorting, filters, grouping, and bulk edit. With **Group collections** switched off, a container that holds shared books keeps its own card in the grid beside its systems, so those books are never out of reach. A container without any keeps dropping out as before.
 
-> If you made a `shared-library` folder inside a container before this was reserved, it scanned as a system of its own. The next rescan moves its books onto the container, and the old system, left empty, is pruned like any system whose folder is gone.
+> If you made a `shared-library` folder inside a container before this was reserved, it scanned as a system of its own. The next rescan moves its books onto the container, and the old system, left empty, is pruned like any system whose folder is gone. If that system was restricted to GMs or admins, the restriction stays on the folder as a [folder restriction](users-and-permissions.md#where-restrictions-can-be-set), and users granted access to it are granted the container instead.
 
 #### A book in more than one system
 

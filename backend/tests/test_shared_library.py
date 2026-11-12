@@ -10,6 +10,9 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
+from unittest.mock import patch
+
+from sqlalchemy.exc import OperationalError
 
 from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import scan_library
@@ -19,7 +22,9 @@ from backend.indexer.categories import (
     is_shared_library_folder,
     slugify,
 )
-from backend.models import Book, GameSystem
+from backend.models import Book, FolderAccessRule, GameSystem, User, UserAccessGrant
+from backend.models.access import SCOPE_SYSTEM
+from backend.services import access_control as ac
 from backend.services import library_fs as fs
 from backend.services import tag_service
 
@@ -178,6 +183,194 @@ class TestScan:
             _scan(lib, tmp)
             assert _books_in(lib)["realms.pdf"].game_system_id == container.id
             assert _row(f"{slug}--shared-library") is None
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def _old_shared_system(self, lib: Path, tmp: str, name: str, **fields) -> tuple[str, str]:
+        """Scan, then put the shelf's books on a child system as an old release did.
+
+        Returns the ids of the container and of the old child system.
+        """
+        slug = _slug(name)
+        _scan(lib, tmp)
+        container = _row(slug)
+        db = SessionLocal()
+        try:
+            old = GameSystem(
+                name=f"{name} shared-library",
+                slug=f"{slug}--shared-library",
+                parent_id=container.id,
+                **fields,
+            )
+            db.add(old)
+            db.commit()
+            db.query(Book).filter(
+                Book.game_system_id == container.id, Book.filepath.startswith(str(lib))
+            ).update({"game_system_id": old.id}, synchronize_session=False)
+            db.commit()
+            return container.id, old.id
+        finally:
+            db.close()
+
+    def _user(self, role: str) -> User:
+        db = SessionLocal()
+        try:
+            user = User(username=f"{role}-{_stamp()}", hashed_password="x", role=role)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            db.expunge(user)
+            return user
+        finally:
+            db.close()
+
+    def _rules(self, name: str) -> dict[str, str]:
+        db = SessionLocal()
+        try:
+            rows = db.query(FolderAccessRule).filter(
+                FolderAccessRule.path.startswith(f"books/{name}/")
+            )
+            return {r.path: r.level for r in rows}
+        finally:
+            db.close()
+
+    def test_a_folded_system_keeps_its_access_level(self, client, player_headers):
+        name = f"Shared Locked {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            self._old_shared_system(lib, tmp, name, access_level="admin")
+            book_id = _books_in(lib)["realms.pdf"].id
+            assert client.get(f"/api/books/{book_id}", headers=player_headers).status_code == 404
+
+            _scan(lib, tmp)
+            assert _row(f"{_slug(name)}--shared-library") is None
+            assert self._rules(name) == {f"books/{name}/shared-library": "admin"}
+            assert client.get(f"/api/books/{book_id}", headers=player_headers).status_code == 404
+            db = SessionLocal()
+            try:
+                player, gm = self._user("player"), self._user("gm")
+                assert book_id not in ac.visible_book_ids(db, player)
+                assert book_id not in ac.visible_book_ids(db, gm)
+                # The editions beside the shelf are untouched.
+                assert _books_in(lib)["phb.pdf"].id in ac.visible_book_ids(db, player)
+            finally:
+                db.close()
+
+            # A later scan, with the old row gone, changes nothing.
+            _scan(lib, tmp)
+            assert self._rules(name) == {f"books/{name}/shared-library": "admin"}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_a_stricter_rule_already_on_the_shelf_is_kept(self):
+        name = f"Shared Ruled {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            self._old_shared_system(lib, tmp, name, access_level="gm")
+            db = SessionLocal()
+            try:
+                db.add(FolderAccessRule(path=f"books/{name}/shared-library", level="admin"))
+                db.commit()
+            finally:
+                db.close()
+            _scan(lib, tmp)
+            assert self._rules(name) == {f"books/{name}/shared-library": "admin"}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_an_open_folded_system_adds_no_restriction(self):
+        name = f"Shared Open {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            self._old_shared_system(lib, tmp, name)
+            _scan(lib, tmp)
+            assert self._rules(name) == {}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_a_folded_systems_grants_move_to_the_container(self):
+        name = f"Shared Granted {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            container_id, old_id = self._old_shared_system(lib, tmp, name, access_level="admin")
+            granted, both, other = self._user("gm"), self._user("gm"), self._user("gm")
+            db = SessionLocal()
+            try:
+                db.add_all(
+                    [
+                        UserAccessGrant(
+                            user_id=granted.id, scope_type=SCOPE_SYSTEM, scope_id=old_id, level="admin"
+                        ),
+                        UserAccessGrant(
+                            user_id=both.id, scope_type=SCOPE_SYSTEM, scope_id=old_id, level="admin"
+                        ),
+                        UserAccessGrant(
+                            user_id=both.id, scope_type=SCOPE_SYSTEM, scope_id=container_id, level="gm"
+                        ),
+                    ]
+                )
+                db.commit()
+            finally:
+                db.close()
+
+            _scan(lib, tmp)
+            book_id = _books_in(lib)["realms.pdf"].id
+            db = SessionLocal()
+            try:
+                assert db.query(UserAccessGrant).filter_by(scope_id=old_id).count() == 0
+                grants = {
+                    g.user_id: g.level
+                    for g in db.query(UserAccessGrant).filter_by(
+                        scope_type=SCOPE_SYSTEM, scope_id=container_id
+                    )
+                }
+                assert grants == {granted.id: "admin", both.id: "admin"}
+                assert book_id in ac.visible_book_ids(db, granted)
+                assert book_id in ac.visible_book_ids(db, both)
+                assert book_id not in ac.visible_book_ids(db, other)
+            finally:
+                db.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_a_kept_old_system_does_not_restore_a_removed_rule(self):
+        """A row kept for its description has no books left to carry a level for."""
+        name = f"Shared Kept {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            self._old_shared_system(
+                lib, tmp, name, access_level="gm", description="House rules shelf"
+            )
+            _scan(lib, tmp)
+            assert _row(f"{_slug(name)}--shared-library") is not None
+            db = SessionLocal()
+            try:
+                db.query(FolderAccessRule).filter_by(path=f"books/{name}/shared-library").delete()
+                db.commit()
+            finally:
+                db.close()
+            _scan(lib, tmp)
+            assert self._rules(name) == {}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_a_shelf_whose_access_cannot_be_saved_is_left_for_the_next_scan(self):
+        name = f"Shared Busy {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        try:
+            _, old_id = self._old_shared_system(lib, tmp, name, access_level="admin")
+            with patch(
+                "backend.indexer.books.carry_old_system_access",
+                side_effect=OperationalError("x", {}, Exception("locked")),
+            ):
+                _scan(lib, tmp, scope_path=f"books/{name}/shared-library")
+            assert _books_in(lib)["realms.pdf"].game_system_id == old_id
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
