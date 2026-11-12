@@ -242,12 +242,9 @@ def army_publications(
     army = get_army(db, army_id, current_user)
     cited = links.publications_in(army.data or {})
     resolved = links.resolve(db, current_user, army.system_name or "", cited)
+    suggestions = links.suggest(db, current_user, army.game_system_id, cited)
     return [
-        {
-            "publication": pub,
-            "link": resolved.get(pub),
-            "suggestions": links.suggest(db, current_user, army.game_system_id, pub),
-        }
+        {"publication": pub, "link": resolved.get(pub), "suggestions": suggestions[pub]}
         for pub in cited
     ]
 
