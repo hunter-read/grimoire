@@ -328,6 +328,7 @@ jobs:
       # tracing hook, which makes measuring coverage far cheaper than the
       # default tracer (line coverage is all the gate reads); `--cov-report=`
       # writes no report here, only the .coverage data the backend job combines.
+      # --durations lists the slowest tests, for when a part starts to lag.
       - name: Run tests
         env:
           TEST_DATABASE_URL: ${{ matrix.database.image && 'postgresql://grimoire:grimoire@localhost:5432/grimoire' || '' }}
@@ -337,7 +338,7 @@ jobs:
           COVERAGE_ARGS: ${{ matrix.database.coverage && '--cov=backend --cov-report=' || '' }}
         run: >-
           pytest backend/tests/ -n 4 --dist loadgroup
-          --shard ${{ matrix.shard }}/2 $COVERAGE_ARGS
+          --shard ${{ matrix.shard }}/2 --durations=25 $COVERAGE_ARGS
 
       # `coverage combine` reads every .coverage.* file in a directory.
       - name: Name the coverage data after this part
