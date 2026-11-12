@@ -24,6 +24,7 @@ from ...config import (
     release_connection,
 )
 from ...models import GenericMap, MapFolder
+from ...security import SAME_ORIGIN_FRAME_HEADERS
 from ...models.base import utc_iso
 from ...render.ops import MIN_RENDER_WIDTH
 from ...services import bulk_service, tag_service, variants
@@ -221,14 +222,24 @@ def serve_map_file(
     # attachment hint the browser named it from the URL and the JSON type,
     # saving "tavern.uvtt" as "file.json".
     inline = media.startswith("video/")
+    # A PDF map is framed: the viewer's PDF mode puts this route in a
+    # same-origin <iframe>, which a download hint or the app-wide
+    # frame-ancestors 'none' would refuse. It gets what the book file route sends
+    # the reader for the same thing.
+    framed = media == "application/pdf"
+    headers = dict(_MEDIA_FILE_CACHE_HEADERS)
+    if framed:
+        headers["Content-Disposition"] = content_disposition(m.filename, "inline")
+        headers.update(SAME_ORIGIN_FRAME_HEADERS)
     # A large file can take minutes to send; don't hold a pooled connection
     # through it.
     release_connection(db)
     return serve_user_file(
         m.filepath,
         media,
-        filename=None if inline else m.filename,
-        headers=_MEDIA_FILE_CACHE_HEADERS,
+        filename=None if inline or framed else m.filename,
+        headers=headers,
+        same_origin_frame=framed,
     )
 
 

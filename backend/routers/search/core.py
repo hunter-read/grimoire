@@ -1,8 +1,9 @@
 """Full-text search endpoint handlers."""
 from typing import Any, Optional, Sequence
 
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -11,7 +12,7 @@ from ...models import Book
 from ...services import access_control
 from ...services.content_cache import content_token
 from ...services.book_search import search_book_metadata
-from ...services.search_query import FIELD_ALIASES, parse_query
+from ...services.search_query import FIELD_ALIASES, MAX_QUERY_LENGTH, parse_query
 from ...services.systems import visible_book_system
 from ...services.media.access import allow_explicit
 from ._helpers import (
@@ -29,7 +30,7 @@ from ._helpers import (
 
 
 def search_library(
-    q: str = Query(..., min_length=2),
+    q: str = Query(..., min_length=2, max_length=MAX_QUERY_LENGTH),
     limit: int = Query(50, ge=1, le=200),
     book_id: Optional[str] = None,
     system_id: Optional[str] = None,
@@ -84,7 +85,14 @@ def search_library(
         else:
             scope_sql = f"AND {VISIBLE_BOOKS_SQL}"
         sql = page_search_sql(db, content_q, f"{scope_sql} {access_sql}", params)
-        rows = db.execute(text(sql), params).fetchall() if sql else []
+        try:
+            rows = db.execute(text(sql), params).fetchall() if sql else []
+        except OperationalError:
+            # The length and term caps keep a query well inside both engines'
+            # limits (FTS5's expression depth, PostgreSQL's stack), so this is a
+            # backstop: a query the database still can't run is the user's to
+            # change, not a server fault.
+            raise HTTPException(400, "Search query is too complex")
 
     enriched = []
     book_cache = {}

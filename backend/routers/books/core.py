@@ -1,6 +1,6 @@
 """Core book CRUD and file-serving endpoint handlers."""
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Literal, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
@@ -11,6 +11,7 @@ from sqlalchemy import text
 from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
+from ...clock import to_naive_utc
 from ...codex import collection as codex_collection
 from ...config import _PAGE_CACHE_HEADERS, get_db, release_connection
 from ...security import SAME_ORIGIN_FRAME_HEADERS
@@ -117,9 +118,7 @@ def list_books(
         # Stored datetimes are naive UTC, so compare against the same. A naive
         # query value is taken to be UTC too. Books with no recorded date never
         # match: "added since X" cannot be claimed for them (issue #199).
-        if added_since.tzinfo is not None:
-            added_since = added_since.astimezone(timezone.utc).replace(tzinfo=None)
-        q = q.filter(Book.added_at >= added_since)
+        q = q.filter(Book.added_at >= to_naive_utc(added_since))
     total = q.count()
     q = q.order_by(*_list_order(sort, order))
     books = q.offset(offset).limit(limit).all()

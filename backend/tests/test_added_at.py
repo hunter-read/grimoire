@@ -9,6 +9,7 @@ import datetime
 import pytest
 from sqlalchemy import create_engine, text
 
+from backend.clock import to_naive_utc
 from backend.config import SessionLocal
 from backend.models import Book
 from backend.models.base import utc_iso
@@ -163,6 +164,88 @@ class TestListSortAndFilter:
     def test_unknown_sort_is_rejected(self, client, admin_headers):
         resp = client.get("/api/books", headers=admin_headers, params={"sort": "size"})
         assert resp.status_code == 422
+
+    def test_the_earliest_instant_with_an_offset_keeps_every_dated_book(
+        self, client, admin_headers, dated
+    ):
+        system, _ = dated
+        # In UTC this falls before year 1, which Python's datetime can't hold.
+        titles = _titles(
+            client, admin_headers, system_id=system.id, added_since=_EARLIEST_WITH_OFFSET
+        )
+        assert sorted(titles) == ["Mid", "New", "Old"]
+
+    def test_the_latest_instant_with_an_offset_keeps_nothing(self, client, admin_headers, dated):
+        system, _ = dated
+        titles = _titles(
+            client, admin_headers, system_id=system.id, added_since=_LATEST_WITH_OFFSET
+        )
+        assert titles == []
+
+
+# The two ends of the calendar, each with an offset that pushes it past the end
+# once converted to UTC.
+_EARLIEST_WITH_OFFSET = "0001-01-01T00:00:00+14:00"
+_LATEST_WITH_OFFSET = "9999-12-31T23:59:59-14:00"
+
+
+class TestAddedSinceAtTheEdgeOfTheCalendar:
+    """An added_since that overflows when converted to UTC is clamped, never a 500."""
+
+    @pytest.mark.parametrize("since", [_EARLIEST_WITH_OFFSET, _LATEST_WITH_OFFSET])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/books",
+            "/api/maps",
+            "/api/maps/groups",
+            "/api/maps/index",
+            "/api/tokens",
+            "/api/tokens/groups",
+            "/api/tokens/index",
+            "/api/audio",
+            "/api/audio/groups",
+            "/api/audio/index",
+            "/api/models",
+            "/api/models/groups",
+            "/api/models/index",
+            "/api/systems/{system_id}/books",
+            "/api/systems/{system_id}/book-groups",
+        ],
+    )
+    def test_route_answers(self, client, admin_headers, dated, path, since):
+        system, _ = dated
+        params = {"added_since": since}
+        if path.endswith("/index"):
+            # The index answers only for a lettered sort; under "path" it
+            # returns before the filters run.
+            params["sort"] = "name"
+        resp = client.get(path.format(system_id=system.id), headers=admin_headers, params=params)
+        assert resp.status_code == 200, resp.text
+
+    def test_system_shelf_clamps_both_ends(self, client, admin_headers, dated):
+        system, _ = dated
+        url = f"/api/systems/{system.id}/books"
+        early = client.get(url, headers=admin_headers, params={"added_since": _EARLIEST_WITH_OFFSET})
+        late = client.get(url, headers=admin_headers, params={"added_since": _LATEST_WITH_OFFSET})
+        assert sorted(b["title"] for b in early.json()["books"]) == ["Mid", "New", "Old"]
+        assert late.json()["books"] == []
+
+
+class TestToNaiveUtc:
+    def test_naive_value_is_left_alone(self):
+        value = _naive(2026, 1, 2, 3)
+        assert to_naive_utc(value) is value
+
+    def test_aware_value_is_converted(self):
+        value = datetime.datetime(2026, 1, 2, 3, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+        assert to_naive_utc(value) == _naive(2026, 1, 2, 1)
+
+    def test_overflow_clamps_to_the_nearer_end(self):
+        east = datetime.timezone(datetime.timedelta(hours=14))
+        west = datetime.timezone(datetime.timedelta(hours=-14))
+        assert to_naive_utc(datetime.datetime.min.replace(tzinfo=east)) == datetime.datetime.min
+        assert to_naive_utc(datetime.datetime.max.replace(tzinfo=west)) == datetime.datetime.max
 
 
 class TestMediaCarriesAddedAt:

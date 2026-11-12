@@ -5,6 +5,8 @@ from backend.config import SessionLocal
 from backend.models import MapFolder, TokenFolder, AudioFolder
 from sqlalchemy import text
 
+from backend.services.search_query import MAX_FTS_TERMS, MAX_QUERY_LENGTH, to_fts_query
+
 
 @pytest.fixture(scope="module")
 def indexed_book():
@@ -394,3 +396,53 @@ class TestJoinedWords:
         assert "www.<mark>zympaizo</mark>.com" in hit["snippet"]
         # The page's closing full stop is its own, not a cut.
         assert hit["snippet"].endswith("half-quillon.")
+
+
+class TestLongQueries:
+    """A long query is refused or cut short, never a database error (a 500).
+
+    Unbounded, a chain of a few hundred NOTs nests too deep for FTS5 ("fts5
+    expression tree is too large") and a few thousand terms exhaust
+    PostgreSQL's stack while it builds the tsquery.
+    """
+
+    @pytest.mark.parametrize(
+        "query",
+        ["x NOT " * 400 + "x", " ".join(["x"] * 4100), "x" * (MAX_QUERY_LENGTH + 1)],
+    )
+    def test_an_over_long_query_is_refused(self, client, admin_headers, query):
+        resp = client.get("/api/search", params={"q": query}, headers=admin_headers)
+        assert resp.status_code == 422
+
+    def test_the_longest_query_allowed_still_runs(self, client, admin_headers, indexed_book):
+        # As many chained NOTs as fit: the term cap keeps the expression shallow.
+        query = ("fireball NOT " * 100)[:MAX_QUERY_LENGTH]
+        resp = client.get("/api/search", params={"q": query}, headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+
+    def test_terms_past_the_cap_are_dropped(self):
+        assert to_fts_query("x " * (MAX_FTS_TERMS + 10)).split() == ["x"] * MAX_FTS_TERMS
+
+    def test_a_not_left_at_the_cut_is_quoted(self):
+        tokens = to_fts_query("x NOT " * MAX_FTS_TERMS).split()
+        assert len(tokens) == MAX_FTS_TERMS
+        assert tokens[-1] == '"NOT"'
+
+    def test_a_query_the_database_cannot_run_is_a_400(
+        self, client, admin_headers, indexed_book, monkeypatch
+    ):
+        # Lift the cap and feed a query past both engines' limits, as though the
+        # caps had missed one: the error is the user's to fix, not a 500.
+        from backend.routers.search import core as search_core
+        from backend.services import search_query
+
+        monkeypatch.setattr(search_query, "MAX_FTS_TERMS", 1_000_000)
+        too_deep = "fireball NOT " * 6000 + "fireball"
+        monkeypatch.setattr(search_core, "parse_query", lambda _q: search_query.parse_query(too_deep))
+        resp = client.get("/api/search", params={"q": "fireball"}, headers=admin_headers)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Search query is too complex"
+        # Search works again straight after (PostgreSQL aborts the transaction).
+        monkeypatch.undo()
+        resp = client.get("/api/search", params={"q": "fireball"}, headers=admin_headers)
+        assert resp.status_code == 200

@@ -57,11 +57,23 @@ def test_folder_names_are_categories(category):
     assert fs.is_category_name(category)
 
 
+# Names that can't be one tidy folder: blank, padded with spaces (a folder that
+# reads as "core" but isn't), holding a control character, or longer than a
+# filesystem takes as a single name (255 bytes - so 128 two-byte letters fail).
+_NOT_FOLDER_NAMES = [" ", "\t", "core ", " core", "a\r\nb", "a\nb", "tab\tbed", "bell\x07",
+                     "del\x7f", "x" * 256, "é" * 128]
+
+
 @pytest.mark.parametrize(
-    "category", ["", "../../..", "..", "a/b", "a\\b", ".hidden", "core\x00", "x/../y"]
+    "category",
+    ["", "../../..", "..", "a/b", "a\\b", ".hidden", "core\x00", "x/../y", *_NOT_FOLDER_NAMES],
 )
 def test_paths_are_not_categories(category):
     assert not fs.is_category_name(category)
+
+
+def test_a_name_of_255_bytes_is_a_category():
+    assert fs.is_category_name("x" * 255)
 
 
 @pytest.mark.parametrize("category", ["../../..", "a/b", "a\\b", ".hidden"])
@@ -73,6 +85,50 @@ def test_patch_refuses_a_category_that_is_not_a_folder_name(
     assert resp.status_code == 422
     assert os.path.exists(src)
     assert _filepath(book_id) == src
+
+
+@pytest.mark.parametrize(
+    "category",
+    # The last is inside the column's 100 characters but past 255 bytes.
+    [" ", "", "a\r\nb", "tab\tbed", "x" * 101, "x" * 300, "\U0001F600" * 64],
+)
+def test_patch_refuses_a_blank_control_character_or_over_long_category(
+    client, gm_headers, system_book, category
+):
+    book_id, src, system_dir = system_book
+    resp = client.patch(f"/api/books/{book_id}", json={"category": category}, headers=gm_headers)
+    assert resp.status_code == 422
+    assert os.path.exists(src)
+    assert _filepath(book_id) == src
+    assert sorted(os.listdir(system_dir)) == ["core"]
+
+
+def test_patch_trims_the_spaces_around_a_category(client, gm_headers, system_book):
+    book_id, src, system_dir = system_book
+    resp = client.patch(f"/api/books/{book_id}", json={"category": " adventure "}, headers=gm_headers)
+    assert resp.status_code == 200
+    db = SessionLocal()
+    try:
+        assert db.query(Book).filter(Book.id == book_id).first().category == "adventure"
+    finally:
+        db.close()
+    assert not any(name != name.strip() for name in os.listdir(system_dir))
+    assert not os.path.exists(src)
+
+
+@pytest.mark.parametrize("category", [" ", "a\r\nb", "x" * 300])
+def test_bulk_refuses_a_blank_control_character_or_over_long_category(
+    client, gm_headers, system_book, category
+):
+    book_id, src, system_dir = system_book
+    resp = client.post(
+        "/api/books/bulk",
+        json={"items": [{"id": book_id, "category": category}]},
+        headers=gm_headers,
+    )
+    assert resp.status_code == 422
+    assert os.path.exists(src)
+    assert sorted(os.listdir(system_dir)) == ["core"]
 
 
 def test_bulk_refuses_a_category_that_is_not_a_folder_name(client, gm_headers, system_book):

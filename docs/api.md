@@ -701,6 +701,9 @@ install does not flag its whole library as new) and for legacy rows with no date
 backfill; such books sort last in either direction and never match `added_since`. To poll for new
 additions, request `sort=added_at&added_since=<last poll>` - `total` reflects the
 filter, so the result pages normally. A timestamp without an offset is read as UTC.
+One whose offset carries it past either end of the calendar in UTC
+(`0001-01-01T00:00:00+14:00`, `9999-12-31T23:59:59-14:00`) is clamped to that end, so
+it matches every dated book or none.
 The map, token, audio and 3D model list and detail rows carry `added_at` too (the map
 detail route does not); those galleries sort and filter on it client-side.
 
@@ -921,8 +924,10 @@ let the scan silently revert the edit. The book is moved into the sibling folder
 whose *inferred category* matches the new one - an existing `Rulebooks` shelf is
 reused rather than a second `Core` being created beside it - and the folder is
 created with its canonical name when nothing covers that category yet. Since the
-category becomes a folder name, it can't contain `/`, `\` or `..`, or start with a
-dot: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422 for one that does.
+category becomes a folder name, it can't contain `/`, `\`, `..` or a control
+character (a line break, a tab), start with a dot, be blank, or run past 100
+characters or 255 bytes: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422
+for one that does. Spaces around it are trimmed first, so `"core "` is stored as `core`.
 
 A wargame book in the armory moves within its innermost faction folder instead,
 so it keeps its army: `Factions/Necrons/Codex.pdf` re-categorised as a
@@ -940,7 +945,7 @@ destination (the file lands under a suffixed name), a book outside `books/` and
 the armory, and a book whose file is missing.
 
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` (`grid_px` is `0` to clear, or at least 4) |
-| `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
+| `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type). A PDF is served inline and may be framed by the app itself (`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`), for the viewer's PDF mode; everything else is an attachment |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, 16-3000; outside that range is 422). Image maps stream as-is and only accept page 1; archives return 400. Sends an `ETag` from the map's contents, page and width with `Cache-Control: private, no-cache`, and honours `If-None-Match` (`304`) |
 | `/api/maps/:id/page/:n/size` | GET | any | A PDF map page's `{width, height}` in points. 400 for non-PDF maps |
 | `/api/maps/:id/page/:n/shapes` | GET | any | Suggested cut-outs on a PDF map page, as for [books](#page-export) |
@@ -1281,7 +1286,7 @@ listing that folder returns:
 | `q` | Search text: the name, the folder path, and the item's tags (its own and every folder's above it). Accepts the [search page's `field:value` prefixes](#field-scoped-search) - `tag:`, `title:`/`filename:`, and `artist:`/`album:` on audio. A book-only field (`author:`, `year:`...) matches nothing |
 | `tags` | The tag filter as JSON: a list of `{mode: "include"\|"exclude", tags: [...]}` groups - tags OR'd within a group, groups AND'd - or a flat list of tags that must all match. A folder's tags count for everything beneath it. `__grim:none__` / `__grim:any__` match items with no tags / at least one. Malformed JSON is a 400 |
 | `favorites` | `true` for the caller's favourites only |
-| `added_since` | Only items added at or after this ISO time; undated items never match |
+| `added_since` | Only items added at or after this ISO time; undated items never match. A time whose offset puts it outside the calendar in UTC is clamped to that end |
 | `folder` | Only items directly in this folder, collection-relative (`""` for the collection root). Omit for the whole collection |
 | `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title`, `duration` and `track` (album order: folder, then disc and track number, then name - untagged files first, in name order; on other collections the same as `path`). Any other value is a 422 |
 | `order` | `asc` or `desc` |
@@ -1484,7 +1489,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | Full-text page search (SQLite FTS5, or PostgreSQL full-text search with `DATABASE_URL`) **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (1-200, default 50). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search?q=` | GET | any | Full-text page search (SQLite FTS5, or PostgreSQL full-text search with `DATABASE_URL`) **plus** metadata search. Required: `q` (2-500 chars; only the first 64 terms, operators included, reach the full-text index, and a query the database still cannot run is a 400). Optional: `book_id`, `system_id`, `limit` (1-200, default 50). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
 | `/api/search/fields` | GET | any | The `field:` prefixes the search box accepts, with their aliases. Powers the in-app syntax help. |
 
 **Response:**

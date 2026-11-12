@@ -136,6 +136,15 @@ _FTS_BAREWORD = re.compile(r"^[A-Za-z0-9_]+$")
 # an intended one.
 _FTS_OPERATORS = frozenset({"AND", "OR", "NOT", "NEAR"})
 
+# The longest search box string the API takes, and the most terms (operators
+# included) that reach the full-text index. Unbounded, a long query fails inside
+# the database rather than matching nothing: FTS5 refuses an expression nested
+# more than 256 deep - a chain of NOTs nests one level per term - and
+# PostgreSQL runs out of stack building the tsquery for a few thousand. No real
+# search needs anywhere near either; terms past the cap are dropped.
+MAX_QUERY_LENGTH = 500
+MAX_FTS_TERMS = 64
+
 
 def to_fts_query(raw: str | Sequence[str]) -> str:
     """Turn user text into an FTS5 expression that cannot be a syntax error.
@@ -155,10 +164,15 @@ def to_fts_query(raw: str | Sequence[str]) -> str:
     Quoting loses the boolean operators, which is the right trade: a search box
     that 500s on "D&D" is broken in a way that a search box which takes "AND"
     literally is not.
+
+    Only the first ``MAX_FTS_TERMS`` tokens are kept (see there).
     """
     if not raw:
         return ""
     raw_tokens = raw.split() if isinstance(raw, str) else [t for t in raw if t]
+    # Capped before the operator check below, so a NOT left dangling at the cut
+    # is quoted into a literal like any other trailing operator.
+    raw_tokens = raw_tokens[:MAX_FTS_TERMS]
     operator_at = [t.upper() in _FTS_OPERATORS for t in raw_tokens]
 
     tokens = []

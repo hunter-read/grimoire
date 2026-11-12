@@ -29,6 +29,7 @@ from sqlalchemy import Text, case, cast, exists, func, literal_column, nullslast
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from ...auth import CurrentUser, get_current_user
+from ...clock import to_naive_utc
 from ...config import get_db
 from ...models import Book, Favorite, GameSystem, ResourceTag, Tag, User
 from ...models.browse import natural_key
@@ -222,10 +223,7 @@ class ShelfBrowser:
             )
             q = q.filter(Book.id.in_(favs))
         if params.added_since is not None:
-            since = params.added_since
-            if since.tzinfo is not None:
-                since = since.astimezone(timezone.utc).replace(tzinfo=None)
-            q = q.filter(Book.added_at >= since)
+            q = q.filter(Book.added_at >= to_naive_utc(params.added_since))
         if params.genre:
             q = q.filter(self._genre_clause(params.genre))
         if params.product_code:
