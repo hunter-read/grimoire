@@ -400,6 +400,26 @@ class TestServeMapFile:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/pdf"
 
+    def test_pdf_map_can_be_framed_by_the_viewer(self, client, admin_headers, tmp_path):
+        """The viewer's PDF mode frames this route, so it must arrive inline and framable."""
+        f = tmp_path / "atlas.pdf"
+        f.write_bytes(b"%PDF-1.4")
+        m = make_map(filename="atlas.pdf", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-disposition"].startswith("inline")
+        assert "frame-ancestors 'self'" in resp.headers["content-security-policy"]
+        assert resp.headers["x-frame-options"] == "SAMEORIGIN"
+
+    def test_image_map_still_downloads_and_refuses_framing(self, client, admin_headers, tmp_path):
+        f = tmp_path / "battle.png"
+        f.write_bytes(b"fake-png-bytes")
+        m = make_map(filename="battle.png", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/file", headers=admin_headers)
+        assert resp.headers["content-disposition"].startswith("attachment")
+        assert "frame-ancestors 'none'" in resp.headers["content-security-policy"]
+        assert resp.headers["x-frame-options"] == "DENY"
+
     def test_missing_map_returns_404(self, client, admin_headers):
         resp = client.get("/api/maps/does-not-exist/file", headers=admin_headers)
         assert resp.status_code == 404

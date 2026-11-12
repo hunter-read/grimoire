@@ -18,6 +18,9 @@ from .._variant_schemas import VariantEntry
 # Accepted ``access_level`` values on the wire (see services.books.access).
 _BOOK_ACCESS_VALUES = frozenset({ACCESS_INHERIT, "", "gm", "admin"})
 
+# The width of ``books.category``; PostgreSQL refuses a longer value outright.
+CATEGORY_MAX_LENGTH = 100
+
 
 # NOTE: the variant_* columns are deliberately absent from BookUpdate and
 # BookBulkUpdate. bulk_service.apply_updates does a blind setattr for any field
@@ -100,12 +103,20 @@ class BookUpdate(BaseModel):
 
     # Changing the category moves the file into a folder of that name under the
     # book's system, so it has to be one folder name (see is_category_name).
+    # Surrounding spaces are trimmed first, so "core " files the book in "core".
     @field_validator("category")
     @classmethod
     def check_category(cls, v):
-        if v is not None and v.strip() and not is_category_name(v):
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("category can't be blank")
+        if len(v) > CATEGORY_MAX_LENGTH:
+            raise ValueError(f"category can be at most {CATEGORY_MAX_LENGTH} characters")
+        if not is_category_name(v):
             raise ValueError(
-                "category can't contain /, \\ or .., or start with a dot"
+                "category can't contain /, \\, .. or control characters, or start with a dot"
             )
         return v
 

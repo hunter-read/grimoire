@@ -16,12 +16,13 @@ lists.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import false, func, literal_column, nullslast, or_, select
 from sqlalchemy.orm import Query, Session
 
+from ...clock import to_naive_utc
 from ...models import Favorite
 from ...models.collections import COLLECTIONS
 from ...models.dialect import is_postgres
@@ -182,10 +183,7 @@ class MediaBrowser:
             )
             q = q.filter(model.id.in_(favs))
         if params.added_since is not None:
-            since = params.added_since
-            if since.tzinfo is not None:
-                since = since.astimezone(timezone.utc).replace(tzinfo=None)
-            q = q.filter(model.added_at >= since)
+            q = q.filter(model.added_at >= to_naive_utc(params.added_since))
         if params.tags:
             q = q.filter(self.tag_matcher.clause(params.tags))
         if params.q and params.q.strip():

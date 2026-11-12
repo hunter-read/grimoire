@@ -8,6 +8,7 @@ values — otherwise the next scan would silently undo the edit. Performing the
 move is :func:`..moves.relocate_book_for_category`; this module only decides.
 """
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -280,17 +281,29 @@ def system_root_for(db: Session, book_path: Path) -> Optional[Path]:
     return library_root().joinpath(*parts[:depth])
 
 
+# The longest file name most filesystems allow (ext4, APFS, NTFS), in bytes.
+_MAX_FOLDER_NAME_BYTES = 255
+
+
 def is_category_name(category: str) -> bool:
     """Whether ``category`` can name a single folder inside a system folder.
 
     A category becomes a folder name when a book is moved into it, so it may not
-    hold a path separator, ``..``, a NUL or a leading dot (hidden folders are
-    skipped by the scanner, so a book there would vanish from the library).
+    hold a path separator, ``..``, a control character (a NUL, or a line break
+    that would split the folder name in every listing) or a leading dot (hidden
+    folders are skipped by the scanner, so a book there would vanish from the
+    library). Nor may it be blank or start or end with whitespace - a folder
+    named " " or "core " looks like no folder or like "core" - or run past what
+    a filesystem takes as one name, since a folder that can't be made leaves the
+    book where it was and the next rescan puts the old category back.
     """
-    return bool(category) and not (
-        any(c in category for c in ("/", "\\", "\x00"))
+    return bool(category.strip()) and not (
+        any(c in category for c in ("/", "\\"))
+        or any(unicodedata.category(c) == "Cc" for c in category)
         or ".." in category
         or category.startswith(".")
+        or category != category.strip()
+        or len(category.encode("utf-8", "surrogatepass")) > _MAX_FOLDER_NAME_BYTES
     )
 
 
