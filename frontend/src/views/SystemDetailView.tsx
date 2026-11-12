@@ -811,7 +811,7 @@ export default function SystemDetailView() {
                     <span key={i}>
                       {i > 0 && ', '}
                       {p.url ? (
-                        <a href={p.url} target="_blank" rel="noopener">
+                        <a href={p.url} target="_blank" rel="noopener noreferrer">
                           {p.name}
                           <span className="sr-only"> {t('a11y.opensInNewTab')}</span>
                         </a>

@@ -462,4 +462,24 @@ class TestPresets:
         monkeypatch.setattr(presets.source_credentials, "load", lambda db: None)
         body = client.get(_url(table, "/presets"), headers=gm_headers).json()
         assert body["presets"] == []
-        assert body["errors"][0]["error"] == "offline"
+        # The sources are the admin's settings: a GM hears that one failed, not where.
+        assert body["errors"] == [{"url": "", "error": ""}]
+        with SessionLocal() as db:
+            shown = presets.fetch_catalogue(db)["errors"][0]
+        assert shown["url"] and shown["error"] == "offline"
+
+    def test_a_source_without_presets_is_not_an_error(self, client, gm_headers, table, monkeypatch):
+        """An add-on index from before GM screens has no gm-screens/ directory: a 404."""
+        from backend.addons.fetch import AddonFetchError, DownloadError
+
+        def missing(url, **kwargs):
+            try:
+                raise DownloadError("status", status=404)
+            except DownloadError as exc:
+                raise AddonFetchError("source returned HTTP 404") from exc
+
+        monkeypatch.setattr(presets, "fetch_document", missing)
+        monkeypatch.setattr(presets, "downloads_enabled", lambda: True)
+        monkeypatch.setattr(presets.source_credentials, "load", lambda db: None)
+        body = client.get(_url(table, "/presets"), headers=gm_headers).json()
+        assert body == {"presets": [], "errors": []}

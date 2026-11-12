@@ -9,6 +9,7 @@ from ... import api_keys, token_vault
 from ...config import OPDS_ENABLED, BASE_URL, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
+from ...security import PASSWORD_CHANGE_SCOPE, account_attempts_blocked, record_account_failure
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ...services.campaigns.user_data import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
@@ -81,7 +82,15 @@ def change_own_password(
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    # Wrong current passwords count against the account, like failed sign-ins,
+    # but in their own allowance so a mistake here never blocks signing in.
+    key = f"id:{user.id}"
+    if account_attempts_blocked(PASSWORD_CHANGE_SCOPE, key):
+        raise HTTPException(
+            429, "Too many wrong current passwords - try again later"
+        )
     if not verify_password(data.current_password, user.hashed_password):
+        record_account_failure(PASSWORD_CHANGE_SCOPE, key)
         raise HTTPException(400, "Current password is incorrect")
     user.hashed_password = hash_password(data.new_password)
     # Changing your password is the standard way to boot out someone who has

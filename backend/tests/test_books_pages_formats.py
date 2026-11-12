@@ -244,3 +244,25 @@ class TestDjvuRouting:
         )
         resp = client.get(f"/api/books/{book.id}/page/2", headers=admin_headers)
         assert resp.status_code == 404
+
+
+class TestTocMissingFile:
+    def test_a_book_whose_file_is_gone_is_404_and_marked_missing(
+        self, client, admin_headers, sys_row
+    ):
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        book = make_book(
+            system_id=sys_row.id,
+            title="Gone PDF",
+            filename=f"gone-{uuid.uuid4().hex[:6]}.pdf",
+            filepath=f"/nonexistent/gone-{uuid.uuid4().hex[:6]}.pdf",
+            mime_type="application/pdf",
+            page_count=3,
+        )
+        resp = client.get(f"/api/books/{book.id}/toc", headers=admin_headers)
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "File not found on disk"
+        with SessionLocal() as db:
+            assert db.get(Book, book.id).is_missing is True

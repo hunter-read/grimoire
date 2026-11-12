@@ -7509,26 +7509,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/themes/source": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the catalogue URL (admin)
-         * @description Point the catalogue at a fork or mirror. Server-wide, so admin-only.
-         */
-        put: operations["set_theme_source_api_themes_source_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/themes/{theme_id}": {
         parameters: {
             query?: never;
@@ -18175,21 +18155,6 @@ export interface components {
             mode: string;
             /** Theme Id */
             theme_id: string;
-        };
-        /** ThemeSourceResponse */
-        ThemeSourceResponse: {
-            /** Index Url */
-            index_url: string;
-            /** Is Custom Url */
-            is_custom_url: boolean;
-        };
-        /**
-         * ThemeSourceUpdate
-         * @description An operator pointing the catalogue at a fork or mirror.
-         */
-        ThemeSourceUpdate: {
-            /** Index Url */
-            index_url?: string | null;
         };
         /**
          * TocEntry
@@ -37130,44 +37095,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThemeSelectionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_theme_source_api_themes_source_put: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description An API key, for external integrations (instead of a session). */
-                "X-API-Key"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                grimoire_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ThemeSourceUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThemeSourceResponse"];
                 };
             };
             /** @description Validation Error */

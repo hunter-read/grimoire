@@ -248,9 +248,9 @@ export default function LayoutRenderer({
 }: Props) {
   const css = schemaDocument?.styles_css
 
-  // The app's CSP forbids inline <style>, so a schema's stylesheet is attached
-  // as a real stylesheet element scoped by class. Removed on unmount so leaving
-  // one sheet cannot restyle the next.
+  // A schema's stylesheet arrives already scoped to the sheet's class by the
+  // server (the CSP allows inline styles, so that scoping is what confines it).
+  // Removed on unmount so leaving one sheet cannot restyle the next.
   useEffect(() => {
     if (!css) return undefined
     const element = window.document.createElement('style')

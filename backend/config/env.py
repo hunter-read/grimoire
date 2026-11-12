@@ -1,7 +1,7 @@
 """Every environment variable the backend reads, with its default, in one place.
 
 Each is read once, at import, through ``_raw`` - which also records its name in
-``NAMES``, so ``test_env_docs.py`` can check ``docs/configuration.md`` against
+``NAMES``, so ``tests/test_config_package.py`` can check ``docs/configuration.md`` against
 this module. Reading settings is all importing this does: no file, database or
 network I/O (issue #585), so the isolated worker processes and one-off scripts
 can import it freely. Problems found while parsing are queued and logged by

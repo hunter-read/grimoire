@@ -194,6 +194,7 @@ class TestPermissionTable:
             ("/api/settings/oidc-button-icon", "POST"),
             ("/api/settings/oidc-button-icon", "DELETE"),
             ("/api/addons/settings", "PATCH"),
+            ("/api/backups/settings", "PUT"),
         ],
     )
     def test_credential_routes_are_marked_excluded(self, path, method):
@@ -753,6 +754,7 @@ class TestKeyAuthentication:
             ("GET", "/api/users/me/opds"),
             ("PATCH", "/api/users/me/password"),
             ("GET", "/api/campaigns/calendar/subscription"),
+            ("PUT", "/api/backups/settings"),
         ],
     )
     def test_security_routes_reject_every_key(self, client, admin_headers, method, path):

@@ -253,20 +253,21 @@ def get_campaign_or_404(db, campaign_id: str) -> Campaign:
 
 
 def check_parent_campaign(
-    db, parent_id: Optional[str], user: CurrentUser, campaign_id: Optional[str] = None
+    db, parent_id: Optional[str], owner_id: str, campaign_id: Optional[str] = None
 ) -> Optional[str]:
     """The parent campaign id to store, or None for none.
 
-    A campaign can only sit under another campaign of its owner's; any other id
-    reads as missing (404), so ids cannot be probed. A campaign is not its own
-    parent (400).
+    A campaign can only sit under another campaign of its owner's - ``owner_id``
+    is the campaign's owner, not whoever is editing it; any other id reads as
+    missing (404), so ids cannot be probed. A campaign is not its own parent
+    (400).
     """
     if not parent_id:
         return None
     if parent_id == campaign_id:
         raise HTTPException(400, "A campaign cannot be its own parent")
     parent = db.query(Campaign).filter_by(id=parent_id).first()
-    if parent is None or parent.owner_id != user.id:
+    if parent is None or parent.owner_id != owner_id:
         raise HTTPException(404, "Parent campaign not found")
     return parent.id
 

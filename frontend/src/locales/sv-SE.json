@@ -4925,7 +4925,8 @@
       "by": "av {{author}}",
       "apply": "Använd",
       "applyNamed": "Använd {{name}}",
-      "sourceError": "Kunde inte läsa {{url}}: {{error}}"
+      "sourceError": "Kunde inte läsa {{url}}: {{error}}",
+      "sourceUnreadable": "En av mallkatalogerna kunde inte läsas."
     }
   }
 }

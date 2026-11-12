@@ -64,6 +64,14 @@ describe('SystemLinks', () => {
     )
   })
 
+  it('opens every link, in the row or the menu, without a referrer', () => {
+    render(<SystemLinks system={many} />)
+    fireEvent.click(screen.getByRole('button', { name: 'More links (3)' }))
+    const all = [...screen.getAllByRole('link'), ...screen.getAllByRole('menuitem')]
+    expect(all).toHaveLength(6)
+    for (const a of all) expect(a).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
   it('omits a group heading when no links of that kind overflow', () => {
     render(
       <SystemLinks

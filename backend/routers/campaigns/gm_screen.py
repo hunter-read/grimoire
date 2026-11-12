@@ -395,7 +395,7 @@ def browse_gm_screen_presets(
     _gm_campaign(db, campaign_id, current_user)
     if not presets.downloads_enabled():
         raise HTTPException(403, "Downloading GM screen presets is disabled on this server")
-    return presets.fetch_catalogue(db)
+    return presets.fetch_catalogue(db, show_sources=current_user.role == "admin")
 
 
 def apply_gm_screen_preset(

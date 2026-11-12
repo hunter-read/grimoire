@@ -4925,7 +4925,8 @@
       "by": "von {{author}}",
       "apply": "Verwenden",
       "applyNamed": "{{name}} verwenden",
-      "sourceError": "{{url}} konnte nicht gelesen werden: {{error}}"
+      "sourceError": "{{url}} konnte nicht gelesen werden: {{error}}",
+      "sourceUnreadable": "Einer der Vorlagenkataloge konnte nicht gelesen werden."
     }
   }
 }

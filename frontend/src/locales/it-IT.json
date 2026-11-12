@@ -4925,7 +4925,8 @@
       "by": "di {{author}}",
       "apply": "Usa",
       "applyNamed": "Usa {{name}}",
-      "sourceError": "Impossibile leggere {{url}}: {{error}}"
+      "sourceError": "Impossibile leggere {{url}}: {{error}}",
+      "sourceUnreadable": "Impossibile leggere uno dei cataloghi di modelli."
     }
   }
 }

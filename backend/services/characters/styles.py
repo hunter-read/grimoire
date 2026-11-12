@@ -22,9 +22,10 @@ Syntax spec, so the checks see the same rules, declarations and functions a
 browser would, escapes and strings included. What comes out is re-serialised
 from those tokens rather than copied from the input.
 
-The output is a stylesheet string the client injects under its scope class. The
-app's CSP forbids inline ``<style>``, so it is attached as a constructed
-stylesheet rather than written into the document.
+The output is a stylesheet string the client attaches in a ``<style>`` element
+under its scope class, removed again when the sheet closes. The app's CSP
+allows inline styles (``style-src 'unsafe-inline'``), so these checks, not the
+CSP, are what keep a schema's CSS inside the sheet.
 """
 from typing import Any
 

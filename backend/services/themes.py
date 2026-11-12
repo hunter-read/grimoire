@@ -34,8 +34,6 @@ from ..addons.fetch import AddonFetchError, download_file, fetch_document
 
 logger = logging.getLogger("grimoire.themes")
 
-SETTING_INDEX_URL = "themes.index_url"
-
 CATALOGUE_CACHE_TTL = 3600
 
 # A theme document is a small JSON/YAML file. Bounded well below the shared

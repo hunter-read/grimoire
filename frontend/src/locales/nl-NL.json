@@ -4925,7 +4925,8 @@
       "by": "door {{author}}",
       "apply": "Gebruiken",
       "applyNamed": "{{name}} gebruiken",
-      "sourceError": "Kon {{url}} niet lezen: {{error}}"
+      "sourceError": "Kon {{url}} niet lezen: {{error}}",
+      "sourceUnreadable": "Een van de sjablooncatalogi kon niet worden gelezen."
     }
   }
 }

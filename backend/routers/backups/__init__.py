@@ -1,6 +1,7 @@
 """Backups package — admin-only database + user-asset snapshots (issue #338)."""
 from fastapi import APIRouter
 
+from ... import api_keys
 from ._schemas import BackupItem, BackupListResponse, BackupSettingsResponse
 from .core import (
     create_backup,
@@ -40,6 +41,8 @@ router.add_api_route(
     methods=["PUT"],
     summary="Configure backup schedule and retention",
     response_model=BackupSettingsResponse,
+    # Chooses where on the server backups are written: session only.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{backup_id}/download",

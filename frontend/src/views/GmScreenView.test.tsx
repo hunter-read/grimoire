@@ -236,6 +236,17 @@ describe('GmScreenView', () => {
     expect(await screen.findByText(/No presets are available/)).toBeInTheDocument()
   })
 
+  it('reports a failed source without naming it when the server leaves it out', async () => {
+    api.presets.mockResolvedValueOnce({ presets: [], errors: [{ url: '', error: '' }] })
+    api.get.mockResolvedValue({ panels: [] })
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Community presets' }))
+    expect(
+      await screen.findByText("One of the preset catalogues couldn't be read.")
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Couldn't read/)).not.toBeInTheDocument()
+  })
+
   it('reports a preset that fails to apply', async () => {
     api.presets.mockResolvedValue({
       presets: [

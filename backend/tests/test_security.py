@@ -407,3 +407,63 @@ class TestAccountLimits:
         for i, name in enumerate(["admin\x00", "ad\x00min"]):
             resp = self._attempt(client, name, "adminpass123", 60 + i)
             assert resp.status_code != 200 and "token" not in resp.text
+
+
+class TestPasswordChangeLimit:
+    """Wrong current passwords on the change-password form are counted per account."""
+
+    @staticmethod
+    def _account(client, admin_headers):
+        import uuid
+
+        username = f"pwc_{uuid.uuid4().hex[:8]}"
+        created = client.post(
+            "/api/users",
+            json={"username": username, "password": "rightpassword-1", "role": "player"},
+            headers=admin_headers,
+        )
+        assert created.status_code == 201, created.text
+        login = client.post(
+            "/api/auth/login", json={"username": username, "password": "rightpassword-1"}
+        )
+        assert login.status_code == 200, login.text
+        return username, {"Authorization": f"Bearer {login.json()['token']}"}
+
+    @staticmethod
+    def _change(client, headers, current, n):
+        return client.patch(
+            "/api/users/me/password",
+            json={"current_password": current, "new_password": "brandnewpass-2"},
+            headers={**headers, "X-Forwarded-For": f"198.51.100.{n % 250}"},
+        )
+
+    def test_the_21st_wrong_current_password_is_refused(
+        self, client, admin_headers, rate_limited
+    ):
+        _, headers = self._account(client, admin_headers)
+        codes = [self._change(client, headers, "wrongpassword", i).status_code for i in range(21)]
+        assert codes[:20] == [400] * 20
+        assert codes[20] == 429
+        # The right one waits for the window too.
+        assert self._change(client, headers, "rightpassword-1", 99).status_code == 429
+
+    def test_it_does_not_use_up_the_sign_in_allowance(
+        self, client, admin_headers, rate_limited
+    ):
+        username, headers = self._account(client, admin_headers)
+        for i in range(21):
+            self._change(client, headers, "wrongpassword", i)
+        login = client.post(
+            "/api/auth/login",
+            json={"username": username, "password": "rightpassword-1"},
+            headers={"X-Forwarded-For": "198.51.100.251"},
+        )
+        assert login.status_code == 200
+
+    def test_a_right_current_password_is_not_counted(
+        self, client, admin_headers, rate_limited
+    ):
+        _, headers = self._account(client, admin_headers)
+        for i in range(19):
+            self._change(client, headers, "wrongpassword", i)
+        assert self._change(client, headers, "rightpassword-1", 20).status_code == 200

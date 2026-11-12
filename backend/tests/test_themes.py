@@ -12,7 +12,6 @@ import pytest
 
 from backend import config
 from backend.config import SessionLocal
-from backend.models import AppSetting
 from backend.services import themes as svc
 from backend.tests.http_fakes import serve, serve_chunked
 
@@ -25,8 +24,6 @@ def db():
     try:
         yield session
     finally:
-        session.query(AppSetting).filter_by(key=svc.SETTING_INDEX_URL).delete()
-        session.commit()
         session.close()
 
 
@@ -570,32 +567,14 @@ class TestCatalogueParsing:
 
 
 class TestCatalogueSource:
-    def test_an_admin_can_point_at_a_mirror(self, client, admin_headers):
+    def test_there_is_no_separate_theme_catalogue_setting(self, client, admin_headers):
+        """The catalogue follows the add-on sources; it has no URL of its own to set."""
         r = client.put(
             "/api/themes/source",
             json={"index_url": "https://mirror.example/themes/index.json"},
             headers=admin_headers,
         )
-        assert r.status_code == 200
-        assert r.json()["is_custom_url"] is True
-
-        client.put("/api/themes/source", json={"index_url": ""}, headers=admin_headers)
-
-    def test_a_non_admin_cannot(self, client, player_headers):
-        r = client.put(
-            "/api/themes/source",
-            json={"index_url": "https://mirror.example/themes/index.json"},
-            headers=player_headers,
-        )
-        assert r.status_code in (401, 403)
-
-    def test_a_non_http_url_is_rejected(self, client, admin_headers):
-        r = client.put(
-            "/api/themes/source",
-            json={"index_url": "file:///etc/passwd"},
-            headers=admin_headers,
-        )
-        assert r.status_code == 422
+        assert r.status_code in (404, 405)
 
 
 class TestFetchTheme:

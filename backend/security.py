@@ -8,9 +8,10 @@ Two pieces of hardening live here:
    keyed on the real client IP (honoring ``X-Forwarded-For`` from a trusted
    reverse proxy) and, when Valkey is configured, backed by a shared store so
    the limit is enforced consistently across replicas — falling back to
-   in-memory when Valkey is absent or unreachable. Failed sign-ins and share
-   unlocks are also counted per account and per link, which holds however
-   many addresses the attempts come from.
+   in-memory when Valkey is absent or unreachable. Failed sign-ins, wrong
+   current passwords on a password change, and share unlocks are also counted
+   per account and per link, which holds however many addresses the attempts
+   come from.
 
 2. A middleware that sets security headers (CSP, X-Frame-Options, nosniff,
    Referrer-Policy, and HSTS on HTTPS) on every response.
@@ -292,10 +293,15 @@ def record_share_failure(request: Request, scope: str, key: str = "") -> None:
 # from: an account (by the username typed, existing or not), a recognised device
 # of that account (see backend/login_devices.py), or a password-protected share
 # link. Tunable with ACCOUNT_RATE_LIMIT.
+#
+# Wrong current passwords on the change-password form are counted per account
+# too, in a scope of their own, so mistyping it there never stops the owner
+# signing in.
 _ACCOUNT_LIMIT = parse_limit(ACCOUNT_RATE_LIMIT)
 LOGIN_ACCOUNT_SCOPE = "login-account"
 LOGIN_DEVICE_SCOPE = "login-device"
 SHARE_LINK_SCOPE = "share-unlock-link"
+PASSWORD_CHANGE_SCOPE = "password-change"
 
 
 def account_attempts_blocked(scope: str, key: str) -> bool:

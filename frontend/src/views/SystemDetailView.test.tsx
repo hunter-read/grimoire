@@ -820,6 +820,10 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
 
     await waitFor(() => expect(screen.getByText('Published by')).toBeInTheDocument())
     expect(screen.getByRole('link', { name: /^WotC/ })).toHaveAttribute('href', 'https://wotc.com')
+    expect(screen.getByRole('link', { name: /^WotC/ })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer'
+    )
     expect(screen.getByText('TSR', { exact: false })).toBeInTheDocument()
   })
 

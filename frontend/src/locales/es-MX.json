@@ -4925,7 +4925,8 @@
       "by": "de {{author}}",
       "apply": "Usar",
       "applyNamed": "Usar {{name}}",
-      "sourceError": "No se pudo leer {{url}}: {{error}}"
+      "sourceError": "No se pudo leer {{url}}: {{error}}",
+      "sourceUnreadable": "No se pudo leer uno de los catálogos de plantillas."
     }
   }
 }
