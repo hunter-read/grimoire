@@ -17,7 +17,7 @@ adjacency), then OR.
 import re
 from typing import Optional
 
-from ..models.postgres import MARKUP_CHARS, SEARCH_CONFIG
+from ..models.postgres import SEARCH_CONFIG, SPLIT_CHARS
 
 # A token of the FTS5 grammar to_fts_query writes: a "quoted phrase" (embedded
 # quotes doubled) or a bare run of non-space characters.
@@ -29,10 +29,11 @@ _BAREWORD = re.compile(r"^[A-Za-z0-9_]+$")
 SNIPPET_OPEN = ""
 SNIPPET_CLOSE = ""
 SNIPPET_ELLIPSIS = "..."
-# Stand in for "<" and "&" while ts_headline runs (see headline_sql).
-_MARKUP_STAND_INS = "\ue002\ue003"
+# Stand in for SPLIT_CHARS while ts_headline runs (see headline_sql): private-use
+# characters, one each, which the parser reads as word breaks.
+_STAND_INS = "".join(chr(0xE002 + i) for i in range(len(SPLIT_CHARS)))
 # What the index turns them into (models.postgres.searchable), for search terms.
-_UNMARKUP = str.maketrans(MARKUP_CHARS, " " * len(MARKUP_CHARS))
+_SPLIT = str.maketrans(SPLIT_CHARS, " " * len(SPLIT_CHARS))
 _HEADLINE_OPTIONS = (
     f"StartSel={SNIPPET_OPEN}, StopSel={SNIPPET_CLOSE}, "
     "MaxWords=40, MinWords=20, ShortWord=0, MaxFragments=1, FragmentDelimiter=..."
@@ -43,12 +44,13 @@ def _term_sql(token: str, params: dict, prefix: str) -> str:
     """SQL for one FTS5 term: a ``word*`` prefix, or a word/phrase matched as a phrase."""
     name = f"{prefix}{len(params)}"
     if token.endswith("*") and _BAREWORD.fullmatch(token[:-1]):
-        # Only [A-Za-z0-9_] inside the quotes, so this cannot be malformed.
-        params[name] = f"'{token[:-1]}':*"
+        # Only [A-Za-z0-9 ] inside the quotes, so this cannot be malformed. An
+        # underscore is a word break here as it is in the index.
+        params[name] = f"'{token[:-1].translate(_SPLIT)}':*"
         return f"to_tsquery('{SEARCH_CONFIG}', :{name})"
     if token.startswith('"') and token.endswith('"') and len(token) >= 2:
         token = token[1:-1].replace('""', '"')
-    params[name] = token.translate(_UNMARKUP)
+    params[name] = token.translate(_SPLIT)
     return f"phraseto_tsquery('{SEARCH_CONFIG}', :{name})"
 
 
@@ -119,20 +121,22 @@ def headline_sql(content: str, query: str) -> str:
     back ("...turns to stone." rather than "...turns to stone...").
 
     ts_headline also drops anything its parser takes for an HTML tag, and does
-    not mark a word inside an entity, where snippet() keeps and marks both: "<"
-    and "&" are swapped for placeholders on the way in and back on the way out,
-    so the page's own text survives and reads as the index does.
+    not mark a word inside an entity, a path or a host name, where snippet()
+    keeps and marks each: the ``SPLIT_CHARS`` are swapped for placeholders on
+    the way in and back on the way out, so the page's own text survives and
+    reads as the index does. The placeholders count as edge punctuation.
     """
-    source = f"translate({content}, '{MARKUP_CHARS}', '{_MARKUP_STAND_INS}')"
+    source = f"translate({content}, '{SPLIT_CHARS}', '{_STAND_INS}')"
     plain = f"replace(replace(h.t, '{SNIPPET_OPEN}', ''), '{SNIPPET_CLOSE}', '')"
-    edge_start, edge_end = r"'^[\s[:punct:]]+'", r"'[\s[:punct:]]+$'"
+    edge = rf"[\s[:punct:]{_STAND_INS[0]}-{_STAND_INS[-1]}]+"
+    edge_start, edge_end = f"'^{edge}'", f"'{edge}$'"
     return (
         "(SELECT translate("
         f"CASE WHEN starts_with(x.p_head, x.f_head) THEN '' ELSE '{SNIPPET_ELLIPSIS}' END"
         f" || regexp_replace(x.t, {edge_end}, '')"
         " || CASE WHEN right(x.p_tail, length(x.f_tail)) = x.f_tail"
         f" THEN substr(x.p, length(x.p_tail) + 1) ELSE '{SNIPPET_ELLIPSIS}' END,"
-        f" '{_MARKUP_STAND_INS}', '{MARKUP_CHARS}')"
+        f" '{_STAND_INS}', '{SPLIT_CHARS}')"
         " FROM (SELECT y.t, y.p,"
         f" regexp_replace(y.p, {edge_start}, '') AS p_head,"
         f" regexp_replace(y.f, {edge_start}, '') AS f_head,"

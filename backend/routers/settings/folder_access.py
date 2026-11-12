@@ -23,6 +23,11 @@ from ...sql_paths import path_under
 from ._schemas import FolderAccessRuleIn
 
 
+#: The longest path a rule can hold, in UTF-8 bytes: it sits in a unique index,
+#: and PostgreSQL refuses an index entry past about 2700 bytes.
+MAX_PATH_BYTES = 2000
+
+
 def _bad(e: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(e))
 
@@ -122,6 +127,8 @@ def save_folder_access_rule(
     if found is None:
         raise HTTPException(404, "That folder does not exist.")
     path = found
+    if len(path.encode()) > MAX_PATH_BYTES:
+        raise HTTPException(400, "That folder's path is too long to restrict.")
 
     row = db.query(FolderAccessRule).filter_by(path=path).first()
     if row is None:

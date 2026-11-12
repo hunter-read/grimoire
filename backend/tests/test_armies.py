@@ -463,6 +463,9 @@ def test_publication_links(client, player_headers, gm_headers, roster_dir, necro
     assert client.put("/api/armies/publication-links", json=body, headers=player_headers).status_code == 403
     r = client.put("/api/armies/publication-links", json=body, headers=gm_headers)
     assert r.status_code == 200 and r.json()["page_offset"] == 2
+    # A NUL is dropped on the way in, so this names the same publication.
+    nul = {**body, "publication": "Codex:\x00 Necrons"}
+    assert client.put("/api/armies/publication-links", json=nul, headers=gm_headers).status_code == 200
     body["page_offset"] = 4
     client.put("/api/armies/publication-links", json=body, headers=gm_headers)
     detail = client.get(f"/api/armies/{army['id']}", headers=player_headers).json()

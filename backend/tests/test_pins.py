@@ -62,6 +62,15 @@ class TestPins:
     def test_invalid_pins_are_rejected(self, client, gm_headers, body):
         assert client.post("/api/pins", json=body, headers=gm_headers).status_code == 422
 
+    def test_a_target_is_bounded_in_bytes(self, client, gm_headers):
+        # The target sits in a unique index, which PostgreSQL bounds in bytes:
+        # 1000 three-byte characters was a 500 there.
+        assert _pin(client, gm_headers, target="\u9f8d" * 1000).status_code == 422
+        assert _pin(client, gm_headers, target="\u9f8d" * 334).status_code == 422
+        kept = _pin(client, gm_headers, target="\u9f8d" * 333)
+        assert kept.status_code == 200, kept.text
+        assert _pin(client, gm_headers, target="x" * 1000).status_code == 200
+
     def test_invalid_collection_filter(self, client, gm_headers):
         assert client.get("/api/pins?collection=books", headers=gm_headers).status_code == 400
 

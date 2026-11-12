@@ -356,6 +356,15 @@ class TestApi:
         assert missing.status_code == 404
         assert client.delete(URL, params={"path": "books/../x"}, headers=admin_headers).status_code == 400
 
+    def test_a_path_too_long_to_index_is_refused(self, client, admin_headers, shelf, monkeypatch):
+        from backend.routers.settings import folder_access as handlers
+
+        monkeypatch.setattr(handlers, "MAX_PATH_BYTES", len(shelf["rel"].encode()) + 4)
+        body = {"path": shelf["rel"] + "/Core", "level": "gm"}
+        assert client.put(URL, json=body, headers=admin_headers).status_code == 400
+        monkeypatch.setattr(handlers, "MAX_PATH_BYTES", len(shelf["rel"].encode()) + 5)
+        assert client.put(URL, json=body, headers=admin_headers).status_code == 200
+
     def test_admin_only(self, client, gm_headers, player_headers):
         assert client.get(URL, headers=gm_headers).status_code == 403
         assert client.put(URL, json={"path": "books/x", "level": "gm"}, headers=gm_headers).status_code == 403

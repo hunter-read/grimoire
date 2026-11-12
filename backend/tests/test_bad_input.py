@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from backend.unicode_guard import has_lone_surrogate
+from backend.unicode_guard import has_lone_surrogate, strip_nul
 
 JSON = {"Content-Type": "application/json"}
 DEEP = '{"a":' * 5000 + "1" + "}" * 5000
@@ -99,6 +99,24 @@ class TestHasLoneSurrogate:
         assert not has_lone_surrogate(b'{"a": "\\ud800"')
 
 
+class TestStripNul:
+    def test_drops_one_anywhere(self):
+        body = b'{"a\\u0000": ["x\\u0000y", {"b": "\\u0000"}], "n": 1.5, "t": true, "z": null}'
+        assert json.loads(strip_nul(body)) == {
+            "a": ["xy", {"b": ""}], "n": 1.5, "t": True, "z": None,
+        }
+
+    def test_leaves_other_bodies_as_they_were(self):
+        for body in (
+            b'{"a": "plain"}',
+            b'{"a": "\\u0000"',  # not JSON
+        ):
+            assert strip_nul(body) is body
+        # An escaped backslash: the text is the six characters \u0000.
+        escaped = json.dumps({"a": "\\u0000"}).encode()
+        assert json.loads(strip_nul(escaped)) == {"a": "\\u0000"}
+
+
 def test_form_data_is_passed_on_unread(client):
     # Form data is never JSON-parsed, so it is not refused here.
     resp = client.post("/api/auth/login", data={"username": "x", "password": "x"})
@@ -132,7 +150,7 @@ def _run(messages, monkeypatch=None, limit=None):
         sent.append(message)
 
     scope = {"type": "http", "method": "POST", "headers": [(b"content-type", b"application/json")]}
-    asyncio.run(unicode_guard.LoneSurrogateMiddleware(app)(scope, receive, send))
+    asyncio.run(unicode_guard.JsonTextMiddleware(app)(scope, receive, send))
     return read, sent
 
 
@@ -144,6 +162,17 @@ def test_a_body_in_parts_is_checked_whole():
         ]
     )
     assert read == [] and sent[0]["status"] == 422
+
+
+def test_a_body_in_parts_has_its_nuls_dropped():
+    read, sent = _run(
+        [
+            {"type": "http.request", "body": b'{"a": "x\\u00', "more_body": True},
+            {"type": "http.request", "body": b'00y"}', "more_body": False},
+        ]
+    )
+    assert sent == []
+    assert [json.loads(m["body"]) for m in read] == [{"a": "xy"}]
 
 
 def test_a_body_too_large_to_check_is_passed_on_whole(monkeypatch):
@@ -212,6 +241,31 @@ def test_an_empty_system_id_links_no_system(client, gm_headers):
 def test_a_blank_name_is_refused(client, gm_headers, url):
     resp = client.post(url, json={"name": "   ", "units": []}, headers=gm_headers)
     assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.parametrize("url", ["/api/campaigns", "/api/leagues", "/api/armies"])
+def test_a_name_of_nothing_but_a_nul_is_refused(client, gm_headers, url):
+    # PostgreSQL cannot store a NUL and dropped it after the blank check had passed.
+    resp = client.post(url, json={"name": "\x00", "units": []}, headers=gm_headers)
+    assert resp.status_code == 422, resp.text
+
+
+def test_a_nul_is_dropped_before_validation(client, gm_headers):
+    resp = client.post("/api/leagues", json={"name": "Spring\x00 Cup\x00"}, headers=gm_headers)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["name"] == "Spring Cup"
+
+
+def test_tags_differing_by_a_nul_are_one_tag(client, gm_headers):
+    from backend.tests.conftest import make_book, make_game_system
+
+    book = make_book(system_id=make_game_system().id, title="Nul Tags")
+    resp = client.patch(
+        f"/api/books/{book.id}", json={"tags": ["abc", "ab\x00c"]}, headers=gm_headers
+    )
+    assert resp.status_code == 200, resp.text
+    tags = client.get(f"/api/books/{book.id}", headers=gm_headers).json()["tags"]
+    assert [t["name"] if isinstance(t, dict) else t for t in tags] == ["abc"]
 
 
 def test_a_name_is_trimmed(client, gm_headers):

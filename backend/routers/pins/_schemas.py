@@ -5,6 +5,10 @@ from pydantic import BaseModel, field_validator
 # the media galleries pin a folder by its collection-relative path.
 VALID_COLLECTIONS = {"systems", "maps", "tokens", "audio", "models"}
 
+#: The longest target, in UTF-8 bytes rather than characters: it sits in a unique
+#: index, and PostgreSQL refuses an index entry past about 2700 bytes.
+MAX_TARGET_BYTES = 1000
+
 
 class PinIn(BaseModel):
     collection: str
@@ -25,8 +29,8 @@ class PinIn(BaseModel):
         v = v.strip().strip("/")
         if not v:
             raise ValueError("target must not be blank")
-        if len(v) > 1000:
-            raise ValueError("target must be at most 1000 characters")
+        if len(v.encode()) > MAX_TARGET_BYTES:
+            raise ValueError(f"target must be at most {MAX_TARGET_BYTES} bytes")
         return v
 
 

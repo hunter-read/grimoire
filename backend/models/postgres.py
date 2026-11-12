@@ -13,7 +13,8 @@ The objects added here:
   tokenizer: ``café`` finds ``cafe`` and a search for ``the`` still matches;
 * ``book_pages`` with a generated ``tsvector`` column and its GIN index, the
   PostgreSQL counterpart of ``book_pages`` + the ``book_search`` FTS5 index
-  (markup-like text is indexed as plain words, see ``MARKUP_CHARS``);
+  (punctuation that would glue words together is indexed as a space, see
+  ``SPLIT_CHARS``);
 * ``content_search``, the character-builder catalogue index, likewise;
 * the case-insensitive unique index on ``users`` (``usernames.ensure_unique_index``);
 * the default lookup rows (genres, system families, licenses, dice materials)
@@ -53,15 +54,25 @@ INDEXED_CHARS = 250_000
 # Characters that open what PostgreSQL's text search parser takes for markup:
 # "<" an XML tag, "&" an entity. The parser drops a whole tag - "<goblin king>" -
 # and an entity - "&amp;" - where SQLite's FTS5 tokenizer just splits on the
-# punctuation and indexes the words. Both are swapped for a space before the
-# text is parsed, in the index and in every search term (services.pg_search), so
-# the same words are found on both databases.
+# punctuation and indexes the words.
 MARKUP_CHARS = "<&"
+
+# Characters the parser reads as joining their neighbours into one token - a
+# file path ("sword/shield"), a host ("lance.The", from a full stop with no
+# space after it), an email address, a URL, a signed number ("-2", "+5") or a
+# hyphenated compound - where FTS5 splits on each and indexes the words either
+# side. The colon is last so no SQL built from this reads ":x" as a parameter.
+JOINER_CHARS = "/.@\\_~+-:"
+
+# Every character swapped for a space before text is parsed, in the index and
+# in every search term (services.pg_search), so the same words are found on
+# both databases.
+SPLIT_CHARS = MARKUP_CHARS + JOINER_CHARS
 
 
 def searchable(expr: str) -> str:
-    """SQL for the text ``expr`` with ``MARKUP_CHARS`` turned into spaces."""
-    return f"translate({expr}, '{MARKUP_CHARS}', '{' ' * len(MARKUP_CHARS)}')"
+    """SQL for the text ``expr`` with ``SPLIT_CHARS`` turned into spaces."""
+    return f"translate({expr}, '{SPLIT_CHARS}', '{' ' * len(SPLIT_CHARS)}')"
 
 
 def book_pages_search_sql() -> str:
