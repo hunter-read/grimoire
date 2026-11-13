@@ -12,6 +12,7 @@ import pytest
 
 from backend import config
 from backend.config import SessionLocal
+from backend.models import UserTheme
 from backend.services import themes as svc
 from backend.tests.http_fakes import serve, serve_chunked
 
@@ -564,6 +565,82 @@ class TestCatalogueParsing:
         doc = {"themes": [{"id": "a"}, {"id": "b"}]}
         assert svc.find_entry(doc, "b")["id"] == "b"
         assert svc.find_entry(doc, "zzz") is None
+
+
+class TestCatalogueRoutes:
+    """Browsing and installing from the catalogue, with the network faked out."""
+
+    INDEX_URL = "https://catalogue.example/themes/index.json"
+
+    @pytest.fixture
+    def catalogue(self, monkeypatch):
+        doc = {
+            "generated": "2026-11-12",
+            "themes": [
+                {"id": "dusk", "name": "Dusk", "index_url": self.INDEX_URL, "version": "1.2.0"},
+                {"id": "dusk", "name": "Dusk again", "index_url": self.INDEX_URL},
+                {"id": "dawn", "name": "Dawn", "mode": "light", "index_url": self.INDEX_URL},
+            ],
+        }
+        monkeypatch.setattr(svc, "downloads_enabled", lambda: True)
+        monkeypatch.setattr(svc, "fetch_catalogue", lambda db: doc)
+        monkeypatch.setattr(svc, "fetch_theme", lambda db, entry: svc.parse_theme(
+            _theme_doc(id=entry["id"], name=entry["name"])
+        ))
+        return doc
+
+    def test_browse_lists_each_theme_once_and_marks_installed(
+        self, client, player_headers, catalogue
+    ):
+        dusk = svc.find_entry(catalogue, "dusk")["id"]
+        assert client.post(f"/api/themes/install/{dusk}", headers=player_headers).status_code == 200
+        try:
+            body = client.get("/api/themes/browse", headers=player_headers).json()
+            assert body["generated"] == "2026-11-12"
+            assert [t["name"] for t in body["themes"]] == ["Dusk", "Dawn"]
+            assert [t["installed"] for t in body["themes"]] == [True, False]
+            assert "index_url" in body and "is_custom_url" in body
+        finally:
+            client.delete(f"/api/themes/{dusk}", headers=player_headers)
+
+    def test_install_records_where_the_theme_came_from(self, client, player_headers, catalogue):
+        r = client.post("/api/themes/install/dawn", headers=player_headers)
+        assert r.status_code == 200, r.text
+        try:
+            assert r.json()["name"] == "Dawn"
+            with SessionLocal() as db:
+                row = db.query(UserTheme).filter_by(theme_id=r.json()["id"]).first()
+                assert row.source_id == "dawn"
+                assert row.source_url == self.INDEX_URL
+        finally:
+            client.delete(f"/api/themes/{r.json()['id']}", headers=player_headers)
+
+    def test_a_theme_not_in_the_catalogue_is_404(self, client, player_headers, catalogue):
+        assert client.post("/api/themes/install/nope", headers=player_headers).status_code == 404
+
+    def test_an_unreadable_catalogue_is_502(self, client, player_headers, monkeypatch):
+        def fail(db):
+            raise svc.ThemeError("catalogue offline")
+
+        monkeypatch.setattr(svc, "downloads_enabled", lambda: True)
+        monkeypatch.setattr(svc, "fetch_catalogue", fail)
+        assert client.get("/api/themes/browse", headers=player_headers).status_code == 502
+        assert client.post("/api/themes/install/dusk", headers=player_headers).status_code == 502
+
+    def test_a_row_from_before_variants_reads_as_one_mode(self, client, player_headers, player_id):
+        with SessionLocal() as db:
+            db.add(UserTheme(
+                user_id=player_id, theme_id="legacy", name="Legacy", mode="light",
+                variants={}, tokens=dict(VALID_TOKENS),
+            ))
+            db.commit()
+        try:
+            installed = client.get("/api/themes", headers=player_headers).json()["installed"]
+            legacy = next(t for t in installed if t["id"] == "legacy")
+            assert list(legacy["variants"]) == ["light"]
+            assert legacy["variants"]["light"]["accent"] == VALID_TOKENS["accent"]
+        finally:
+            client.delete("/api/themes/legacy", headers=player_headers)
 
 
 class TestCatalogueSource:
