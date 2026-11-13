@@ -46,6 +46,8 @@ everything it holds.
 | **Countdowns** | Countdowns and progress clocks, each a row of boxes with a name and what happens when it triggers. Countdowns show the boxes left and clocks the boxes filled. A full row is marked **Triggered**, and a row set to loop can start again from there. |
 | **Token pools** | Named pools of tokens several foes share, stepped up and down as they act. |
 | **Initiative** | The turn order, one of two ways. **One after another, by score**: add combatants with a score, sort them, and step through the turns; past the last one a new round starts. **Sides take turns**: combatants are grouped by side - heroes and foes, or any sides you name - and each is ticked once it has gone. Ticking someone hands the turn to the next side with anyone left to act. **Next round** clears every tick and gives the first turn back to the side that goes first. **Add the party** puts every active character in at once. |
+| **Rules reference** | Rules to look up mid-session - conditions, setting a DC, cover, travel pace - in sections with a button each. Write each section in Markdown in the panel's settings: **bold**, *italic*, lists and tables. It shows as text only: no HTML, and an image appears as its description. |
+| **Random table** | Roll on a table and see the result marked in it: names, rumours, what's in the drawer. Each column rolls its own die, the number of entries it has, so a d20 table is twenty lines. A table can have up to four columns rolled together - a trait and a quirk on their own lines, or a name's start, middle and end run into one word. The last roll stays until the next one or **Clear**. |
 | **Scratch note** | Free text for names made up on the spot, rulings, and who owes whom. Saved as you type. |
 
 ## Ending a scene, a session, or a rest
@@ -123,8 +125,8 @@ A preset is the same JSON an export produces:
 }
 ```
 
-`kind` is one of `party`, `note`, `counter`, `clocks`, `pools`, `initiative` and
-`scratch`. `x`, `y`, `w` and `h` place the panel in grid cells (twelve columns
+`kind` is one of `party`, `note`, `counter`, `clocks`, `pools`, `initiative`,
+`reference`, `table` and `scratch`. `x`, `y`, `w` and `h` place the panel in grid cells (twelve columns
 wide); leave `x` and `y` out to flow panels into the first gap they fit.
 `config` sets the tool up and `state` (optional) gives it starting contents, such
 as named pools. `resets` is `"scene"`, `"session"`, `"rest"` or `""` for never.
@@ -137,6 +139,8 @@ as named pools. `resets` is `"scene"`, `"session"`, `"rest"` or `""` for never.
 | `initiative` | `mode` (`ordered` or `sides`), `sides` (2 to 4 `{key, label}`), `resets` | `round`, `entries` |
 | `party` | `stats`: `{label, value, max, style}`, where `value` and `max` name sheet fields; `include_inactive` | - |
 | `note` | `page_slug`: the note to pin, by its name in the campaign | - |
+| `reference` | `sections`: up to 30 `{title, text}`, `text` in Markdown (8,000 characters a section, 60,000 a panel) | - |
+| `table` | `columns`: 1 to 4 `{label, entries}`, `entries` a list of up to 100 strings; `mode` (`list`, each column on its own line, or `join`, run together into one word) | `rolls`: one entry number per column, from 1 |
 | `scratch` | - | `text` |
 
 Every value is checked and bounded on import, and anything a kind does not

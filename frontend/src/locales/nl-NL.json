@@ -4753,7 +4753,9 @@
       "clocks": "Aftellers",
       "pools": "Fichepools",
       "initiative": "Initiatief",
-      "scratch": "Kladblok"
+      "scratch": "Kladblok",
+      "reference": "Regeloverzicht",
+      "table": "Willekeurige tabel"
     },
     "panel": {
       "move": "{{title}} verplaatsen",
@@ -4849,6 +4851,31 @@
       "newSide": "Nieuwe kant",
       "addSide": "Kant toevoegen",
       "resets": "Beurtvolgorde legen"
+    },
+    "reference": {
+      "empty": "Nog geen regels. Voeg secties toe in de instellingen van dit paneel.",
+      "sections": "Secties",
+      "untitled": "Sectie {{number}}",
+      "help": "Elke sectie krijgt een knop op het paneel. Schrijf hem in Markdown: **vet**, *cursief*, lijsten en tabellen (| A | B |).",
+      "sectionTitle": "Titel van sectie {{number}}",
+      "sectionText": "Tekst van sectie {{number}}",
+      "addSection": "Sectie toevoegen",
+      "removeSection": "Sectie {{number}} verwijderen"
+    },
+    "table": {
+      "empty": "Nog geen items. Voeg ze toe in de instellingen van dit paneel.",
+      "roll": "{{dice}} gooien",
+      "clear": "Wissen",
+      "die": "d{{size}}",
+      "column": "Kolom {{number}}",
+      "columnName": "Naam van kolom {{number}}",
+      "entries": "Items van kolom {{number}}",
+      "entriesHelp": "Eén item per regel. Voor deze kolom gooi je een d{{count}}.",
+      "mode": "Een worp tonen als",
+      "modeList": "Elke kolom op een eigen regel",
+      "modeJoin": "Eén woord, kolommen aan elkaar (namen)",
+      "addColumn": "Kolom toevoegen",
+      "removeColumn": "Kolom {{number}} verwijderen"
     },
     "note": {
       "choose": "Kies in de instellingen van dit paneel een notitie om vast te zetten.",

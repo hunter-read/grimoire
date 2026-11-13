@@ -246,3 +246,90 @@ class TestBoards:
         assert exported["panels"][0]["config"] == {"page_slug": "lore"}
         # An export reads back as the board it came from.
         assert boards.parse_board(exported)[0]["config"] == {"page_id": None, "page_slug": "lore"}
+
+
+class TestReference:
+    def test_sections_keep_their_markdown_and_drop_the_rest(self):
+        config = p.clean_config(
+            "reference",
+            {
+                "sections": [
+                    {"id": "blinded", "title": "Blinded", "text": "* Can't see.\n\n| a | b |\n", "x": 1},
+                    {"title": "", "text": ""},
+                    "not a section",
+                ],
+                "script": "alert(1)",
+            },
+        )
+        assert config == {
+            "sections": [{"id": "blinded", "title": "Blinded", "text": "* Can't see.\n\n| a | b |"}]
+        }
+        assert p.clean_state("reference", {"open": "blinded"}, config) == {}
+
+    def test_a_section_is_bounded_and_the_panel_stops_at_its_total(self):
+        long = "x" * (p.MAX_SECTION_TEXT + 50)
+        config = p.clean_config(
+            "reference", {"sections": [{"title": f"S{i}", "text": long} for i in range(p.MAX_SECTIONS)]}
+        )
+        assert all(len(s["text"]) == p.MAX_SECTION_TEXT for s in config["sections"])
+        assert len(config["sections"]) == p.MAX_REFERENCE_TEXT // p.MAX_SECTION_TEXT
+
+    def test_a_title_alone_or_text_alone_is_a_section(self):
+        config = p.clean_config("reference", {"sections": [{"title": "Heading"}, {"text": "Body"}]})
+        assert [(s["title"], s["text"]) for s in config["sections"]] == [("Heading", ""), ("", "Body")]
+
+
+class TestTable:
+    def test_columns_keep_their_entries_and_empty_ones_go(self):
+        config = p.clean_config(
+            "table",
+            {
+                "mode": "join",
+                "columns": [
+                    {"id": "start", "label": "Start", "entries": [" Ar ", "", "Bel", {"x": 1}]},
+                    {"label": "Nothing", "entries": []},
+                    {"label": "No list", "entries": "abc"},
+                ],
+            },
+        )
+        assert config == {
+            "mode": "join",
+            "columns": [{"id": "start", "label": "Start", "entries": ["Ar", "Bel"]}],
+        }
+
+    def test_an_unknown_mode_lists_and_sizes_are_bounded(self):
+        config = p.clean_config(
+            "table",
+            {
+                "mode": "shuffle",
+                "columns": [{"entries": ["e" * 500] * (p.MAX_ENTRIES + 5)}] * (p.MAX_COLUMNS + 2),
+            },
+        )
+        assert config["mode"] == "list"
+        assert len(config["columns"]) == p.MAX_COLUMNS
+        assert len(config["columns"][0]["entries"]) == p.MAX_ENTRIES
+        assert len(config["columns"][0]["entries"][0]) == p.MAX_ENTRY
+        assert len({c["id"] for c in config["columns"]}) == p.MAX_COLUMNS
+
+    def test_a_roll_must_fit_the_table(self):
+        config = p.clean_config(
+            "table", {"columns": [{"entries": ["a", "b"]}, {"entries": ["c", "d", "e"]}]}
+        )
+        assert p.clean_state("table", {"rolls": [2, 3]}, config) == {"rolls": [2, 3]}
+        assert p.clean_state("table", {"rolls": ["1", 1.0]}, config) == {"rolls": [1, 1]}
+        for bad in ([2], [3, 1], [0, 1], [True, 1], "12", None):
+            assert p.clean_state("table", {"rolls": bad}, config) == {"rolls": []}
+        assert p.clean_state("table", {"rolls": []}, p.clean_config("table", {})) == {"rolls": []}
+
+    def test_a_board_with_both_kinds_round_trips(self):
+        document = {
+            "panels": [
+                {"kind": "reference", "config": {"sections": [{"title": "Cover", "text": "Half: +2"}]}},
+                {"kind": "table", "config": {"columns": [{"entries": ["Rain"]}]}, "state": {"rolls": [1]}},
+            ]
+        }
+        cells = boards.parse_board(document)
+        assert [c["kind"] for c in cells] == ["reference", "table"]
+        assert cells[1]["state"] == {"rolls": [1]}
+        assert boards.parse_board(document, keep_state=False)[1]["state"] == {"rolls": []}
+        assert p.reset_state("table", cells[1]["config"], cells[1]["state"], "session") is None

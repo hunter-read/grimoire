@@ -55,6 +55,8 @@ KINDS: tuple[str, ...] = (
     "pools",       # named token pools, each stepped up and down
     "scratch",     # the GM's own jottings
     "initiative",  # turn order, by score or by sides taking turns
+    "reference",   # rules text to look things up in: conditions, DCs, cover
+    "table",       # a random table, rolled on: names, rumours, what's in the drawer
 )
 
 #: The grid is twelve columns wide; rows are as many as the board needs.
@@ -79,6 +81,14 @@ MAX_STATS = 12
 MAX_SIDES = 4
 MAX_BOXES = 30
 MAX_COUNT = 9999
+#: A reference panel is a handful of rules sections, not a rulebook.
+MAX_SECTIONS = 30
+MAX_SECTION_TEXT = 8_000
+MAX_REFERENCE_TEXT = 60_000
+#: A random table's columns are rolled together: a name's start, middle and end.
+MAX_COLUMNS = 4
+MAX_ENTRIES = 100
+MAX_ENTRY = 300
 
 _ITEM_ID = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 _FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,99}$")
@@ -93,6 +103,8 @@ _DEFAULT_SIZES: dict[str, tuple[int, int]] = {
     "pools": (4, 5),
     "scratch": (4, 6),
     "initiative": (4, 8),
+    "reference": (4, 8),
+    "table": (4, 8),
 }
 
 #: The two sides an initiative tracker starts with when its sides take turns.
@@ -240,6 +252,46 @@ def _initiative_config(raw: dict) -> dict:
     }
 
 
+def _reference_config(raw: dict) -> dict:
+    """Sections of Markdown, shown one at a time. Rendered as text, never HTML.
+
+    Sections past the panel's total are dropped rather than cut short, so what
+    is shown is whole.
+    """
+    sections: list[dict] = []
+    total = 0
+    for row in _rows(raw.get("sections"), MAX_SECTIONS):
+        text = _scratch_text(row.get("text"))[:MAX_SECTION_TEXT].strip("\n")
+        title = _text(row.get("title"), MAX_LABEL)
+        if not (title or text):
+            continue
+        total += len(text)
+        if total > MAX_REFERENCE_TEXT:
+            break
+        sections.append({"id": _item_id(row.get("id")), "title": title, "text": text})
+    return {"sections": _unique_ids(sections)}
+
+
+def _table_column(raw: dict) -> Optional[dict]:
+    entries = raw.get("entries")
+    if not isinstance(entries, list):
+        return None
+    kept = [text for text in (_text(e, MAX_ENTRY) for e in entries[:MAX_ENTRIES]) if text]
+    if not kept:
+        return None
+    return {"id": _item_id(raw.get("id")), "label": _text(raw.get("label"), MAX_LABEL), "entries": kept}
+
+
+def _table_config(raw: dict) -> dict:
+    # `list`: each column's result on a line of its own. `join`: the results
+    # run together into one word, for names built from syllables.
+    columns = [col for col in (_table_column(row) for row in _rows(raw.get("columns"), MAX_COLUMNS)) if col]
+    return {
+        "mode": _choice(raw.get("mode"), ("list", "join"), "list"),
+        "columns": _unique_ids(columns),
+    }
+
+
 _CONFIG = {
     "note": _note_config,
     "party": _party_config,
@@ -248,6 +300,8 @@ _CONFIG = {
     "pools": _pools_config,
     "scratch": lambda raw: {},
     "initiative": _initiative_config,
+    "reference": _reference_config,
+    "table": _table_config,
 }
 
 
@@ -340,6 +394,21 @@ def _scratch_text(value: Any) -> str:
     return value[:MAX_TEXT] if isinstance(value, str) else ""
 
 
+def _table_state(raw: dict, config: dict) -> dict:
+    """The last roll: one result per column, each a 1-based entry number.
+
+    A roll that no longer fits the table - a column added or emptied since -
+    is dropped rather than shown against the wrong entries.
+    """
+    columns = config["columns"]
+    rolls = raw.get("rolls")
+    if not isinstance(rolls, list) or len(rolls) != len(columns) or not columns:
+        return {"rolls": []}
+    kept = [_int(roll, 0, 0, MAX_ENTRIES + 1) for roll in rolls]
+    fits = all(1 <= roll <= len(col["entries"]) for roll, col in zip(kept, columns))
+    return {"rolls": kept if fits else []}
+
+
 _STATE = {
     "note": lambda raw, config: {},
     "party": lambda raw, config: {},
@@ -348,6 +417,8 @@ _STATE = {
     "pools": _pools_state,
     "scratch": lambda raw, config: {"text": _scratch_text(raw.get("text"))},
     "initiative": _initiative_state,
+    "reference": lambda raw, config: {},
+    "table": _table_state,
 }
 
 

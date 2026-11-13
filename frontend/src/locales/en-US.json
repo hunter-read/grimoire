@@ -4753,7 +4753,9 @@
       "clocks": "Countdowns",
       "pools": "Token pools",
       "initiative": "Initiative",
-      "scratch": "Scratch note"
+      "scratch": "Scratch note",
+      "reference": "Rules reference",
+      "table": "Random table"
     },
     "panel": {
       "move": "Move {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "New side",
       "addSide": "Add side",
       "resets": "Clear the turn order"
+    },
+    "reference": {
+      "empty": "No rules here yet. Add sections in this panel's settings.",
+      "sections": "Sections",
+      "untitled": "Section {{number}}",
+      "help": "Each section gets a button on the panel. Write it in Markdown: **bold**, *italic*, lists, and tables (| A | B |).",
+      "sectionTitle": "Section {{number}} title",
+      "sectionText": "Section {{number}} text",
+      "addSection": "Add section",
+      "removeSection": "Remove section {{number}}"
+    },
+    "table": {
+      "empty": "No entries yet. Add them in this panel's settings.",
+      "roll": "Roll {{dice}}",
+      "clear": "Clear",
+      "die": "d{{size}}",
+      "column": "Column {{number}}",
+      "columnName": "Column {{number}} name",
+      "entries": "Column {{number}} entries",
+      "entriesHelp": "One entry per line. This column rolls a d{{count}}.",
+      "mode": "Show a roll as",
+      "modeList": "Each column on its own line",
+      "modeJoin": "One word, the columns run together (names)",
+      "addColumn": "Add column",
+      "removeColumn": "Remove column {{number}}"
     },
     "note": {
       "choose": "Choose a note to pin in this panel's settings.",

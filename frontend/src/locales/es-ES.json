@@ -4753,7 +4753,9 @@
       "clocks": "Cuentas atrás",
       "pools": "Reservas de fichas",
       "initiative": "Iniciativa",
-      "scratch": "Bloc de notas"
+      "scratch": "Bloc de notas",
+      "reference": "Referencia de reglas",
+      "table": "Tabla aleatoria"
     },
     "panel": {
       "move": "Mover {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "Bando nuevo",
       "addSide": "Añadir bando",
       "resets": "Vaciar el orden de turnos"
+    },
+    "reference": {
+      "empty": "Aún no hay reglas. Añade secciones en los ajustes de este panel.",
+      "sections": "Secciones",
+      "untitled": "Sección {{number}}",
+      "help": "Cada sección tiene su botón en el panel. Escríbela en Markdown: **negrita**, *cursiva*, listas y tablas (| A | B |).",
+      "sectionTitle": "Título de la sección {{number}}",
+      "sectionText": "Texto de la sección {{number}}",
+      "addSection": "Añadir sección",
+      "removeSection": "Quitar la sección {{number}}"
+    },
+    "table": {
+      "empty": "Aún no hay entradas. Añádelas en los ajustes de este panel.",
+      "roll": "Tirar {{dice}}",
+      "clear": "Borrar",
+      "die": "d{{size}}",
+      "column": "Columna {{number}}",
+      "columnName": "Nombre de la columna {{number}}",
+      "entries": "Entradas de la columna {{number}}",
+      "entriesHelp": "Una entrada por línea. Esta columna se tira con un d{{count}}.",
+      "mode": "Mostrar una tirada como",
+      "modeList": "Cada columna en su propia línea",
+      "modeJoin": "Una sola palabra con las columnas unidas (nombres)",
+      "addColumn": "Añadir columna",
+      "removeColumn": "Quitar la columna {{number}}"
     },
     "note": {
       "choose": "Elige una nota para fijar en los ajustes de este panel.",

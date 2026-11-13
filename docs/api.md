@@ -1936,7 +1936,7 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 
 #### GM screen
 
-A campaign's GM screen is a board of built-in tools on a twelve-column snap grid, for the campaign's owner alone: every route below answers 403 to anyone else, members and admins included. See [GM screen](gm-screen.md). Each panel has a `kind` (`note`, `party`, `counter`, `clocks`, `pools`, `scratch`, `initiative`), a `title`, a cell (`x`, `y`, `w`, `h` in grid units; `x + w` is at most 12), a `config` (how the tool is set up) and a `state` (what is on it now). Both are rebuilt from the keys the kind declares and every value is bounded, so an unreadable value becomes the default rather than an error; an unknown `kind` is 400. A board holds at most 60 panels. Writes follow the campaign's lock like every other campaign write.
+A campaign's GM screen is a board of built-in tools on a twelve-column snap grid, for the campaign's owner alone: every route below answers 403 to anyone else, members and admins included. See [GM screen](gm-screen.md). Each panel has a `kind` (`note`, `party`, `counter`, `clocks`, `pools`, `scratch`, `initiative`, `reference`, `table`), a `title`, a cell (`x`, `y`, `w`, `h` in grid units; `x + w` is at most 12), a `config` (how the tool is set up) and a `state` (what is on it now). Both are rebuilt from the keys the kind declares and every value is bounded, so an unreadable value becomes the default rather than an error; an unknown `kind` is 400. A board holds at most 60 panels. Writes follow the campaign's lock like every other campaign write.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|

@@ -4753,7 +4753,9 @@
       "clocks": "Contagens regressivas",
       "pools": "Reservas de fichas",
       "initiative": "Iniciativa",
-      "scratch": "Rascunho"
+      "scratch": "Rascunho",
+      "reference": "Referência de regras",
+      "table": "Tabela aleatória"
     },
     "panel": {
       "move": "Mover {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "Novo lado",
       "addSide": "Adicionar lado",
       "resets": "Esvaziar a ordem de turnos"
+    },
+    "reference": {
+      "empty": "Ainda não há regras. Adicione secções nas definições deste painel.",
+      "sections": "Secções",
+      "untitled": "Secção {{number}}",
+      "help": "Cada secção tem um botão no painel. Escreva-a em Markdown: **negrito**, *itálico*, listas e tabelas (| A | B |).",
+      "sectionTitle": "Título da secção {{number}}",
+      "sectionText": "Texto da secção {{number}}",
+      "addSection": "Adicionar secção",
+      "removeSection": "Remover a secção {{number}}"
+    },
+    "table": {
+      "empty": "Ainda não há entradas. Adicione-as nas definições deste painel.",
+      "roll": "Lançar {{dice}}",
+      "clear": "Limpar",
+      "die": "d{{size}}",
+      "column": "Coluna {{number}}",
+      "columnName": "Nome da coluna {{number}}",
+      "entries": "Entradas da coluna {{number}}",
+      "entriesHelp": "Uma entrada por linha. Nesta coluna lança-se um d{{count}}.",
+      "mode": "Mostrar um lançamento como",
+      "modeList": "Cada coluna na sua linha",
+      "modeJoin": "Uma só palavra, colunas juntas (nomes)",
+      "addColumn": "Adicionar coluna",
+      "removeColumn": "Remover a coluna {{number}}"
     },
     "note": {
       "choose": "Escolha uma nota para fixar nas definições deste painel.",

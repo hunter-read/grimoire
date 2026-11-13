@@ -4753,7 +4753,9 @@
       "clocks": "Nedräkningar",
       "pools": "Polletter",
       "initiative": "Initiativ",
-      "scratch": "Kladdlapp"
+      "scratch": "Kladdlapp",
+      "reference": "Regelöversikt",
+      "table": "Slumptabell"
     },
     "panel": {
       "move": "Flytta {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "Ny sida",
       "addSide": "Lägg till sida",
       "resets": "Töm turordningen"
+    },
+    "reference": {
+      "empty": "Inga regler än. Lägg till avsnitt i panelens inställningar.",
+      "sections": "Avsnitt",
+      "untitled": "Avsnitt {{number}}",
+      "help": "Varje avsnitt får en knapp på panelen. Skriv det i Markdown: **fet**, *kursiv*, listor och tabeller (| A | B |).",
+      "sectionTitle": "Rubrik för avsnitt {{number}}",
+      "sectionText": "Text för avsnitt {{number}}",
+      "addSection": "Lägg till avsnitt",
+      "removeSection": "Ta bort avsnitt {{number}}"
+    },
+    "table": {
+      "empty": "Inga rader än. Lägg till dem i panelens inställningar.",
+      "roll": "Slå {{dice}}",
+      "clear": "Rensa",
+      "die": "T{{size}}",
+      "column": "Kolumn {{number}}",
+      "columnName": "Namn på kolumn {{number}}",
+      "entries": "Rader i kolumn {{number}}",
+      "entriesHelp": "En rad per post. Den här kolumnen slås med en T{{count}}.",
+      "mode": "Visa ett slag som",
+      "modeList": "Varje kolumn på egen rad",
+      "modeJoin": "Ett ord, kolumnerna ihop (namn)",
+      "addColumn": "Lägg till kolumn",
+      "removeColumn": "Ta bort kolumn {{number}}"
     },
     "note": {
       "choose": "Välj en anteckning att fästa i panelens inställningar.",
