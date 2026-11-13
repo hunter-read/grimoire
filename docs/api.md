@@ -3069,7 +3069,7 @@ Session or API key (`armies` permission). A campaign's guests get 403.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/leagues` | GET | any (not guest) | Leagues you organise or play in, newest first: `[{id, name, description, organizer_id, organizer_name, game_system_id, game_system_name, points_limit, points_win, points_draw, points_loss, status, member_count, created_at}]` |
+| `/api/leagues` | GET | any (league guests too) | Leagues you organise or play in, newest first: `[{id, name, description, organizer_id, organizer_name, game_system_id, game_system_name, points_limit, points_win, points_draw, points_loss, status, member_count, created_at}]` |
 | `/api/leagues` | POST | GM, admin | Start a league. Body `{name, description?, game_system_id?, points_limit? (0-1,000,000), points_win? (3), points_draw? (1), points_loss? (0)}`. The system must be a wargame. The organiser is not a member until they add themselves |
 | `/api/leagues/:id` | GET | league people | The league plus `can_manage`, `is_member`, `members` (`[{user_id, name, army, is_guest}]`), `games` (newest first: `{id, played_on, mission, notes, player_a, player_b, army_a, army_b, score_a, score_b, result, can_edit}`) and `standings` (`[{user_id, name, played, won, drawn, lost, score_for, score_against, points}]`, by league points, then score difference, then score) |
 | `/api/leagues/:id` | PATCH | organiser, admin | Change any of the create fields, or `status` (`active` / `finished`) |

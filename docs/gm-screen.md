@@ -6,7 +6,7 @@ countdowns and progress clocks, token pools, the turn order, the party's hit
 points at a glance, and the notes you want open during play.
 
 Only the campaign's GM sees it. Players never do, so a hidden countdown stays
-hidden. Open it from **GM screen** beside **Open notes** on the campaign page.
+hidden. Open it from **GM screen** beside **Open Notes** on the campaign page.
 
 The GM screen is marked **Beta** while it settles in: expect its tools and layout
 to keep changing.

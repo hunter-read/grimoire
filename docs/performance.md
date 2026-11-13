@@ -9,6 +9,8 @@ device or a large collection.
 
 On first startup Grimoire scans the library and indexes every PDF page for full-text search. This can take several minutes for large collections. The index is stored in the data volume and subsequent startups are fast.
 
+The first start after upgrading to 1.11 reorganises the search index once, so a book's pages can be looked up without reading the whole index. On a very large library this takes a few minutes. It is logged as it goes, is safe to interrupt (the next start carries on from where it stopped), and needs about twice the index's disk space while it runs. Books already indexed stay searchable afterwards without being re-read.
+
 New files are picked up by themselves while the library is [watched for changes](file-management.md#watching-for-changes), the default. Use the **Rescan** button in the sidebar to pick them up by hand, or configure a scheduled rescan in **Settings → Library → Scanning** - on a slow server you can turn watching off and scan at a quiet hour instead.
 
 ## OCR

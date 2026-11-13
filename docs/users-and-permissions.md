@@ -24,7 +24,7 @@ By default every user can see every book. If you would rather keep the adventure
 module your players are currently inside out of their hands, books, systems,
 folders and whole categories can be restricted to a minimum role.
 
-There are two restriction levels:
+There are three restriction levels:
 
 | Level | Who can see it |
 |---|---|

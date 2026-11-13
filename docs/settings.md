@@ -74,7 +74,7 @@ holds a book; until then only admins see it.
 
 Campaigns and Characters sit under a **Role-playing** heading and
 [Armies and Leagues](armies.md) under **Wargaming**, with a rule between them. A heading goes
-when everything under it is hidden. Guests only ever see the role-playing group.
+when everything under it is hidden. A campaign's guest sees only the role-playing group, and a league's guest only the wargaming one.
 
 **Sidebar Stats** picks the counts shown at the foot of the sidebar.
 

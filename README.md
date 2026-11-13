@@ -66,7 +66,8 @@ never writes to it.
 ### Campaigns
 
 - **Campaigns** - Track GM-run and personal campaigns with character art and sheets, linked resources, and scheduling.
-- **Wiki** - A markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import and export.
+- **Wiki** - A markdown notes wiki with deep linking, map pages with pins that link to other pages, Mermaid diagrams, and Markdown/JSON/LegendKeeper import and export.
+- **GM screen** - A GM-only board of tools for each campaign: party stats, counters, clocks, an initiative tracker, a rules reference and random tables, with community presets. See [GM screen](docs/gm-screen.md).
 - **Wiki note templates** - Start a page from a community template, write your own, or upload a Markdown file or `.zip`. Templates belong to the campaign, so downloaded ones are yours to edit. See [Wiki note templates](docs/wiki-templates.md).
 
 ### Wargames
@@ -77,11 +78,11 @@ never writes to it.
 
 ### Administration
 
-- **Book restrictions** - Restrict a book, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
+- **Book restrictions** - Restrict a book, folder, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
 - **Grimoire Codex DB** - Look books and systems up in the built-in community catalogue, link them, and send corrections back. Turned on with a Grimoire Codex DB API token. See [Grimoire Codex DB](docs/codex.md).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
 - **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. Import characters from Forge Steel, Pathbuilder and other tools through community importers. See [Character sheets](docs/characters.md).
-- **Themes and light mode** - Light, dark, or system, the crimson **Codex** palette beside Grimoire's own gold, and installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
+- **Themes and light mode** - Light, dark, or system, the steel-on-gunmetal **Codex** palette beside Grimoire's own gold (with a crimson Codex Red among the community themes), and installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
 - **Docker ready** - One command to run, mount your library directory, done. Works on desktop, tablet, and phone.
 
 ---

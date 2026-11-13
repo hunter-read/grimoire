@@ -1,7 +1,7 @@
 <div align="center">
   <img src="frontend/static/android-chrome-192x192.png" alt="Grimoire" width="144">
 
-  # Grimoire - Self-Hosted TTRPG Library Manager
+  # Grimoire - Self-Hosted Tabletop Library Manager
 
   [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/9Sd4CGZC63)
   [![CI](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
