@@ -13,17 +13,20 @@ env:
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
-  images:
-    name: Build and publish
+  # Cheap checks first, so a mistagged release fails in seconds rather than
+  # after the image builds.
+  prepare:
+    name: Check version
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write   # push to GHCR
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      major: ${{ steps.ver.outputs.major }}
+      minor: ${{ steps.ver.outputs.minor }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       # Parse v1.9.2 → major=1, minor=1.9, patch=1.9.2
       - name: Parse version from tag
@@ -49,6 +52,32 @@ jobs:
             exit 1
           fi
 
+  # One job per architecture, each on a native runner. Building arm64 under
+  # QEMU on an x86 runner is what made a release take half an hour: ffmpeg, the
+  # Python C extensions and the bytecode warm-up all ran emulated. Each job
+  # pushes its images by digest only (no tags); `publish` stitches the two
+  # architectures into the tagged multi-arch images.
+  build:
+    name: Build ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write   # push to GHCR
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64/v8
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Log in to DockerHub
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
@@ -62,61 +91,132 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # Release images are built from scratch each time, without the Actions
-      # build cache that CI and nightly share between runs.
+      # build cache that CI and nightly share between runs. The two variants
+      # share every stage up to `runtime-base`, so the slim build that follows
+      # reuses this job's local layers and only pushes.
       # Default image: bundles Tesseract OCR (see Dockerfile `ocr` target).
       - name: Build and push (OCR)
+        id: ocr
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: ocr
-          push: true
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: ${{ matrix.platform }}
           build-args: |
-            APP_VERSION=${{ steps.ver.outputs.version }}
+            APP_VERSION=${{ needs.prepare.outputs.version }}
             COMMIT_HASH=${{ github.sha }}
           # Links the GHCR package to this repo.
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-          tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.major }}
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.minor }}
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
-            ${{ env.GHCR_IMAGE }}:latest
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.major }}
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.minor }}
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.version }}
+          outputs: type=image,"name=${{ env.IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
       # Slim variant: no OCR engine, smaller image (see Dockerfile `slim` target).
       - name: Build and push (slim, no OCR)
+        id: slim
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: slim
-          push: true
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: ${{ matrix.platform }}
           build-args: |
-            APP_VERSION=${{ steps.ver.outputs.version }}
+            APP_VERSION=${{ needs.prepare.outputs.version }}
             COMMIT_HASH=${{ github.sha }}
-          # Links the GHCR package to this repo.
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-          tags: |
-            ${{ env.IMAGE }}:slim
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.major }}-slim
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.minor }}-slim
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}-slim
-            ${{ env.GHCR_IMAGE }}:slim
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.major }}-slim
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.minor }}-slim
-            ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.version }}-slim
+          outputs: type=image,"name=${{ env.IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Record digests
+        run: |
+          mkdir -p digests/ocr digests/slim
+          touch "digests/ocr/${OCR_DIGEST#sha256:}"
+          touch "digests/slim/${SLIM_DIGEST#sha256:}"
+        env:
+          OCR_DIGEST: ${{ steps.ocr.outputs.digest }}
+          SLIM_DIGEST: ${{ steps.slim.outputs.digest }}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Log out of registries
+        if: always()
+        run: |
+          docker logout
+          docker logout ghcr.io
+
+  # Tags the multi-arch images. Nothing is tagged until both architectures have
+  # built, so a failed arm64 build never leaves `:latest` pointing at an
+  # amd64-only image.
+  publish:
+    name: Tag multi-arch images
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # tag on GHCR
+
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digests-*
+          path: digests
+          merge-multiple: true
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Each registry's tags point at the digests already pushed to that same
+      # registry, so nothing is copied between them and both carry identical
+      # images.
+      - name: Create and push manifest lists
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          MAJOR: ${{ needs.prepare.outputs.major }}
+          MINOR: ${{ needs.prepare.outputs.minor }}
+        run: |
+          set -euo pipefail
+          for variant in ocr slim; do
+            if [ "$(ls "digests/$variant" | wc -l)" -ne 2 ]; then
+              echo "::error::Expected 2 $variant digests (amd64, arm64), found: $(ls "digests/$variant")"
+              exit 1
+            fi
+            if [ "$variant" = ocr ]; then
+              tags="latest $MAJOR $MINOR $VERSION"
+            else
+              tags="slim $MAJOR-slim $MINOR-slim $VERSION-slim"
+            fi
+            for repo in "$IMAGE" "$GHCR_IMAGE"; do
+              args=()
+              for t in $tags; do args+=(-t "$repo:$t"); done
+              for d in "digests/$variant"/*; do args+=("$repo@sha256:$(basename "$d")"); done
+              docker buildx imagetools create "${args[@]}"
+            done
+          done
+
+      - name: Inspect
+        run: |
+          docker buildx imagetools inspect "$IMAGE:${{ needs.prepare.outputs.version }}"
+          docker buildx imagetools inspect "$IMAGE:${{ needs.prepare.outputs.version }}-slim"
 
       - name: Log out of registries
         if: always()
@@ -129,7 +229,7 @@ jobs:
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: images
+    needs: publish
     permissions:
       contents: write
 

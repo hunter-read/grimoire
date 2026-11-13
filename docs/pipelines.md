@@ -312,8 +312,13 @@ Steps 1-3 gate the release; 4-6 follow it.
 
 ### What it does
 
-The tag `v1.5.0` is parsed into `version=1.5.0`, `minor=1.5`, and `major=1`, then the workflow
-builds and pushes **two** multi-arch image variants (`linux/amd64`, `linux/arm64/v8`):
+The tag `v1.5.0` is parsed into `version=1.5.0`, `minor=1.5`, and `major=1`, and checked
+against the `VERSION` file before anything is built. The workflow then builds **two** image
+variants for `linux/amd64` and `linux/arm64/v8`. Each architecture builds in its own job on a
+native runner (`ubuntu-latest` and `ubuntu-24.04-arm`) rather than under QEMU: emulating
+the arm64 build was most of what made a release take half an hour. Those jobs push untagged images by digest,
+and a final job tags them as multi-arch images, so no tag moves until both architectures
+have built:
 
 **OCR (default) - Dockerfile `ocr` target, bundles Tesseract:**
 - `hunterreadca/grimoire:latest`
@@ -327,8 +332,9 @@ builds and pushes **two** multi-arch image variants (`linux/amd64`, `linux/arm64
 - `hunterreadca/grimoire:1.5-slim`
 - `hunterreadca/grimoire:1.5.0-slim`
 
-Every tag above is pushed to `ghcr.io/hunter-read/grimoire` as well, in the same
-`docker/build-push-action` step, so the two registries always carry identical images.
+Every tag above is pushed to `ghcr.io/hunter-read/grimoire` as well. Each build pushes its
+images to both registries, and each registry's tags point at those same digests, so the
+two registries always carry identical images.
 
 Finally it creates a **GitHub Release** for the tag with auto-generated release notes (from
 merged PRs and commits since the last release).
