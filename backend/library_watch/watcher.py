@@ -51,6 +51,40 @@ _KINDS = {
 }
 
 
+def _event_filter() -> list[Any]:
+    """The watchdog event classes :data:`_KINDS` acts on, and nothing else.
+
+    Without a filter, inotify is asked for every event - opens and read-only
+    closes included - so each time anything reads a library file (a scan, a
+    page render, a download) the kernel queues events nobody wants. Worse, when
+    that queue overflows, watchdog rebuilds its watches by listing every
+    folder, and each listing is itself an open and a read-only close: on a large
+    library the rebuild refills the queue and overflows it again, forever. A
+    folder's own "modified" is dropped by ``is_relevant`` anyway.
+    """
+    from watchdog.events import (
+        DirCreatedEvent,
+        DirDeletedEvent,
+        DirMovedEvent,
+        FileClosedEvent,
+        FileCreatedEvent,
+        FileDeletedEvent,
+        FileModifiedEvent,
+        FileMovedEvent,
+    )
+
+    return [
+        FileCreatedEvent,
+        DirCreatedEvent,
+        FileDeletedEvent,
+        DirDeletedEvent,
+        FileMovedEvent,
+        DirMovedEvent,
+        FileModifiedEvent,
+        FileClosedEvent,
+    ]
+
+
 class ChangeQueue:
     """Relevant changes waiting to be scanned, and when they will be ready."""
 
@@ -143,7 +177,9 @@ class LibraryWatcher:
                 watcher.handle(event)
 
         observer = self._observer_factory(self.polling, self.poll_interval)
-        observer.schedule(_Handler(), self.library_path, recursive=True)
+        observer.schedule(
+            _Handler(), self.library_path, recursive=True, event_filter=_event_filter()
+        )
         observer.start()
         self._observer = observer
         self._thread = threading.Thread(

@@ -13,6 +13,7 @@ from watchdog.events import (
     FileClosedEvent,
     FileCreatedEvent,
     FileDeletedEvent,
+    FileClosedNoWriteEvent,
     FileMovedEvent,
     FileOpenedEvent,
 )
@@ -173,8 +174,9 @@ class FakeObserver:
         self.alive = False
         self.scheduled: list = []
 
-    def schedule(self, handler, path, recursive=False):
+    def schedule(self, handler, path, recursive=False, event_filter=None):
         self.scheduled.append((handler, path, recursive))
+        self.event_filter = event_filter
 
     def start(self):
         if self.fail is not None:
@@ -224,6 +226,32 @@ class TestLibraryWatcherEvents:
             ("books/D&D/core/phb.pdf", CREATED),
             ("books/D&D/core/phb.pdf", MODIFIED),
         }
+
+    def test_only_events_that_matter_are_subscribed(self):
+        # Opens and read-only closes come from every read of the library -
+        # including watchdog listing folders to recover from an inotify
+        # overflow, which then overflowed again in a loop.
+        observer = FakeObserver()
+        watcher = LibraryWatcher(
+            str(_library()),
+            polling=False,
+            poll_interval=1,
+            delay=0.05,
+            scan=lambda scope: None,
+            busy=lambda: False,
+            observer_factory=lambda polling, interval: observer,
+        )
+        watcher.start()
+        try:
+            wanted = observer.event_filter
+            assert FileOpenedEvent not in wanted
+            assert FileClosedNoWriteEvent not in wanted
+            assert DirModifiedEvent not in wanted
+            assert {cls.event_type for cls in wanted} == {
+                "created", "deleted", "moved", "modified", "closed"
+            }
+        finally:
+            watcher.stop()
 
     def test_a_move_records_both_ends(self):
         root = _library()
