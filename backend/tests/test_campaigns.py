@@ -2425,6 +2425,21 @@ class TestCampaignFileUploads:
         assert dl.status_code == 200
         assert dl.content == b"hello world"
 
+    def test_image_file_is_shown_inline_other_files_download(self, client, gm_headers, campaign):
+        url = f"/api/campaigns/{campaign['id']}/files"
+        img = client.post(
+            url, files={"file": ("map.png", _png_bytes(), "image/png")}, headers=gm_headers
+        ).json()
+        shown = client.get(f"{url}/{img['resource_id']}", headers=gm_headers)
+        assert shown.status_code == 200
+        assert shown.headers["content-type"] == "image/png"
+        assert shown.headers["content-disposition"].startswith("inline")
+        doc = client.post(
+            url, files={"file": ("h.txt", b"hello", "text/plain")}, headers=gm_headers
+        ).json()
+        saved = client.get(f"{url}/{doc['resource_id']}", headers=gm_headers)
+        assert saved.headers["content-disposition"].startswith("attachment")
+
     def test_removing_file_resource_deletes_file(self, client, gm_headers, campaign):
         res = client.post(
             f"/api/campaigns/{campaign['id']}/files",
