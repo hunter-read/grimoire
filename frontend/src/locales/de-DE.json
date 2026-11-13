@@ -4753,7 +4753,9 @@
       "clocks": "Countdowns",
       "pools": "Marken-Pools",
       "initiative": "Initiative",
-      "scratch": "Notizzettel"
+      "scratch": "Notizzettel",
+      "reference": "Regelübersicht",
+      "table": "Zufallstabelle"
     },
     "panel": {
       "move": "{{title}} verschieben",
@@ -4849,6 +4851,31 @@
       "newSide": "Neue Seite",
       "addSide": "Seite hinzufügen",
       "resets": "Zugreihenfolge leeren"
+    },
+    "reference": {
+      "empty": "Noch keine Regeln. Füge in den Einstellungen dieses Felds Abschnitte hinzu.",
+      "sections": "Abschnitte",
+      "untitled": "Abschnitt {{number}}",
+      "help": "Jeder Abschnitt bekommt eine Schaltfläche im Feld. Schreibe ihn in Markdown: **fett**, *kursiv*, Listen und Tabellen (| A | B |).",
+      "sectionTitle": "Titel von Abschnitt {{number}}",
+      "sectionText": "Text von Abschnitt {{number}}",
+      "addSection": "Abschnitt hinzufügen",
+      "removeSection": "Abschnitt {{number}} entfernen"
+    },
+    "table": {
+      "empty": "Noch keine Einträge. Füge sie in den Einstellungen dieses Felds hinzu.",
+      "roll": "{{dice}} würfeln",
+      "clear": "Leeren",
+      "die": "W{{size}}",
+      "column": "Spalte {{number}}",
+      "columnName": "Name von Spalte {{number}}",
+      "entries": "Einträge von Spalte {{number}}",
+      "entriesHelp": "Ein Eintrag pro Zeile. Für diese Spalte wird ein W{{count}} gewürfelt.",
+      "mode": "Ergebnis anzeigen als",
+      "modeList": "Jede Spalte in eigener Zeile",
+      "modeJoin": "Ein Wort aus allen Spalten (Namen)",
+      "addColumn": "Spalte hinzufügen",
+      "removeColumn": "Spalte {{number}} entfernen"
     },
     "note": {
       "choose": "Wähle in den Einstellungen dieses Felds eine Notiz zum Anheften.",

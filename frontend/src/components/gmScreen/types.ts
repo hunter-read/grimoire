@@ -7,7 +7,16 @@
 import type { Schema } from '../../api'
 
 export type Panel = Schema<'GmPanelOut'>
-export type PanelKind = 'note' | 'party' | 'counter' | 'clocks' | 'pools' | 'scratch' | 'initiative'
+export type PanelKind =
+  | 'note'
+  | 'party'
+  | 'counter'
+  | 'clocks'
+  | 'pools'
+  | 'scratch'
+  | 'initiative'
+  | 'reference'
+  | 'table'
 export type ResetScope = '' | 'scene' | 'session' | 'rest'
 export type PartyOverview = Schema<'GmPartyOut'>
 export type PartyCharacter = Schema<'GmPartyCharacter'>
@@ -19,6 +28,8 @@ export const PANEL_KINDS: PanelKind[] = [
   'clocks',
   'pools',
   'initiative',
+  'reference',
+  'table',
   'scratch',
 ]
 export const RESET_SCOPES: ResetScope[] = ['', 'scene', 'session', 'rest']
@@ -99,6 +110,26 @@ export interface InitiativeState {
   entries: Combatant[]
 }
 
+export interface ReferenceSection {
+  id: string
+  title: string
+  text: string
+}
+export interface ReferenceConfig {
+  sections: ReferenceSection[]
+}
+
+export interface TableColumn {
+  id: string
+  label: string
+  entries: string[]
+}
+export interface TableConfig {
+  /** `list`: each column's result on its own line; `join`: run together, for names. */
+  mode: 'list' | 'join'
+  columns: TableColumn[]
+}
+
 const num = (value: unknown, fallback: number) =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
@@ -142,6 +173,33 @@ export function initiativeState(
     first: typeof state.first === 'string' ? state.first : config.sides[0].key,
     entries: Array.isArray(state.entries) ? (state.entries as Combatant[]) : [],
   }
+}
+
+export function referenceConfig(config: Record<string, unknown>): ReferenceConfig {
+  return {
+    sections: Array.isArray(config.sections) ? (config.sections as ReferenceSection[]) : [],
+  }
+}
+
+export function tableConfig(config: Record<string, unknown>): TableConfig {
+  return {
+    mode: config.mode === 'join' ? 'join' : 'list',
+    columns: Array.isArray(config.columns)
+      ? (config.columns as TableColumn[]).filter((column) => Array.isArray(column.entries))
+      : [],
+  }
+}
+
+/** The last roll, one 1-based entry number per column, or [] when it no longer fits. */
+export function tableRolls(state: Record<string, unknown>, config: TableConfig): number[] {
+  const rolls = Array.isArray(state.rolls) ? (state.rolls as unknown[]) : []
+  const fits =
+    rolls.length === config.columns.length &&
+    rolls.every(
+      (roll, index) =>
+        typeof roll === 'number' && roll >= 1 && roll <= config.columns[index].entries.length
+    )
+  return fits ? (rolls as number[]) : []
 }
 
 export const DEFAULT_SIDES: Side[] = [

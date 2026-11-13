@@ -4753,7 +4753,9 @@
       "clocks": "Conti alla rovescia",
       "pools": "Riserve di segnalini",
       "initiative": "Iniziativa",
-      "scratch": "Appunti"
+      "scratch": "Appunti",
+      "reference": "Riepilogo regole",
+      "table": "Tabella casuale"
     },
     "panel": {
       "move": "Sposta {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "Nuovo schieramento",
       "addSide": "Aggiungi schieramento",
       "resets": "Svuota l'ordine dei turni"
+    },
+    "reference": {
+      "empty": "Ancora nessuna regola. Aggiungi sezioni nelle impostazioni di questo pannello.",
+      "sections": "Sezioni",
+      "untitled": "Sezione {{number}}",
+      "help": "Ogni sezione ha un pulsante sul pannello. Scrivila in Markdown: **grassetto**, *corsivo*, elenchi e tabelle (| A | B |).",
+      "sectionTitle": "Titolo della sezione {{number}}",
+      "sectionText": "Testo della sezione {{number}}",
+      "addSection": "Aggiungi sezione",
+      "removeSection": "Rimuovi la sezione {{number}}"
+    },
+    "table": {
+      "empty": "Ancora nessuna voce. Aggiungile nelle impostazioni di questo pannello.",
+      "roll": "Tira {{dice}}",
+      "clear": "Cancella",
+      "die": "d{{size}}",
+      "column": "Colonna {{number}}",
+      "columnName": "Nome della colonna {{number}}",
+      "entries": "Voci della colonna {{number}}",
+      "entriesHelp": "Una voce per riga. Per questa colonna si tira un d{{count}}.",
+      "mode": "Mostra un tiro come",
+      "modeList": "Ogni colonna su una riga",
+      "modeJoin": "Una parola sola, colonne unite (nomi)",
+      "addColumn": "Aggiungi colonna",
+      "removeColumn": "Rimuovi la colonna {{number}}"
     },
     "note": {
       "choose": "Scegli una nota da fissare nelle impostazioni di questo pannello.",

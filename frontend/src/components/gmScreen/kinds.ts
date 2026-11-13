@@ -6,7 +6,9 @@ import InitiativePanel from './panels/InitiativePanel'
 import NotePanel from './panels/NotePanel'
 import PartyPanel from './panels/PartyPanel'
 import PoolsPanel from './panels/PoolsPanel'
+import ReferencePanel from './panels/ReferencePanel'
 import ScratchPanel from './panels/ScratchPanel'
+import TablePanel from './panels/TablePanel'
 import type { PanelBodyProps } from './panels/panelProps'
 import ClocksSettings from './settings/ClocksSettings'
 import CounterSettings from './settings/CounterSettings'
@@ -14,6 +16,8 @@ import InitiativeSettings from './settings/InitiativeSettings'
 import NoteSettings from './settings/NoteSettings'
 import PartySettings from './settings/PartySettings'
 import PoolsSettings from './settings/PoolsSettings'
+import ReferenceSettings from './settings/ReferenceSettings'
+import TableSettings from './settings/TableSettings'
 import type { PanelKind } from './types'
 
 /** Each tool's body, and the form its settings open, by kind. */
@@ -28,6 +32,8 @@ export const KIND_VIEWS: Record<
   pools: { Body: PoolsPanel, Settings: PoolsSettings },
   scratch: { Body: ScratchPanel },
   initiative: { Body: InitiativePanel, Settings: InitiativeSettings },
+  reference: { Body: ReferencePanel, Settings: ReferenceSettings },
+  table: { Body: TablePanel, Settings: TableSettings },
 }
 
 /**

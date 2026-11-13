@@ -4753,7 +4753,9 @@
       "clocks": "Comptes à rebours",
       "pools": "Réserves de jetons",
       "initiative": "Initiative",
-      "scratch": "Bloc-notes"
+      "scratch": "Bloc-notes",
+      "reference": "Aide-mémoire de règles",
+      "table": "Table aléatoire"
     },
     "panel": {
       "move": "Déplacer {{title}}",
@@ -4849,6 +4851,31 @@
       "newSide": "Nouveau camp",
       "addSide": "Ajouter un camp",
       "resets": "Vider l'ordre des tours"
+    },
+    "reference": {
+      "empty": "Aucune règle pour l'instant. Ajoutez des sections dans les réglages de ce panneau.",
+      "sections": "Sections",
+      "untitled": "Section {{number}}",
+      "help": "Chaque section a son bouton sur le panneau. Rédigez-la en Markdown : **gras**, *italique*, listes et tableaux (| A | B |).",
+      "sectionTitle": "Titre de la section {{number}}",
+      "sectionText": "Texte de la section {{number}}",
+      "addSection": "Ajouter une section",
+      "removeSection": "Supprimer la section {{number}}"
+    },
+    "table": {
+      "empty": "Aucune entrée pour l'instant. Ajoutez-en dans les réglages de ce panneau.",
+      "roll": "Lancer {{dice}}",
+      "clear": "Effacer",
+      "die": "d{{size}}",
+      "column": "Colonne {{number}}",
+      "columnName": "Nom de la colonne {{number}}",
+      "entries": "Entrées de la colonne {{number}}",
+      "entriesHelp": "Une entrée par ligne. Cette colonne se lance avec un d{{count}}.",
+      "mode": "Afficher un résultat",
+      "modeList": "Chaque colonne sur sa ligne",
+      "modeJoin": "En un seul mot, colonnes accolées (noms)",
+      "addColumn": "Ajouter une colonne",
+      "removeColumn": "Supprimer la colonne {{number}}"
     },
     "note": {
       "choose": "Choisissez une note à épingler dans les réglages de ce panneau.",
