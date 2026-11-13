@@ -8,6 +8,11 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Fixed
+
+- Watching the library for changes no longer floods the logs with "Inotify queue overflowed" warnings on a large library. Every read of a library file - a scan, a page render, a download - used to count as an event, and recovering from an overflow caused the next one, over and over, so the watcher could miss real changes
+- Books with a missing font, such as an EPUB whose stylesheet names fonts it doesn't include, no longer fill the logs with "MuPDF error" lines every time a page renders. They still render as before, and the messages appear with `LOG_LEVEL=debug`
+
 ## [1.11.0] - 2026-11-13
 
 ### Added

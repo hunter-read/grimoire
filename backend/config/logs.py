@@ -6,6 +6,8 @@ environment, and a reload attaches no second handler (see ``_is_ours``).
 import collections
 import datetime
 import logging
+import os
+import sys
 import threading
 from typing import Optional
 
@@ -58,6 +60,23 @@ for _noisy in (
     "redis",
 ):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+# MuPDF prints every recoverable problem it meets straight to stdout - an EPUB
+# whose CSS names a font the archive doesn't hold logs one line per font per page
+# rendered, and the page still renders. Send those lines to the "pymupdf" logger
+# at DEBUG instead, so they appear only with LOG_LEVEL=debug. The environment
+# variable is read when pymupdf is imported and is inherited by the spawned
+# render, scan, OCR and indexing workers; set_messages covers this process when
+# pymupdf was imported first. An operator's own PYMUPDF_MESSAGE still wins.
+_MUPDF_LOGGER = "pymupdf"
+_mupdf_redirected = "PYMUPDF_MESSAGE" not in os.environ
+if _mupdf_redirected:
+    os.environ["PYMUPDF_MESSAGE"] = f"logging:name={_MUPDF_LOGGER},level={logging.DEBUG}"
+    if "pymupdf" in sys.modules:
+        sys.modules["pymupdf"].set_messages(
+            pylogging_name=_MUPDF_LOGGER, pylogging_level=logging.DEBUG
+        )
+logging.getLogger(_MUPDF_LOGGER).setLevel(env.LOG_LEVEL)
 
 for _h in logging.root.handlers:
     if _is_ours(_h, "console"):

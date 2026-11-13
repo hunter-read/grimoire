@@ -357,3 +357,112 @@ class TestConfigReload:
         assert out.strip() == (
             "True ['%(asctime)s [%(name)s] %(levelname)s: %(message)s', '%(message)s']"
         )
+
+
+def _epub_with_a_missing_font(path: Path) -> None:
+    """An EPUB whose stylesheet names a font the archive doesn't hold - the
+    page renders, and MuPDF reports the missing font every time it lays out."""
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        z.writestr(
+            "META-INF/container.xml",
+            '<?xml version="1.0"?><container version="1.0" '
+            'xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>'
+            '<rootfile full-path="OEBPS/content.opf" '
+            'media-type="application/oebps-package+xml"/></rootfiles></container>',
+        )
+        z.writestr(
+            "OEBPS/content.opf",
+            '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" '
+            'version="2.0" unique-identifier="id"><metadata '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>T</dc:title>'
+            '<dc:identifier id="id">x</dc:identifier></metadata><manifest>'
+            '<item id="c" href="ch.xhtml" media-type="application/xhtml+xml"/>'
+            '<item id="s" href="css/s.css" media-type="text/css"/></manifest>'
+            '<spine><itemref idref="c"/></spine></package>',
+        )
+        z.writestr(
+            "OEBPS/css/s.css",
+            '@font-face { font-family: "Gone"; src: url(../font/Gone-Regular.otf); }'
+            ' body { font-family: "Gone"; }',
+        )
+        z.writestr(
+            "OEBPS/ch.xhtml",
+            '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head>'
+            '<link rel="stylesheet" href="css/s.css"/></head><body><p>Hi</p></body></html>',
+        )
+
+
+class TestMuPDFMessages:
+    """MuPDF's own complaints go to the "pymupdf" logger at DEBUG, not stdout."""
+
+    _RENDER = (
+        "import sys, pymupdf\n"
+        "pymupdf.open(sys.argv[1])[0].get_pixmap()\n"
+        "print('rendered')\n"
+    )
+
+    def _run(self, probe: str, epub: Path, **env: str):
+        import os
+        import subprocess
+        import sys
+
+        child_env = {k: v for k, v in os.environ.items() if k != "PYMUPDF_MESSAGE"}
+        child_env.update(env)
+        return subprocess.run(
+            [sys.executable, "-c", probe, str(epub)],
+            cwd=_REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=child_env,
+        )
+
+    @pytest.mark.parametrize(
+        "first", ["import backend.config\n", "import pymupdf\nimport backend.config\n"]
+    )
+    def test_kept_off_stdout_whichever_is_imported_first(self, tmp_path, first):
+        epub = tmp_path / "book.epub"
+        _epub_with_a_missing_font(epub)
+        proc = self._run(first + self._RENDER, epub, LOG_LEVEL="info")
+        assert proc.stdout.strip() == "rendered"
+        assert "MuPDF" not in proc.stderr
+
+    def test_shown_at_debug(self, tmp_path):
+        epub = tmp_path / "book.epub"
+        _epub_with_a_missing_font(epub)
+        proc = self._run("import backend.config\n" + self._RENDER, epub, LOG_LEVEL="debug")
+        assert "MuPDF" not in proc.stdout
+        assert "[pymupdf] DEBUG: MuPDF error:" in proc.stderr
+        assert "Gone-Regular.otf" in proc.stderr
+
+    def test_spawned_workers_inherit_it(self, tmp_path):
+        """Render and indexing workers are spawned fresh and may import pymupdf
+        before any of backend.config - the environment carries the setting."""
+        epub = tmp_path / "book.epub"
+        _epub_with_a_missing_font(epub)
+        probe = (
+            "import subprocess, sys\n"
+            "import backend.config\n"
+            "child = 'import sys, pymupdf; pymupdf.open(sys.argv[1])[0].get_pixmap()'\n"
+            "r = subprocess.run([sys.executable, '-c', child, sys.argv[1]],\n"
+            "                   capture_output=True, text=True, check=True)\n"
+            "print(repr(r.stdout + r.stderr))\n"
+        )
+        proc = self._run(probe, epub, LOG_LEVEL="info")
+        assert proc.stdout.strip() == "''"
+
+    def test_an_operators_own_setting_wins(self, tmp_path):
+        epub = tmp_path / "book.epub"
+        _epub_with_a_missing_font(epub)
+        out = tmp_path / "mupdf.txt"
+        proc = self._run(
+            "import backend.config\n" + self._RENDER,
+            epub,
+            LOG_LEVEL="info",
+            PYMUPDF_MESSAGE=f"path:{out}",
+        )
+        assert proc.stdout.strip() == "rendered"
+        assert "Gone-Regular.otf" in out.read_text()
