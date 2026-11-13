@@ -2892,6 +2892,8 @@
     "imported": "{{count}} Seite importiert",
     "imported_other": "{{count}} Seiten importiert",
     "embed_file": "Datei",
+    "embed_image": "Bild",
+    "embed_imageOpen": "Bild im Vollbild öffnen",
     "uploadImage": "Bild hochladen",
     "uploadAndEmbed": "Hochladen & einbetten",
     "noLinkedResources": "Noch keine verknüpften Ressourcen. Verknüpfe zuerst Bücher, Karten oder Tokens im Ressourcen-Bereich.",

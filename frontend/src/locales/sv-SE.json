@@ -2892,6 +2892,8 @@
     "imported": "Importerade {{count}} sida",
     "imported_other": "Importerade {{count}} sidor",
     "embed_file": "Fil",
+    "embed_image": "Bild",
+    "embed_imageOpen": "Öppna bilden i helskärm",
     "uploadImage": "Ladda upp bild",
     "uploadAndEmbed": "Ladda upp och bädda in",
     "noLinkedResources": "Inga länkade resurser än. Länka böcker, kartor eller tokens i resurspanelen först.",

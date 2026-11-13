@@ -6,7 +6,7 @@ import type { IconType } from 'react-icons'
 import { campaigns, client } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import { trackLabel } from '../audio/trackLabel'
-import LazyImg from '../LazyImg'
+import EmbedImage from './EmbedImage'
 import useHoverPrefetch from '../../hooks/useHoverPrefetch'
 import {
   openingPageUrls,
@@ -147,13 +147,7 @@ export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedC
   // (token-authenticated), so we need the campaign id to build the URL.
   if (type === 'image') {
     if (!campaignId) return null
-    return (
-      <LazyImg
-        src={campaigns.fileUrl(campaignId, id)}
-        alt=""
-        style={{ maxWidth: '100%', borderRadius: 8, display: 'block', margin: '8px 0' }}
-      />
-    )
+    return <EmbedImage src={campaigns.fileUrl(campaignId, id)} />
   }
 
   // A non-image campaign file embeds as a card opening the file in a new tab.

@@ -217,4 +217,48 @@ describe('EmbedCard', () => {
       expect(prefetchNow).not.toHaveBeenCalled()
     })
   })
+
+  describe('image embeds', () => {
+    const src = 'http://localhost/campaigns/c1/files/img1'
+
+    it('shows the image inline, without a dialog', () => {
+      const { container } = renderEmbed({ spec: 'image:img1', campaignId: 'c1' })
+      expect(container.querySelector('img')).toHaveAttribute('src', src)
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('opens the image full screen on a click, and closes it with Escape', async () => {
+      const user = userEvent.setup()
+      renderEmbed({ spec: 'image:img1', campaignId: 'c1' })
+      await user.click(screen.getByRole('button', { name: 'Open the image full screen' }))
+      const dialog = screen.getByRole('dialog')
+      expect(dialog.querySelector('img')).toHaveAttribute('src', src)
+      expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('closes from the close button and from the backdrop, not from the image', async () => {
+      const user = userEvent.setup()
+      renderEmbed({ spec: 'image:img1', campaignId: 'c1' })
+      const open = screen.getByRole('button', { name: 'Open the image full screen' })
+      await user.click(open)
+      await user.click(screen.getByRole('button', { name: 'Close' }))
+      expect(screen.queryByRole('dialog')).toBeNull()
+
+      await user.click(open)
+      const dialog = screen.getByRole('dialog')
+      const img = dialog.querySelector('img') as HTMLImageElement
+      await user.click(img)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(img.style.cursor).toBe('zoom-out')
+      await user.click(dialog)
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('renders nothing without a campaign', () => {
+      const { container } = renderEmbed({ spec: 'image:img1' })
+      expect(container).toBeEmptyDOMElement()
+    })
+  })
 })

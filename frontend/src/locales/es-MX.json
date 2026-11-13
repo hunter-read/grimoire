@@ -2892,6 +2892,8 @@
     "imported": "{{count}} página importada",
     "imported_other": "{{count}} páginas importadas",
     "embed_file": "Archivo",
+    "embed_image": "Imagen",
+    "embed_imageOpen": "Abrir la imagen a pantalla completa",
     "uploadImage": "Subir imagen",
     "uploadAndEmbed": "Subir e incrustar",
     "noLinkedResources": "Aún no hay recursos vinculados. Vincula primero libros, mapas o fichas en el panel de Recursos.",

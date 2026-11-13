@@ -2892,6 +2892,8 @@
     "imported": "{{count}} page importée",
     "imported_other": "{{count}} pages importées",
     "embed_file": "Fichier",
+    "embed_image": "Image",
+    "embed_imageOpen": "Ouvrir l'image en plein écran",
     "uploadImage": "Téléverser une image",
     "uploadAndEmbed": "Téléverser et intégrer",
     "noLinkedResources": "Aucune ressource liée pour le moment. Liez d’abord des livres, cartes ou jetons dans le panneau Ressources.",
