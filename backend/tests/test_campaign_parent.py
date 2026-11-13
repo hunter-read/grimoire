@@ -7,6 +7,8 @@ with the owner's account.
 """
 import uuid
 
+import pytest
+
 from backend.config import SessionLocal
 from backend.models import Campaign
 
@@ -138,3 +140,25 @@ class TestParentCampaign:
         assert _parent_of(parent) == "gone"
         assert _parent_of(child) == "gone"
         assert _parent_of(stray) is None
+
+
+class TestParentCheckedAgainstTheOwner:
+    """The parent must be the campaign owner's, whoever is making the change."""
+
+    def test_the_owners_campaign_is_accepted_and_anothers_refused(self, gm_id, player_id):
+        from fastapi import HTTPException
+
+        from backend.routers.campaigns._helpers import check_parent_campaign
+        from backend.tests.conftest import make_campaign
+
+        child = make_campaign(gm_id)
+        owners = make_campaign(gm_id)
+        someone_elses = make_campaign(player_id)
+        with SessionLocal() as db:
+            assert check_parent_campaign(db, owners.id, child.owner_id, child.id) == owners.id
+            with pytest.raises(HTTPException) as refused:
+                check_parent_campaign(db, someone_elses.id, child.owner_id, child.id)
+            assert refused.value.status_code == 404
+            with pytest.raises(HTTPException) as own:
+                check_parent_campaign(db, child.id, child.owner_id, child.id)
+            assert own.value.status_code == 400

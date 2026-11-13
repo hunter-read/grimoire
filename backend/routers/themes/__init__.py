@@ -7,7 +7,6 @@ from ._schemas import (
     ThemeDeletedResponse,
     ThemeListResponse,
     ThemeSelectionResponse,
-    ThemeSourceResponse,
 )
 from .core import (
     browse_themes,
@@ -16,7 +15,6 @@ from .core import (
     install_theme,
     list_themes,
     select_theme,
-    set_theme_source,
 )
 
 router = APIRouter(prefix="/themes", tags=["themes"])
@@ -51,13 +49,6 @@ router.add_api_route(
     methods=["PUT"],
     summary="Set the active mode and theme",
     response_model=ThemeSelectionResponse,
-)
-router.add_api_route(
-    "/source",
-    set_theme_source,
-    methods=["PUT"],
-    summary="Set the catalogue URL (admin)",
-    response_model=ThemeSourceResponse,
 )
 router.add_api_route(
     "/install/{theme_id}",

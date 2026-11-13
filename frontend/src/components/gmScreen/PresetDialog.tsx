@@ -101,9 +101,12 @@ export default function PresetDialog({
               </li>
             ))}
           </ul>
-          {catalogue.errors.map((failure) => (
-            <p key={failure.url} style={{ ...helpText, color: 'var(--danger)' }}>
-              {t('gmScreen.presets.sourceError', { url: failure.url, error: failure.error })}
+          {catalogue.errors.map((failure, i) => (
+            <p key={`${failure.url}-${i}`} style={{ ...helpText, color: 'var(--danger)' }}>
+              {/* Which source failed, and why, is shown to an admin only. */}
+              {failure.url
+                ? t('gmScreen.presets.sourceError', { url: failure.url, error: failure.error })
+                : t('gmScreen.presets.sourceUnreadable')}
             </p>
           ))}
         </div>

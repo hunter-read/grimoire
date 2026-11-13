@@ -26,7 +26,7 @@ from ...addons import credentials as source_credentials
 from ...addons.authors import parse_author
 from ...addons.constants import DEFAULT_INDEX_URL, external_installs_enabled
 from ...addons.credentials import SourceCredentials
-from ...addons.fetch import AddonFetchError, download_file, fetch_document
+from ...addons.fetch import AddonFetchError, download_file, fetch_document, is_not_found
 from ..characters import catalogue as sheets
 from . import boards
 from .panels import PanelError
@@ -77,7 +77,11 @@ def _configured_sources(db: Session) -> list[str]:
 def _read_source(
     configured: str, credentials: Optional[SourceCredentials]
 ) -> tuple[Optional[str], list[dict], Optional[str]]:
-    """The first candidate URL holding a preset index: (url, entries, error)."""
+    """The first candidate URL holding a preset index: (url, entries, error).
+
+    A candidate that answers 404 has no presets rather than a fault: an add-on
+    index from before GM screens existed has no ``gm-screens/`` directory.
+    """
     error: Optional[str] = None
     for url in sheets.candidate_urls(configured, INDEX_PATH):
         try:
@@ -89,7 +93,8 @@ def _read_source(
                 credentials=credentials,
             )
         except AddonFetchError as exc:
-            error = error or str(exc)
+            if not is_not_found(exc):
+                error = error or str(exc)
             continue
         if isinstance(document, dict) and isinstance(document.get("screens"), list):
             return url, [entry for entry in document["screens"] if isinstance(entry, dict)], None
@@ -119,11 +124,13 @@ def _summarise(entry: dict, index_url: str) -> Optional[dict]:
     }
 
 
-def fetch_catalogue(db: Session) -> dict:
+def fetch_catalogue(db: Session, show_sources: bool = True) -> dict:
     """Every preset the configured catalogues offer, named by source.
 
     A source that cannot be read is reported beside the presets that could be,
     rather than hiding them: one unreachable branch should not empty the list.
+    The sources are the admin's configuration, so with ``show_sources`` off a
+    failure is reported without its URL or the reason, which can name hosts.
     """
     _assert_downloads_enabled()
     credentials = source_credentials.load(db)
@@ -135,7 +142,9 @@ def fetch_catalogue(db: Session) -> dict:
         index_url, entries, error = _read_source(source, credentials)
         if index_url is None:
             if error:
-                errors.append({"url": source, "error": error})
+                errors.append(
+                    {"url": source, "error": error} if show_sources else {"url": "", "error": ""}
+                )
             continue
         for entry in entries:
             summary = _summarise(entry, index_url)

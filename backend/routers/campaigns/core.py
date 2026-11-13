@@ -172,7 +172,7 @@ def create_campaign(
         # Only a system the creator can see: one hidden from them answers like
         # an id that does not exist.
         load_browsable_system(db, data.system_id, current_user)
-    parent_id = check_parent_campaign(db, data.parent_campaign_id, current_user)
+    parent_id = check_parent_campaign(db, data.parent_campaign_id, current_user.id)
     campaign = Campaign(
         name=data.name.strip(),
         description=data.description,
@@ -306,7 +306,7 @@ def update_campaign(
             c.system_id = None  # free-text name replaces any linked system
     if data.parent_campaign_id is not None:
         if data.parent_campaign_id and data.parent_campaign_id != c.parent_campaign_id:
-            check_parent_campaign(db, data.parent_campaign_id, current_user, c.id)
+            check_parent_campaign(db, data.parent_campaign_id, c.owner_id, c.id)
         c.parent_campaign_id = data.parent_campaign_id or None
 
     db.commit()

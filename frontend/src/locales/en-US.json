@@ -4925,7 +4925,8 @@
       "by": "by {{author}}",
       "apply": "Use",
       "applyNamed": "Use {{name}}",
-      "sourceError": "Couldn't read {{url}}: {{error}}"
+      "sourceError": "Couldn't read {{url}}: {{error}}",
+      "sourceUnreadable": "One of the preset catalogues couldn't be read."
     }
   }
 }

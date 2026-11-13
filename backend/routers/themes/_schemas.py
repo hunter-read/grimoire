@@ -57,22 +57,6 @@ class ThemeSelection(BaseModel):
         return value
 
 
-class ThemeSourceUpdate(BaseModel):
-    """An operator pointing the catalogue at a fork or mirror."""
-
-    index_url: Optional[str] = None
-
-    @field_validator("index_url")
-    @classmethod
-    def http_url(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        value = v.strip()
-        if value and not value.startswith(("http://", "https://")):
-            raise ValueError("index_url must be an http(s) URL")
-        return value
-
-
 class InstalledTheme(BaseModel):
     """One of the user's installed themes, as built by `core._serialize`.
 
@@ -157,11 +141,6 @@ class ThemeSelectionResponse(BaseModel):
     app_mode: str
     mode: str
     theme_id: str
-
-
-class ThemeSourceResponse(BaseModel):
-    index_url: str
-    is_custom_url: bool
 
 
 class ThemeDeletedResponse(BaseModel):

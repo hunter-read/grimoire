@@ -68,12 +68,16 @@ def get_book_toc(
     if not book or not is_fitz_mime(book.mime_type):
         raise HTTPException(404)
     assert_book_access(db, book, current_user)
+    filepath = book.filepath
     release_connection(db)
+    if not os.path.exists(filepath):
+        _mark_missing(db, book_id)
+        raise HTTPException(404, "File not found on disk")
     # Not `get_toc` directly: MuPDF drops the whole outline over one bookmark
     # it can't resolve, which left books with a perfectly usable TOC showing none
     # (see render/outline.py). Read in a render worker, like the pages.
     with render_errors("The table of contents could not be read"):
-        raw = render_pool.document_toc(book.filepath)
+        raw = render_pool.document_toc(filepath)
 
     def build_tree(items, min_level):
         result = []

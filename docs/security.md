@@ -22,6 +22,8 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/
 
 **Per account and per link.** Failed logins are also counted against the account being signed in to (by the username typed, whether or not it exists), and wrong share-link passwords against the link, however many addresses the attempts come from. The default is **`20/hour`**; tune it with `ACCOUNT_RATE_LIMIT`. A browser that has signed in to an account before keeps its own count (it holds an HttpOnly `grimoire_device` cookie for that account), so failed attempts elsewhere don't stop the owner signing in from their usual browser. Single sign-on and existing sessions are not affected.
 
+Changing your password asks for the current one, and wrong answers there are counted against the account too, with the same limit but an allowance of their own: a signed-in session cannot be used to guess the password, and mistyping it on that form never stops anyone signing in.
+
 ### Behind a reverse proxy
 
 `X-Forwarded-For` is only read from connections that come from a trusted proxy, and it is read from the right: each proxy appends the address it received the request from, so the right-most address that isn't itself a trusted proxy is the client. The default trust list - loopback plus `172.16.0.0/12`, the range Docker gives its bridge networks - covers a proxy or tunnel on the same host or in the same Docker Compose project, so nginx, Nginx Proxy Manager, SWAG, Traefik, Caddy, Cloudflare Tunnel and `tailscale serve` need no setting. A direct connection from anywhere else is keyed on its own address, whatever header it sends.

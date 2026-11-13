@@ -62,13 +62,20 @@ class InsecureSecretKeyError(RuntimeError):
     """Raised at start-up when SECRET_KEY is set to a published placeholder."""
 
 
+_REJECTED_FOLDED = frozenset(k.casefold() for k in REJECTED_SECRET_KEYS)
+
+
 def _looks_like_placeholder(key: str) -> bool:
-    """True for an angle-bracket fill-in such as ``<your key here>``, quoted or not.
+    """True for a published placeholder or an angle-bracket fill-in, quoted or not.
 
     Docs write values to replace as ``<...>``; one copied unedited is as public
-    as the docs, and no generated key looks like that.
+    as the docs, and no generated key looks like that. A published value is
+    matched whatever its case and with any quotes compose's list syntax left
+    around it (``- SECRET_KEY='change-me'`` keeps the quotes).
     """
-    bare = key.strip("'\"").strip()
+    bare = key.strip().strip("'\"").strip()
+    if bare.casefold() in _REJECTED_FOLDED:
+        return True
     return bare.startswith("<") and bare.endswith(">")
 
 

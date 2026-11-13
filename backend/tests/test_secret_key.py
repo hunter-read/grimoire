@@ -136,6 +136,23 @@ def test_angle_bracket_placeholders_are_refused(value, tmp_path):
         resolve_secret_key(value, str(tmp_path))
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "'change-me'",
+        '"change-me"',
+        "Change-Me",
+        "CHANGE-ME",
+        "' Change-Me '",
+        '"Generate-With-OpenSSL-Rand-Hex-32"',
+    ],
+)
+def test_a_quoted_or_recased_placeholder_is_refused(value, tmp_path):
+    """Compose's list syntax keeps quotes, and a key may be retyped in another case."""
+    with pytest.raises(InsecureSecretKeyError):
+        resolve_secret_key(value, str(tmp_path))
+
+
 @pytest.mark.parametrize("value", ["<starts-with-a-bracket" + "k" * 32, "k" * 32 + "ends-with>"])
 def test_a_key_merely_containing_a_bracket_is_accepted(value, tmp_path):
     assert resolve_secret_key(value, str(tmp_path)) == value

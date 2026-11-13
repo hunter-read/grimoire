@@ -15,11 +15,11 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ... import config
-from ...auth import CurrentUser, get_current_user, require_admin
+from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import AppSetting, User, UserTheme
+from ...models import User, UserTheme
 from ...services import themes as svc
-from ._schemas import ThemeImport, ThemeSelection, ThemeSourceUpdate
+from ._schemas import ThemeImport, ThemeSelection
 
 logger = logging.getLogger("grimoire.themes")
 
@@ -291,22 +291,3 @@ def select_theme(
     _set_selection(user, active, mode=data.mode, theme_id=theme_id)
     db.commit()
     return {"app_mode": active, **_selection_for(user, active)}
-
-
-def set_theme_source(
-    data: ThemeSourceUpdate,
-    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
-    db: Session = Depends(get_db),
-):
-    """Point the catalogue at a fork or mirror. Server-wide, so admin-only."""
-    if data.index_url is None:
-        raise HTTPException(400, "index_url is required")
-
-    row = db.query(AppSetting).filter_by(key=svc.SETTING_INDEX_URL).first()
-    value = data.index_url.strip()
-    if row is None:
-        db.add(AppSetting(key=svc.SETTING_INDEX_URL, value=value))
-    else:
-        row.value = value
-    db.commit()
-    return {"index_url": svc.get_index_url(db), "is_custom_url": svc.is_custom_url(db)}

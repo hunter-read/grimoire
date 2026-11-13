@@ -232,6 +232,16 @@ def fetch_json(
         raise AddonFetchError("source did not return valid JSON or YAML")
 
 
+def is_not_found(exc: BaseException) -> bool:
+    """Whether a fetch failed because the source answered 404.
+
+    For a catalogue kept beside others in one repository: a source that has no
+    such directory yet holds nothing of that kind, which is not a failure.
+    """
+    cause = exc.__cause__
+    return isinstance(cause, DownloadError) and cause.reason == "status" and cause.status == 404
+
+
 def _source_message(exc: DownloadError) -> str:
     """``fetch_json``'s wording: the thing fetched is an add-on's source."""
     if exc.reason == "status":

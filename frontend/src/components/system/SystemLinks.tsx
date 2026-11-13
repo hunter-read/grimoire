@@ -110,7 +110,7 @@ export default function SystemLinks({ system }: SystemLinksProps) {
           key={`${l.url}-${i}`}
           href={l.url}
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           title={kindTitle(l)}
           aria-label={kindTitle(l)}
           data-kind={l.builder ? 'builder' : 'link'}
@@ -178,7 +178,7 @@ export default function SystemLinks({ system }: SystemLinksProps) {
                       role="menuitem"
                       href={l.url}
                       target="_blank"
-                      rel="noopener"
+                      rel="noopener noreferrer"
                       title={kindTitle(l)}
                       data-kind={l.builder ? 'builder' : 'link'}
                       onClick={() => setOpen(false)}
