@@ -8,6 +8,7 @@ import {
   isVisible,
   ExpressionError,
   computedOverrides,
+  MAX_EACH_ROWS,
 } from './expressions'
 
 // These mirror backend/tests/test_character_engine.py::TestExpressions. The two
@@ -436,5 +437,81 @@ describe('overriding computed values', () => {
 
   it('ignores an override of something not computed', () => {
     expect(computedOverrides(DOC, { _overrides: { dexterity: 1 } })).toEqual({})
+  })
+})
+
+describe('per-row forms', () => {
+  const entries = {
+    'chain-mail': { name: 'Chain Mail', ac_base: 16, dex_cap: 0 },
+    'scale-mail': { name: 'Scale Mail', ac_base: 14, dex_cap: 2 },
+    leather: { name: 'Leather Armor', ac_base: 11 },
+    shield: { name: 'Shield', ac_bonus: 2 },
+  }
+  const gear = (...picks: [string, boolean][]) =>
+    picks.map(([ref, equipped]) => ({ _ref: ref, _per: { equipped } }))
+  const ctx = (values: Record<string, unknown>) => ({
+    dexterity_mod: 3,
+    _entries: entries,
+    ...values,
+  })
+
+  it('sums a row formula over rows matching a condition', () => {
+    expect(
+      evaluate(
+        'sum_each(gear, row.ac_bonus, row.equipped)',
+        ctx({ gear: gear(['shield', true], ['leather', true]) })
+      )
+    ).toBe(2)
+    expect(
+      evaluate('sum_each(gear, row.ac_bonus, row.equipped)', ctx({ gear: gear(['shield', false]) }))
+    ).toBe(0)
+  })
+
+  it('mixes the row and the character in one formula', () => {
+    const formula =
+      'max_each(gear, row.ac_base + (row.dex_cap == 0 ? dexterity_mod : min(dexterity_mod, row.dex_cap)), ' +
+      'row.equipped && row.ac_base > 0, 10 + dexterity_mod)'
+    expect(evaluate(formula, ctx({ gear: gear(['scale-mail', true], ['leather', true]) }))).toBe(16)
+  })
+
+  it('falls back when no row matches', () => {
+    const context = ctx({ gear: gear(['chain-mail', false]) })
+    expect(evaluate('max_each(gear, row.ac_base, row.equipped, 10 + dexterity_mod)', context)).toBe(
+      13
+    )
+    expect(evaluate('max_each(gear, row.ac_base, row.equipped)', context)).toBe(0)
+    expect(evaluate('min_each(gear, row.ac_base)', context)).toBe(16)
+  })
+
+  it('counts matching rows', () => {
+    const context = ctx({ gear: gear(['chain-mail', true], ['shield', true]) })
+    expect(evaluate('count_each(gear, row.ac_base > 0)', context)).toBe(1)
+    expect(evaluate('count_each(gear)', context)).toBe(2)
+  })
+
+  it('reads plain list rows and a single reference', () => {
+    const attacks = [{ bonus: 5, magic: true }, { bonus: 3 }, 'junk']
+    expect(evaluate('sum_each(attacks, row.bonus * 2, row.magic)', { attacks })).toBe(10)
+    expect(evaluate('max_each(attacks, row.bonus)', { attacks })).toBe(5)
+    expect(evaluate('sum_each(armor, row.ac_base)', ctx({ armor: { _ref: 'leather' } }))).toBe(11)
+  })
+
+  it('reads nonsense as zero', () => {
+    expect(evaluate('sum_each(missing, row.x)', {})).toBe(0)
+    expect(evaluate('sum_each(5, row.x)', {})).toBe(0)
+    expect(evaluate('sum_each()', {})).toBe(0)
+    expect(evaluate('sum_each(gear)', { gear: [{ x: 1 }] })).toBe(0)
+    expect(evaluate('sum_each(gear, row.x, true, 1)', { gear: [{ x: 1 }] })).toBe(0)
+  })
+
+  it('scopes row to the form, nested forms seeing their own row', () => {
+    expect(evaluate('row + sum_each(gear, row.x)', { row: 7, gear: [{ x: 1 }, { x: 2 }] })).toBe(10)
+    const groups = [{ items: [{ x: 1 }, { x: 2 }] }, { items: [{ x: 5 }] }]
+    expect(evaluate('sum_each(groups, max_each(row.items, row.x))', { groups })).toBe(7)
+  })
+
+  it('ignores rows past the limit', () => {
+    const rows = Array.from({ length: MAX_EACH_ROWS + 50 }, () => ({ x: 1 }))
+    expect(evaluate('sum_each(gear, row.x)', { gear: rows })).toBe(MAX_EACH_ROWS)
   })
 })

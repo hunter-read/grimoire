@@ -453,6 +453,70 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
 _ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty", "at"})
 
 
+# --- per-row forms -------------------------------------------------------
+# `sum_each(equipment, row.ac_bonus, row.equipped)` works a formula out once
+# per row of a list - a `list` field's rows, or the entries a `content_list`
+# picks with the character's per-entry values on top - and folds the results.
+# Unlike every function above, the second and later arguments are not
+# evaluated up front: they are evaluated per row, with `row` naming that row
+# and every other name still reading the character, so a row formula can mix
+# the two (`row.ac_base + min(dexterity_mod, row.dex_cap)`). They are formulas
+# rather than quoted strings so validation still sees the field names they
+# read.
+
+#: The name a per-row formula reads its row through. Inside these forms it
+#: shadows a field of the same name.
+ROW_NAME = "row"
+
+#: Rows a single form will visit; past it the remaining rows are ignored. A
+#: list field is far shorter in practice, and nested forms multiply.
+MAX_EACH_ROWS = 1000
+
+_EACH_FORMS: frozenset = frozenset({"sum_each", "max_each", "min_each", "count_each"})
+
+
+def _each_rows(value: Any, entries: Any) -> list[dict]:
+    """The rows a per-row form visits: list rows, or resolved catalog entries."""
+    if isinstance(value, dict):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    if any(isinstance(item, dict) and ("_ref" in item or item.get("_inline")) for item in value):
+        return _resolved(value, entries)[:MAX_EACH_ROWS]
+    return _rows(value)[:MAX_EACH_ROWS]
+
+
+def _eval_each(name: str, args: list, context: dict) -> Any:
+    """Evaluate one of `_EACH_FORMS`; its arguments arrive unevaluated."""
+    if not args:
+        return 0
+    rows = _each_rows(_eval_node(args[0], context), context.get("_entries"))
+    if name == "count_each":
+        formula, where, rest = None, (args[1] if len(args) > 1 else None), args[2:]
+    else:
+        if len(args) < 2:
+            return 0
+        formula, where, rest = args[1], (args[2] if len(args) > 2 else None), args[3:]
+    # Only max_each/min_each take one more argument: what an empty list
+    # yields. Anything else past the documented arity reads as 0, like a
+    # function called wrongly.
+    if len(rest) > (1 if name in ("max_each", "min_each") else 0):
+        return 0
+
+    results: list = []
+    for row in rows:
+        row_context = {**context, ROW_NAME: row}
+        if where is not None and not _truthy(_eval_node(where, row_context)):
+            continue
+        results.append(1 if formula is None else _to_number(_eval_node(formula, row_context)))
+
+    if name in ("sum_each", "count_each"):
+        return sum(results)
+    if not results:
+        return _eval_node(rest[0], context) if rest else 0
+    return max(results) if name == "max_each" else min(results)
+
+
 def _truthy(value: Any) -> bool:
     """Truthiness, with the sheet-shaped exception that "0" is false."""
     if isinstance(value, str):
@@ -596,7 +660,7 @@ class _Parser:
                         args.append(self.parse_expression())
                 self.expect_op(")")
                 name = value.lower()
-                if name not in FUNCTIONS:
+                if name not in FUNCTIONS and name not in _EACH_FORMS:
                     raise ExpressionError(f"Unknown function {value!r}")
                 return ("call", name, args)
             # A dotted path reads one key out of a nested field value. It is a
@@ -707,6 +771,8 @@ def _eval_node(node: tuple, context: dict) -> Any:
         )
     if kind == "call":
         name = node[1]
+        if name in _EACH_FORMS:
+            return _bounded(_eval_each(name, node[2], context))
         args = [_eval_node(arg, context) for arg in node[2]]
         # The catalog functions need the resolved entries to read an entry's own
         # properties. Threading that through as a visible argument would make
@@ -782,17 +848,34 @@ def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
 
 
 def referenced_names(node: tuple) -> set[str]:
-    """Every top-level field name an AST reads, for dependency ordering."""
+    """Every top-level field name an AST reads, for dependency ordering.
+
+    Inside a per-row form's row formulas `row` names the row, not a field, so
+    it is left out there.
+    """
     found: set[str] = set()
-    stack: list[Any] = [node]
+    stack: list[tuple[Any, bool]] = [(node, False)]
     while stack:
-        current = stack.pop()
+        current, in_row = stack.pop()
         if not isinstance(current, tuple):
             if isinstance(current, list):
-                stack.extend(current)
+                stack.extend((item, in_row) for item in current)
             continue
         if current[0] == "name":
-            found.add(current[1][0])
+            if not (in_row and current[1][0] == ROW_NAME):
+                found.add(current[1][0])
             continue
-        stack.extend(current[1:])
+        if current[0] == "call" and current[1] in _EACH_FORMS and current[2]:
+            args = current[2]
+            # The list is read in the surrounding scope; the rest per row.
+            # max_each/min_each's empty-list fallback is outer too.
+            outer = [args[0]]
+            inner = list(args[1:])
+            if current[1] in ("max_each", "min_each") and len(args) > 3:
+                outer.append(args[3])
+                inner = list(args[1:3]) + list(args[4:])
+            stack.extend((item, in_row) for item in outer)
+            stack.extend((item, True) for item in inner)
+            continue
+        stack.extend((item, in_row) for item in current[1:])
     return found

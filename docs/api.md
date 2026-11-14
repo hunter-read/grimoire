@@ -2656,6 +2656,24 @@ name would resolve against the character before the function saw it):
 | `contains(value, x)` | Whether a multiselect holds `x`, or text contains it |
 | `at(list, i)` / `at(list, i, 'col')` | One item by position, from 0; a negative index counts from the end: `at(levels, -1, 'die')`. With a column it reads that cell, or a catalog entry's property as `ref` does (`at(classes, 0, 'hit_die')`). Out of range reads as `''` |
 
+When one column is not enough - a total that depends on two columns, a filter
+on more than one, or a row's value combined with the character's - four
+**per-row forms** work a formula out once per row. Their second and later
+arguments are formulas, not strings: inside them `row` names the current row
+(a list row, or a catalog entry with the character's per-entry values on top)
+and every other name still reads the character.
+
+| Form | Returns |
+|---|---|
+| `sum_each(list, formula, where?)` | Total of `formula` over the rows where `where` is true (all rows without it): `sum_each(magic_items, row.ac_bonus, row.equipped && row.attuned)` |
+| `max_each(list, formula, where?, empty?)` | Largest `formula` over the matching rows, or `empty` (default `0`) when none match: `max_each(equipment, row.ac_base + min(dex_mod, row.dex_cap), row.equipped, 10 + dex_mod)` |
+| `min_each(list, formula, where?, empty?)` | Smallest, likewise |
+| `count_each(list, where?)` | How many rows match |
+
+`list` may be a `list` field, a `content_list`, or a single `content_ref`.
+Inside the forms `row` shadows a field called `row`; a nested form sees its own
+row. A form visits at most 1,000 rows.
+
 #### Conditional fields - `visible_if`
 
 A field, or a whole `layout` section, may carry a `visible_if` expression and is

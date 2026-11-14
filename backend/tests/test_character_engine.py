@@ -1402,3 +1402,100 @@ def test_an_expression_past_the_length_limit_is_refused():
         expressions.parse(long_sum)
     assert expressions.evaluate(long_sum, {}, default=None) is None
     assert expressions.parse(" + ".join(["1"] * 1000))
+
+
+# ---------------------------------------------------------------------------
+# Per-row forms: sum_each / max_each / min_each / count_each
+# ---------------------------------------------------------------------------
+
+_GEAR_ENTRIES = {
+    "chain-mail": {"name": "Chain Mail", "ac_base": 16, "dex_cap": 0},
+    "scale-mail": {"name": "Scale Mail", "ac_base": 14, "dex_cap": 2},
+    "leather": {"name": "Leather Armor", "ac_base": 11},
+    "shield": {"name": "Shield", "ac_bonus": 2},
+}
+
+
+def _gear(*picks):
+    return [{"_ref": ref, "_per": {"equipped": equipped}} for ref, equipped in picks]
+
+
+class TestEachForms:
+    def _context(self, **values):
+        return {"dexterity_mod": 3, "_entries": _GEAR_ENTRIES, **values}
+
+    def test_sum_each_filters_by_a_row_condition(self):
+        context = self._context(gear=_gear(("shield", True), ("leather", True)))
+        assert svc.evaluate("sum_each(gear, row.ac_bonus, row.equipped)", context) == 2
+        context = self._context(gear=_gear(("shield", False), ("leather", True)))
+        assert svc.evaluate("sum_each(gear, row.ac_bonus, row.equipped)", context) == 0
+
+    def test_a_row_formula_mixes_the_row_and_the_character(self):
+        context = self._context(gear=_gear(("scale-mail", True), ("leather", True)))
+        formula = (
+            "max_each(gear, row.ac_base + (row.dex_cap == 0 ? dexterity_mod "
+            ": min(dexterity_mod, row.dex_cap)), row.equipped && row.ac_base > 0, "
+            "10 + dexterity_mod)"
+        )
+        assert svc.evaluate(formula, context) == 16  # 14 + min(3, 2) beats 11 + 3
+
+    def test_max_each_falls_back_when_no_row_matches(self):
+        context = self._context(gear=_gear(("chain-mail", False)))
+        assert svc.evaluate(
+            "max_each(gear, row.ac_base, row.equipped, 10 + dexterity_mod)", context
+        ) == 13
+        assert svc.evaluate("max_each(gear, row.ac_base, row.equipped)", context) == 0
+        assert svc.evaluate("min_each(gear, row.ac_base)", context) == 16
+
+    def test_count_each_counts_matching_rows(self):
+        context = self._context(gear=_gear(("chain-mail", True), ("shield", True)))
+        assert svc.evaluate("count_each(gear, row.ac_base > 0)", context) == 1
+        assert svc.evaluate("count_each(gear)", context) == 2
+
+    def test_plain_list_rows_are_read_as_they_are(self):
+        context = {"attacks": [{"bonus": 5, "magic": True}, {"bonus": 3}, "junk"]}
+        assert svc.evaluate("sum_each(attacks, row.bonus * 2, row.magic)", context) == 10
+        assert svc.evaluate("max_each(attacks, row.bonus)", context) == 5
+
+    def test_a_single_reference_is_one_row(self):
+        context = self._context(armor={"_ref": "leather"})
+        assert svc.evaluate("sum_each(armor, row.ac_base)", context) == 11
+
+    def test_nonsense_reads_as_zero(self):
+        assert svc.evaluate("sum_each(missing, row.x)", {}) == 0
+        assert svc.evaluate("sum_each(5, row.x)", {}) == 0
+        assert svc.evaluate("sum_each()", {}) == 0
+        assert svc.evaluate("sum_each(gear)", {"gear": [{"x": 1}]}) == 0
+        assert svc.evaluate("sum_each(gear, row.x, true, 1)", {"gear": [{"x": 1}]}) == 0
+
+    def test_row_shadows_a_field_only_inside_the_form(self):
+        context = {"row": 7, "gear": [{"x": 1}, {"x": 2}]}
+        assert svc.evaluate("row + sum_each(gear, row.x)", context) == 10
+
+    def test_nested_forms_see_their_own_row(self):
+        context = {"groups": [{"items": [{"x": 1}, {"x": 2}]}, {"items": [{"x": 5}]}]}
+        assert svc.evaluate("sum_each(groups, max_each(row.items, row.x))", context) == 7
+
+    def test_rows_past_the_limit_are_ignored(self):
+        from backend.services.characters import expressions
+
+        rows = [{"x": 1}] * (expressions.MAX_EACH_ROWS + 50)
+        assert svc.evaluate("sum_each(gear, row.x)", {"gear": rows}) == expressions.MAX_EACH_ROWS
+
+    def test_referenced_names_skip_row_inside_the_form_only(self):
+        ast = svc.parse("max_each(gear, row.ac_base + dexterity_mod, row.equipped, base)")
+        assert svc.referenced_names(ast) == {"gear", "dexterity_mod", "base"}
+        assert svc.referenced_names(svc.parse("row.x + 1")) == {"row"}
+
+    def test_a_schema_may_use_row_inside_a_form(self):
+        document = _schema(
+            fields={
+                "dex": {"type": "number", "label": "Dex"},
+                "gear": {"type": "list", "label": "Gear",
+                         "columns": [{"key": "ac", "label": "AC", "type": "number"}]},
+            },
+            computed={"ac": {"formula": "max_each(gear, row.ac + dex, true, 10 + dex)"}},
+        )
+        svc.validate_schema(document)
+        with pytest.raises(svc.SchemaError, match="unknown name"):
+            svc.validate_schema(_schema(computed={"x": {"formula": "row.ac + 1"}}))
