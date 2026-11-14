@@ -12,6 +12,7 @@ import {
   primary,
   type PanelScale,
 } from './codexPanelStyles'
+import { languageLabel } from '../../utils/languages'
 
 type Compare = Schema<'CodexCompareResponse'>
 type CompareField = Schema<'CodexCompareField'>
@@ -35,8 +36,9 @@ const OTHER = 'other'
 const HTTP_URL = /^https?:\/\/\S+$/i
 
 /** A field's value as one short line. */
-function show(value: unknown, t: (key: string) => string): string {
+function show(value: unknown, t: (key: string) => string, field = ''): string {
   if (value === null || value === undefined || value === '') return '—'
+  if (field === 'language' && typeof value === 'string') return languageLabel(value)
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no')
   if (Array.isArray(value)) {
     return value
@@ -180,11 +182,15 @@ export default function CodexSendForm({
         {codexFieldLabel(t, kind, f.field)}
         {f.status === 'differs' ? (
           <>
-            <span style={detail}>{t('codex.send.yours', { value: show(f.local, t) })}</span>
-            <span style={detail}>{t('codex.send.theirs', { value: show(f.remote, t) })}</span>
+            <span style={detail}>
+              {t('codex.send.yours', { value: show(f.local, t, f.field) })}
+            </span>
+            <span style={detail}>
+              {t('codex.send.theirs', { value: show(f.remote, t, f.field) })}
+            </span>
           </>
         ) : (
-          <span style={detail}>{show(f.local, t)}</span>
+          <span style={detail}>{show(f.local, t, f.field)}</span>
         )}
       </span>
     </label>

@@ -95,13 +95,15 @@ describe('BookBulkEditFields', () => {
       target: { value: 'PZO9001' },
     })
     fireEvent.change(screen.getByLabelText('bookEditor.versionLabel'), { target: { value: '2e' } })
-    fireEvent.change(screen.getByLabelText('bookEditor.languageLabel'), { target: { value: 'en' } })
+    fireEvent.change(screen.getByLabelText('bookEditor.languageLabel'), {
+      target: { value: 'english' },
+    })
     expect(draft.description).toBe('Desc')
     expect(draft.publisher).toBe('WotC')
     expect(draft.isbn).toBe('123')
     expect(draft.product_code).toBe('PZO9001')
     expect(draft.version).toBe('2e')
-    expect(draft.language).toBe('en')
+    expect(draft.language).toBe('english')
   })
 
   it('edits the publication date fields', () => {

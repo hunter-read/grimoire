@@ -4,6 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from ...models.languages import stored_language
 from ...services import tag_service
 from ...services.library_fs import is_category_name
 from ...services.books.access import ACCESS_INHERIT
@@ -75,6 +76,16 @@ class BookUpdate(BaseModel):
     @classmethod
     def dedupe_tags(cls, v):
         return tag_service.dedupe_tags(v, validate=True) if v is not None else v
+
+    # A fixed list (models/languages.py): any case, a code ("en"), the
+    # language's own name or a near-miss spelling ("Italan") resolves to the
+    # stored lowercase name. Anything else is stored as "not set" rather than
+    # refused, so a save carrying scraped or hand-typed metadata never fails
+    # over its language.
+    @field_validator("language")
+    @classmethod
+    def check_language(cls, v):
+        return v if v is None else stored_language(v)
 
     @field_validator("access_level")
     @classmethod

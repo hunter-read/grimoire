@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from .. import addons
 from ..addons import diff as addon_diff
 from ..models import Book, GameSystem
+from ..models.languages import find_language
 from ..text import slugs
 
 STATUS_ONLY_LOCAL = "only_local"
@@ -48,6 +49,9 @@ def _matches(field: str, local: Any, remote: Any) -> bool:
         return (_slug(str(local)) or "other") == (_slug(str(remote)) or "other")
     if field == "isbn":
         return re.sub(r"[\s-]", "", str(local)).upper() == re.sub(r"[\s-]", "", str(remote)).upper()
+    if field == "language":
+        # Both sides keep the same fixed list; "English" and "en" are "english".
+        return (find_language(str(local)) or str(local)) == (find_language(str(remote)) or str(remote))
     if field == "description":
         return " ".join(str(local).split()) == " ".join(str(remote).split())
     return bool(addon_diff.normalise(field, local) == addon_diff.normalise(field, remote))

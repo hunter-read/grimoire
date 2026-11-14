@@ -10,6 +10,7 @@ import LookupCombobox from '../metadata/LookupCombobox'
 import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { linksForEditing } from '../metadata/metadataUtils'
+import LanguageSelect from '../LanguageSelect'
 
 // Rich editor body for one book inside the bulk-edit carousel. Mirrors the
 // single-book editor and reuses the same shared components (CategoryPicker,
@@ -231,11 +232,10 @@ export default function BookBulkEditFields({
           <label htmlFor="book-bulk-language" style={label}>
             {t('bookEditor.languageLabel')}
           </label>
-          <input
+          <LanguageSelect
             id="book-bulk-language"
-            type="text"
             value={draft.language || ''}
-            onChange={(e) => setField('language', e.target.value)}
+            onChange={(v) => setField('language', v)}
             style={input}
           />
         </div>

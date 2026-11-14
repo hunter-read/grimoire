@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Changed
+
+- **A book's language is now picked from a list**, so each language appears once instead of as "English", "english" and "en". Existing books are switched over on upgrade, including codes such as `en` or `de-DE` and small typos such as "Italan". A language that isn't on the list is cleared rather than kept. Metadata you fetch, import or type in still saves even when its language doesn't match, and that language is left unset. A book's language field now holds one language; OCR can still read several from an `.opf` sidecar or the PDF
+
 ### Fixed
 
 - Watching the library for changes no longer floods the logs with "Inotify queue overflowed" warnings on a large library. Every read of a library file - a scan, a page render, a download - used to count as an event, and recovering from an overflow caused the next one, over and over, so the watcher could miss real changes

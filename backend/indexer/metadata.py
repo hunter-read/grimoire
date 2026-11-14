@@ -11,6 +11,7 @@ import defusedxml.ElementTree as SafeElementTree
 from ..metadata.formats import COVER_SUFFIX
 from ..models import Book
 from ..models.game_types import ARMORY_FOLDER_NAMES, ARMORY_SECTION
+from ..models.languages import stored_language
 from .constants import (
     IMAGE_EXTS,
     _AUDIO_COVER_STEMS,
@@ -377,6 +378,13 @@ def _apply_opf_to_book(book: Book, opf_meta: dict, mode: str) -> bool:
         if field not in opf_meta:
             continue
         new_value = opf_meta[field]
+        if field == "language":
+            # Compare in the stored form, or "de" would differ from "german"
+            # and rewrite the book on every rescan. One naming no listed
+            # language is no value at all.
+            new_value = stored_language(new_value)
+            if not new_value:
+                continue
         if mode == "missing" and getattr(book, field, None):
             continue
         if getattr(book, field, None) != new_value:

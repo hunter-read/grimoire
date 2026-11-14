@@ -14,11 +14,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from .base import BYTES_TYPE, Base, _utcnow, _uuid
 from .browse import FOLDER_PATH_TYPE, SORT_KEY_TYPE
 from .game_types import GAME_TYPE_TTRPG
+from .languages import stored_language
 
 if TYPE_CHECKING:
     from .factions import Faction
@@ -324,6 +325,12 @@ class Book(Base):
         back_populates="books",
         passive_deletes=True,
     )
+
+    @validates("language")
+    def _validate_language(self, _key: str, value: Optional[str]) -> str:
+        # Every write path (API, bulk edit, scan, add-ons, Codex) stores one of
+        # the fixed languages, lowercase, or '' when the value names none.
+        return stored_language(value)
 
 
 class BookFolder(Base):

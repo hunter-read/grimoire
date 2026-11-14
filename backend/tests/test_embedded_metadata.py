@@ -219,7 +219,7 @@ class TestPdfFields:
             "authors": ["Pelle Nilsson", "Johan Nohr", "Ockult Örtmästare"],
             "description": "A doom metal art-punk RPG",
             "tags": ["osr", "doom"],
-            "language": "sv",
+            "language": "swedish",
             "year": 2019,
             "month": 7,
             "day": 15,
@@ -245,6 +245,8 @@ class TestPdfFields:
 
     def test_an_overlong_language_is_not_a_language(self):
         assert "language" not in embedded.pdf_fields({"language": "x" * 21})
+        # A value naming no listed language is no value either.
+        assert "language" not in embedded.pdf_fields({"language": "tlh"})
 
     def test_an_empty_dictionary_offers_nothing(self):
         assert embedded.pdf_fields({}) == {}
@@ -445,7 +447,7 @@ class TestComicFields:
                 {"label": "imagecomics.com", "url": "https://www.imagecomics.com/comics/series/saga"},
                 {"label": "imagecomics.com", "url": "https://imagecomics.com/x"},
             ],
-            "language": "en",
+            "language": "english",
             "isbn": "9780306406157",
             "year": 2012,
             "month": 3,

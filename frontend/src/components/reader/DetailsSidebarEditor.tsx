@@ -15,6 +15,7 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 import MetadataFetchDialog from '../system/MetadataFetchDialog'
 import useMetadataSources from '../system/useMetadataSources'
 import { intoBookForm } from '../system/metadataFieldValue'
+import LanguageSelect from '../LanguageSelect'
 
 type Book = Schema<'BookDetail'>
 
@@ -236,7 +237,17 @@ export default function DetailsSidebarEditor({
       {field(t('bookEditor.isbnLabel'), 'isbn')}
       {field(t('bookEditor.productCodeLabel'), 'product_code')}
       {field(t('bookEditor.versionLabel'), 'version')}
-      {field(t('bookEditor.languageLabel'), 'language')}
+      <div style={{ marginBottom: 10 }}>
+        <label htmlFor="reader-book-field-language" style={fieldLabel}>
+          {t('bookEditor.languageLabel')}
+        </label>
+        <LanguageSelect
+          id="reader-book-field-language"
+          value={form.language}
+          onChange={(v) => setForm((f) => ({ ...f, language: v }))}
+          style={{ width: '100%', fontSize: 13, boxSizing: 'border-box' }}
+        />
+      </div>
 
       <div style={{ marginBottom: 10 }}>
         <label htmlFor="reader-book-field-license" style={fieldLabel}>

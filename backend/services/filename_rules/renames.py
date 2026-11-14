@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ...metadata import export as sidecar_export
 from ...models import Book, FolderNamingRule
+from ...models.languages import language_label
 from ...sql_paths import path_under
 from .. import library_fs as fs
 from .folders import SECTION, RuleSet, in_section, normalise_path, rule_set
@@ -61,7 +62,7 @@ def _book_values(book: Book) -> dict[str, str]:
         "isbn": book.isbn or "",
         "product_code": book.product_code or "",
         "category": fs.CATEGORY_FOLDER_NAMES.get(category) or category.replace("-", " ").title(),
-        "language": book.language or "",
+        "language": language_label(book.language),
     }
 
 

@@ -22,6 +22,7 @@ import BookCoverUpload from './BookCoverUpload'
 import type { BookCoverChange } from './BookCoverUpload'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
+import LanguageSelect from '../LanguageSelect'
 
 /**
  * A system-page book row as the editor reads it. `BookOut` carries the book's own
@@ -311,7 +312,17 @@ export default function BookEditor({
           {field(t('bookEditor.isbnLabel'), 'isbn')}
           {field(t('bookEditor.productCodeLabel'), 'product_code')}
           {field(t('bookEditor.versionLabel'), 'version')}
-          {field(t('bookEditor.languageLabel'), 'language')}
+          <div style={{ marginBottom: 10 }}>
+            <label htmlFor="book-field-language" style={fieldLabel}>
+              {t('bookEditor.languageLabel')}
+            </label>
+            <LanguageSelect
+              id="book-field-language"
+              value={form.language}
+              onChange={(v) => setForm((f) => ({ ...f, language: v }))}
+              style={{ width: '100%', fontSize: 13 }}
+            />
+          </div>
           {/* Per-book license override (blank = inherit the system license). */}
           <div style={{ marginBottom: 10 }}>
             <label htmlFor="book-field-license" style={fieldLabel}>
