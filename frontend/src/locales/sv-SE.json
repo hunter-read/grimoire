@@ -3670,6 +3670,7 @@
       "audio": "Ljudkonst"
     },
     "searchPlaceholder": "Sök efter namn eller mapp…",
+    "scopeToSystem": "Endast {{name}} och dess undermappar",
     "noResults": "Inga bilder hittades",
     "loadMore": "Visa {{count}} till",
     "chooseFile": "Välj en bild",

@@ -1262,6 +1262,8 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     const file = new File([new Uint8Array([137, 80, 78, 71])], 'c.png', { type: 'image/png' })
     // The cover now goes through the image picker dialog rather than a bare input.
     await userEvent.click(screen.getByText('Choose image'))
+    // The picker opens on browsing the library (issue #891); switch to upload.
+    await userEvent.click(screen.getByRole('button', { name: 'Upload' }))
     await userEvent.upload(screen.getByTestId('image-picker-input'), file)
     await userEvent.click(screen.getByText('Set image'))
 

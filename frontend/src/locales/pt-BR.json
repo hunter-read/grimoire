@@ -3670,6 +3670,7 @@
       "audio": "Capas de áudio"
     },
     "searchPlaceholder": "Pesquisar por nome ou pasta…",
+    "scopeToSystem": "Somente {{name}} e suas subpastas",
     "noResults": "Nenhuma imagem encontrada",
     "loadMore": "Mostrar mais {{count}}",
     "chooseFile": "Escolher uma imagem",

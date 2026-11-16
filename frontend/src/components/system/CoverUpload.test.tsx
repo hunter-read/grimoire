@@ -17,7 +17,7 @@ vi.mock('../../api', () => ({
     // The picker's browse tab searches the library and builds thumbnail URLs.
     search: vi.fn(() =>
       Promise.resolve([
-        { resource_type: 'map', resource_id: 'm1', name: 'map-1.png', has_thumbnail: true },
+        { resource_type: 'book', resource_id: 'b1', name: 'Core Rules', has_thumbnail: true },
       ])
     ),
     thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
@@ -69,6 +69,7 @@ describe('CoverUpload', () => {
   // these drive the dialog rather than a bare file input.
   const openPickerAndUpload = async () => {
     await userEvent.click(screen.getByText('systemEditor.chooseImage'))
+    await userEvent.click(screen.getByText('imagePicker.mode.upload'))
     await userEvent.upload(screen.getByTestId('image-picker-input'), pngFile())
     await userEvent.click(screen.getByText('imagePicker.save'))
   }
@@ -102,16 +103,40 @@ describe('CoverUpload', () => {
     render(<CoverUpload system={makeSystem()} onChange={onChange} />)
 
     await userEvent.click(screen.getByText('systemEditor.chooseImage'))
-    await userEvent.click(screen.getByText('imagePicker.mode.browse'))
-    await waitFor(() => expect(screen.getByText('map-1.png')).toBeInTheDocument())
-    await userEvent.click(screen.getByText('map-1.png'))
+    await userEvent.click(await screen.findByText('Core Rules'))
     await userEvent.click(screen.getByText('imagePicker.save'))
 
     await waitFor(() =>
-      expect(imageSources.setSystemCover).toHaveBeenCalledWith('sys-1', 'map', 'm1')
+      expect(imageSources.setSystemCover).toHaveBeenCalledWith('sys-1', 'book', 'b1')
     )
     expect(api.upload).not.toHaveBeenCalled()
     expect(onChange).toHaveBeenCalledWith({ cover_image: 'sys-1.webp', has_cover: true })
+  })
+
+  it("opens on this system's book covers, ahead of uploading (issue #891)", async () => {
+    render(<CoverUpload system={makeSystem()} />)
+    await userEvent.click(screen.getByText('systemEditor.chooseImage'))
+
+    // Browse leads the mode row and is the one selected.
+    const modes = screen
+      .getAllByRole('button')
+      .filter((b) => /imagePicker\.mode\./.test(b.textContent || ''))
+    expect(modes.map((b) => b.textContent?.trim())).toEqual([
+      'imagePicker.mode.browse',
+      'imagePicker.mode.upload',
+    ])
+    expect(screen.getByText('imagePicker.mode.browse').closest('button')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByText('imagePicker.tab.book').closest('button')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByRole('checkbox', { name: 'imagePicker.scopeToSystem' })).toBeChecked()
+    await waitFor(() =>
+      expect(imageSources.search).toHaveBeenCalledWith('', 'book', expect.any(Number), 'sys-1')
+    )
   })
 
   it('offers removal only once something has been uploaded', () => {

@@ -3670,6 +3670,7 @@
       "audio": "Audiohoezen"
     },
     "searchPlaceholder": "Zoeken op naam of map…",
+    "scopeToSystem": "Alleen {{name}} en de submappen",
     "noResults": "Geen afbeeldingen gevonden",
     "loadMore": "Toon nog {{count}}",
     "chooseFile": "Kies een afbeelding",

@@ -53,6 +53,35 @@ describe('ImagePickerModal', () => {
     expect(screen.getByText('imagePicker.save').closest('button')).toBeDisabled()
   })
 
+  it('can open on browsing instead, leading the mode row with it', async () => {
+    render(<ImagePickerModal {...props({ defaultMode: 'browse' })} />)
+    const modes = screen
+      .getAllByRole('button')
+      .filter((b) => /imagePicker\.mode\./.test(b.textContent || ''))
+    expect(modes.map((b) => b.textContent?.trim())).toEqual([
+      'imagePicker.mode.browse',
+      'imagePicker.mode.upload',
+    ])
+    expect(modes[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByText('ruins.png')).toBeInTheDocument()
+    expect(screen.queryByText('imagePicker.chooseFile')).not.toBeInTheDocument()
+  })
+
+  it('hands the browse tab and scope to the browser', async () => {
+    render(
+      <ImagePickerModal
+        {...props({
+          defaultMode: 'browse',
+          browseTab: 'book',
+          browseScope: { systemId: 'sys-1', name: 'Mothership' },
+        })}
+      />
+    )
+    await waitFor(() =>
+      expect(imageSources.search).toHaveBeenCalledWith('', 'book', expect.any(Number), 'sys-1')
+    )
+  })
+
   it('uploads a staged file and closes', async () => {
     const p = props()
     render(<ImagePickerModal {...p} />)

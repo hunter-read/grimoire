@@ -33,7 +33,7 @@ describe('ImageSourceBrowser', () => {
     render(<ImageSourceBrowser value={null} onChange={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('ruins.png')).toBeInTheDocument())
     // Maps lead when there is no campaign context.
-    expect(imageSources.search).toHaveBeenCalledWith('', 'map', expect.any(Number))
+    expect(imageSources.search).toHaveBeenCalledWith('', 'map', expect.any(Number), '')
   })
 
   it('drops items that cannot produce an image', async () => {
@@ -79,7 +79,7 @@ describe('ImageSourceBrowser', () => {
     await userEvent.click(screen.getByText('imagePicker.tab.token'))
 
     await waitFor(() =>
-      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number))
+      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number), '')
     )
   })
 
@@ -137,7 +137,7 @@ describe('ImageSourceBrowser', () => {
   it('narrows to the token library alone for the token editor', async () => {
     render(<ImageSourceBrowser types={TOKEN_SOURCE_TYPES} value={null} onChange={vi.fn()} />)
     await waitFor(() =>
-      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number))
+      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number), '')
     )
 
     // The lone tab is hidden (see the tab-row test below); what matters here is
@@ -149,11 +149,74 @@ describe('ImageSourceBrowser', () => {
     }
   })
 
+  it('opens on the tab a caller asks for', async () => {
+    render(<ImageSourceBrowser initialTab="book" value={null} onChange={vi.fn()} />)
+    await waitFor(() =>
+      expect(imageSources.search).toHaveBeenCalledWith('', 'book', expect.any(Number), '')
+    )
+    expect(screen.getByRole('button', { name: 'imagePicker.tab.book' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+  })
+
+  it('ignores an initial tab the caller does not offer', async () => {
+    render(
+      <ImageSourceBrowser types={['token']} initialTab="book" value={null} onChange={vi.fn()} />
+    )
+    await waitFor(() =>
+      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number), '')
+    )
+    expect(imageSources.search).not.toHaveBeenCalledWith('', 'book', expect.any(Number), '')
+  })
+
+  describe('scoped to a game system (issue #891)', () => {
+    const scope = { systemId: 'sys-1', name: 'Mothership' }
+
+    it('starts with book covers narrowed to the system', async () => {
+      render(<ImageSourceBrowser initialTab="book" scope={scope} value={null} onChange={vi.fn()} />)
+      expect(screen.getByRole('checkbox', { name: 'imagePicker.scopeToSystem' })).toBeChecked()
+      await waitFor(() =>
+        expect(imageSources.search).toHaveBeenCalledWith('', 'book', expect.any(Number), 'sys-1')
+      )
+    })
+
+    it('widens to the whole library when unticked', async () => {
+      render(<ImageSourceBrowser initialTab="book" scope={scope} value={null} onChange={vi.fn()} />)
+      await waitFor(() => expect(imageSources.search).toHaveBeenCalled())
+
+      await userEvent.click(screen.getByRole('checkbox', { name: 'imagePicker.scopeToSystem' }))
+
+      await waitFor(() =>
+        expect(imageSources.search).toHaveBeenLastCalledWith('', 'book', expect.any(Number), '')
+      )
+      expect(screen.getByRole('checkbox', { name: 'imagePicker.scopeToSystem' })).not.toBeChecked()
+    })
+
+    it('only applies to books, which are the only items filed by system', async () => {
+      render(<ImageSourceBrowser initialTab="book" scope={scope} value={null} onChange={vi.fn()} />)
+      await waitFor(() => expect(imageSources.search).toHaveBeenCalled())
+
+      await userEvent.click(screen.getByText('imagePicker.tab.map'))
+
+      await waitFor(() =>
+        expect(imageSources.search).toHaveBeenLastCalledWith('', 'map', expect.any(Number), '')
+      )
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    })
+  })
+
+  it('offers no scope checkbox without a system', async () => {
+    render(<ImageSourceBrowser initialTab="book" value={null} onChange={vi.fn()} />)
+    await waitFor(() => expect(imageSources.search).toHaveBeenCalled())
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
   it('opens on the first allowed type when the default one is excluded', async () => {
     render(<ImageSourceBrowser types={['token']} value={null} onChange={vi.fn()} />)
     // Never searches 'map', which this caller does not offer.
     await waitFor(() =>
-      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number))
+      expect(imageSources.search).toHaveBeenCalledWith('', 'token', expect.any(Number), '')
     )
   })
 

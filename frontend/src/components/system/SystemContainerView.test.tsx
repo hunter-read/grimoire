@@ -377,6 +377,9 @@ describe('SystemContainerView', () => {
       // The container view reveals CoverUpload, whose button opens the picker.
       await userEvent.click(screen.getByTitle('systemEditor.uploadCover'))
       await userEvent.click(screen.getByText('systemEditor.chooseImage'))
+      // It opens on the library's book covers (issue #891); upload is a click away.
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      await userEvent.click(screen.getByText('imagePicker.mode.upload'))
       expect(screen.getByTestId('image-picker-input')).toBeInTheDocument()
     })
   })

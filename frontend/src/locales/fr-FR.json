@@ -3670,6 +3670,7 @@
       "audio": "Pochettes audio"
     },
     "searchPlaceholder": "Rechercher par nom ou dossier…",
+    "scopeToSystem": "Uniquement {{name}} et ses sous-dossiers",
     "noResults": "Aucune image trouvée",
     "loadMore": "Afficher {{count}} de plus",
     "chooseFile": "Choisir une image",

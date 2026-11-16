@@ -3,11 +3,13 @@ import type { ChangeEvent, CSSProperties, DragEvent, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuUpload, LuLibrary, LuClipboardPaste, LuTrash2 } from 'react-icons/lu'
 import ImageSourceBrowser from './ImageSourceBrowser'
-import type { CampaignImage, ImageSourcePick } from './ImageSourceBrowser'
+import type { CampaignImage, ImageSourcePick, ImageSourceScope } from './ImageSourceBrowser'
 import useDialogFocus from '../../hooks/useDialogFocus'
 import useClipboardImage, { ACCEPTED_IMAGE_TYPES, imageFromDataTransfer } from './useClipboardImage'
 
 const ACCEPT = ACCEPTED_IMAGE_TYPES.join(',')
+
+type PickerMode = 'upload' | 'browse'
 
 /**
  * Shared "set an image" dialog: upload from the device, paste from the
@@ -22,6 +24,9 @@ const ACCEPT = ACCEPTED_IMAGE_TYPES.join(',')
  *   onRemove()                         – optional; omit to hide the remove button
  *   renderPreview({ src, file })       – optional; a plain preview is used otherwise
  *   campaignImages                     – optional campaign-scoped images to lead with
+ *   defaultMode                        – 'upload' (default) or 'browse'; the one
+ *                                        the dialog opens on, which also leads the row
+ *   browseTab / browseScope            – passed to the browser (see ImageSourceBrowser)
  *
  * A paste anywhere in the document lands here while the dialog is open, which
  * is how people actually paste into a dialog (nothing paste-able is focused),
@@ -35,6 +40,9 @@ export interface ImagePickerModalProps {
   helpText?: ReactNode
   formatsText?: ReactNode
   campaignImages?: CampaignImage[] | null
+  defaultMode?: PickerMode
+  browseTab?: string
+  browseScope?: ImageSourceScope | null
   onUpload: (file: File) => unknown
   onPickSource: (source: { source_type: string; source_id: string }) => unknown
   onRemove?: () => unknown
@@ -51,6 +59,9 @@ export default function ImagePickerModal({
   helpText,
   formatsText,
   campaignImages = null,
+  defaultMode = 'upload',
+  browseTab,
+  browseScope = null,
   onUpload,
   onPickSource,
   onRemove,
@@ -62,7 +73,9 @@ export default function ImagePickerModal({
   const panelRef = useRef<HTMLDivElement>(null)
   useDialogFocus(panelRef, { onClose })
   const inputRef = useRef<HTMLInputElement>(null)
-  const [mode, setMode] = useState<'upload' | 'browse'>('upload')
+  const [mode, setMode] = useState<PickerMode>(defaultMode)
+  // The mode the dialog opens on leads the row, so the usual choice comes first.
+  const modes: PickerMode[] = defaultMode === 'browse' ? ['browse', 'upload'] : ['upload', 'browse']
   const [localBusy, setLocalBusy] = useState(false)
   const [error, setError] = useState('')
   // A staged device/clipboard file, previewed before it is committed.
@@ -225,7 +238,7 @@ export default function ImagePickerModal({
         ) : null}
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {(['upload', 'browse'] as const).map((m) => {
+          {modes.map((m) => {
             const active = mode === m
             const Icon = m === 'upload' ? LuUpload : LuLibrary
             return (
@@ -304,6 +317,8 @@ export default function ImagePickerModal({
         ) : (
           <ImageSourceBrowser
             campaignImages={campaignImages}
+            initialTab={browseTab}
+            scope={browseScope}
             value={picked}
             onChange={(v) => {
               setPending(null)

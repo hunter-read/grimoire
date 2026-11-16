@@ -32,17 +32,32 @@ def _escape_like(term: str) -> str:
 
 
 def _system_id_filter(db: Session, system_id: str) -> list[str]:
-    """Expand a system id to itself plus its children, for container folders.
+    """Expand a system id to itself plus every system nested under it.
 
     A container ("Dungeons & Dragons", "One-Page RPGs") holds no books directly —
-    they all belong to its child systems. Scoping a campaign's book search to a
-    container therefore has to include those children, or it matches nothing
-    (issues #261/#262).
+    they all belong to its child systems. Scoping a book search to a container
+    therefore has to include those children, or it matches nothing (issues
+    #261/#262). Containers can nest (a game whose editions are themselves split),
+    so this walks the whole subtree: the system cover picker scopes to "this
+    folder and its sub-folders" (issue #891).
     """
-    child_ids = [
-        row[0] for row in db.query(GameSystem.id).filter(GameSystem.parent_id == system_id).all()
-    ]
-    return [system_id, *child_ids]
+    children: dict[str, list[str]] = {}
+    for sid, parent in db.query(GameSystem.id, GameSystem.parent_id).filter(
+        GameSystem.parent_id.isnot(None)
+    ):
+        if parent:
+            children.setdefault(parent, []).append(sid)
+    found = [system_id]
+    seen = {system_id}
+    # Index-walk rather than recursion; `seen` guards a parent_id cycle.
+    i = 0
+    while i < len(found):
+        for child in children.get(found[i], []):
+            if child not in seen:
+                seen.add(child)
+                found.append(child)
+        i += 1
+    return found
 
 
 def _resource_folder(relative_path: str) -> str:
