@@ -6,7 +6,7 @@ alembic==1.20.1
 aiosqlite==0.22.1
 # PostgreSQL driver (DATABASE_URL). The binary build bundles libpq, so the
 # image needs no system packages for it.
-psycopg[binary]==3.3.8
+psycopg[binary]==3.3.9
 pymupdf==2.1
 python-multipart==0.0.33
 watchdog==7.1.0
