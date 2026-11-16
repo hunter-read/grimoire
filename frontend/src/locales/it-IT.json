@@ -3670,6 +3670,7 @@
       "audio": "Copertine audio"
     },
     "searchPlaceholder": "Cerca per nome o cartella…",
+    "scopeToSystem": "Solo {{name}} e le sue sottocartelle",
     "noResults": "Nessuna immagine trovata",
     "loadMore": "Mostra altre {{count}}",
     "chooseFile": "Scegli un'immagine",

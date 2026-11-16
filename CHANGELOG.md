@@ -14,6 +14,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
+- **Choosing a game system's cover starts with its own books.** The cover dialog for a system or a collection now opens on the library's book covers, showing only the books in that system and the ones filed under it, so you can pick one without typing its title. Untick "Only … and its sub-folders" to browse the whole library, or switch to Upload for an image of your own
 - **Grimoire uses less CPU and memory when nobody is using it.** The server now wakes once a second instead of ten times, the container's health check costs a third of what it did, and the memory a library scan or a busy evening leaves behind is handed back to the system when the scan ends and again after ten minutes without a request (`IDLE_RELEASE`). See [When nobody is using it](docs/performance.md#when-nobody-is-using-it)
 - A browser tab left open no longer keeps asking the server for scan progress, duplicate-scan progress and new log lines. It stops when the tab is hidden or after five minutes without input, and catches up the moment you come back. A page with a rescan button on every folder also asks once for all of them, where each button used to ask for itself
 - The 3D model viewer redraws only while the model is moving. It used to redraw 60 times a second for as long as the page was open, which kept a CPU core and the GPU busy on a model nobody was touching

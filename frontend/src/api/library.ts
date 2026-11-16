@@ -78,8 +78,9 @@ export type FolderTagType = 'map' | 'token' | 'audio' | 'model'
 export const imageSources = {
   // Library assets the picker can browse, reusing the campaign resource search
   // (books/maps/tokens/audio) that already searches the whole library.
-  search: (q = '', resourceType = '', limit = 2000) =>
-    campaigns.searchResources(q, resourceType, '', limit),
+  // `systemId` narrows books to that system and every system nested under it.
+  search: (q = '', resourceType = '', limit = 2000, systemId = '') =>
+    campaigns.searchResources(q, resourceType, systemId, limit),
   setSystemCover: (systemId: Id, sourceType: string, sourceId: string) =>
     client.post('/systems/{system_id}/cover/from-source', {
       path: { system_id: systemId },

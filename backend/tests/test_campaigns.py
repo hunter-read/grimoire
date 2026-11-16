@@ -740,6 +740,34 @@ class TestResourceSearch:
         assert any("Inside" in n for n in names)
         assert not any("Outside" in n for n in names)
 
+    def test_system_scope_reaches_nested_containers(self, client, gm_headers):
+        """Scoping covers the whole subtree, not just direct children (issue #891).
+
+        The system cover picker narrows to "this folder and its sub-folders", and
+        a container can hold another container, so a grandchild's books count.
+        A sibling of the scoped container stays out.
+        """
+        top = make_game_system(container_kind="parent")
+        mid = make_game_system(container_kind="parent", parent_id=top.id)
+        leaf = make_game_system(parent_id=mid.id)
+        sibling = make_game_system(container_kind="parent")
+        token = f"nest{uid()}"
+        make_book(system_id=top.id, title=f"{token} Top")
+        make_book(system_id=leaf.id, title=f"{token} Leaf")
+        make_book(system_id=sibling.id, title=f"{token} Sibling")
+
+        def names(system_id):
+            resp = client.get(
+                f"/api/campaigns/resources/search?q={token}&resource_type=book"
+                f"&system_id={system_id}",
+                headers=gm_headers,
+            )
+            assert resp.status_code == 200
+            return sorted(r["name"] for r in resp.json())
+
+        assert names(top.id) == [f"{token} Leaf", f"{token} Top"]
+        assert names(mid.id) == [f"{token} Leaf"]
+
     def test_wildcards_in_query_are_literal(self, client, gm_headers):
         """A bare % must not act as a LIKE wildcard matching the whole library."""
         system = make_game_system()

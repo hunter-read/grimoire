@@ -3670,6 +3670,7 @@
       "audio": "Audio-Cover"
     },
     "searchPlaceholder": "Nach Name oder Ordner suchen…",
+    "scopeToSystem": "Nur {{name}} und seine Unterordner",
     "noResults": "Keine Bilder gefunden",
     "loadMore": "{{count}} weitere anzeigen",
     "chooseFile": "Bild auswählen",

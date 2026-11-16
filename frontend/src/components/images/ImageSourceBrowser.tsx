@@ -57,9 +57,20 @@ export interface CampaignImage {
   url?: string | null
 }
 
+/**
+ * A game system to browse within: its books, and those of every system nested
+ * under it. The browser offers it as a checkbox, on by default.
+ */
+export interface ImageSourceScope {
+  systemId: string
+  name: string
+}
+
 export interface ImageSourceBrowserProps {
   campaignImages?: CampaignImage[] | null
   types?: string[]
+  initialTab?: string
+  scope?: ImageSourceScope | null
   fill?: boolean
   value?: Pick<ImageSourcePick, 'source_type' | 'source_id'> | null
   onChange: (pick: ImageSourcePick | null) => void
@@ -89,6 +100,14 @@ const PAGE = 60
  * of a character — passes just the image types, so a book cover or an album
  * thumbnail is never presented as token art.
  *
+ * `initialTab` picks the tab to open on, when it is one of those offered. The
+ * campaign's own images still lead when there are any.
+ *
+ * `scope` is a game system to browse within (issue #891). A system's cover is
+ * nearly always one of its own books, so the book tab then starts narrowed to
+ * that system and the systems under it, behind a checkbox that widens it back
+ * to the whole library. Only books are filed by system; the other tabs ignore it.
+ *
  * `fill` makes the results box grow into whatever height its parent gives it,
  * instead of stopping at a fixed 300px. The default suits the image-picker
  * modal, which is a short dialog; the token editor hands this a full-height
@@ -97,6 +116,8 @@ const PAGE = 60
 export default function ImageSourceBrowser({
   campaignImages = null,
   types = TYPES,
+  initialTab,
+  scope = null,
   fill = false,
   value,
   onChange,
@@ -106,7 +127,13 @@ export default function ImageSourceBrowser({
   const hasCampaign = Array.isArray(campaignImages) && campaignImages.length > 0
   // Narrowing `types` must not leave the browser on a tab it no longer offers.
   const allowed = TYPES.filter((type) => types.includes(type))
-  const [tab, setTab] = useState<string>(hasCampaign ? 'campaign_file' : allowed[0] || 'map')
+  const [tab, setTab] = useState<string>(() => {
+    if (hasCampaign) return 'campaign_file'
+    if (initialTab && allowed.includes(initialTab)) return initialTab
+    return allowed[0] || 'map'
+  })
+  const [scoped, setScoped] = useState(Boolean(scope))
+  const scopeId = tab === 'book' && scoped && scope ? scope.systemId : ''
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
   const [rows, setRows] = useState<ImageSourceRow[] | null>(null)
@@ -127,7 +154,7 @@ export default function ImageSourceBrowser({
   }, [query])
 
   // Reset paging whenever the result set changes underneath it.
-  useEffect(() => setShown(PAGE), [debounced, tab])
+  useEffect(() => setShown(PAGE), [debounced, tab, scopeId])
 
   useEffect(() => {
     if (tab === 'campaign_file') return undefined
@@ -136,7 +163,7 @@ export default function ImageSourceBrowser({
     setError('')
     let cancelled = false
     imageSources
-      .search(debounced, tab, SEARCH_LIMIT)
+      .search(debounced, tab, SEARCH_LIMIT, scopeId)
       .then((res) => {
         if (cancelled || mine !== reqId.current) return
         // Only items that can actually yield an image; anything else would
@@ -154,7 +181,7 @@ export default function ImageSourceBrowser({
     return () => {
       cancelled = true
     }
-  }, [debounced, tab])
+  }, [debounced, tab, scopeId])
 
   // The campaign's own images are already in hand; filter them locally.
   const campaignRows = useMemo(() => {
@@ -279,6 +306,23 @@ export default function ImageSourceBrowser({
           }}
         />
       </div>
+
+      {scope && tab === 'book' && (
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 13,
+            color: 'var(--text-dim)',
+            marginBottom: 10,
+            cursor: 'pointer',
+          }}
+        >
+          <input type="checkbox" checked={scoped} onChange={(e) => setScoped(e.target.checked)} />
+          {t('imagePicker.scopeToSystem', { name: scope.name })}
+        </label>
+      )}
 
       {error && (
         <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 8 }} role="alert">

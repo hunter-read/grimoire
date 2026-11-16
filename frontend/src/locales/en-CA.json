@@ -3670,6 +3670,7 @@
       "audio": "Audio art"
     },
     "searchPlaceholder": "Search by name or folder…",
+    "scopeToSystem": "Only {{name}} and its sub-folders",
     "noResults": "No images found",
     "loadMore": "Show {{count}} more",
     "chooseFile": "Choose an image",

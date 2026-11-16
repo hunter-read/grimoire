@@ -3670,6 +3670,7 @@
       "audio": "Portadas de audio"
     },
     "searchPlaceholder": "Buscar por nombre o carpeta…",
+    "scopeToSystem": "Solo {{name}} y sus subcarpetas",
     "noResults": "No se encontraron imágenes",
     "loadMore": "Mostrar {{count}} más",
     "chooseFile": "Elegir una imagen",

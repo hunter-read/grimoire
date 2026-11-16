@@ -445,6 +445,13 @@ describe('api', () => {
       )
     })
 
+    it('imageSources.search can narrow books to a system', async () => {
+      await imageSources.search('', 'book', 50, 's1')
+      expect(lastCall()[0]).toBe(
+        '/api/campaigns/resources/search?resource_type=book&system_id=s1&limit=50'
+      )
+    })
+
     it('imageSources.setSystemCover POSTs the source reference', async () => {
       await imageSources.setSystemCover('s1', 'token', 't1')
       const [url, options] = lastCall()

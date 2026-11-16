@@ -18,7 +18,9 @@ import ImagePickerModal from '../images/ImagePickerModal'
  *
  * The image can come from the device, the clipboard, or an asset Grimoire
  * already holds — a library map, token, or book cover (issue #286) — through
- * the shared image picker.
+ * the shared image picker. It opens on the library's book covers, narrowed to
+ * this system and the systems under it: a system's cover is nearly always one
+ * of its own books, and an upload is the exception (issue #891).
  */
 /** The cover fields a change reports, to merge into the system. */
 export interface CoverChange {
@@ -27,7 +29,7 @@ export interface CoverChange {
 }
 
 export interface CoverUploadProps {
-  system: { id: string; cover_image?: string | null; has_cover?: boolean }
+  system: { id: string; name?: string; cover_image?: string | null; has_cover?: boolean }
   onChange?: (cover: CoverChange) => void
 }
 
@@ -173,6 +175,9 @@ export default function CoverUpload({ system, onChange }: CoverUploadProps) {
           previewSrc={previewUrl}
           aspectRatio="3 / 4"
           formatsText={t('imagePicker.formats')}
+          defaultMode="browse"
+          browseTab="book"
+          browseScope={{ systemId: system.id, name: system.name || '' }}
           onUpload={handleFile}
           onPickSource={handleSource}
           onRemove={hasUpload ? () => remove({ rethrow: true }) : undefined}
