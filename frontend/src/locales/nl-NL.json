@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Pagina's en uitsneden exporteren",
     "notFound": "Dit boek is niet gevonden. Het is mogelijk verplaatst of verwijderd.",
-    "loadFailed": "Dit boek kon niet worden geladen."
+    "loadFailed": "Dit boek kon niet worden geladen.",
+    "pdfViewer": {
+      "toolbar": "PDF-hulpmiddelen",
+      "tools": "Annotatiehulpmiddelen",
+      "tool": {
+        "none": "Lezen",
+        "highlight": "Markeren",
+        "text": "Tekst toevoegen",
+        "draw": "Tekenen"
+      },
+      "fitWidth": "Aanpassen aan breedte",
+      "save": "Kopie opslaan",
+      "saveHint": "Deze PDF met je annotaties downloaden",
+      "saveFailed": "Kan de kopie niet opslaan. Probeer het opnieuw.",
+      "loadFailed": "Deze PDF kan niet worden geopend.",
+      "discardConfirm": "Je annotaties zijn niet opgeslagen en gaan verloren. Toch verlaten?"
+    }
   },
   "pageExport": {
     "menuItem": "Pagina's en uitsneden exporteren",
@@ -1433,7 +1449,7 @@
       "title": "Lezer",
       "description": "Standaardgedrag bij het openen van een boek.",
       "defaultViewMode": "Standaardweergavemodus",
-      "viewModeHint": "\"Per boek\" onthoudt de laatst gebruikte modus voor elk boek afzonderlijk. Op kleine schermen wordt altijd de paginaweergave gebruikt, ongeacht deze instelling.",
+      "viewModeHint": "\"Per boek\" onthoudt de laatst gebruikte modus voor elk boek afzonderlijk. Op kleine schermen is de spreadweergave niet beschikbaar, dus wordt de paginaweergave gebruikt.",
       "perBook": "Per boek",
       "page": "Pagina",
       "spread": "Dubbele pagina",

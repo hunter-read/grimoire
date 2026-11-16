@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -24,8 +24,13 @@ import CutoutStage from '../reader/export/CutoutStage'
 import ExportSidebar from '../reader/export/ExportSidebar'
 import usePageExport from '../reader/export/usePageExport'
 import { mediaDisplayName } from '../../utils/mediaDisplayName'
+import { browserEmbedsPdf } from '../../utils/pdfEmbed'
+import Spinner from '../Spinner'
 
 type ViewMode = 'page' | 'spread' | 'pdf'
+
+// pdf.js is heavy, and only tablets in PDF mode need it here.
+const PdfDocumentViewer = lazy(() => import('../reader/PdfDocumentViewer'))
 
 export interface MapPdfViewerProps {
   mapId: string
@@ -97,6 +102,10 @@ export default function MapPdfViewer({
   const initialJoinSpread = _prefs.joinSpread === true
 
   const [mode, setMode] = useState<ViewMode>(initialMode as ViewMode)
+  // A tablet's browser can't show the PDF in a frame, so PDF mode there is the
+  // in-app viewer (issue #890).
+  const [embedsPdf] = useState(browserEmbedsPdf)
+  const pdfInApp = mode === 'pdf' && !embedsPdf
   const [spreadOffset, setSpreadOffset] = useState(initialSpreadOffset)
   const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [currentPage, setCurrentPage] = useState(1)
@@ -389,14 +398,27 @@ export default function MapPdfViewer({
             overflow: 'hidden',
             display: (isMobilePhone && exportOpen) || showStage ? 'none' : 'flex',
             background: 'var(--bg-deep)',
-            touchAction: 'none',
+            touchAction: pdfInApp ? 'auto' : 'none',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onMouseDown={handleMouseDown}
         >
-          {mode === 'pdf' ? (
+          {pdfInApp ? (
+            <Suspense fallback={<Spinner size={32} />}>
+              <PdfDocumentViewer
+                url={mediaUrl(`/maps/${mapId}/file`)}
+                title={filename}
+                filename={filename}
+                page={currentPage}
+                onPageChange={(page) => {
+                  setCurrentPage(page)
+                  setPageInput(String(page))
+                }}
+              />
+            </Suspense>
+          ) : mode === 'pdf' ? (
             <iframe
               src={mediaUrl(`/maps/${mapId}/file`) + `#page=${currentPage}`}
               style={{ width: '100%', height: '100%', border: 'none' }}

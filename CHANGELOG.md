@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- **PDF view works on phones and tablets.** Their browsers can't show a PDF inside a page, so PDF view there now opens Grimoire's own viewer: the whole book scrolls as one column, text can be selected, links work, and you can pinch to zoom. You can highlight, add text and draw on the pages, then save a copy of the PDF with those annotations in it. Phones can now pick PDF view at all - they used to be held to page view
+
 ### Changed
 
 - **Grimoire uses less CPU and memory when nobody is using it.** The server now wakes once a second instead of ten times, the container's health check costs a third of what it did, and the memory a library scan or a busy evening leaves behind is handed back to the system when the scan ends and again after ten minutes without a request (`IDLE_RELEASE`). See [When nobody is using it](docs/performance.md#when-nobody-is-using-it)

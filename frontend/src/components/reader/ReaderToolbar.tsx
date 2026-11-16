@@ -48,6 +48,13 @@ export interface ReaderToolbarProps {
   book: Schema<'BookDetail'>
   bookId: string
   mode: ReaderMode
+  /** The modes on offer here; all three when omitted. */
+  modes?: readonly ReaderMode[]
+  /**
+   * PDF mode is the in-app viewer rather than the browser's: it knows which
+   * page is showing, so page navigation, contents and bookmarks work in it.
+   */
+  pdfInApp?: boolean
   onModeChange: (mode: ReaderMode) => void
   spreadOffset: number
   onSpreadOffsetChange: (offset: number) => void
@@ -86,6 +93,8 @@ export default function ReaderToolbar({
   book,
   bookId,
   mode,
+  modes,
+  pdfInApp = false,
   onModeChange,
   spreadOffset,
   onSpreadOffsetChange,
@@ -125,11 +134,14 @@ export default function ReaderToolbar({
     if (showShortcuts) shortcutsRef.current?.focus()
   }, [showShortcuts])
 
+  // The browser's own PDF viewer, in a frame: which page it shows is its business.
+  const nativePdf = mode === 'pdf' && !pdfInApp
+
   const panels: { key: PanelKey; Icon: IconType; label: string }[] = [
-    book.mime_type === 'application/pdf' && mode !== 'pdf'
+    book.mime_type === 'application/pdf' && !nativePdf
       ? { key: 'toc', Icon: LuList, label: t('reader.contents') }
       : null,
-    mode !== 'pdf' ? { key: 'bookmarks', Icon: LuBookmark, label: t('reader.bookmarks') } : null,
+    !nativePdf ? { key: 'bookmarks', Icon: LuBookmark, label: t('reader.bookmarks') } : null,
     book.indexed ? { key: 'search', Icon: LuSearch, label: t('common.search') } : null,
   ].filter((p): p is { key: PanelKey; Icon: IconType; label: string } => p !== null)
 
@@ -140,6 +152,7 @@ export default function ReaderToolbar({
       book={book}
       bookId={bookId}
       mode={mode}
+      modes={modes}
       onModeChange={onModeChange}
       spreadOffset={spreadOffset}
       onSpreadOffsetChange={onSpreadOffsetChange}
@@ -233,7 +246,7 @@ export default function ReaderToolbar({
         {/* Centre zone — page navigation. On a phone it shares the second row
             with the panel buttons, sitting to their right; `order` puts it
             after the right zone so the two land side by side on that row. */}
-        {mode !== 'pdf' && totalPages > 0 && (
+        {!nativePdf && totalPages > 0 && (
           <div
             style={{
               display: 'flex',
@@ -297,7 +310,7 @@ export default function ReaderToolbar({
             ...(isMobilePhone ? null : { marginLeft: 'auto', justifyContent: 'flex-end' }),
           }}
         >
-          {/* Zoom cluster — the native PDF viewer has its own zoom, and the
+          {/* Zoom cluster — both PDF viewers have their own zoom, and the
             controls are dropped on phones where pinch-to-zoom already works. */}
           {mode !== 'pdf' && !isMobilePhone && (
             <div
@@ -394,7 +407,7 @@ export default function ReaderToolbar({
             </div>
           )}
 
-          {mode !== 'pdf' && (
+          {!nativePdf && (
             <button
               onClick={onBookmarkPage}
               title={t('reader.bookmarkPage')}

@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Exportar páginas y recortes",
     "notFound": "No se ha encontrado este libro. Puede que se haya movido o eliminado.",
-    "loadFailed": "No se ha podido cargar este libro."
+    "loadFailed": "No se ha podido cargar este libro.",
+    "pdfViewer": {
+      "toolbar": "Herramientas de PDF",
+      "tools": "Herramientas de anotación",
+      "tool": {
+        "none": "Leer",
+        "highlight": "Resaltar",
+        "text": "Añadir texto",
+        "draw": "Dibujar"
+      },
+      "fitWidth": "Ajustar al ancho",
+      "save": "Guardar una copia",
+      "saveHint": "Descargar este PDF con tus anotaciones",
+      "saveFailed": "No se pudo guardar la copia. Inténtalo de nuevo.",
+      "loadFailed": "No se pudo abrir este PDF.",
+      "discardConfirm": "Tus anotaciones no se han guardado y se perderán. ¿Salir de todos modos?"
+    }
   },
   "pageExport": {
     "menuItem": "Exportar páginas y recortes",
@@ -1433,7 +1449,7 @@
       "title": "Lector",
       "description": "Comportamiento predeterminado al abrir un libro.",
       "defaultViewMode": "Modo de vista predeterminado",
-      "viewModeHint": "\"Por libro\" recuerda el último modo usado para cada libro individualmente. En pantallas pequeñas, siempre se usa la vista de página, independientemente de este ajuste.",
+      "viewModeHint": "\"Por libro\" recuerda el último modo usado para cada libro individualmente. En pantallas pequeñas no hay vista de doble página, así que se usa la vista de página.",
       "perBook": "Por libro",
       "page": "Página",
       "spread": "Doble página",

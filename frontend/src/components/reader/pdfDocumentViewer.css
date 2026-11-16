@@ -1,0 +1,138 @@
+/* The in-app PDF viewer (issue #890): a tool row over pdf.js's scrolling pages. */
+
+.pdf-document-viewer {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-viewer-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pdf-viewer-group button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 32px;
+  padding: 0 8px;
+  background: var(--bg-card);
+  color: var(--text-dim);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.pdf-viewer-group button:last-child {
+  border-right: none;
+}
+
+.pdf-viewer-group button[aria-pressed='true'] {
+  background: var(--bg-card-hover);
+  color: var(--gold);
+}
+
+.pdf-viewer-group button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pdf-viewer-scale {
+  min-width: 48px;
+  padding: 0 6px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--border);
+}
+
+.pdf-viewer-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--gold);
+  font-size: 13px;
+}
+
+.pdf-viewer-save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pdf-viewer-message {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--danger, var(--text));
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-viewer-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.pdf-viewer-container {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--bg-deep);
+  /* Native one-finger scrolling; pdf.js handles the two-finger pinch. */
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pdf-viewer-container:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.pdf-viewer-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+/* Grimoire's global form-control rule (see index.css) would squeeze a PDF's own
+   fillable fields; pdf_viewer.css styles them, so step back for it here. */
+.pdf-document-viewer .annotationLayer input,
+.pdf-document-viewer .annotationLayer textarea,
+.pdf-document-viewer .annotationLayer select {
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  transition: none;
+}

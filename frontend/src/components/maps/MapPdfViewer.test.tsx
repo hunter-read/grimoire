@@ -63,9 +63,29 @@ vi.mock('../reader/SpreadPage', () => ({
   ),
 }))
 
+// A tablet's browser can't embed a PDF, so its PDF mode is the in-app viewer.
+const embeds = vi.hoisted(() => ({ value: true }))
+vi.mock('../../utils/pdfEmbed', () => ({ browserEmbedsPdf: () => embeds.value }))
+vi.mock('../reader/PdfDocumentViewer', () => ({
+  default: ({
+    url,
+    page,
+    onPageChange,
+  }: {
+    url: string
+    page: number
+    onPageChange: (p: number) => void
+  }) => (
+    <div data-testid="in-app-pdf" data-url={url} data-page={page}>
+      <button onClick={() => onPageChange(3)}>scroll to 3</button>
+    </div>
+  ),
+}))
+
 beforeEach(() => {
   vi.clearAllMocks()
   prefs.wheelAction = 'page'
+  embeds.value = true
 })
 
 // The element the gesture hook listens on: the page's container.
@@ -172,6 +192,20 @@ describe('MapPdfViewer', () => {
     const frame = document.querySelector('iframe')
     expect(frame).toBeInTheDocument()
     expect(frame!.getAttribute('src')).toBe('/api/maps/m1/file#page=1')
+  })
+
+  it('shows the in-app viewer in pdf mode where the browser cannot embed one', async () => {
+    embeds.value = false
+    setup()
+    await userEvent.click(screen.getByRole('button', { name: /^pdf$/i }))
+    const pdf = await screen.findByTestId('in-app-pdf')
+    expect(pdf).toHaveAttribute('data-url', '/api/maps/m1/file')
+    expect(document.querySelector('iframe')).toBeNull()
+    // Back on pages, the map picks up where the viewer was scrolled to.
+    await userEvent.click(screen.getByRole('button', { name: 'scroll to 3' }))
+    expect(screen.getByTestId('in-app-pdf')).toHaveAttribute('data-page', '3')
+    await userEvent.click(screen.getByRole('button', { name: /^page$/i }))
+    expect(screen.getByTestId('single-page')).toHaveTextContent('/api/maps/m1/page/3')
   })
 
   it('hides the mode toggle on mobile phones', () => {
