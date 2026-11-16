@@ -29,9 +29,11 @@ class TestSecondsUntilIdle:
     def test_counts_down_from_the_last_request(self):
         idle.note_request()
         last = idle._last_request
-        assert idle.seconds_until_idle(60, now=last) == 60
-        assert idle.seconds_until_idle(60, now=last + 45) == 15
-        assert idle.seconds_until_idle(60, now=last + 90) == -30
+        # approx: on a long-running host the monotonic clock is large enough
+        # that (last + 60) - last rounds to 59.999999999999986.
+        assert idle.seconds_until_idle(60, now=last) == pytest.approx(60)
+        assert idle.seconds_until_idle(60, now=last + 45) == pytest.approx(15)
+        assert idle.seconds_until_idle(60, now=last + 90) == pytest.approx(-30)
 
 
 class TestReleaseMemory:

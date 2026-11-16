@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Seiten & Ausschnitte exportieren",
     "notFound": "Dieses Buch wurde nicht gefunden. Es wurde möglicherweise verschoben oder entfernt.",
-    "loadFailed": "Dieses Buch konnte nicht geladen werden."
+    "loadFailed": "Dieses Buch konnte nicht geladen werden.",
+    "pdfViewer": {
+      "toolbar": "PDF-Werkzeuge",
+      "tools": "Anmerkungswerkzeuge",
+      "tool": {
+        "none": "Lesen",
+        "highlight": "Markieren",
+        "text": "Text hinzufügen",
+        "draw": "Zeichnen"
+      },
+      "fitWidth": "An Breite anpassen",
+      "save": "Kopie speichern",
+      "saveHint": "Dieses PDF mit deinen Anmerkungen herunterladen",
+      "saveFailed": "Die Kopie konnte nicht gespeichert werden. Versuche es erneut.",
+      "loadFailed": "Dieses PDF konnte nicht geöffnet werden.",
+      "discardConfirm": "Deine Anmerkungen wurden nicht gespeichert und gehen verloren. Trotzdem verlassen?"
+    }
   },
   "pageExport": {
     "menuItem": "Seiten & Ausschnitte exportieren",
@@ -1433,7 +1449,7 @@
       "title": "Leser",
       "description": "Standardverhalten beim Öffnen eines Buches.",
       "defaultViewMode": "Standard-Ansichtsmodus",
-      "viewModeHint": "\"Pro Buch\" merkt sich den zuletzt verwendeten Modus für jedes Buch. Auf kleinen Bildschirmen wird unabhängig von dieser Einstellung immer die Seitenansicht verwendet.",
+      "viewModeHint": "\"Pro Buch\" merkt sich den zuletzt verwendeten Modus für jedes Buch. Auf kleinen Bildschirmen gibt es keine Doppelseitenansicht, dort wird stattdessen die Seitenansicht verwendet.",
       "perBook": "Pro Buch",
       "page": "Seite",
       "spread": "Doppelseite",

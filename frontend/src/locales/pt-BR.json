@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Exportar páginas e recortes",
     "notFound": "Este livro não foi encontrado. Ele pode ter sido movido ou removido.",
-    "loadFailed": "Não foi possível carregar este livro."
+    "loadFailed": "Não foi possível carregar este livro.",
+    "pdfViewer": {
+      "toolbar": "Ferramentas de PDF",
+      "tools": "Ferramentas de anotação",
+      "tool": {
+        "none": "Ler",
+        "highlight": "Destacar",
+        "text": "Adicionar texto",
+        "draw": "Desenhar"
+      },
+      "fitWidth": "Ajustar à largura",
+      "save": "Salvar uma cópia",
+      "saveHint": "Baixar este PDF com suas anotações",
+      "saveFailed": "Não foi possível salvar a cópia. Tente novamente.",
+      "loadFailed": "Não foi possível abrir este PDF.",
+      "discardConfirm": "Suas anotações não foram salvas e serão perdidas. Sair mesmo assim?"
+    }
   },
   "pageExport": {
     "menuItem": "Exportar páginas e recortes",
@@ -1433,7 +1449,7 @@
       "title": "Leitor",
       "description": "Comportamento padrão ao abrir um livro.",
       "defaultViewMode": "Modo de visualização padrão",
-      "viewModeHint": "\"Por livro\" memoriza o último modo usado para cada livro individualmente. Em telas pequenas, a visualização de página é sempre usada, independentemente desta configuração.",
+      "viewModeHint": "\"Por livro\" memoriza o último modo usado para cada livro individualmente. Em telas pequenas, a visualização de página dupla não está disponível, então a visualização de página é usada.",
       "perBook": "Por livro",
       "page": "Página",
       "spread": "Página dupla",

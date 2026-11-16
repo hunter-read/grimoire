@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Export pages & cut-outs",
     "notFound": "This book could not be found. It may have been moved or removed.",
-    "loadFailed": "This book could not be loaded."
+    "loadFailed": "This book could not be loaded.",
+    "pdfViewer": {
+      "toolbar": "PDF tools",
+      "tools": "Annotation tools",
+      "tool": {
+        "none": "Read",
+        "highlight": "Highlight",
+        "text": "Add text",
+        "draw": "Draw"
+      },
+      "fitWidth": "Fit to width",
+      "save": "Save a copy",
+      "saveHint": "Download this PDF with your annotations in it",
+      "saveFailed": "Couldn't save a copy. Try again.",
+      "loadFailed": "This PDF couldn't be opened.",
+      "discardConfirm": "Your annotations haven't been saved and will be lost. Leave anyway?"
+    }
   },
   "pageExport": {
     "menuItem": "Export pages & cut-outs",
@@ -1433,7 +1449,7 @@
       "title": "Reader",
       "description": "Default behaviour when opening a book.",
       "defaultViewMode": "Default view mode",
-      "viewModeHint": "\"Per-book\" remembers the last mode used for each book individually. On small screens, page view is always used regardless of this setting.",
+      "viewModeHint": "\"Per-book\" remembers the last mode used for each book individually. On small screens, spread view isn't available, so page view is used instead.",
       "perBook": "Per-book",
       "page": "Page",
       "spread": "Spread",

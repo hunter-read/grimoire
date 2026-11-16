@@ -46,6 +46,8 @@ export interface ReaderMoreMenuProps {
   book?: Schema<'BookDetail'> | null
   bookId: string
   mode: ReaderMode
+  /** The modes on offer here; when omitted, all three - or none on a phone. */
+  modes?: readonly ReaderMode[]
   onModeChange: (mode: ReaderMode) => void
   spreadOffset: number
   onSpreadOffsetChange: (offset: number) => void
@@ -92,6 +94,7 @@ export default function ReaderMoreMenu({
   book,
   bookId,
   mode,
+  modes,
   onModeChange,
   spreadOffset,
   onSpreadOffsetChange,
@@ -107,6 +110,12 @@ export default function ReaderMoreMenu({
 }: ReaderMoreMenuProps) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
+  // Without a list, a phone gets no switch: page view is all it used to have.
+  const modeItems = modes
+    ? MODE_ITEMS.filter(({ key }) => modes.includes(key))
+    : isMobilePhone
+      ? []
+      : MODE_ITEMS
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -257,12 +266,12 @@ export default function ReaderMoreMenu({
               {isFavorite ? t('reader.removeFromFavorites') : t('reader.addToFavorites')}
             </button>
 
-            {/* Mode switch — hidden on phones, where the reader is locked to
-                single-page and the choice would do nothing. */}
-            {!isMobilePhone && (
+            {/* Mode switch — only the modes on offer, and none at all when
+                there is just the one to pick. */}
+            {modeItems.length > 1 && (
               <>
                 <div style={dividerStyle} />
-                {MODE_ITEMS.map(({ key, Icon }) => (
+                {modeItems.map(({ key, Icon }) => (
                   <Fragment key={key}>
                     <button
                       role="menuitemradio"

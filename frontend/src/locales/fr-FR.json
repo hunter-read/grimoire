@@ -280,7 +280,23 @@
     "textUnavailable": "This document's text could not be loaded.",
     "shortcutExport": "Exporter des pages et découpes",
     "notFound": "Ce livre est introuvable. Il a peut-être été déplacé ou supprimé.",
-    "loadFailed": "Impossible de charger ce livre."
+    "loadFailed": "Impossible de charger ce livre.",
+    "pdfViewer": {
+      "toolbar": "Outils PDF",
+      "tools": "Outils d'annotation",
+      "tool": {
+        "none": "Lire",
+        "highlight": "Surligner",
+        "text": "Ajouter du texte",
+        "draw": "Dessiner"
+      },
+      "fitWidth": "Ajuster à la largeur",
+      "save": "Enregistrer une copie",
+      "saveHint": "Télécharger ce PDF avec vos annotations",
+      "saveFailed": "Impossible d'enregistrer la copie. Réessayez.",
+      "loadFailed": "Impossible d'ouvrir ce PDF.",
+      "discardConfirm": "Vos annotations n'ont pas été enregistrées et seront perdues. Quitter quand même ?"
+    }
   },
   "pageExport": {
     "menuItem": "Exporter des pages et découpes",
@@ -1433,7 +1449,7 @@
       "title": "Lecteur",
       "description": "Comportement par défaut lors de l'ouverture d'un livre.",
       "defaultViewMode": "Mode d'affichage par défaut",
-      "viewModeHint": "« Par livre » mémorise le dernier mode utilisé pour chaque livre individuellement. Sur les petits écrans, la vue page est toujours utilisée quelle que soit ce paramètre.",
+      "viewModeHint": "« Par livre » mémorise le dernier mode utilisé pour chaque livre individuellement. Sur les petits écrans, la vue double page n'est pas disponible : la vue page est utilisée à la place.",
       "perBook": "Par livre",
       "page": "Page",
       "spread": "Double page",

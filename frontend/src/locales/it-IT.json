@@ -280,7 +280,23 @@
     "textUnavailable": "Non è stato possibile caricare il testo di questo documento.",
     "shortcutExport": "Esporta pagine e ritagli",
     "notFound": "Impossibile trovare questo libro. Potrebbe essere stato spostato o rimosso.",
-    "loadFailed": "Impossibile caricare questo libro."
+    "loadFailed": "Impossibile caricare questo libro.",
+    "pdfViewer": {
+      "toolbar": "Strumenti PDF",
+      "tools": "Strumenti di annotazione",
+      "tool": {
+        "none": "Leggi",
+        "highlight": "Evidenzia",
+        "text": "Aggiungi testo",
+        "draw": "Disegna"
+      },
+      "fitWidth": "Adatta alla larghezza",
+      "save": "Salva una copia",
+      "saveHint": "Scarica questo PDF con le tue annotazioni",
+      "saveFailed": "Impossibile salvare la copia. Riprova.",
+      "loadFailed": "Impossibile aprire questo PDF.",
+      "discardConfirm": "Le tue annotazioni non sono state salvate e andranno perse. Uscire comunque?"
+    }
   },
   "pageExport": {
     "menuItem": "Esporta pagine e ritagli",
@@ -1433,7 +1449,7 @@
       "title": "Lettore",
       "description": "Comportamento predefinito all'apertura di un libro.",
       "defaultViewMode": "Modalità di visualizzazione predefinita",
-      "viewModeHint": "\"Per libro\" ricorda l'ultima modalità usata per ogni singolo libro. Sugli schermi piccoli viene sempre usata la vista pagina, indipendentemente da questa impostazione.",
+      "viewModeHint": "\"Per libro\" ricorda l'ultima modalità usata per ogni singolo libro. Sugli schermi piccoli la vista doppia pagina non è disponibile, quindi viene usata la vista pagina.",
       "perBook": "Per libro",
       "page": "Pagina",
       "spread": "Doppia pagina",

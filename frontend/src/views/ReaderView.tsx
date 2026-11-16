@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload } from 'react-icons/lu'
@@ -32,6 +32,7 @@ import TextBookViewer from '../components/reader/TextBookViewer'
 import CutoutStage from '../components/reader/export/CutoutStage'
 import ExportSidebar from '../components/reader/export/ExportSidebar'
 import usePageExport from '../components/reader/export/usePageExport'
+import { browserEmbedsPdf } from '../utils/pdfEmbed'
 import {
   PAGE_WIDTH,
   PRELOAD_CACHE_MAX,
@@ -45,7 +46,11 @@ type ReaderMode = 'page' | 'spread' | 'pdf'
 type Panel = 'toc' | 'search' | 'bookmarks' | 'export' | 'details'
 type Axis = 'x' | 'y'
 
-const READER_MODES: readonly unknown[] = ['page', 'spread', 'pdf']
+// pdf.js is heavy, and only phones and tablets in PDF mode need it here.
+const PdfDocumentViewer = lazy(() => import('../components/reader/PdfDocumentViewer'))
+
+const READER_MODE_LIST: readonly ReaderMode[] = ['page', 'spread', 'pdf']
+const READER_MODES: readonly unknown[] = READER_MODE_LIST
 const isReaderMode = (value: unknown): value is ReaderMode => READER_MODES.includes(value)
 
 export default function ReaderView() {
@@ -62,10 +67,18 @@ export default function ReaderView() {
   // flag it: views that persist transient state (in-system search, sort/filter)
   // restore it only when this flag is present. Falling back to history.back()
   // preserves that state implicitly, since the entry is still on the stack.
-  const goBack = () =>
-    backPathRef.current
+  // The in-app PDF viewer's annotations live only in the page until saved as
+  // a copy, so leaving the viewer with some unsaved asks first.
+  const pdfDirtyRef = useRef(false)
+  const confirmLeavePdf = () =>
+    !pdfDirtyRef.current || window.confirm(t('reader.pdfViewer.discardConfirm'))
+  const goBack = () => {
+    if (!confirmLeavePdf()) return
+    pdfDirtyRef.current = false
+    return backPathRef.current
       ? navigate(backPathRef.current, { state: { restoreView: true } })
       : navigate(-1)
+  }
 
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
@@ -73,11 +86,15 @@ export default function ReaderView() {
   const isMobilePhone = useIsMobile(640)
   const _globalMode = isReaderMode(_userPrefs.readerMode) ? _userPrefs.readerMode : null
   const viewParam = searchParams.get('view')
-  const initialMode: ReaderMode = isMobilePhone
-    ? 'page'
-    : isReaderMode(viewParam)
-      ? viewParam
-      : (_globalMode ?? (isReaderMode(_prefs.mode) ? _prefs.mode : 'page'))
+  const preferredMode: ReaderMode = isReaderMode(viewParam)
+    ? viewParam
+    : (_globalMode ?? (isReaderMode(_prefs.mode) ? _prefs.mode : 'page'))
+  // A phone is too narrow for a two-page spread.
+  const initialMode: ReaderMode =
+    isMobilePhone && preferredMode === 'spread' ? 'page' : preferredMode
+  // Where the browser can't show a PDF itself (phones, tablets), PDF mode is
+  // the in-app pdf.js viewer instead of a frame (issue #890).
+  const [embedsPdf] = useState(browserEmbedsPdf)
 
   const initialSpreadOffset = _prefs.spreadOffset ?? 0
   // Per book: one full of two-page art can stay joined while others don't (issue #588).
@@ -252,8 +269,12 @@ export default function ReaderView() {
   })
   const canExport = !!book && !isComicBook(book)
   const openExport = () => {
-    // The native PDF viewer has no page to draw on or count from.
-    if (mode === 'pdf') setMode('page')
+    // The PDF viewers have no page to draw on or count from.
+    if (mode === 'pdf') {
+      if (!confirmLeavePdf()) return
+      pdfDirtyRef.current = false
+      setMode('page')
+    }
     exporter.openAt(exportPages)
     setPanel('export')
   }
@@ -414,6 +435,26 @@ export default function ReaderView() {
   useEffect(() => {
     if (mode === 'spread') goToPage(currentPage, 'spread')
   }, [spreadOffset]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The in-app viewer reads only PDFs, so where the browser can't show a file
+  // itself, anything else in PDF mode falls back to page view.
+  const pdfModeAvailable = embedsPdf || !book || book.mime_type === 'application/pdf'
+  const pdfInApp = mode === 'pdf' && !embedsPdf && pdfModeAvailable
+  // Until the effect below moves such a book on to page view, it renders as one.
+  const pdfInFrame = mode === 'pdf' && embedsPdf
+  useEffect(() => {
+    if (mode === 'pdf' && !pdfModeAvailable) setMode('page')
+  }, [mode, pdfModeAvailable])
+  const availableModes = READER_MODE_LIST.filter(
+    (m) => !(m === 'spread' && isMobilePhone) && !(m === 'pdf' && !pdfModeAvailable)
+  )
+  // The in-app viewer saying which page has scrolled into view. Not goToPage:
+  // that would also slide the page image along as if it were turned.
+  const followPdfPage = useCallback((page: number) => {
+    currentPageRef.current = page
+    setCurrentPage(page)
+    setPageInput(String(page))
+  }, [])
 
   const step = mode === 'spread' ? 2 : 1
   useEffect(() => {
@@ -640,7 +681,11 @@ export default function ReaderView() {
         book={book}
         bookId={bookId}
         mode={mode}
+        modes={availableModes}
+        pdfInApp={pdfInApp}
         onModeChange={(key) => {
+          if (key === mode || !confirmLeavePdf()) return
+          pdfDirtyRef.current = false
           setMode(key)
           saveBookPrefs(bookId, { mode: key })
         }}
@@ -733,14 +778,28 @@ export default function ReaderView() {
             // wheel listener and preload caches are intact on the way back.
             display: (isMobilePhone && panel) || showStage ? 'none' : 'flex',
             background: 'var(--bg-deep)',
-            touchAction: 'none',
+            // The in-app PDF viewer scrolls natively and handles its own pinch.
+            touchAction: pdfInApp ? 'auto' : 'none',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onMouseDown={handleMouseDown}
         >
-          {mode === 'pdf' ? (
+          {pdfInApp ? (
+            <Suspense fallback={<Spinner size={32} />}>
+              <PdfDocumentViewer
+                url={mediaUrl(`/books/${bookId}/file`)}
+                title={book.title}
+                filename={book.filename || `${book.title}.pdf`}
+                page={currentPage}
+                onPageChange={followPdfPage}
+                onDirtyChange={(dirty) => {
+                  pdfDirtyRef.current = dirty
+                }}
+              />
+            </Suspense>
+          ) : pdfInFrame ? (
             <iframe
               src={mediaUrl(`/books/${bookId}/file`) + `#page=${currentPage}`}
               style={{ width: '100%', height: '100%', border: 'none' }}

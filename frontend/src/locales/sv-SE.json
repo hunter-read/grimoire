@@ -280,7 +280,23 @@
     "textUnavailable": "Det här dokumentets text kunde inte läsas in.",
     "shortcutExport": "Exportera sidor och urklipp",
     "notFound": "Boken hittades inte. Den kan ha flyttats eller tagits bort.",
-    "loadFailed": "Boken kunde inte läsas in."
+    "loadFailed": "Boken kunde inte läsas in.",
+    "pdfViewer": {
+      "toolbar": "PDF-verktyg",
+      "tools": "Anteckningsverktyg",
+      "tool": {
+        "none": "Läs",
+        "highlight": "Markera",
+        "text": "Lägg till text",
+        "draw": "Rita"
+      },
+      "fitWidth": "Anpassa till bredd",
+      "save": "Spara en kopia",
+      "saveHint": "Ladda ner denna PDF med dina anteckningar",
+      "saveFailed": "Det gick inte att spara kopian. Försök igen.",
+      "loadFailed": "Det gick inte att öppna denna PDF.",
+      "discardConfirm": "Dina anteckningar har inte sparats och går förlorade. Lämna ändå?"
+    }
   },
   "pageExport": {
     "menuItem": "Exportera sidor och urklipp",
@@ -1433,7 +1449,7 @@
       "title": "Läsare",
       "description": "Standardbeteende när en bok öppnas.",
       "defaultViewMode": "Standardvisningsläge",
-      "viewModeHint": "\"Per bok\" kommer ihåg det senaste läget som användes för varje bok individuellt. På små skärmar används alltid sidvy oavsett den här inställningen.",
+      "viewModeHint": "\"Per bok\" kommer ihåg det senaste läget som användes för varje bok individuellt. På små skärmar finns inte uppslagsvy, så sidvy används i stället.",
       "perBook": "Per bok",
       "page": "Sida",
       "spread": "Uppslag",
