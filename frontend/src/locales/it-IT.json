@@ -2678,6 +2678,7 @@
     "isbnLabel": "ISBN",
     "versionLabel": "Versione",
     "languageLabel": "Lingua",
+    "languageNotSet": "Non indicata",
     "monthLabel": "Mese",
     "dayLabel": "Giorno",
     "urlsLabel": "Link",

@@ -473,17 +473,28 @@ class TestParseOpfLanguage:
     def test_missing_mode_fills_an_empty_language(self):
         book = Book(title="T", language="")
         assert _apply_opf_to_book(book, {"language": "de"}, "missing") is True
-        assert book.language == "de"
+        assert book.language == "german"
 
     def test_missing_mode_protects_a_user_entered_language(self):
         book = Book(title="T", language="English")
         assert _apply_opf_to_book(book, {"language": "de"}, "missing") is False
-        assert book.language == "English"
+        assert book.language == "english"
 
     def test_replace_mode_overwrites_a_language(self):
         book = Book(title="T", language="English")
         assert _apply_opf_to_book(book, {"language": "de"}, "replace") is True
-        assert book.language == "de"
+        assert book.language == "german"
+
+    def test_replace_mode_sees_another_spelling_as_no_change(self):
+        # "de" and "german" are one language: a rescan must not rewrite the book.
+        book = Book(title="T", language="german")
+        assert _apply_opf_to_book(book, {"language": "de-DE"}, "replace") is False
+        assert book.language == "german"
+
+    def test_an_unlisted_opf_language_is_skipped(self):
+        book = Book(title="T", language="english")
+        assert _apply_opf_to_book(book, {"language": "tlh"}, "replace") is False
+        assert book.language == "english"
 
 
 # ---------------------------------------------------------------------------
@@ -558,7 +569,7 @@ class TestCalibrePerBookFolderStructure:
         assert book.year == 2014
         # Scoped ISBN round-trips in normalised form; the UUID stays ignored.
         assert book.isbn == "9780786965601"
-        assert book.language == "eng"
+        assert book.language == "english"
         # OPF subjects become shared tags; match on the internal (lowercased) key.
         db = SessionLocal()
         try:

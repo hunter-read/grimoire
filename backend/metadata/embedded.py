@@ -33,6 +33,7 @@ import defusedxml.ElementTree as SafeElementTree
 from ..indexer import comics
 from ..indexer.constants import _COMIC_ARCHIVE_EXTS, _OPF_NS
 from ..indexer.metadata import _valid_isbn, opf_fields
+from ..models.languages import stored_language
 from ..render import pool as render_pool
 
 # Formats this module can read, by extension.
@@ -388,9 +389,9 @@ def _tags(values: list[str]) -> list[str]:
 
 
 def _language(value: Optional[str]) -> str:
-    language = _clean(value)
-    # The column holds 20 characters; a BCP 47 tag that long is not a real one.
-    return language if 0 < len(language) <= 20 else ""
+    # A BCP 47 tag or a name, resolved to the fixed list ("de-DE" -> "german");
+    # one naming no listed language is no value.
+    return stored_language(_clean(value))
 
 
 def _date_fields(value: Optional[str]) -> dict[str, int]:

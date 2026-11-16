@@ -8,6 +8,7 @@ import LazyImg from '../LazyImg'
 import Tag from '../Tag'
 import { publicationDate } from './bookDetails'
 import BookVersionsSection from './BookVersionsSection'
+import { languageLabel } from '../../utils/languages'
 
 /**
  * Read-only view of everything Grimoire knows about a book.
@@ -54,7 +55,7 @@ export default function BookDetailsModal({ book, onClose }: BookDetailsModalProp
       [t('bookDetails.isbn'), book.isbn],
       [t('bookDetails.productCode'), book.product_code],
       [t('bookDetails.version'), book.version],
-      [t('bookDetails.language'), book.language],
+      [t('bookDetails.language'), languageLabel(book.language)],
       [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],
       [t('bookDetails.fileSize'), book.file_size ? formatSize(book.file_size) : ''],
       [t('bookDetails.format'), book.mime_type],

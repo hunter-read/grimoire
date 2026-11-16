@@ -8,6 +8,7 @@ import { publicationDate } from '../system/bookDetails'
 import DetailsSidebarEditor from './DetailsSidebarEditor'
 import ReaderSidebarShell from './ReaderSidebarShell'
 import type { Schema } from '../../api'
+import { languageLabel } from '../../utils/languages'
 
 type Book = Schema<'BookDetail'>
 
@@ -48,7 +49,7 @@ export default function DetailsSidebar({ book, onClose, onSave }: DetailsSidebar
     [t('bookDetails.isbn'), book.isbn],
     [t('bookDetails.productCode'), book.product_code],
     [t('bookDetails.version'), book.version],
-    [t('bookDetails.language'), book.language],
+    [t('bookDetails.language'), languageLabel(book.language)],
     [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],
     [t('bookDetails.fileSize'), book.file_size ? formatSize(book.file_size) : ''],
     [t('bookDetails.format'), book.mime_type],

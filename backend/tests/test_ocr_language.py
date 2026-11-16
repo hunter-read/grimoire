@@ -145,7 +145,9 @@ class TestBookLanguages:
         assert "its language field" in caplog.text
 
     def test_installed_languages_of_several_are_kept(self, tmp_path):
-        assert book_languages(_book(tmp_path, language="ja, de")) == "deu+eng"
+        # A book's own field holds one listed language; a sidecar can still name several.
+        (tmp_path / "scan.opf").write_text(_OPF.format(language="ja, de"), encoding="utf-8")
+        assert book_languages(_book(tmp_path)) == "deu+eng"
 
     def test_a_configured_language_that_is_missing_is_not_reported(self, tmp_path, caplog):
         with patch.object(config, "OCR_LANGUAGES", "eng+jpn"), caplog.at_level(
