@@ -100,6 +100,17 @@ COMIC_MIMES = frozenset(spec.mime for spec in _FORMATS.values() if spec.family =
 # Every MIME whose text lands in the FTS index.
 INDEXABLE_MIMES = frozenset(spec.mime for spec in _FORMATS.values() if spec.indexable)
 
+# The formats text recognition reads: OCR rasterises the pages of a scanned PDF.
+# An EPUB or DjVu with no text is indexable but not OCR-able, so it must never be
+# queued for OCR - the queue only drains PDFs, and a queued book nobody drains
+# is extracted again on every scan.
+OCR_MIMES = frozenset({"application/pdf"})
+
+
+def can_ocr(mime: Optional[str]) -> bool:
+    """Whether text recognition can read a book of this MIME type."""
+    return mime in OCR_MIMES
+
 
 def spec_for_ext(ext: str) -> Optional[FormatSpec]:
     """Return the FormatSpec for a file extension, or None if unhandled."""

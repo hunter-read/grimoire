@@ -232,6 +232,35 @@ class TestRequeue:
         finally:
             db.close()
 
+    def test_does_not_requeue_an_image_only_epub(self):
+        """Only PDFs go back on the queue: an EPUB there would never be drained."""
+        uid = str(uuid.uuid4())[:8]
+        db = SessionLocal()
+        try:
+            book = Book(
+                title=f"IO-{uid}",
+                filename=f"io-{uid}.epub",
+                filepath=f"/tmp/io-{uid}.epub",
+                relative_path=f"io-{uid}.epub",
+                mime_type="application/epub+zip",
+                indexed=True,
+                index_error="image-only",
+            )
+            db.add(book)
+            db.commit()
+            book_id = book.id
+
+            with patch.object(ocr, "ocr_available", return_value=True):
+                ocr.requeue_image_only_books(db)
+
+            db.expire_all()
+            refreshed = db.query(Book).filter_by(id=book_id).first()
+            assert refreshed.indexed is True
+            assert refreshed.index_error == "image-only"
+            assert refreshed.ocr_pending is False
+        finally:
+            db.close()
+
     def test_noop_when_unavailable(self):
         uid = str(uuid.uuid4())[:8]
         db = SessionLocal()

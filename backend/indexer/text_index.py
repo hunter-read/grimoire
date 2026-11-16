@@ -31,7 +31,7 @@ from ._subprocess import (
     _commit,
 )
 from .categories import slugify
-from .formats import TEXT_MIMES, can_index
+from .formats import TEXT_MIMES, can_index, can_ocr
 from .hashing import apply_signature, file_signature, hash_file_signature
 
 logger = logging.getLogger("grimoire.indexer")
@@ -149,7 +149,11 @@ def index_book_text(
     )
     too_thin = no_text_pages or text_too_thin(text_pages, total_pages)
 
-    if (not pages or too_thin) and ocr.ocr_available():
+    # Only a PDF can be OCR'd. An image-only EPUB or DjVu queued here would never
+    # be drained - the OCR queue reads PDFs alone - and, still not indexed, it
+    # would be extracted and queued again on every scan.
+    ocr_applies = can_ocr(book.mime_type) and ocr.ocr_available()
+    if (not pages or too_thin) and ocr_applies:
         # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
         # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
         # worker (and startup recovery) picks it up; index_failed cleared so
@@ -179,11 +183,16 @@ def index_book_text(
         return False
 
     if not pages:
-        # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
+        # OCR unavailable (slim image) or not possible for this format: mark
         # image-only and indexed so it isn't retried every scan.
+        why = (
+            "text recognition is off"
+            if can_ocr(book.mime_type)
+            else "text recognition reads PDFs only"
+        )
         logger.info(
             f"'{book.title or book.filename}' is a scanned book with no text - "
-            f"it won't be searchable (text recognition is off)."
+            f"it won't be searchable ({why})."
         )
         book.index_error = "image-only"
         book.indexed = True

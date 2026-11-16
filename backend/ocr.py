@@ -106,7 +106,9 @@ def requeue_image_only_books(session: Session) -> int:
     Called on startup: when OCR has become available (e.g. after upgrading from
     the slim image or enabling OCR), previously-skipped image-only PDFs are moved
     into the deferred-OCR queue (``ocr_pending=1``) with their page checkpoint
-    reset, rather than OCR'd inline during the next scan. No-op — returning 0 —
+    reset, rather than OCR'd inline during the next scan. Only PDFs: an
+    image-only EPUB or DjVu can't be OCR'd, and queuing one would leave it
+    pending for good. No-op — returning 0 —
     when OCR is unavailable, so slim installs never churn. Returns the number
     queued.
     """
@@ -120,7 +122,7 @@ def requeue_image_only_books(session: Session) -> int:
         _sql_text(
             "UPDATE books SET ocr_pending = TRUE, ocr_pages_done = 0, ocr_pages_skipped = 0, "
             "indexed = FALSE, index_failed = FALSE, index_error = '' "
-            "WHERE index_error = 'image-only'"
+            "WHERE index_error = 'image-only' AND mime_type = 'application/pdf'"
         )
     ))
     count = result.rowcount or 0

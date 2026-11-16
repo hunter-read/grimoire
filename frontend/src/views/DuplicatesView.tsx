@@ -26,6 +26,7 @@ import {
   type MatchStrength,
 } from '../utils/duplicateGroups'
 import useIsMobile from '../hooks/useIsMobile'
+import useIdleAwareInterval from '../hooks/useIdleAwareInterval'
 
 type ScanStatus = Schema<'ScanStatus'>
 type Dismissal = Schema<'DismissalOut'>
@@ -119,6 +120,7 @@ export default function DuplicatesView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin])
 
+  const tickRef = useRef<() => void>(() => {})
   useEffect(() => {
     if (!isAdmin) return undefined
     let cancelled = false
@@ -145,13 +147,19 @@ export default function DuplicatesView() {
         })
         .catch(() => {})
     }
+    tickRef.current = tick
     tick()
-    const id = setInterval(tick, status.running ? POLL_ACTIVE : POLL_IDLE)
     return () => {
       cancelled = true
-      clearInterval(id)
+      tickRef.current = () => {}
     }
   }, [status.running, loadGroups, isAdmin])
+
+  // Not while nobody is using the tab: see useIdleAwareInterval.
+  useIdleAwareInterval(
+    () => tickRef.current(),
+    isAdmin ? (status.running ? POLL_ACTIVE : POLL_IDLE) : null
+  )
 
   useEffect(() => {
     void loadGroups()

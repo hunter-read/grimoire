@@ -216,6 +216,44 @@ class TestIndexBookTextIndexFailed:
         finally:
             db.close()
 
+    @pytest.mark.parametrize(
+        "ext, mime", [("epub", "application/epub+zip"), ("djvu", "image/vnd.djvu")]
+    )
+    def test_image_only_non_pdf_is_never_queued_for_ocr(self, ext, mime):
+        """OCR reads PDFs only: an image-only EPUB/DjVu is marked image-only, not queued.
+
+        Queued, it would never be drained, and as an unindexed book it would be
+        extracted and queued again on every scan.
+        """
+        uid = str(uuid.uuid4())[:8]
+        db = SessionLocal()
+        try:
+            book = Book(
+                title=f"TestBook-{uid}",
+                filename=f"book-{uid}.{ext}",
+                filepath=f"/tmp/nonexistent-{uid}.{ext}",
+                relative_path=f"book-{uid}.{ext}",
+                mime_type=mime,
+                indexed=False,
+                index_failed=False,
+            )
+            db.add(book)
+            db.commit()
+            db.refresh(book)
+
+            with patch("backend.indexer.extract_text_isolated", return_value=([], False)), \
+                 patch("backend.indexer.ocr.ocr_available", return_value=True):
+                result = index_book_text(book, "/tmp", db)
+
+            db.refresh(book)
+            assert result is True
+            assert book.indexed is True
+            assert book.index_failed is False
+            assert book.index_error == "image-only"
+            assert book.ocr_pending is False
+        finally:
+            db.close()
+
     def test_sets_indexed_true_on_success(self):
         """Successful extraction sets indexed=True and index_failed stays False."""
         uid = str(uuid.uuid4())[:8]

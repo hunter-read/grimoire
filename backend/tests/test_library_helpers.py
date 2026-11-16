@@ -263,3 +263,98 @@ class TestValkeyBranches:
         with patch.object(config, "_valkey", fake):
             with pytest.raises(RuntimeError):
                 runner.request_stop()
+
+
+class TestScanGivesMemoryBack:
+    """A finished scan must not leave memory held that nothing is using."""
+
+    def _run(self, **patches):
+        runner.set_status({**runner.DEFAULT_STATUS})
+        runner.clear_stop()
+        with (
+            patch.object(runner, "scan_library", return_value={}),
+            patch.object(runner, "run_model_thumbnail_queue", return_value=0),
+        ):
+            runner.run_rescan_sync()
+
+    def test_the_helper_is_stopped_before_ocr_starts(self):
+        """OCR can run for hours and never uses the helper, which holds MuPDF's memory."""
+        order = []
+        with (
+            patch.object(runner.isolation, "shutdown", side_effect=lambda: order.append("stop")),
+            patch.object(runner, "run_ocr_queue", side_effect=lambda: order.append("ocr")),
+            patch.object(runner, "_release_scan_memory"),
+        ):
+            self._run()
+        assert order == ["stop", "ocr", "stop"]
+
+    def test_memory_is_released_once_the_scan_is_over(self):
+        seen = []
+        with (
+            patch.object(runner, "run_ocr_queue", return_value=0),
+            patch.object(
+                runner,
+                "_release_scan_memory",
+                side_effect=lambda: seen.append(runner.get_status()["running"]),
+            ),
+        ):
+            self._run()
+        assert seen == [False]
+
+    def test_release_calls_the_idle_release(self):
+        with patch("backend.idle.release_memory") as release:
+            runner._release_scan_memory()
+        release.assert_called_once()
+
+    def test_a_failing_release_does_not_fail_the_scan(self):
+        with patch("backend.idle.release_memory", side_effect=RuntimeError("no")):
+            runner._release_scan_memory()
+
+
+class TestScanLeavesQueuedBooksToOcr:
+    """A book already queued for OCR is the OCR phase's, not the indexing phase's."""
+
+    def test_a_queued_book_is_not_extracted_again(self):
+        import uuid as _uuid
+
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        uid = str(_uuid.uuid4())[:8]
+        db = SessionLocal()
+        queued = Book(
+            title=f"Q-{uid}", filename=f"q-{uid}.pdf", filepath=f"/tmp/q-{uid}.pdf",
+            relative_path=f"q-{uid}.pdf", mime_type="application/pdf",
+            indexed=False, index_failed=False, ocr_pending=True, ocr_pages_done=40,
+        )
+        fresh = Book(
+            title=f"F-{uid}", filename=f"f-{uid}.pdf", filepath=f"/tmp/f-{uid}.pdf",
+            relative_path=f"f-{uid}.pdf", mime_type="application/pdf",
+            indexed=False, index_failed=False, ocr_pending=False,
+        )
+        db.add_all([queued, fresh])
+        db.commit()
+        queued_id, fresh_id = queued.id, fresh.id
+        db.close()
+
+        seen = []
+        runner.set_status({**runner.DEFAULT_STATUS})
+        runner.clear_stop()
+        with (
+            patch.object(runner, "scan_library", return_value={}),
+            patch.object(runner, "run_model_thumbnail_queue", return_value=0),
+            patch.object(runner, "run_ocr_queue", return_value=0),
+            patch.object(
+                runner, "index_book_text", side_effect=lambda book, *a, **k: seen.append(book.id)
+            ),
+        ):
+            runner.run_rescan_sync()
+
+        assert fresh_id in seen
+        assert queued_id not in seen
+        db = SessionLocal()
+        try:
+            # Its page checkpoint survives the scan, so OCR resumes where it stopped.
+            assert db.get(Book, queued_id).ocr_pages_done == 40
+        finally:
+            db.close()
