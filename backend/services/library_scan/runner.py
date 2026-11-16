@@ -518,6 +518,16 @@ def _scan_session() -> Iterator[Session]:
         conn.close()
 
 
+def _release_scan_memory() -> None:
+    """Hand the memory a scan freed back to the operating system."""
+    from ... import idle
+
+    try:
+        idle.release_memory()
+    except Exception as e:  # noqa: BLE001 - never fail a finished scan over this
+        logger.debug("Releasing memory after the scan failed: %s", e)
+
+
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
     """Library rescan — scans disk and indexes PDFs.
 
@@ -634,6 +644,11 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 for (book_id,) in db.query(Book.id).filter(
                     Book.indexed.is_(False),
                     Book.index_failed.is_(False),
+                    # A book already queued for OCR belongs to the OCR phase.
+                    # Extracting it again here re-reads the whole file on every
+                    # scan, and re-queuing it resets its page checkpoint, so a
+                    # long OCR that a rescan interrupted started over each time.
+                    Book.ocr_pending.is_not(True),
                     # Every indexable format, not just PDF — an EPUB filtered out
                     # here is what left them permanently unsearchable (issue #373).
                     Book.mime_type.in_(INDEXABLE_MIMES),
@@ -690,6 +705,10 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         # Runs after the fast phases so text-layer books and other media are
         # already searchable; scanned books grind here without blocking them.
         if not is_stop_requested():
+            # Nothing past this point renders through the helper, and OCR of a
+            # scanned library can run for hours: don't keep a process holding
+            # MuPDF's memory (measured at 500MB) alive beside it.
+            isolation.shutdown()
             run_ocr_queue()
     finally:
         # A scan is when replaced files are found and their old renders orphaned,
@@ -702,4 +721,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         isolation.shutdown()
         set_status({"running": False, "phase": None})
         heartbeat.set()
+        # A scan leaves this process well above its idle size; give that back
+        # now rather than when the server next goes quiet.
+        _release_scan_memory()
     follow_up_ocr_request()

@@ -399,6 +399,15 @@ def _read_page_idle_release() -> int:
 PAGE_IDLE_RELEASE = _read_page_idle_release()
 
 
+#   IDLE_RELEASE — seconds without a request after which the process collects
+#             garbage and trims its heap, so memory a scan or a burst of
+#             browsing left behind goes back to the operating system instead of
+#             waiting for the next request (see backend/idle.py). Measured after
+#             scanning a 2,500-file library: 355MB resident, 299MB once
+#             released. 0 disables it.
+IDLE_RELEASE: int = _seconds_env("IDLE_RELEASE", 600, 0)
+
+
 #   RENDER_WORKERS — how many processes render PDF, EPUB and DjVu pages (issue
 #             #615). Rendering runs outside the app process so a file that
 #             crashes MuPDF fails that one request instead of stopping the
@@ -766,15 +775,17 @@ RATE_LIMIT_ENABLED = (
 TRUST_FORWARDED_FOR = _str_env("TRUST_FORWARDED_FOR", "true").strip().lower() != "false"
 
 # Which connecting addresses count as a reverse proxy whose X-Forwarded-For is
-# read (comma-separated addresses or CIDR ranges). The default is loopback and
-# the range Docker gives its bridge networks, so a proxy or tunnel on the same
-# host or in the same Compose project - nginx, Traefik, Caddy, Cloudflare
-# Tunnel, `tailscale serve` - needs no setting.
+# read (comma-separated addresses or CIDR ranges). The default is loopback, the
+# range Docker gives its bridge networks, and the two Podman gives its own - the
+# default `podman` network (10.88.0.0/16) and the first pool `podman network
+# create` and podman-compose draw from (10.89.0.0/16) - so a proxy or tunnel on
+# the same host or in the same Compose project - nginx, Traefik, Caddy,
+# Cloudflare Tunnel, `tailscale serve` - needs no setting.
 #
 # It is deliberately no wider: any client connecting from a trusted range can
 # name its own address in the header. A proxy anywhere else - another machine on
-# the LAN, a Kubernetes ingress, a Podman network, a VPS - is added here.
-DEFAULT_TRUSTED_PROXIES = "127.0.0.0/8,::1,172.16.0.0/12"
+# the LAN, a Kubernetes ingress, a VPS - is added here.
+DEFAULT_TRUSTED_PROXIES = "127.0.0.0/8,::1,172.16.0.0/12,10.88.0.0/16,10.89.0.0/16"
 TRUSTED_PROXIES = _str_env("TRUSTED_PROXIES", DEFAULT_TRUSTED_PROXIES)
 
 

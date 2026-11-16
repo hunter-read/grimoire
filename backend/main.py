@@ -12,7 +12,16 @@ from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
 
-from . import backup_scheduler, config, library_watch, scheduler, session_creator, session_purger
+from . import (
+    backup_scheduler,
+    config,
+    idle,
+    library_watch,
+    scheduler,
+    server_tick,
+    session_creator,
+    session_purger,
+)
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .log_context import LogUserMiddleware
@@ -229,6 +238,8 @@ async def lifespan(app: FastAPI):
     # directories, migrations and the Valkey connection come first, since
     # everything below uses them.
     startup()
+    # An idle server should sleep: uvicorn otherwise wakes ten times a second.
+    server_tick.slow_down()
     # Resolved now rather than on the first login, so a published placeholder
     # SECRET_KEY still stops the server before it serves anything.
     from . import auth
@@ -263,7 +274,10 @@ async def lifespan(app: FastAPI):
     scan_lock = FileLock(os.path.join(DATA_PATH, ".scan.lock"))
     if not scan_lock.acquire(blocking=False):
         logger.info("Startup scan already running in another worker, skipping.")
+        if not config.under_test_run():
+            idle.start(config.IDLE_RELEASE)
         yield
+        idle.stop()
         render_pool.shutdown()
         return
 
@@ -322,6 +336,9 @@ async def lifespan(app: FastAPI):
         # Trims dead auth_sessions rows so the table stays bounded (issue #157).
         # Self-limits to one worker via its own lock.
         session_purger.start(DATA_PATH)
+        # Hands back memory a scan or a busy evening left behind, once nobody
+        # has asked for anything for IDLE_RELEASE seconds.
+        idle.start(config.IDLE_RELEASE)
 
     yield
 
@@ -332,6 +349,7 @@ async def lifespan(app: FastAPI):
     scan_isolation.shutdown(kill_busy=True)
     session_purger.stop()
     library_watch.stop()
+    idle.stop()
     render_pool.shutdown()
 
 
@@ -384,6 +402,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Attributes each request's log lines to the user it authenticates as, for the
 # log viewer's user filter (issue #576).
 app.add_middleware(LogUserMiddleware)
+# Notes when the server was last used, for the idle memory release.
+app.add_middleware(idle.IdleTrackingMiddleware)
 # Optional CORS allowlist for browser-based integrations (issue #502). Added
 # last so it wraps everything above: preflights are answered before auth runs,
 # and error responses (401/403/429) carry the headers too.

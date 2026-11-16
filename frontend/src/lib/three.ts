@@ -13,6 +13,7 @@
  */
 
 import type { BufferGeometry, Material, Mesh, MeshStandardMaterial, Object3D } from 'three'
+import { createRenderLoop } from './renderOnDemand'
 
 /** What a format loader can hand back: a mesh's geometry, or a scene. */
 type LoadResult = BufferGeometry | Object3D | { scene: Object3D }
@@ -197,14 +198,16 @@ export async function createViewer(
     triangles += geom.index ? geom.index.count / 3 : (geom.attributes.position?.count || 0) / 3
   })
 
-  let running = true
-  const tick = () => {
-    if (!running) return
-    controls.update()
+  // Drawn on demand, not on every frame: a still model costs nothing. Dragging
+  // makes the controls fire `change`, which asks for a frame, and `update()`
+  // keeps reporting movement while the damped orbit coasts to a stop.
+  const loop = createRenderLoop(() => {
+    const moving = controls.update()
     renderer.render(scene, camera)
-    requestAnimationFrame(tick)
-  }
-  tick()
+    return moving
+  })
+  controls.addEventListener('change', loop.request)
+  loop.request()
 
   const onResize = () => {
     const w = canvasHost.clientWidth || width
@@ -212,6 +215,7 @@ export async function createViewer(
     camera.aspect = w / h
     camera.updateProjectionMatrix()
     renderer.setSize(w, h)
+    loop.request()
   }
   window.addEventListener('resize', onResize)
 
@@ -221,15 +225,18 @@ export async function createViewer(
       camera.position.copy(home)
       controls.target.copy(pivot)
       controls.update()
+      loop.request()
     },
     setWireframe(on: boolean) {
       object.traverse((child) => {
         const mesh = child as Partial<Mesh>
         if (mesh.material) (mesh.material as MeshStandardMaterial).wireframe = !!on
       })
+      loop.request()
     },
     dispose() {
-      running = false
+      loop.stop()
+      controls.removeEventListener('change', loop.request)
       window.removeEventListener('resize', onResize)
       controls.dispose()
       object.traverse((child) => {

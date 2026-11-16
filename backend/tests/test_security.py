@@ -111,7 +111,7 @@ class TestClientIp:
 
 
 class TestDefaultTrustedProxies:
-    """The default list: loopback and Docker's bridge networks, nothing wider.
+    """The default list: loopback and Docker's and Podman's networks, nothing wider.
 
     The test session trusts more (see conftest), so these swap the default in.
     """
@@ -127,8 +127,18 @@ class TestDefaultTrustedProxies:
 
     _req = staticmethod(TestClientIp._req)
 
-    @pytest.mark.parametrize("proxy", ["127.0.0.1", "::1", "172.17.0.1", "172.31.255.2"])
-    def test_same_host_and_docker_proxies_are_trusted(self, proxy):
+    @pytest.mark.parametrize(
+        "proxy",
+        [
+            "127.0.0.1",
+            "::1",
+            "172.17.0.1",
+            "172.31.255.2",
+            "10.88.0.4",  # Podman's default network
+            "10.89.1.132",  # a network podman-compose or `podman network create` made
+        ],
+    )
+    def test_same_host_docker_and_podman_proxies_are_trusted(self, proxy):
         assert client_ip(self._req(proxy, "203.0.113.7")) == "203.0.113.7"
 
     @pytest.mark.parametrize(
@@ -136,7 +146,7 @@ class TestDefaultTrustedProxies:
         [
             "192.168.1.10",  # another machine on the LAN
             "10.42.0.7",  # a Kubernetes pod network
-            "10.88.0.4",  # Podman's default network
+            "10.90.0.3",  # a Podman network past its first pool
             "fd7a:115c:a1e0::5",  # Tailscale over IPv6
             "100.101.102.103",  # Tailscale over IPv4
         ],

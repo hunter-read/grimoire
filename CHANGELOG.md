@@ -10,10 +10,16 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
+- **Grimoire uses less CPU and memory when nobody is using it.** The server now wakes once a second instead of ten times, the container's health check costs a third of what it did, and the memory a library scan or a busy evening leaves behind is handed back to the system when the scan ends and again after ten minutes without a request (`IDLE_RELEASE`). See [When nobody is using it](docs/performance.md#when-nobody-is-using-it)
+- A browser tab left open no longer keeps asking the server for scan progress, duplicate-scan progress and new log lines. It stops when the tab is hidden or after five minutes without input, and catches up the moment you come back. A page with a rescan button on every folder also asks once for all of them, where each button used to ask for itself
+- The 3D model viewer redraws only while the model is moving. It used to redraw 60 times a second for as long as the page was open, which kept a CPU core and the GPU busy on a model nobody was touching
+- The helper process that reads PDFs during a scan now exits before text recognition starts, not after it. On a library with many scanned books that frees several hundred MB for the hours OCR can take
+- A reverse proxy on a Podman network is now trusted without setting anything, like one on a Docker network: `TRUSTED_PROXIES` now defaults to `127.0.0.0/8,::1,172.16.0.0/12,10.88.0.0/16,10.89.0.0/16`, adding the ranges Podman gives its default network and the networks `podman network create` and podman-compose make. If your LAN itself uses those ranges, set `TRUSTED_PROXIES` to just your proxy's address
 - **A book's language is now picked from a list**, so each language appears once instead of as "English", "english" and "en". Existing books are switched over on upgrade, including codes such as `en` or `de-DE` and small typos such as "Italan". A language that isn't on the list is cleared rather than kept. Metadata you fetch, import or type in still saves even when its language doesn't match, and that language is left unset. A book's language field now holds one language; OCR can still read several from an `.opf` sidecar or the PDF
 
 ### Fixed
 
+- Image-only EPUB and DjVu books no longer get read again on every scan. Grimoire queued them for text recognition, which only reads PDFs, so they never became searchable and each scan opened every one of them again, which is slow on a library with many such books. They are now marked as having no text, as an image-only PDF is when text recognition is off, and books already stuck are cleared on upgrade. A scan also no longer restarts text recognition from the first page for a PDF it interrupted
 - Watching the library for changes no longer floods the logs with "Inotify queue overflowed" warnings on a large library. Every read of a library file - a scan, a page render, a download - used to count as an event, and recovering from an overflow caused the next one, over and over, so the watcher could miss real changes
 - Books with a missing font, such as an EPUB whose stylesheet names fonts it doesn't include, no longer fill the logs with "MuPDF error" lines every time a page renders. They still render as before, and the messages appear with `LOG_LEVEL=debug`
 

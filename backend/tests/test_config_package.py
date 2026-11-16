@@ -169,8 +169,8 @@ class TestEnvironment:
         monkeypatch.delenv("PYTEST_CURRENT_TEST")
         assert env.under_test_run() is False
 
-    def test_the_default_trusts_loopback_and_docker_only(self):
-        assert env.DEFAULT_TRUSTED_PROXIES == "127.0.0.0/8,::1,172.16.0.0/12"
+    def test_the_default_trusts_loopback_docker_and_podman_only(self):
+        assert env.DEFAULT_TRUSTED_PROXIES == "127.0.0.0/8,::1,172.16.0.0/12,10.88.0.0/16,10.89.0.0/16"
 
 
 def test_a_patched_session_factory_is_put_back_working():

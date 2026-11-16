@@ -1988,3 +1988,47 @@ def _init_db_in_child(db_path: str) -> None:
 
     engine, _ = init_db(db_path)
     engine.dispose()
+
+
+class TestUnqueueNonPdfOcrMigration:
+    """0072 takes image-only EPUBs and DjVus off the OCR queue, which reads PDFs only."""
+
+    def test_non_pdf_books_stuck_on_the_queue_are_marked_image_only(self):
+        path = os.path.join(tempfile.mkdtemp(), "unqueue.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "5c1e8a7d3f90")
+        with engine.begin() as conn:
+            books = [
+                # id, mime, ocr_pending, indexed
+                ("epub", "application/epub+zip", 1, 0),
+                ("djvu", "image/vnd.djvu", 1, 0),
+                ("pdf", "application/pdf", 1, 0),
+                ("done", "application/epub+zip", 0, 1),
+            ]
+            for book_id, mime, pending, indexed in books:
+                conn.execute(
+                    text(
+                        "INSERT INTO books (id, title, filename, filepath, relative_path, "
+                        "mime_type, ocr_pending, indexed, index_failed, index_error) "
+                        "VALUES (:id, :id, :id, :id, :id, :mime, :pending, :indexed, 0, '')"
+                    ),
+                    {"id": book_id, "mime": mime, "pending": pending, "indexed": indexed},
+                )
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        with engine.connect() as conn:
+            got = {
+                row[0]: tuple(row[1:])
+                for row in conn.execute(
+                    text("SELECT id, ocr_pending, indexed, index_error FROM books")
+                ).fetchall()
+            }
+        engine.dispose()
+        assert got == {
+            "epub": (0, 1, "image-only"),
+            "djvu": (0, 1, "image-only"),
+            # A queued PDF is the OCR queue's to finish.
+            "pdf": (1, 0, ""),
+            "done": (0, 1, ""),
+        }

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { LuPause, LuPlay, LuSearch, LuArrowDown } from 'react-icons/lu'
 import api from '../../api'
 import type { Schema } from '../../api'
+import useIdleAwareInterval from '../../hooks/useIdleAwareInterval'
 import LogRow from './LogRow'
 import LogUserFilter from './LogUserFilter'
 import { ghostBtnStyle } from './settingsButtons'
@@ -124,29 +125,26 @@ export default function LogsTab() {
     }
   }, [level, user])
 
-  useEffect(() => {
-    const id = setInterval(async () => {
-      if (!liveRef.current) return
-      const seq = lastSeqRef.current
-      if (seq === 0) return
-      try {
-        const data = await fetchLogs(
-          { level: levelRef.current, limit: INITIAL_LIMIT, after_seq: seq },
-          userRef.current
-        )
-        if (!data.entries.length) return
-        newSinceAnnounceRef.current += data.entries.length
-        setEntries((prev) => [...prev, ...data.entries])
-        setTotal(data.total)
-        setUsers(data.users ?? [])
-        lastSeqRef.current = data.max_seq
-      } catch {
-        // A missed poll is retried on the next tick.
-      }
-    }, 1000)
-
-    return () => clearInterval(id)
-  }, [])
+  // Live tailing stops while nobody is using the tab and catches up on return.
+  useIdleAwareInterval(async () => {
+    if (!liveRef.current) return
+    const seq = lastSeqRef.current
+    if (seq === 0) return
+    try {
+      const data = await fetchLogs(
+        { level: levelRef.current, limit: INITIAL_LIMIT, after_seq: seq },
+        userRef.current
+      )
+      if (!data.entries.length) return
+      newSinceAnnounceRef.current += data.entries.length
+      setEntries((prev) => [...prev, ...data.entries])
+      setTotal(data.total)
+      setUsers(data.users ?? [])
+      lastSeqRef.current = data.max_seq
+    } catch {
+      // A missed poll is retried on the next tick.
+    }
+  }, 1000)
 
   useEffect(() => {
     const id = setInterval(() => {

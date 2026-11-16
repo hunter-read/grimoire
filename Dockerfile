@@ -251,8 +251,10 @@ ENV MALLOC_ARENA_MAX=2
 
 EXPOSE 9481
 
+# Socket-only, and -I -S to skip site-packages: this runs every 30 seconds for
+# the life of the container. See backend/healthcheck.py.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9481/api/health', timeout=4).status == 200 else 1)" || exit 1
+    CMD ["python", "-I", "-S", "/app/backend/healthcheck.py"]
 
 # One worker by default. Each uvicorn worker is a full copy of the app (125-190
 # MB idle). One worker matches two for a single reader; with four people reading

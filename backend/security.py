@@ -43,8 +43,8 @@ from .config import (
 # AUTH_RATE_LIMIT is the per-IP limit on the auth endpoints, read with the
 # other settings in backend/config/env.py, as are TRUST_FORWARDED_FOR and
 # TRUSTED_PROXIES: whether, and from which connecting addresses, a reverse
-# proxy's X-Forwarded-For is believed. The default trusts loopback and Docker's
-# bridge networks only.
+# proxy's X-Forwarded-For is believed. The default trusts loopback and the
+# default Docker and Podman container networks only.
 #
 # Any client connecting from a trusted range is believed, though: behind a port
 # forwarder that swaps each client's address for a gateway inside one, every
@@ -146,7 +146,8 @@ def _hint_untrusted_proxy(peer: str) -> None:
     """Log, once per address, a private peer sending X-Forwarded-For untrusted.
 
     That is usually a reverse proxy on another machine on the LAN, or on a
-    Kubernetes or Podman network, which the default TRUSTED_PROXIES does not
+    Kubernetes network, or a Podman network outside its default pools, which the
+    default TRUSTED_PROXIES does not
     cover. Its header is ignored, so every client behind it shares its address.
     """
     if peer in _HINTED_PEERS or len(_HINTED_PEERS) >= _MAX_HINTED_PEERS:

@@ -90,6 +90,22 @@ Set `RENDER_WORKERS=0` on a host that is very short of memory: rendering then ha
 
 Out of the box Grimoire runs a single worker process and settles at roughly 250 MB once your library is scanned. Reading adds to that temporarily: rendering an illustrated page decodes its images to full size, which can take a few hundred MB while someone is turning pages. Grimoire hands that memory back automatically - every `PAGE_RECLAIM_INTERVAL` renders, and again once nobody has read anything for `PAGE_IDLE_RELEASE` seconds - so it returns to its idle footprint after a reading session.
 
+A library scan grows it too, and so does a busy stretch of browsing and searching. That memory is handed back when the scan finishes, and again once nobody has asked the server for anything for `IDLE_RELEASE` seconds (ten minutes by default). Measured after scanning a 2,500-file library: 355 MB before, 299 MB after. The first request afterwards takes a few milliseconds longer.
+
+### When nobody is using it
+
+Grimoire is meant to be left running, so it is built to do next to nothing while idle:
+
+- Its background jobs (the scheduled rescan and backup, the library watcher, session clean-up) sleep until their next run instead of checking the clock.
+- The web server wakes once a second, not ten times.
+- A browser tab left open stops asking the server for scan progress and new log lines once it is hidden, or after five minutes without a click, key press or mouse movement. It asks again the moment you come back.
+- The container's health check runs every 30 seconds and is kept as light as it can be.
+
+Two settings do keep an idle server busy, and both are worth a look if `docker stats` shows Grimoire using CPU with nobody on it:
+
+- **Watching a network share.** On NFS, SMB and similar mounts Grimoire cannot be told about changes, so it [lists the whole library](file-management.md#watching-for-changes) every `LIBRARY_WATCH_POLL_INTERVAL` seconds (two minutes by default). On a large library that is real work. Raise the interval, or turn watching off and use a scheduled rescan.
+- **`WORKERS` above 1.** Each worker is a whole copy of the app and idles on its own.
+
 - **`WORKERS`** - see [Workers](#workers) below.
 - **`RENDER_WORKERS`** - render workers exist only while someone is reading, but while they do, each costs about 50 MB on top of the memory its renders use, and its peak is higher than the same renders inside Grimoire would be (measured: about 415 MB in the worker against about 255 MB of growth in Grimoire, reading three illustrated books). Once reading stops the workers exit and Grimoire is back to its idle size - slightly below where in-process rendering settles, since none of the render memory was ever in Grimoire itself. `RENDER_WORKERS=0` trades the crash protection for the lower peak.
 - **`PAGE_RECLAIM_INTERVAL`** - lower it (e.g. `3`) to keep peaks down when several people read at once; it costs a few percent of render speed.
