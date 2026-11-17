@@ -399,6 +399,126 @@ def _validate_on_pick(
             raise SchemaError(f"{what} rule {index} label must be text under 200 characters")
 
 
+#: Buttons a sheet may declare, and the steps one press may take. A rest resets
+#: a few dozen counters at most; the caps only stop a hostile payload.
+MAX_ACTIONS = 30
+MAX_ACTION_STEPS = 50
+MAX_ACTION_LABEL = 80
+MAX_ACTION_CONFIRM = 300
+#: Inside an `each` step, the name a formula reads the current row by.
+ACTION_ROW_NAME = "row"
+#: What a `set` step may write: one stored value. A list is changed row by row
+#: with `each` and `append`; a content pick goes through the picker, so its
+#: `on_pick` rules run; an image is an upload.
+_ACTION_SET_TYPES: frozenset = frozenset({"text", "number", "textarea", "checkbox", "select"})
+
+
+def _validate_actions(
+    actions: Any, fields: dict, known: set[str], images: frozenset
+) -> None:
+    """Check a sheet's `actions`: named buttons that change several values at once.
+
+    A rest is the example - every "used" counter that recovers on a long rest
+    back to nought, hit points to their maximum, death saves cleared. Each step
+    is data, as an `on_pick` rule is: a target and a formula, read against the
+    sheet as it stands when the button is pressed. Nothing here is about one
+    game; an action is only a list of writes the player could make by hand.
+
+    - `{"set": field, "to": formula}` writes one field.
+    - `{"each": list, "where": condition, "set": {column: formula}}` writes
+      columns of the rows `where` picks (every row without it), with `row`
+      naming the row - a list's columns, or a content_list's per-entry fields.
+    - `{"append": list, "values": {column: formula}}` adds a row to a list.
+    """
+    if not isinstance(actions, list):
+        raise SchemaError("'actions' must be a list")
+    if len(actions) > MAX_ACTIONS:
+        raise SchemaError(f"Schema has more than {MAX_ACTIONS} actions")
+
+    def _formula(source: Any, what: str, names_known: set[str]) -> None:
+        if not isinstance(source, str) or not source.strip():
+            raise SchemaError(f"{what} must be a non-empty expression")
+        _validate_condition(source, what, names_known, images)
+
+    def _row_keys(target: str, what: str, *, appendable: bool) -> set[str]:
+        definition = fields.get(target)
+        field_type = (definition or {}).get("type", "text") if isinstance(definition, dict) else None
+        allowed = ("list",) if appendable else ("list", "content_list")
+        if field_type not in allowed:
+            kinds = "a list" if appendable else "a list or a content_list"
+            raise SchemaError(f"{what} targets {target!r}, which is not {kinds}")
+        if field_type == "list":
+            return {
+                column["key"]
+                for column in definition.get("columns") or []
+                if isinstance(column, dict) and isinstance(column.get("key"), str)
+            }
+        return set(definition.get("per_entry_fields") or {})
+
+    def _cells(values: Any, keys: set[str], target: str, what: str, names_known: set[str]) -> None:
+        if not isinstance(values, dict) or not values:
+            raise SchemaError(f"{what} needs an object of column formulas")
+        for key, source in values.items():
+            if key not in keys:
+                raise SchemaError(f"{what} writes {key!r}, which {target!r} does not have")
+            _formula(source, f"{what} {key!r}", names_known)
+
+    seen: set[str] = set()
+    for index, action in enumerate(actions):
+        action = _require_dict(action, f"Action {index}")
+        name = action.get("name")
+        if not isinstance(name, str) or not _NAME_RE.match(name):
+            raise SchemaError(f"Action {index} needs a 'name' that is a valid identifier")
+        if name in seen:
+            raise SchemaError(f"Two actions are named {name!r}")
+        seen.add(name)
+        what = f"Action {name!r}"
+
+        label = action.get("label")
+        if not isinstance(label, str) or not label.strip() or len(label) > MAX_ACTION_LABEL:
+            raise SchemaError(f"{what} needs a 'label' under {MAX_ACTION_LABEL} characters")
+        confirm = action.get("confirm")
+        if confirm is not None and (
+            not isinstance(confirm, str) or not confirm.strip() or len(confirm) > MAX_ACTION_CONFIRM
+        ):
+            raise SchemaError(f"{what} 'confirm' must be text under {MAX_ACTION_CONFIRM} characters")
+
+        steps = action.get("steps")
+        if not isinstance(steps, list) or not steps:
+            raise SchemaError(f"{what} needs a non-empty list of 'steps'")
+        if len(steps) > MAX_ACTION_STEPS:
+            raise SchemaError(f"{what} has more than {MAX_ACTION_STEPS} steps")
+
+        for step_index, step in enumerate(steps):
+            step = _require_dict(step, f"{what} step {step_index}")
+            where = f"{what} step {step_index}"
+            verbs = [verb for verb in ("each", "append") if verb in step]
+            if len(verbs) > 1 or (not verbs and "set" not in step):
+                raise SchemaError(f"{where} needs exactly one of 'set', 'each' or 'append'")
+            verb = verbs[0] if verbs else "set"
+            target = step[verb]
+            if not isinstance(target, str) or target not in fields:
+                raise SchemaError(f"{where} targets unknown field {target!r}")
+
+            if verb == "set":
+                field_type = (fields[target] or {}).get("type", "text")
+                if field_type not in _ACTION_SET_TYPES:
+                    raise SchemaError(
+                        f"{where} sets {target!r}, a {field_type}; 'set' writes a single "
+                        "value - change a list with 'each' or 'append'"
+                    )
+                _formula(step.get("to"), f"{where} 'to'", known)
+            elif verb == "each":
+                keys = _row_keys(target, where, appendable=False)
+                row_known = known | {ACTION_ROW_NAME}
+                if "where" in step:
+                    _formula(step["where"], f"{where} 'where'", row_known)
+                _cells(step.get("set"), keys, target, f"{where} 'set'", row_known)
+            else:
+                keys = _row_keys(target, where, appendable=True)
+                _cells(step.get("values"), keys, target, f"{where} 'values'", known)
+
+
 def _validate_computed(name: str, definition: Any) -> tuple:
     if not _NAME_RE.match(name):
         raise SchemaError(f"Computed name {name!r} is not a valid identifier")
@@ -815,6 +935,9 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         raise SchemaError(f"Schema has more than {MAX_VALIDATORS} validators")
     for index, validator in enumerate(validators):
         _validate_validator(index, validator, known, images)
+
+    if "actions" in document:
+        _validate_actions(document["actions"], fields, known, images)
 
     if "layout" in document:
         _validate_layout(document["layout"], known, images)
