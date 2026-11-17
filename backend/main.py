@@ -21,6 +21,7 @@ from . import (
     server_tick,
     session_creator,
     session_purger,
+    spa_fallback,
 )
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
@@ -521,20 +522,19 @@ api.include_router(logs_router.router)
 app.include_router(api)
 
 
-@app.get("/{full_path:path}")
-def serve_frontend(full_path: str, _: Request):
+@app.get(spa_fallback.CATCH_ALL_PATH)
+def serve_frontend(full_path: str, request: Request):
     if "\x00" in full_path:
         # No file has a NUL in its name, and os.path refuses one with a ValueError.
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return spa_fallback.not_found()
     frontend_real = os.path.realpath(FRONTEND_DIR)
     candidate = os.path.realpath(os.path.join(FRONTEND_DIR, full_path))
     if full_path and candidate.startswith(frontend_real + os.sep) and os.path.isfile(candidate):
         return FileResponse(candidate)
-    if full_path == ".well-known" or full_path.startswith(".well-known/"):
-        # Clients probe these for discovery documents (e.g. OAuth metadata
-        # after a 401 from /mcp) and parse the answer as JSON; the SPA's
-        # index.html would make them fail with a parse error.
-        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    if spa_fallback.is_reserved(full_path):
+        # /api/*, /mcp, /.well-known/* ... are never SPA routes; their callers
+        # parse the answer as JSON (see backend/spa_fallback.py).
+        return spa_fallback.not_routed(request, full_path)
     index_path = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(
@@ -542,3 +542,19 @@ def serve_frontend(full_path: str, _: Request):
             headers={"Cache-Control": "no-store"},
         )
     return JSONResponse({"error": "Frontend not found"}, status_code=500)
+
+
+# HEAD gets what GET would, and every other method a JSON 404 or 405 (see
+# backend/spa_fallback.py). Kept apart from the GET route so the OpenAPI schema
+# still lists the catch-all once; OPTIONS is left to the CORS middleware.
+@app.api_route(
+    spa_fallback.CATCH_ALL_PATH,
+    methods=["HEAD", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+def serve_frontend_other_methods(full_path: str, request: Request):
+    # A HEAD at a path some route answers only for other methods keeps that
+    # route's 405, as it had before this catch-all took HEAD.
+    if request.method == "HEAD" and not spa_fallback.routed_methods(request):
+        return serve_frontend(full_path, request)
+    return spa_fallback.not_routed(request, full_path)
