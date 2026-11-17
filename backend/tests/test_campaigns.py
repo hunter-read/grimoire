@@ -2497,6 +2497,23 @@ class TestCampaignFileUploads:
         assert again.headers["content-disposition"] == first.headers["content-disposition"]
         assert again.headers["content-disposition"].startswith("inline")
 
+    def test_non_ascii_file_name_gets_an_ascii_fallback(self, client, gm_headers, campaign):
+        # filename= carries a plain-ASCII copy for old clients and filename*
+        # the real name, on the 200 and on the 304 that repeats it.
+        url = f"/api/campaigns/{campaign['id']}/files"
+        img = client.post(
+            url, files={"file": ("Mörk Borg.png", _png_bytes(), "image/png")}, headers=gm_headers
+        ).json()
+        first = client.get(f"{url}/{img['resource_id']}", headers=gm_headers)
+        disposition = first.headers["content-disposition"]
+        assert disposition == "inline; filename=\"M?rk Borg.png\"; filename*=UTF-8''M%C3%B6rk%20Borg.png"
+        again = client.get(
+            f"{url}/{img['resource_id']}",
+            headers={**gm_headers, "If-None-Match": first.headers["etag"]},
+        )
+        assert again.status_code == 304
+        assert again.headers["content-disposition"] == disposition
+
     def test_removing_file_resource_deletes_file(self, client, gm_headers, campaign):
         res = client.post(
             f"/api/campaigns/{campaign['id']}/files",
