@@ -21,10 +21,11 @@ import hashlib
 import os
 from email.utils import formatdate, parsedate
 from typing import Any
-from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import FileResponse, Response
+
+from .http_headers import content_disposition
 
 
 def md5_hexdigest(data: bytes, *, usedforsecurity: bool = True) -> str:
@@ -54,14 +55,6 @@ def _validators(stat_result: os.stat_result) -> tuple[str, str]:
     etag = f'"{md5_hexdigest(etag_base.encode(), usedforsecurity=False)}"'
     last_modified = formatdate(stat_result.st_mtime, usegmt=True)
     return etag, last_modified
-
-
-def _content_disposition(filename: str, disposition_type: str) -> str:
-    """The ``Content-Disposition`` value ``FileResponse`` builds for ``filename``."""
-    quoted = quote(filename)
-    if quoted != filename:
-        return f"{disposition_type}; filename*=utf-8''{quoted}"
-    return f'{disposition_type}; filename="{filename}"'
 
 
 def _not_modified(request: Request, etag: str, last_modified: str) -> bool:
@@ -118,9 +111,10 @@ def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response
     # so an uploaded SVG is always inert whichever route serves it.
     headers.update(inert_svg_headers(kwargs.get("media_type"), path))
     # Built here rather than left to FileResponse, so the 304 below can repeat
-    # it; FileResponse keeps a disposition it is handed.
+    # it; FileResponse keeps a disposition it is handed. The shared builder
+    # also sends an ASCII fallback name and drops control characters.
     if kwargs.get("filename") is not None:
-        headers["Content-Disposition"] = _content_disposition(
+        headers["Content-Disposition"] = content_disposition(
             kwargs["filename"], kwargs.get("content_disposition_type", "attachment")
         )
 
