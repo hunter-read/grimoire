@@ -122,7 +122,9 @@ Key points:
 - **Static assets** - the Vite build's hashed assets are mounted at `/assets` via
   `StaticFiles`. Any other non-`/api` path falls through to `serve_frontend`, which returns
   the requested file if it exists (with a path-traversal guard) or `index.html` with
-  `Cache-Control: no-store` so the SPA can client-route.
+  `Cache-Control: no-store` so the SPA can client-route. A missing `/.well-known/*` path
+  gets a JSON 404 instead, since clients probe those for discovery documents and parse
+  the answer as JSON.
 
 ### Page images and caching
 
