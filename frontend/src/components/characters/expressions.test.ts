@@ -376,6 +376,47 @@ describe('sum_qty', () => {
   })
 })
 
+describe('at', () => {
+  // Mirrors the backend's TestAt cases: the two evaluators must agree.
+  const context = {
+    levels: [
+      { class: 'wizard', die: 6 },
+      { class: 'wizard', die: 4 },
+      { class: 'fighter', die: 10 },
+    ],
+    classes: [
+      { _ref: 'wizard', _per: { subclass: 'evoker' } },
+      { _inline: true, name: 'Homebrew', hit_die: 8 },
+      { _ref: 'not-installed' },
+    ],
+    langs: ['Elvish', 'Dwarvish'],
+    _entries: { wizard: { name: 'Wizard', hit_die: 6 } },
+  }
+
+  it.each([
+    ["at(levels, 0, 'die')", 6],
+    ["at(levels, -1, 'class')", 'fighter'],
+    // A fractional index is floored, as floor() would.
+    ["at(levels, 1.7, 'die')", 4],
+    ["at(levels, 3, 'die')", ''],
+    ["at(levels, -4, 'die')", ''],
+    ["at(levels, 0, 'missing')", ''],
+    ['at(langs, 1)', 'Dwarvish'],
+    ["at(langs, 0, 'name')", ''],
+    ['at(nothing, 0)', ''],
+    ["at(classes, 0, 'hit_die')", 6],
+    ["at(classes, 0, 'subclass')", 'evoker'],
+    ["at(classes, 1, 'hit_die')", 8],
+    ["at(classes, 2, 'hit_die')", ''],
+    ["ref(at(classes, 0), 'name')", 'Wizard'],
+    ["at(levels, 0, 'die') + at(levels, 1, 'die')", 10],
+    ["at(levels, 5, 'die') + 1", 1],
+    ["count_where(levels, 'class', at(levels, 0, 'class'))", 2],
+  ])('%s evaluates to %s', (formula, expected) => {
+    expect(evaluate(formula, context)).toBe(expected)
+  })
+})
+
 describe('overriding computed values', () => {
   const DOC = {
     fields: { dexterity: { type: 'number', default: 14 } },

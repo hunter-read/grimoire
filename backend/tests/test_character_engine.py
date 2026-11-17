@@ -1008,6 +1008,51 @@ class TestSumQty:
         assert svc.evaluate("count_refs(spells, 'prepared')", context) == 2
 
 
+class TestAt:
+    """Mirrors the frontend's at() cases: the two evaluators must agree."""
+
+    CONTEXT = {
+        "levels": [
+            {"class": "wizard", "die": 6},
+            {"class": "wizard", "die": 4},
+            {"class": "fighter", "die": 10},
+        ],
+        "classes": [
+            {"_ref": "wizard", "_per": {"subclass": "evoker"}},
+            {"_inline": True, "name": "Homebrew", "hit_die": 8},
+            {"_ref": "not-installed"},
+        ],
+        "langs": ["Elvish", "Dwarvish"],
+        "_entries": {"wizard": {"name": "Wizard", "hit_die": 6}},
+    }
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            ("at(levels, 0, 'die')", 6),
+            ("at(levels, -1, 'class')", "fighter"),
+            # A fractional index is floored, as floor() would.
+            ("at(levels, 1.7, 'die')", 4),
+            ("at(levels, 3, 'die')", ""),
+            ("at(levels, -4, 'die')", ""),
+            ("at(levels, 0, 'missing')", ""),
+            ("at(langs, 1)", "Dwarvish"),
+            ("at(langs, 0, 'name')", ""),
+            ("at(nothing, 0)", ""),
+            ("at(classes, 0, 'hit_die')", 6),
+            ("at(classes, 0, 'subclass')", "evoker"),
+            ("at(classes, 1, 'hit_die')", 8),
+            ("at(classes, 2, 'hit_die')", ""),
+            ("ref(at(classes, 0), 'name')", "Wizard"),
+            ("at(levels, 0, 'die') + at(levels, 1, 'die')", 10),
+            ("at(levels, 5, 'die') + 1", 1),
+            ("count_where(levels, 'class', at(levels, 0, 'class'))", 2),
+        ],
+    )
+    def test_reads_one_item_by_position(self, formula, expected):
+        assert svc.evaluate(formula, self.CONTEXT) == expected
+
+
 # --- derived defaults and picks ----------------------------------------------
 
 from backend.services.characters.schema import _build_context  # noqa: E402

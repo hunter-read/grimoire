@@ -392,6 +392,35 @@ def _fn_count_refs(value: Any, prop: Any = None, expected: Any = True,
     )
 
 
+def _fn_at(value: Any, index: Any, prop: Any = None, entries: Any = None) -> Any:
+    """One item of a list by position — `at(classes, 0)`, `at(levels, -1, 'die')`.
+
+    Counts from 0; a negative index counts from the end. With a third argument
+    it reads that property: a `list` row's column, or a picked entry's own
+    property with the character's per-entry notes on top, as `ref` reads it.
+    Without one it returns the item itself, so `ref(at(classes, 0), 'hit_die')`
+    works too. Out of range, a non-list or a missing property reads as ``""``,
+    like `ref`, which is 0 in arithmetic.
+    """
+    if not isinstance(value, list):
+        return ""
+    position = math.floor(_to_number(index))
+    if not -len(value) <= position < len(value):  # past either end
+        return ""
+    item = value[position]
+    if prop is None:
+        return "" if item is None else item
+    if not isinstance(item, dict):
+        return ""
+    if "_ref" in item or item.get("_inline"):
+        found = _resolved(item, entries)
+        if not found:
+            return ""
+        item = found[0]
+    found_value = item.get(str(prop), "")
+    return "" if found_value is None else found_value
+
+
 FUNCTIONS: dict[str, Callable[..., Any]] = {
     "floor": _fn_floor,
     "ceil": _fn_ceil,
@@ -415,12 +444,13 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "has_ref": _fn_has_ref,
     "count_refs": _fn_count_refs,
     "sum_qty": _fn_sum_qty,
+    "at": _fn_at,
 }
 
 #: Functions that read resolved catalog entries. `_eval_node` passes the table
 #: to these as a keyword, so a schema author never writes it and the function's
 #: own parameter defaults still apply.
-_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty"})
+_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty", "at"})
 
 
 def _truthy(value: Any) -> bool:

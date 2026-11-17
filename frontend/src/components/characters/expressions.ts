@@ -278,6 +278,33 @@ const FUNCTIONS = {
     }
     return false
   },
+
+  // One item of a list by position: at(classes, 0), at(levels, -1, 'die').
+  // Counts from 0, a negative index from the end. A third argument reads that
+  // property - a list row's column, or a picked entry's own property with the
+  // character's per-entry notes on top, as ref() reads it. Without one the item
+  // itself comes back, so ref(at(classes, 0), 'hit_die') works too. Out of
+  // range, a non-list or a missing property reads as '', like ref().
+  at: (
+    value: ExprValue,
+    index: ExprValue,
+    prop: ExprValue = null,
+    entries: ExprValue = undefined
+  ) => {
+    if (!Array.isArray(value)) return ''
+    let position = Math.floor(toNumber(index))
+    if (position < 0) position += value.length
+    if (position < 0 || position >= value.length) return ''
+    let item = value[position]
+    if (prop === null || prop === undefined) return item ?? ''
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return ''
+    if ('_ref' in item || (item as Row)._inline) {
+      const found = resolveRefs(item, entries)
+      if (!found.length) return ''
+      item = found[0]
+    }
+    return (item as Row)[String(prop)] ?? ''
+  },
 }
 
 type FunctionName = keyof typeof FUNCTIONS
@@ -306,6 +333,7 @@ const ENTRY_AWARE: Partial<Record<FunctionName, number>> = {
   sum_refs: 3,
   count_refs: 4,
   sum_qty: 4,
+  at: 4,
 }
 
 function resolveRefs(value: ExprValue, entries: ExprValue): Row[] {

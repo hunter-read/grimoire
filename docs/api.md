@@ -2643,7 +2643,7 @@ Every row is rebuilt from the declared columns on save, so a key the schema does
 not define is dropped - the same rule top-level fields follow. A missing cell
 falls back to its column's `default`. A list is capped at 500 rows.
 
-Five functions read across rows, taking the **column name as a string** (a bare
+These functions read across rows, taking the **column name as a string** (a bare
 name would resolve against the character before the function saw it):
 
 | Function | Returns |
@@ -2654,6 +2654,7 @@ name would resolve against the character before the function saw it):
 | `any_where(list, 'col')` | Whether any row matches |
 | `column(list, 'col')` | Every value of one column, for `sum()`/`min()`/`max()` |
 | `contains(value, x)` | Whether a multiselect holds `x`, or text contains it |
+| `at(list, i)` / `at(list, i, 'col')` | One item by position, from 0; a negative index counts from the end: `at(levels, -1, 'die')`. With a column it reads that cell, or a catalog entry's property as `ref` does (`at(classes, 0, 'hit_die')`). Out of range reads as `''` |
 
 #### Conditional fields - `visible_if`
 
