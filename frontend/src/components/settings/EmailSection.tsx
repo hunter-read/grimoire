@@ -41,7 +41,7 @@ export default function EmailSection() {
         {t('userSettings.email.description')}
       </p>
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => void handleSubmit(e)}
         style={{
           display: 'flex',
           gap: 10,

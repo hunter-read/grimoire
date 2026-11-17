@@ -169,7 +169,7 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
         role="dialog"
         aria-modal="true"
         aria-labelledby="api-key-dialog-title"
-        onSubmit={submit}
+        onSubmit={(e) => void submit(e)}
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',

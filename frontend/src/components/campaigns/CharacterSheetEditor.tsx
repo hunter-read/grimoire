@@ -172,7 +172,7 @@ export default function CharacterSheetEditor({
             {t('members.cancel')}
           </button>
           {fillable && !loading && (
-            <button onClick={save} disabled={busy} style={goldBtn}>
+            <button onClick={() => void save()} disabled={busy} style={goldBtn}>
               {busy ? t('members.saving') : t('members.save')}
             </button>
           )}

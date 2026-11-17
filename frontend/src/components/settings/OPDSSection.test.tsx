@@ -71,6 +71,35 @@ describe('OPDSSection', () => {
     expect(screen.getByText('userSettings.opds.enable')).toBeInTheDocument()
   })
 
+  it('shows the error and keeps the enable button when generating fails', async () => {
+    vi.mocked(opds.getStatus).mockResolvedValue({ opds_enabled: true, has_token: false })
+    vi.mocked(opds.generateToken).mockRejectedValue(new Error('generate failed'))
+    render(<OPDSSection />)
+    await userEvent.click(await screen.findByText('userSettings.opds.enable'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('generate failed')
+    expect(screen.queryByLabelText('userSettings.opds.feedUrl')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByText('userSettings.opds.enable').closest('button')).toBeEnabled()
+    )
+  })
+
+  it('keeps the feed and the confirmation when revoking fails', async () => {
+    vi.mocked(opds.getStatus).mockResolvedValue({
+      opds_enabled: true,
+      has_token: true,
+      feed_url: 'http://feed',
+    })
+    vi.mocked(opds.revokeToken).mockRejectedValue(new Error('revoke failed'))
+    render(<OPDSSection />)
+    await userEvent.click(await screen.findByText('userSettings.opds.disable'))
+    await userEvent.click(screen.getByText('userSettings.opds.confirmDisable'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('revoke failed')
+    expect(screen.getByLabelText<HTMLInputElement>('userSettings.opds.feedUrl').value).toBe(
+      'http://feed'
+    )
+    expect(screen.getByText('userSettings.opds.confirmDisable')).toBeInTheDocument()
+  })
+
   it('can cancel the revoke confirmation', async () => {
     vi.mocked(opds.getStatus).mockResolvedValue({
       opds_enabled: true,

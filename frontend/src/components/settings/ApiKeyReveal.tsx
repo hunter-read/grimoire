@@ -114,7 +114,7 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
           <button
             ref={copyRef}
             type="button"
-            onClick={copy}
+            onClick={() => void copy()}
             aria-label={t('appSettings.apiKeys.reveal.copy')}
             title={t('appSettings.apiKeys.reveal.copy')}
             style={{

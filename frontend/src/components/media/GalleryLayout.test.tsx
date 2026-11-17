@@ -15,9 +15,20 @@ vi.mock('./GalleryToolbar', () => ({
   default: ({ leading }: { leading?: ReactNode }) => <div data-testid="toolbar">{leading}</div>,
 }))
 vi.mock('./MediaFolderGroup', () => ({
-  default: ({ folder, label }: { folder: string; label?: string }) => (
+  default: ({
+    folder,
+    label,
+    onSaveFolderTags,
+  }: {
+    folder: string
+    label?: string
+    onSaveFolderTags: (path: string, tags: string[]) => void
+  }) => (
     <div data-testid="folder-group" data-label={label}>
       {folder}
+      <button type="button" onClick={() => onSaveFolderTags(folder, ['lava'])}>
+        save-folder-tags
+      </button>
     </div>
   ),
 }))
@@ -132,6 +143,14 @@ describe('GalleryLayout', () => {
     expect(screen.getByTestId('toolbar')).toBeInTheDocument()
     expect(screen.getByTestId('folder-group')).toHaveTextContent('Dungeons')
     expect(screen.queryByTestId('bulk-bar')).not.toBeInTheDocument()
+  })
+
+  it("shows the error when saving a folder's tags fails", async () => {
+    const saveFolderTags = vi.fn().mockRejectedValue(new Error('Could not save tags'))
+    render(<GalleryLayout {...baseProps({ gallery: makeGallery({ saveFolderTags }) })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'save-folder-tags' }))
+    expect(saveFolderTags).toHaveBeenCalledWith('Dungeons', ['lava'])
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save tags')
   })
 
   it('passes headerActions to the toolbar as its leading control', () => {

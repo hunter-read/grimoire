@@ -143,7 +143,7 @@ export default function GuestRow({
                 <LuUserCheck size={14} /> {t('guests.convert')}
               </button>
               <button
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 disabled={deleting}
                 aria-label={t('a11y.settingsAccess.deleteGuest', { name })}
                 title={t('guests.delete')}
@@ -164,7 +164,7 @@ export default function GuestRow({
         <tr style={{ background: 'var(--bg-deep)' }}>
           <td colSpan={5} style={{ padding: '12px 14px' }}>
             <form
-              onSubmit={submit}
+              onSubmit={(e) => void submit(e)}
               aria-label={t('a11y.settingsAccess.convertGuest', { name })}
               style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}
             >

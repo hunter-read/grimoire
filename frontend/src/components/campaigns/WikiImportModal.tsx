@@ -169,7 +169,7 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
           ref={inputRef}
           type="file"
           accept={ACCEPT}
-          onChange={pick}
+          onChange={(e) => void pick(e)}
           style={{ display: 'none' }}
         />
         {/* A second input, because `webkitdirectory` is what makes the browser
@@ -183,7 +183,7 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
           {...FOLDER_PICKER}
           accept={FOLDER_ACCEPT}
           data-testid="wiki-folder-input"
-          onChange={pickFolder}
+          onChange={(e) => void pickFolder(e)}
           style={{ display: 'none' }}
         />
       </div>

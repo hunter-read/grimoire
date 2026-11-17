@@ -70,7 +70,7 @@ export default function LoginMessageSection() {
             id="custom_login_message_enabled"
             label={t('authSettings.customMessage.enable')}
             checked={enabled}
-            onChange={() => toggle('custom_login_message_enabled')}
+            onChange={() => void toggle('custom_login_message_enabled')}
             saving={saving === 'custom_login_message_enabled'}
             saved={saved === 'custom_login_message_enabled'}
             error={error?.message}
@@ -97,7 +97,7 @@ export default function LoginMessageSection() {
               >
                 <button
                   type="button"
-                  onClick={saveMessage}
+                  onClick={() => void saveMessage()}
                   disabled={!dirty || messageSaving}
                   style={{
                     padding: '8px 18px',

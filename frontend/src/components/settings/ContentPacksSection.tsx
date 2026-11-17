@@ -94,7 +94,7 @@ export default function ContentPacksSection() {
         >
           {t('contentPacks.help')}
         </p>
-        <button onClick={reload} disabled={reloading} style={ghostBtn}>
+        <button onClick={() => void reload()} disabled={reloading} style={ghostBtn}>
           <LuRefreshCw size={14} aria-hidden="true" />
           {reloading ? t('contentPacks.reloading') : t('contentPacks.reload')}
         </button>
@@ -162,7 +162,7 @@ export default function ContentPacksSection() {
           title={t('contentPacks.confirmUninstallTitle')}
           message={t('contentPacks.confirmUninstall', { name: removing.name })}
           confirmLabel={t('contentPacks.uninstallConfirm')}
-          onConfirm={() => uninstall(removing)}
+          onConfirm={() => void uninstall(removing)}
           onClose={() => setRemoving(null)}
         />
       )}

@@ -287,7 +287,7 @@ export default function CharactersView() {
               characters={own}
               sort={sort}
               label={t('characters.yourCharacters')}
-              onDelete={remove}
+              onDelete={(character) => void remove(character)}
             />
           ) : (
             <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 8px' }}>
@@ -315,7 +315,7 @@ export default function CharactersView() {
 
       {importing ? (
         <CharacterImportDialog
-          onImported={(created: { id: string }) => navigate(`/characters/${created.id}`)}
+          onImported={(created: { id: string }) => void navigate(`/characters/${created.id}`)}
           onClose={() => setImporting(false)}
         />
       ) : null}
@@ -323,7 +323,7 @@ export default function CharactersView() {
       {managing ? (
         <SheetManager
           schemas={schemas}
-          onChanged={load}
+          onChanged={() => void load()}
           initialTab={manageParam === 'rulesets' ? 'content' : 'sheets'}
           onClose={() => {
             setManaging(false)

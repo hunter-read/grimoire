@@ -87,7 +87,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
   return (
     // Rendered inside an anchored popover, which supplies the padding and framing.
     <div>
-      <form onSubmit={create} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <form onSubmit={(e) => void create(e)} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
           type="text"
           value={nickname}
@@ -150,7 +150,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
               <GuestIconBtn
                 title={t('guests.share')}
                 label={t('a11y.campaign.shareGuest', { name: g.nickname || t('guests.guest') })}
-                onClick={() => openShare(g.id)}
+                onClick={() => void openShare(g.id)}
               >
                 <LuShare2 size={13} />
               </GuestIconBtn>
@@ -159,7 +159,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
                 label={t('a11y.campaign.regenerateGuest', {
                   name: g.nickname || t('guests.guest'),
                 })}
-                onClick={() => regenerate(g.id)}
+                onClick={() => void regenerate(g.id)}
                 disabled={busy}
               >
                 <LuRefreshCw size={13} />
@@ -167,7 +167,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
               <GuestIconBtn
                 title={t('guests.remove')}
                 label={t('a11y.campaign.removeGuest', { name: g.nickname || t('guests.guest') })}
-                onClick={() => remove(g.id)}
+                onClick={() => void remove(g.id)}
                 disabled={busy}
               >
                 <LuTrash2 size={13} />

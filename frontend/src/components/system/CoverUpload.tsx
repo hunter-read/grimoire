@@ -137,7 +137,7 @@ export default function CoverUpload({ system, onChange }: CoverUploadProps) {
         {hasUpload && (
           <button
             type="button"
-            onClick={() => remove()}
+            onClick={() => void remove()}
             disabled={busy}
             style={{
               display: 'flex',

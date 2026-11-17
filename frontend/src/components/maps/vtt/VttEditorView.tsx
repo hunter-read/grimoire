@@ -550,7 +550,7 @@ export default function VttEditorView() {
           backAria={t('maps.detail.back')}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <VttSourcePicker onFile={acceptFile} error={sourceError} />
+          <VttSourcePicker onFile={(file) => void acceptFile(file)} error={sourceError} />
         </div>
       </div>
     )
@@ -602,7 +602,7 @@ export default function VttEditorView() {
             campaign. */}
         {mapId ? (
           <>
-            <button type="button" onClick={save} disabled={saving} style={btnStyle}>
+            <button type="button" onClick={() => void save()} disabled={saving} style={btnStyle}>
               {saving ? <Spinner size={13} /> : <LuSave size={14} aria-hidden="true" />}{' '}
               {t('common.save')}
             </button>
@@ -724,7 +724,7 @@ export default function VttEditorView() {
           userId={user?.id}
           busy={sending}
           onClose={() => setChoosingCampaign(false)}
-          onChoose={sendToCampaign}
+          onChoose={(choice) => void sendToCampaign(choice)}
         />
       )}
     </div>

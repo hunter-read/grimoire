@@ -208,11 +208,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   // worse than absent.
   const isSharedCampaign = !!campaign.is_gm_campaign
 
+  // How a failed write is reported here: the server's message, in an alert.
+  const reportError = (e: unknown) => alert((e as ApiError).message)
+
   const exportWiki = async (format: ExportFormat) => {
     try {
       await campaigns.exportWiki(campaign.id, format)
     } catch (e) {
-      alert((e as ApiError).message)
+      reportError(e)
     }
   }
 
@@ -352,15 +355,18 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     setEditing(false)
     loadList(saved.id)
     setSelectedId(saved.id)
-    campaigns
-      .getWikiPage(campaign.id, saved.id)
-      .then(setPage)
-      .catch((e: unknown) => alert((e as ApiError).message))
+    campaigns.getWikiPage(campaign.id, saved.id).then(setPage).catch(reportError)
   }
 
   const handleDelete = async () => {
     if (!page || !confirm(t('wiki.deleteConfirm', { title: page.title }))) return
-    await campaigns.deleteWikiPage(campaign.id, page.id)
+    try {
+      await campaigns.deleteWikiPage(campaign.id, page.id)
+    } catch (e) {
+      // Nothing was deleted, so the note stays open as it was.
+      reportError(e)
+      return
+    }
     setSelectedId(null)
     setPage(null)
     loadList()
@@ -374,7 +380,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
       if (p.is_hidden) await campaigns.unhideWikiPage(campaign.id, p.id)
       else await campaigns.hideWikiPage(campaign.id, p.id)
     } catch (e) {
-      alert((e as ApiError).message)
+      reportError(e)
       return
     }
     // A note that has just been hidden leaves the list unless hidden notes are
@@ -424,17 +430,47 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
       ).length
     : 0
 
+  // One request per note, so a failure can land partway through. The notes
+  // already handled are gone from the list by then; the dialog stays open on the
+  // rest with the error, and confirming again picks up where it stopped.
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkError, setBulkError] = useState('')
   const runBulkAction = async () => {
-    for (const p of toDelete) await campaigns.deleteWikiPage(campaign.id, p.id)
-    for (const p of toHide) await campaigns.hideWikiPage(campaign.id, p.id)
+    if (bulkBusy) return
+    setBulkBusy(true)
+    setBulkError('')
+    const done = new Set<string>()
+    let failure: unknown = null
+    try {
+      for (const p of toDelete) {
+        await campaigns.deleteWikiPage(campaign.id, p.id)
+        done.add(p.id)
+      }
+      for (const p of toHide) {
+        await campaigns.hideWikiPage(campaign.id, p.id)
+        done.add(p.id)
+      }
+    } catch (e) {
+      failure = e
+    }
+    setBulkBusy(false)
     // The open note may have just been deleted or hidden out of the list.
-    if (selectedId && selectedIds.has(selectedId)) {
+    if (selectedId && done.has(selectedId)) {
       setSelectedId(null)
       setPage(null)
     }
+    loadList()
+    if (failure) {
+      setSelectedIds((prev) => new Set([...prev].filter((id) => !done.has(id))))
+      setBulkError((failure as ApiError | null)?.message || t('common.error'))
+      return
+    }
     setBulkOpen(false)
     clearSelection()
-    loadList()
+  }
+  const closeBulk = () => {
+    setBulkOpen(false)
+    setBulkError('')
   }
 
   // Quick icon/tint change without entering the full editor. Updates the list
@@ -443,14 +479,19 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     pageId: string,
     patch: Pick<Schema<'WikiPageUpdate'>, 'icon' | 'icon_color'>
   ) => {
-    await campaigns.updateWikiPage(campaign.id, pageId, patch)
+    try {
+      await campaigns.updateWikiPage(campaign.id, pageId, patch)
+    } catch (e) {
+      reportError(e)
+      return
+    }
     loadList(selectedId)
     if (page?.id === pageId) setPage((p) => (p ? { ...p, ...patch } : p))
   }
   const changeIcon = (pageId: string, icon: string | null) =>
-    patchPage(pageId, { icon: icon || '' })
+    void patchPage(pageId, { icon: icon || '' })
   const changeIconColor = (pageId: string, iconColor: string | null) =>
-    patchPage(pageId, { icon_color: iconColor || '' })
+    void patchPage(pageId, { icon_color: iconColor || '' })
 
   // Change a page's visibility from its row glyph or the header badge. Switching
   // away from "members" clears the share list to mirror PageEditor's save
@@ -461,7 +502,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
       payload.shared_user_ids = []
       payload.shared_write_user_ids = []
     }
-    await campaigns.updateWikiPage(campaign.id, pageId, payload)
+    try {
+      await campaigns.updateWikiPage(campaign.id, pageId, payload)
+    } catch (e) {
+      reportError(e)
+      return
+    }
     if (page?.id === pageId) {
       setPage((p) =>
         p
@@ -476,17 +522,23 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     }
     loadList(selectedId)
   }
-  const changeVisibility = (visibility: string) =>
-    page ? changePageVisibility(page.id, visibility) : undefined
+  const changeVisibility = (visibility: string) => {
+    if (page) void changePageVisibility(page.id, visibility)
+  }
 
   // Set who can read and who can edit the open Private page. Write implies
   // read, which the server also enforces.
   const changeShares = async (sharedIds: string[], writeIds: string[]) => {
     if (!page) return
-    await campaigns.updateWikiPage(campaign.id, page.id, {
-      shared_user_ids: sharedIds,
-      shared_write_user_ids: writeIds,
-    })
+    try {
+      await campaigns.updateWikiPage(campaign.id, page.id, {
+        shared_user_ids: sharedIds,
+        shared_write_user_ids: writeIds,
+      })
+    } catch (e) {
+      reportError(e)
+      return
+    }
     setPage((p) => (p ? { ...p, shared_user_ids: sharedIds, shared_write_user_ids: writeIds } : p))
   }
 
@@ -558,16 +610,22 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     if (!id) return
     const dragged = pages?.find((p) => p.id === id)
     if (!dragged) return
-    if (dragged.parent_id) {
-      await campaigns.updateWikiPage(campaign.id, id, { parent_id: '' })
+    try {
+      if (dragged.parent_id) {
+        await campaigns.updateWikiPage(campaign.id, id, { parent_id: '' })
+      }
+      // Reorder to the end of the root list.
+      const order = flattenOrder((pid) =>
+        orderedSiblings(pid)
+          .filter((p) => p.id !== id)
+          .concat(pid === null ? [dragged] : [])
+      )
+      await campaigns.reorderWikiPages(campaign.id, order)
+    } catch (e) {
+      reportError(e)
     }
-    // Reorder to the end of the root list.
-    const order = flattenOrder((pid) =>
-      orderedSiblings(pid)
-        .filter((p) => p.id !== id)
-        .concat(pid === null ? [dragged] : [])
-    )
-    await campaigns.reorderWikiPages(campaign.id, order)
+    // Reload either way: a move that failed after re-parenting has still
+    // changed the tree, and the sidebar should show what the server holds.
     loadList()
   }
 
@@ -581,7 +639,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     const where = dropTarget?.where || 'inside'
     setDropTarget(null)
     if (!id) return
-    await movePage(id, target, where)
+    try {
+      await movePage(id, target, where)
+    } catch (e) {
+      reportError(e)
+      // movePage reloads only on success; a half-done move needs it too.
+      loadList()
+    }
   }
 
   // Put page `id` before, after or inside `target`, as a drop does. Shared with
@@ -630,7 +694,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
       await movePage(p.id, target, dir < 0 ? 'before' : 'after')
     } catch (e) {
       refocusAfterMove.current = null
-      alert((e as ApiError).message)
+      reportError(e)
+      loadList()
       return
     }
     setTreeStatus(
@@ -696,7 +761,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           onDragStart={(e) => onPageDragStart(e, p.id)}
           onDragOver={canDrag ? (e) => onPageDragOver(e, p) : undefined}
           onDragLeave={canDrag ? () => setDropTarget(null) : undefined}
-          onDrop={canDrag ? (e) => onDropOnPage(e, p) : undefined}
+          onDrop={canDrag ? (e) => void onDropOnPage(e, p) : undefined}
           onMouseEnter={() => setHoveredRow(p.id)}
           onMouseLeave={() => setHoveredRow((id) => (id === p.id ? null : id))}
           style={{
@@ -932,7 +997,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               isMine={p.is_mine}
               authorIsGm={isOwner}
               rowHovered={hovered}
-              onSetVisibility={(v: string) => changePageVisibility(p.id, v)}
+              onSetVisibility={(v: string) => void changePageVisibility(p.id, v)}
             />
           )}
         </div>
@@ -1136,7 +1201,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               role="list"
               // Dropping in the empty space below the tree moves a page to the root.
               onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
-              onDrop={isOwner ? onDropOnRoot : undefined}
+              onDrop={isOwner ? () => void onDropOnRoot() : undefined}
               style={{
                 ...treeList,
                 // Fill the scroll area so the drop-to-root zone covers the empty
@@ -1167,7 +1232,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           }}
         >
           <div style={{ display: 'flex', gap: 8 }}>
-            <WikiExportMenu onExport={exportWiki} style={{ ...sidebarBtn, flex: 1 }} />
+            <WikiExportMenu
+              onExport={(f) => void exportWiki(f)}
+              style={{ ...sidebarBtn, flex: 1 }}
+            />
             {canImport && (
               // Import brings in whole pages, which has nothing to say to a
               // selection, so it greys out while one is active — the sidebar's
@@ -1334,7 +1402,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                       only where there are other people's notes to hide. */}
                   {isSharedCampaign && (
                     <button
-                      onClick={() => toggleHidden(page)}
+                      onClick={() => void toggleHidden(page)}
                       title={t(page.is_hidden ? 'wiki.unhideTitle' : 'wiki.hideTitle')}
                       style={ghostBtn}
                     >
@@ -1344,7 +1412,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                   )}
                   {page.can_delete && (
                     <button
-                      onClick={handleDelete}
+                      onClick={() => void handleDelete()}
                       aria-label={`${t('common.delete')}: ${page.title}`}
                       title={t('common.delete')}
                       style={{ ...ghostBtn, color: 'var(--danger)' }}
@@ -1404,7 +1472,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                           isOwner={isOwner}
                           page={page}
                           onSetVisibility={changeVisibility}
-                          onSetShares={changeShares}
+                          onSetShares={(read, write) => void changeShares(read, write)}
                         />
                       ) : (
                         <VisibilityBadge visibility={page.visibility} authorIsGm={!isOwner} />
@@ -1466,12 +1534,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 pages={pages}
                 isGm={isOwner}
                 noteHref={noteHref}
-                onPageChanged={() =>
-                  campaigns
-                    .getWikiPage(campaign.id, page.id)
-                    .then(setPage)
-                    .catch((e: unknown) => alert((e as ApiError).message))
-                }
+                onPageChanged={() => {
+                  campaigns.getWikiPage(campaign.id, page.id).then(setPage).catch(reportError)
+                }}
                 onPagesChanged={() => loadList(page.id)}
               />
             )}
@@ -1567,8 +1632,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           deleteCount={toDelete.length}
           hideCount={toHide.length}
           hiddenChildCount={hiddenChildCount}
-          onConfirm={runBulkAction}
-          onCancel={() => setBulkOpen(false)}
+          busy={bulkBusy}
+          error={bulkError}
+          onConfirm={() => void runBulkAction()}
+          onCancel={closeBulk}
         />
       )}
 

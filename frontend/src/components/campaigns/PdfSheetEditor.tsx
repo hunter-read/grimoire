@@ -285,7 +285,7 @@ export default function PdfSheetEditor({
           <button onClick={onClose} style={ghostBtn}>
             {t('members.cancel')}
           </button>
-          <button onClick={save} disabled={busy || loading} style={goldBtn}>
+          <button onClick={() => void save()} disabled={busy || loading} style={goldBtn}>
             {busy ? t('members.saving') : t('members.saveCopy')}
           </button>
         </div>

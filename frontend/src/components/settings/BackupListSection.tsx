@@ -121,7 +121,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <button
-          onClick={handleCreate}
+          onClick={() => void handleCreate()}
           disabled={creating}
           style={{
             display: 'inline-flex',
@@ -188,7 +188,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
                 </div>
               </div>
               <button
-                onClick={() => handleDownload(item)}
+                onClick={() => void handleDownload(item)}
                 disabled={downloading === item.id}
                 title={t('backups.list.download')}
                 // One per backup, so each says which: "Download: 2 Nov 2026, 03:00".
@@ -213,7 +213,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
                 {t('backups.list.download')}
               </button>
               <button
-                onClick={() => handleDelete(item)}
+                onClick={() => void handleDelete(item)}
                 title={t('backups.list.delete')}
                 aria-label={t('a11y.settingsAdmin.actionOn', {
                   action: t('backups.list.delete'),

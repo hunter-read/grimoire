@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import type { Mock } from 'vitest'
 import RescanSection from './RescanSection'
 import useScanStatus from '../../hooks/useScanStatus'
 
@@ -66,6 +67,23 @@ describe('RescanSection', () => {
     fireEvent.click(screen.getByText('confirm-rescan'))
     expect(startRescan).toHaveBeenCalledWith({ scope: null, metadata_mode: 'fill' })
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('says why a rescan did not start', async () => {
+    ;(startRescan as Mock).mockRejectedValueOnce(new Error('A scan is already running'))
+    mockStatus({})
+    render(<RescanSection />)
+    fireEvent.click(screen.getByRole('button', { name: /rescan/i }))
+    fireEvent.click(screen.getByText('confirm-rescan'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('A scan is already running')
+  })
+
+  it('says why a scan did not stop', async () => {
+    ;(stopScan as Mock).mockRejectedValueOnce(new Error('offline'))
+    mockStatus({ running: true, phase: 'scanning' })
+    render(<RescanSection />)
+    fireEvent.click(screen.getByRole('button', { name: /stop/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('offline')
   })
 
   it('exposes the walk as a progressbar with its percentage', () => {

@@ -151,7 +151,7 @@ export default function FolderNamingSection() {
         <ConfirmModal
           title={t('filenameRules.folders.removeTitle')}
           message={t('filenameRules.folders.removeConfirm', { path: removing.path })}
-          onConfirm={remove}
+          onConfirm={() => void remove()}
           onClose={() => setRemoving(null)}
         />
       )}

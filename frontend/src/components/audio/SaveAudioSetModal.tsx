@@ -89,7 +89,9 @@ export default function SaveAudioSetModal({
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submit()
+          }}
           placeholder={t('audioSets.namePlaceholder')}
           autoComplete="off"
           aria-invalid={error ? true : undefined}
@@ -117,7 +119,7 @@ export default function SaveAudioSetModal({
             {t('common.cancel')}
           </button>
           <button
-            onClick={submit}
+            onClick={() => void submit()}
             disabled={!trimmed || saving}
             style={{ ...goldBtn, opacity: !trimmed || saving ? 0.5 : 1 }}
           >

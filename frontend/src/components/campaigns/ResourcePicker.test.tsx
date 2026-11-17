@@ -220,6 +220,18 @@ describe('ResourcePicker', () => {
       await waitFor(() => expect(tags.allItems).toHaveBeenCalled())
       expect(screen.getByText('Selected (1)')).toBeInTheDocument()
     })
+
+    it('shows the error and adds nothing when the tag lookup fails', async () => {
+      tagsMock.allItems.mockRejectedValue(new Error('Tag lookup failed'))
+      render(<Harness />)
+      const select = await screen.findByLabelText(/add all with tag/i)
+      await userEvent.selectOptions(select, 'strahd')
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Tag lookup failed')
+      expect(screen.getByText('Selected (0)')).toBeInTheDocument()
+      // The button is usable again for a retry.
+      expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled()
+    })
   })
 })
 

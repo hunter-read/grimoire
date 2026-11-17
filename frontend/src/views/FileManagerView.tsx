@@ -510,7 +510,8 @@ export default function FileManagerView() {
       }}
       pane={pane}
       side={side}
-      onDropPaths={runMove}
+      // runMove and scaffold report their own failures in the flash bar.
+      onDropPaths={(paths: string[], destination: string) => void runMove(paths, destination)}
       onDropFiles={handleExternalDrop}
       onOpenContext={(payload: ContextTarget) => {
         focusSide.current = payload.side
@@ -526,7 +527,7 @@ export default function FileManagerView() {
       // Upload and category scaffolding act on the folder the pane is showing,
       // so they live in its toolbar rather than in the row menu.
       onPickFiles={pickFiles}
-      onScaffold={scaffold}
+      onScaffold={(path: string) => void scaffold(path)}
       // The keyboard equivalents of the context menu's entries. The pane knows
       // which row the cursor is on; what to do with it lives here, beside the
       // state each one opens. Each records the pane it came from, so closing
@@ -583,7 +584,7 @@ export default function FileManagerView() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <button onClick={() => navigate('/settings/maintenance')} style={ghostBtn}>
+        <button onClick={() => void navigate('/settings/maintenance')} style={ghostBtn}>
           <LuArrowLeft size={14} /> {t('files.backToSettings')}
         </button>
       </div>

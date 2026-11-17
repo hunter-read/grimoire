@@ -63,7 +63,10 @@ export default function ShareLinkCreateForm({ resourceType, resourceId, onCreate
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <form
+      onSubmit={(e) => void submit(e)}
+      style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+    >
       <div
         style={{
           display: 'grid',

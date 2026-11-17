@@ -13,6 +13,7 @@ import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import Spinner from '../Spinner'
 import LoadError from '../LoadError'
 import useCancellableFetch from '../../hooks/useCancellableFetch'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -53,6 +54,9 @@ export default function ModelDetailView() {
   const [editingModelTags, setEditingModelTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  // A failed edit says so in the sidebar and leaves the value as it was, rather
+  // than looking saved until the next reload.
+  const { run: runSave, error: saveError } = useAsyncAction()
 
   const modelDetailPath = useCallback((id: string) => `/models/${id}`, [])
   const {
@@ -95,21 +99,27 @@ export default function ModelDetailView() {
   const isArchive = isArchiveMedia(model)
 
   const saveModelTags = async (tags: string[]) => {
-    await api.patch(`/models/${modelId}`, { tags })
-    setModel({ ...model, tags })
-    setEditingModelTags(false)
+    await runSave(async () => {
+      await api.patch(`/models/${modelId}`, { tags })
+      setModel({ ...model, tags })
+      setEditingModelTags(false)
+    })
   }
 
   const saveFolderTags = async (tags: string[]) => {
-    await api.patch('/model-folders', { path: model.folder_path, tags })
-    setModel({ ...model, folder_tags: tags })
-    setEditingFolderTags(false)
+    await runSave(async () => {
+      await api.patch('/model-folders', { path: model.folder_path, tags })
+      setModel({ ...model, folder_tags: tags })
+      setEditingFolderTags(false)
+    })
   }
 
   const toggleExplicit = async () => {
     const next = !model.is_explicit
-    await api.patch(`/models/${modelId}`, { is_explicit: next })
-    setModel({ ...model, is_explicit: next })
+    await runSave(async () => {
+      await api.patch(`/models/${modelId}`, { is_explicit: next })
+      setModel({ ...model, is_explicit: next })
+    })
   }
 
   // Tri-state, cycling unknown → presupported → unsupported → unknown. The scan
@@ -118,8 +128,10 @@ export default function ModelDetailView() {
   // scanned as — so the user needs the last word.
   const cycleSupport = async () => {
     const next = model.is_supported === null ? true : model.is_supported === true ? false : null
-    await api.patch(`/models/${modelId}`, { is_supported: next })
-    setModel({ ...model, is_supported: next })
+    await runSave(async () => {
+      await api.patch(`/models/${modelId}`, { is_supported: next })
+      setModel({ ...model, is_supported: next })
+    })
   }
 
   const supportLabel =
@@ -284,6 +296,12 @@ export default function ModelDetailView() {
             {t('models.detail.title')}
           </h2>
 
+          {saveError && (
+            <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 16px' }}>
+              {saveError}
+            </p>
+          )}
+
           {canEdit && (
             <div style={{ marginBottom: 20 }}>
               <label
@@ -300,7 +318,7 @@ export default function ModelDetailView() {
                   id="model-is-explicit"
                   type="checkbox"
                   checked={model.is_explicit || false}
-                  onChange={toggleExplicit}
+                  onChange={() => void toggleExplicit()}
                   style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--danger)' }}
                 />
                 <span style={{ fontSize: 13, color: 'var(--danger)' }}>
@@ -323,7 +341,7 @@ export default function ModelDetailView() {
             value={
               canEdit ? (
                 <button
-                  onClick={cycleSupport}
+                  onClick={() => void cycleSupport()}
                   title={t('models.detail.cycleSupports')}
                   // Names the setting as well as its value; the title says
                   // that a click moves it on.
@@ -368,7 +386,7 @@ export default function ModelDetailView() {
                 </h3>
                 <InlineTagEditor
                   tags={currentFolderTags}
-                  onSave={saveFolderTags}
+                  onSave={(tags) => void saveFolderTags(tags)}
                   onCancel={() => setEditingFolderTags(false)}
                   resourceType="model"
                 />
@@ -402,7 +420,7 @@ export default function ModelDetailView() {
               </h3>
               <InlineTagEditor
                 tags={model.tags}
-                onSave={saveModelTags}
+                onSave={(tags) => void saveModelTags(tags)}
                 onCancel={() => setEditingModelTags(false)}
                 resourceType="model"
               />

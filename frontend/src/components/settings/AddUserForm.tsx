@@ -63,7 +63,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(e) => void handleSubmit(e)}
       autoComplete="off"
       aria-label={t('users.addUser')}
       style={{

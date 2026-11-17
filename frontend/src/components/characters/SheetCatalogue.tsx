@@ -215,7 +215,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       // Installing again is the update: it replaces the copy
                       // the user has, and every character on it follows.
                       <button
-                        onClick={() => install(sheet)}
+                        onClick={() => void install(sheet)}
                         disabled={installing === sheet.id}
                         title={t('characters.updateFrom', { version: sheet.installed_version })}
                         aria-label={t('a11y.characters.updateNamed', {
@@ -251,7 +251,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       </span>
                     ) : (
                       <button
-                        onClick={() => install(sheet)}
+                        onClick={() => void install(sheet)}
                         disabled={installing === sheet.id}
                         aria-label={t('a11y.characters.installNamed', { name: sheet.name })}
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}

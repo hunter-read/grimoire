@@ -304,6 +304,16 @@ describe('MapDetailView', () => {
     expect(api.patch).toHaveBeenCalledWith('/map-folders', { path: 'Dungeons', tags: ['new'] })
   })
 
+  it('keeps the tag editor open and shows the error when saving tags fails', async () => {
+    mockApi('m2')
+    vi.mocked(api.patch).mockRejectedValue(new Error('tag save failed'))
+    render(<MapDetailView />)
+    await userEvent.click(await screen.findByText('edit-Map Tags'))
+    await userEvent.click(screen.getByTestId('save-tags'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('tag save failed')
+    expect(screen.getByTestId('save-tags')).toBeInTheDocument()
+  })
+
   // Issue: viewer support for animated maps and Universal VTT files.
   describe('format routing', () => {
     it('mounts the image pane for a raster map', async () => {

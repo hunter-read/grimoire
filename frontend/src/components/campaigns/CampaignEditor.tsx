@@ -496,7 +496,12 @@ export default function CampaignEditor({
               >
                 <LuChevronLeft size={14} /> {t('campaignEditor.back')}
               </button>
-              <button type="button" onClick={create} disabled={saving} style={submitBtn}>
+              <button
+                type="button"
+                onClick={() => void create()}
+                disabled={saving}
+                style={submitBtn}
+              >
                 {saving ? t('campaignEditor.saving') : t('campaignEditor.createCampaign')}
               </button>
             </div>

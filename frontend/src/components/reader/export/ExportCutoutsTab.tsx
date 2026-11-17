@@ -130,7 +130,7 @@ export default function ExportCutoutsTab({
       <div style={sectionStyle}>
         <button
           type="button"
-          onClick={findShapes}
+          onClick={() => void findShapes()}
           disabled={finding}
           style={{ ...buttonStyle(false, finding), width: '100%' }}
         >

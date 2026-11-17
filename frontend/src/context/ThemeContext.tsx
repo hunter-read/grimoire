@@ -188,10 +188,12 @@ export function ThemeProvider({ children }: { children?: ReactNode }) {
     installed,
     builtIn,
     loaded,
-    setMode,
-    selectTheme,
-    switchAppMode,
-    reload,
+    // None of these reject: a server that can't be reached leaves the local
+    // change standing, so callers fire them and forget.
+    setMode: (next) => void setMode(next),
+    selectTheme: (id) => void selectTheme(id),
+    switchAppMode: (next) => void switchAppMode(next),
+    reload: (nextAppMode) => void reload(nextAppMode),
     defaultMode: DEFAULT_MODE,
     defaultAppMode: DEFAULT_APP_MODE,
   }

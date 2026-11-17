@@ -109,7 +109,7 @@ export default function CharacterPortrait({
       {hasArt ? (
         <button
           type="button"
-          onClick={remove}
+          onClick={() => void remove()}
           disabled={busy}
           aria-label={t('characters.removePortrait')}
           title={t('characters.removePortrait')}
@@ -139,7 +139,7 @@ export default function CharacterPortrait({
         accept={IMAGE_ACCEPT}
         aria-label={hasArt ? t('characters.changePortrait') : t('characters.addPortrait')}
         tabIndex={-1}
-        onChange={(event) => upload(event.target.files?.[0])}
+        onChange={(event) => void upload(event.target.files?.[0])}
         style={{ display: 'none' }}
       />
     </div>

@@ -228,7 +228,7 @@ export default function SidecarExportSection() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={saving}
               style={{
                 display: 'inline-flex',
@@ -250,7 +250,7 @@ export default function SidecarExportSection() {
             </button>
 
             <button
-              onClick={handleExport}
+              onClick={() => void handleExport()}
               disabled={exporting || !enabled}
               title={enabled ? undefined : t('maintenance.sidecars.enableFirst')}
               style={{

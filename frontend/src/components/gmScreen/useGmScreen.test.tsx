@@ -148,6 +148,95 @@ describe('useGmScreen', () => {
     expect(result.current.error).toBe('not yours')
   })
 
+  it('tells the caller whether each action worked', async () => {
+    const { result } = await loaded()
+    api.reset.mockResolvedValueOnce({ panels: [panel('a')] })
+    expect(await act(() => result.current.reset('scene'))).toBe(true)
+    api.reset.mockRejectedValueOnce(new Error('reset'))
+    expect(await act(() => result.current.reset('scene'))).toBe(false)
+    api.removePanel.mockRejectedValueOnce(new Error('remove'))
+    expect(await act(() => result.current.removePanel('a'))).toBe(false)
+    charactersApi.update.mockRejectedValueOnce(new Error('no'))
+    expect(await act(() => result.current.setCharacterValue('c1', 'hp', 1))).toBe(false)
+  })
+
+  it('undoes a panel change the server refused', async () => {
+    const { result } = await loaded()
+    api.updatePanel.mockRejectedValue(new Error('Campaign is archived'))
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.savePanel('a', { state: { value: 5 }, title: 'Fear' })
+    })
+    expect(ok).toBe(false)
+    expect(result.current.panels![0]).toMatchObject({ state: { value: 0 }, title: '' })
+    expect(result.current.error).toBe('Campaign is archived')
+  })
+
+  it('keeps what a save in the same burst did get through', async () => {
+    const { result } = await loaded()
+    let refuse!: (reason: Error) => void
+    api.updatePanel
+      .mockImplementationOnce(() => new Promise((_, reject) => (refuse = reject)))
+      .mockResolvedValueOnce(panel('a', { state: { value: 2 } }))
+    act(() => {
+      void result.current.savePanel('a', { state: { value: 1 } })
+    })
+    await act(() => result.current.savePanel('a', { state: { value: 2 } }))
+    // The first save fails after the second was saved: the board shows the
+    // server's value, not the refused one and not the value before both.
+    await act(async () => refuse(new Error('late')))
+    expect(result.current.panels![0].state).toEqual({ value: 2 })
+  })
+
+  it('leaves a move made meanwhile when undoing a refused panel change', async () => {
+    const { result } = await loaded()
+    let refuse!: (reason: Error) => void
+    api.saveLayout.mockResolvedValue(undefined)
+    api.updatePanel.mockImplementationOnce(() => new Promise((_, reject) => (refuse = reject)))
+    act(() => {
+      void result.current.savePanel('a', { title: 'Fear' })
+    })
+    await act(() => result.current.moveCells([{ id: 'a', x: 0, y: 6, w: 3, h: 3 }]))
+    await act(async () => refuse(new Error('no')))
+    expect(result.current.panels![0]).toMatchObject({ title: '', y: 6 })
+  })
+
+  it('puts panels back where they were when a move is refused', async () => {
+    const { result } = await loaded()
+    api.saveLayout.mockRejectedValue(new Error('layout'))
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.moveCells([
+        { id: 'a', x: 0, y: 3, w: 3, h: 3 },
+        { id: 'b', x: 3, y: 0, w: 3, h: 3 },
+      ])
+    })
+    expect(ok).toBe(false)
+    expect(result.current.panels![0]).toMatchObject({ x: 0, y: 0 })
+    expect(result.current.error).toBe('layout')
+  })
+
+  it('keeps an earlier move that saved when a later one in the burst is refused', async () => {
+    const { result } = await loaded()
+    let accept!: () => void
+    api.saveLayout
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (accept = resolve)))
+      .mockRejectedValueOnce(new Error('layout'))
+    act(() => {
+      void result.current.moveCells([{ id: 'a', x: 0, y: 3, w: 3, h: 3 }])
+    })
+    await act(() =>
+      result.current.moveCells([
+        { id: 'a', x: 0, y: 3, w: 3, h: 3 },
+        { id: 'b', x: 3, y: 6, w: 3, h: 3 },
+      ])
+    )
+    await act(async () => accept())
+    // "a" moved and was saved; "b"'s refused move is undone.
+    expect(result.current.panels!.find((p) => p.id === 'a')).toMatchObject({ y: 3 })
+    expect(result.current.panels!.find((p) => p.id === 'b')).toMatchObject({ x: 3, y: 0 })
+  })
+
   it('reports a board that will not load', async () => {
     api.get.mockRejectedValue(new Error('Only the campaign GM'))
     const { result } = renderHook(() => useGmScreen('camp'))

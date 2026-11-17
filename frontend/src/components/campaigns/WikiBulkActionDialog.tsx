@@ -13,16 +13,24 @@ import { ghostBtn } from './wikiShared'
 // the dialog states both halves — "delete 5, hide 5" — so the outcome is known
 // before it happens. Hiding a parent takes its subtree along, which is counted
 // separately because it is the part a user won't have predicted.
+//
+// `busy` holds the confirm button while the requests run, so a second click
+// can't start the run again. `error` is a run that stopped partway: the counts
+// by then describe only what is left, and confirming again carries on.
 export default function WikiBulkActionDialog({
   deleteCount,
   hideCount,
   hiddenChildCount,
+  busy = false,
+  error = '',
   onConfirm,
   onCancel,
 }: {
   deleteCount: number
   hideCount: number
   hiddenChildCount: number
+  busy?: boolean
+  error?: string
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -120,12 +128,19 @@ export default function WikiBulkActionDialog({
           </p>
         )}
 
+        {error && (
+          <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 14px' }}>
+            {error}
+          </p>
+        )}
+
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button onClick={onCancel} style={ghostBtn}>
             {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
+            disabled={busy}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -137,7 +152,8 @@ export default function WikiBulkActionDialog({
               border: 'none',
               borderRadius: 8,
               color: 'var(--on-accent)',
-              cursor: 'pointer',
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.6 : 1,
               fontSize: 13,
               fontWeight: 600,
             }}

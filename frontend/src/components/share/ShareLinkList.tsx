@@ -69,8 +69,8 @@ export default function ShareLinkList({
           link={link}
           showItem={showItem}
           showOwner={showOwner}
-          onRevoke={revoke}
-          onDelete={remove}
+          onRevoke={(link) => void revoke(link)}
+          onDelete={(link) => void remove(link)}
         />
       ))}
     </ul>

@@ -168,6 +168,9 @@ async function startRescan({
 // (issue #524), and one that already finished has nothing to stop. Either way
 // nothing is running, so drop back to idle now instead of showing "Stopping…"
 // until the next poll.
+//
+// A request that fails stops nothing, so the Stop button comes back for another
+// try, and the error is rethrown - as startRescan's is - for the caller to show.
 async function stopScan(): Promise<void> {
   update({ stopping: true })
   try {
@@ -175,7 +178,10 @@ async function stopScan(): Promise<void> {
     if (result?.status === 'cleared_stale' || result?.status === 'not_running') {
       update({ stopping: false, status: { ...snapshot.status, running: false, phase: null } })
     }
-  } catch {}
+  } catch (e) {
+    update({ stopping: false })
+    throw e
+  }
 }
 
 /**

@@ -307,7 +307,7 @@ export default function DuplicatesView() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <button onClick={() => navigate('/settings/library#duplicates')} style={ghostBtn}>
+        <button onClick={() => void navigate('/settings/library#duplicates')} style={ghostBtn}>
           <LuArrowLeft size={14} /> {t('files.backToSettings')}
         </button>
       </div>
@@ -410,7 +410,7 @@ export default function DuplicatesView() {
         >
           <button
             type="button"
-            onClick={startScan}
+            onClick={() => void startScan()}
             disabled={status.running || starting}
             style={{
               background: 'var(--gold-dim)',
@@ -430,7 +430,7 @@ export default function DuplicatesView() {
           {status.running && (
             <button
               type="button"
-              onClick={cancelScan}
+              onClick={() => void cancelScan()}
               disabled={stopping}
               style={{
                 background: 'var(--bg-deep)',

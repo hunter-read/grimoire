@@ -79,7 +79,7 @@ export default function SheetUpdatesNotice({ updates, onUpdated, onError }: Prop
             .join(' · ')}
         </div>
       </div>
-      <button type="button" onClick={updateAll} disabled={busy} style={goldBtn}>
+      <button type="button" onClick={() => void updateAll()} disabled={busy} style={goldBtn}>
         {busy
           ? t('characters.updatingSheets')
           : t('characters.updateSheets', { count: updates.length })}

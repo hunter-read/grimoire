@@ -86,6 +86,8 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
 
   const removeGrant = async (grantId: string, name: string) => {
     setBusy(true)
+    setError('')
+    setStatus('')
     try {
       await api.delete(`/users/${userId}/access-grants/${grantId}`)
       setStatus(t('a11y.settingsAccess.grantRemoved', { name }))
@@ -93,6 +95,8 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
       // The revoked row took focus with it; the heading is the nearest place
       // that is sure to still be there.
       headingRef.current?.focus()
+    } catch (e) {
+      setError((e as Error | null)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
@@ -144,7 +148,9 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => removeGrant(g.id, g.scope_name || t('access.grants.deletedScope'))}
+                onClick={() =>
+                  void removeGrant(g.id, g.scope_name || t('access.grants.deletedScope'))
+                }
                 disabled={busy}
                 style={ghostBtnStyle}
                 title={t('access.grants.remove')}
@@ -162,13 +168,13 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
       <GrantAdder
         label={t('access.grants.addSystem')}
         options={systems.map((s) => ({ id: s.id, name: s.name }))}
-        onAdd={(id, level) => addGrant('system', id, level)}
+        onAdd={(id, level) => void addGrant('system', id, level)}
         disabled={busy}
       />
       <GrantAdder
         label={t('access.grants.addBook')}
         options={books.map((b) => ({ id: b.id, name: b.title }))}
-        onAdd={(id, level) => addGrant('book', id, level)}
+        onAdd={(id, level) => void addGrant('book', id, level)}
         disabled={busy}
       />
 

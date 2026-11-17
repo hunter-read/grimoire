@@ -223,7 +223,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
           </div>
           {tab === 'browse' && !editingId && (
             <button
-              onClick={() => browserRef.current?.refresh()}
+              onClick={() => void browserRef.current?.refresh()}
               aria-label={t('wiki.templateRefresh')}
               title={t('wiki.templateRefresh')}
               style={{ ...iconBtn, padding: 6, borderRadius: 6 }}
@@ -262,9 +262,9 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
             <WikiTemplateList
               templates={owned}
               busyId={busyId}
-              onUse={use}
-              onDelete={remove}
-              onExport={exportOne}
+              onUse={(id) => void use(id)}
+              onDelete={(tpl) => void remove(tpl)}
+              onExport={(tpl) => void exportOne(tpl)}
               onEdit={(tpl) => {
                 setEditingId(tpl.id)
                 setError(null)
@@ -297,7 +297,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
               ref={uploadRef}
               type="file"
               accept=".md,.markdown,.txt,.zip"
-              onChange={upload}
+              onChange={(e) => void upload(e)}
               style={{ display: 'none' }}
             />
           </div>

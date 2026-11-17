@@ -156,7 +156,10 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
       ) : null}
 
       {pasting ? (
-        <form onSubmit={paste} style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}>
+        <form
+          onSubmit={(event) => void paste(event)}
+          style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}
+        >
           <div>
             <label htmlFor="sheet-document" style={fieldLabel}>
               {t('characters.sheetDocument')}
@@ -292,7 +295,7 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
               </div>
               {updates[schema.schema_id] ? (
                 <button
-                  onClick={() => update(updates[schema.schema_id]!)}
+                  onClick={() => void update(updates[schema.schema_id]!)}
                   disabled={updating === schema.schema_id}
                   aria-label={t('a11y.characters.updateNamed', {
                     name: schema.name || schema.schema_id,
@@ -307,7 +310,7 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
                 </button>
               ) : null}
               <button
-                onClick={() => remove(schema)}
+                onClick={() => void remove(schema)}
                 aria-label={t('characters.uninstallSheet', {
                   name: schema.name || schema.schema_id,
                 })}

@@ -4,6 +4,7 @@ import { LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import RescanModal from '../RescanModal'
 import useScanStatus from '../../hooks/useScanStatus'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import type { ScanStatus, ScanStatusHandle } from '../../hooks/useScanStatus'
 import scanPhaseLabel, { scanPercent, scanTotals, stepPercent } from './scanPhaseLabel'
 
@@ -20,9 +21,11 @@ export default function RescanSection() {
   const { status, lastResult, stopping, startRescan, stopScan } =
     useScanStatus() as CountedScanStatus
   const [showModal, setShowModal] = useState(false)
+  // Starting and stopping both reject when the request fails; say why here.
+  const { run, error } = useAsyncAction()
 
   const handleConfirm = (metadata_mode: string) => {
-    startRescan({ scope: null, metadata_mode }).catch(() => {})
+    void run(() => startRescan({ scope: null, metadata_mode }))
   }
 
   const {
@@ -106,7 +109,7 @@ export default function RescanSection() {
         </button>
         {running && (
           <button
-            onClick={stopScan}
+            onClick={() => void run(stopScan)}
             disabled={stopping}
             title={t('maintenance.rescan.stop')}
             style={{
@@ -128,6 +131,11 @@ export default function RescanSection() {
           </button>
         )}
       </div>
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '10px 0 0' }}>
+          {error}
+        </p>
+      )}
 
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {phaseMessage}

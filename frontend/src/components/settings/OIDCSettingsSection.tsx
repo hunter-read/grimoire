@@ -605,7 +605,9 @@ export default function OIDCSettingsSection() {
                   />
                   <button
                     type="button"
-                    onClick={() => !discovering && handleDiscover()}
+                    onClick={() => {
+                      if (!discovering) void handleDiscover()
+                    }}
                     // Not disabled mid-request: that would drop the focus it has.
                     disabled={!text('oidc_issuer_url')}
                     aria-disabled={discovering || undefined}
@@ -813,7 +815,7 @@ export default function OIDCSettingsSection() {
                     </div>
                     <button
                       type="button"
-                      onClick={handleSaveSecret}
+                      onClick={() => void handleSaveSecret()}
                       disabled={!secretDraft || savingField === 'oidc_client_secret'}
                       aria-label={t('a11y.settingsAccess.saveSecret')}
                       style={{
@@ -827,7 +829,7 @@ export default function OIDCSettingsSection() {
                     {data.oidc_client_secret_set && (
                       <button
                         type="button"
-                        onClick={handleClearSecret}
+                        onClick={() => void handleClearSecret()}
                         disabled={savingField === 'oidc_client_secret'}
                         aria-label={t('a11y.settingsAccess.clearSecret')}
                         style={dangerBtnStyle}

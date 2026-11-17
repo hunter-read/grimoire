@@ -89,7 +89,12 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
       >
         {saved ? t('common.saved') : ''}
       </span>
-      <button onClick={handleSave} disabled={saving} aria-busy={saving} style={saveBtnStyle}>
+      <button
+        onClick={() => void handleSave()}
+        disabled={saving}
+        aria-busy={saving}
+        style={saveBtnStyle}
+      >
         {saving ? t('common.saving') : t('common.save')}
       </button>
       {!persistent && (

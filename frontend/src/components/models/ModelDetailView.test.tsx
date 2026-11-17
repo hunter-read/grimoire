@@ -33,7 +33,11 @@ vi.mock('../../context/FavoritesContext', () => ({
 vi.mock('../DownloadVersionButton', () => ({ default: () => null }))
 vi.mock('../VariantPicker', () => ({ default: () => null }))
 vi.mock('../maps/InlineTagEditor', () => ({
-  default: () => <div data-testid="tag-editor" />,
+  default: ({ onSave }: { onSave: (tags: string[]) => void }) => (
+    <div data-testid="tag-editor">
+      <button onClick={() => onSave(['orc'])}>save-tags</button>
+    </div>
+  ),
 }))
 
 const navigate = vi.fn()
@@ -193,6 +197,35 @@ describe('ModelDetailView', () => {
     const box = await screen.findByLabelText('Explicit content')
     await userEvent.click(box)
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/models/m1', { is_explicit: true }))
+  })
+
+  it('says so and leaves the box unticked when the explicit flag fails to save', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('Explicit save failed'))
+    renderAt(aModel())
+    const box = await screen.findByLabelText('Explicit content')
+    await userEvent.click(box)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Explicit save failed')
+    expect(box).not.toBeChecked()
+  })
+
+  it('says so and keeps the old support state when the change fails', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('Support save failed'))
+    renderAt(aModel({ is_supported: null }))
+    await userEvent.click(await screen.findByText('Unknown'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Support save failed')
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+  })
+
+  it('keeps the tag editor open and says so when the tags fail to save', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('Tag save failed'))
+    renderAt(aModel())
+    await screen.findByTestId('viewer')
+    const editButtons = screen.getAllByText('Edit')
+    await userEvent.click(editButtons[editButtons.length - 1])
+    await userEvent.click(await screen.findByText('save-tags'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tag save failed')
+    expect(screen.getByTestId('tag-editor')).toBeInTheDocument()
+    expect(screen.queryByText('orc')).not.toBeInTheDocument()
   })
 
   it('hides the explicit toggle from a player', async () => {

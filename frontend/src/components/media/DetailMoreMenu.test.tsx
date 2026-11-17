@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DetailMoreMenu from './DetailMoreMenu'
 import type { DetailMoreMenuProps } from './DetailMoreMenu'
@@ -118,7 +118,16 @@ describe('DetailMoreMenu', () => {
     await openMenu()
     await userEvent.click(screen.getByRole('menuitem', { name: 'common.removeFromFavorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('map', 'm1')
-    expect(screen.queryByRole('menu')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+
+  it('keeps the menu open and says why when the favourite fails', async () => {
+    toggleFavorite.mockRejectedValueOnce(new Error('Favourite failed'))
+    renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'common.addToFavorites' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favourite failed')
+    expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 
   it.each([

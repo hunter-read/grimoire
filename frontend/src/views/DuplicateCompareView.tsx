@@ -551,8 +551,8 @@ export default function DuplicateCompareView() {
                   main={item.variant_main}
                   keeper={keeperItem}
                   busy={busy}
-                  onPromote={() => promoteOverFamily(item)}
-                  onCompareMain={() => compareWithMain(item)}
+                  onPromote={() => void promoteOverFamily(item)}
+                  onCompareMain={() => void compareWithMain(item)}
                 />
               ) : null
             }
@@ -614,7 +614,7 @@ export default function DuplicateCompareView() {
         differences={data?.differences || []}
         source={itemFor(source)}
         target={keeperItem}
-        onCopy={copyMetadata}
+        onCopy={(fields) => void copyMetadata(fields)}
         busy={busy}
       />
 
@@ -680,7 +680,7 @@ export default function DuplicateCompareView() {
           <button
             type="button"
             disabled={!canAct}
-            onClick={merge}
+            onClick={() => void merge()}
             style={{ ...primaryBtn, opacity: canAct ? 1 : 0.6 }}
           >
             {busy ? <Spinner size={13} /> : <LuCombine size={13} aria-hidden="true" />}{' '}
@@ -690,13 +690,13 @@ export default function DuplicateCompareView() {
           <button
             type="button"
             disabled={!canAct}
-            onClick={link}
+            onClick={() => void link()}
             style={{ ...secondaryBtn, opacity: canAct ? 1 : 0.6 }}
           >
             <LuLayers size={13} aria-hidden="true" /> {t('maintenance.dupes.linkAs')}
             <kbd style={kbdStyle}>L</kbd>
           </button>
-          <button type="button" disabled={busy} onClick={dismiss} style={secondaryBtn}>
+          <button type="button" disabled={busy} onClick={() => void dismiss()} style={secondaryBtn}>
             <LuX size={13} aria-hidden="true" /> {t('maintenance.dupes.dismiss')}
             <kbd style={kbdStyle}>D</kbd>
           </button>

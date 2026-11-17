@@ -249,7 +249,7 @@ export default function PackCatalogue({ onInstalled, onClose }: PackCataloguePro
                         {canInstall ? (
                           <>
                             <button
-                              onClick={() => install(pack)}
+                              onClick={() => void install(pack)}
                               disabled={installing === pack.id}
                               style={{
                                 ...(pack.update_available ? goldBtn : ghostBtn),
@@ -269,7 +269,7 @@ export default function PackCatalogue({ onInstalled, onClose }: PackCataloguePro
                                   : t('contentPacks.reinstall')}
                             </button>
                             <button
-                              onClick={() => uninstall(pack)}
+                              onClick={() => void uninstall(pack)}
                               disabled={installing === pack.id}
                               aria-label={t('contentPacks.uninstall', { name: pack.name })}
                               title={t('contentPacks.uninstall', { name: pack.name })}
@@ -282,7 +282,7 @@ export default function PackCatalogue({ onInstalled, onClose }: PackCataloguePro
                       </span>
                     ) : canInstall ? (
                       <button
-                        onClick={() => install(pack)}
+                        onClick={() => void install(pack)}
                         disabled={installing === pack.id}
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                       >

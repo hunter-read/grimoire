@@ -93,7 +93,7 @@ export default function ResourcePickerModal({
             {t('common.cancel')}
           </button>
           <button
-            onClick={submit}
+            onClick={() => void submit()}
             disabled={selected.length === 0 || saving}
             style={{ ...goldBtn, opacity: selected.length === 0 || saving ? 0.5 : 1 }}
           >

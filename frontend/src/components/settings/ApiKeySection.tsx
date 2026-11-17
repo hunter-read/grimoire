@@ -191,7 +191,7 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
             name: confirm.key.name,
           })}
           message={t(`appSettings.apiKeys.confirm.${confirm.action}Message`)}
-          onConfirm={runConfirmed}
+          onConfirm={() => void runConfirmed()}
           onClose={() => setConfirm(null)}
         />
       )}

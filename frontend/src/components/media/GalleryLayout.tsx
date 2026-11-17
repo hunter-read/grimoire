@@ -29,6 +29,7 @@ import { toTitleCase } from '../../utils'
 import scrollParent from '../../utils/scrollParent'
 import { titleCaseTag } from '../../hooks/useTagLabels'
 import useBulkMerge from '../../hooks/useBulkMerge'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import type useMediaGallery from '../../hooks/useMediaGallery'
 import type { MediaConfig, MediaItem } from './mediaConfig'
 import { RECENTLY_ADDED_DAYS } from '../../utils/recentlyAdded'
@@ -105,6 +106,8 @@ export default function GalleryLayout({
   const searchRef = useRef<HTMLInputElement>(null)
   useSlashToSearch(searchRef)
   const pins = usePins(config.collection as PinCollection)
+  // Saving a folder's tags rejects on failure; run() shows it above the folders.
+  const { run: runFolderTags, error: folderTagError } = useAsyncAction()
 
   // A folder's own address: this page, with `folder` set (or cleared for the
   // whole collection) and the sort and filters kept.
@@ -216,7 +219,12 @@ export default function GalleryLayout({
       frameFolders={gallery.frameFolders}
       editingFolder={isPlayer ? null : gallery.editingFolder}
       onSetEditingFolder={isPlayer ? () => {} : gallery.setEditingFolder}
-      onSaveFolderTags={isPlayer ? () => {} : gallery.saveFolderTags}
+      onSaveFolderTags={
+        isPlayer
+          ? () => {}
+          : (path: string, tags: string[]) =>
+              void runFolderTags(() => gallery.saveFolderTags(path, tags))
+      }
       canTag={!isPlayer}
       bulkMode={bulkMode}
       selectedIds={gallery.selectedIds}
@@ -353,6 +361,12 @@ export default function GalleryLayout({
           </div>
         </div>
 
+        {folderTagError && (
+          <p role="alert" style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 12px' }}>
+            {folderTagError}
+          </p>
+        )}
+
         <PinnedStrip
           label={t('pins.foldersLabel', { collection: rootLabel })}
           links={pins.pins.map((pin) => {
@@ -397,9 +411,10 @@ export default function GalleryLayout({
             },
           ]}
           saved={gallery.savedFilters.saved}
-          onSavePreset={handleSavePreset}
-          onSetDefault={gallery.savedFilters.setDefault}
-          onDeletePreset={gallery.savedFilters.remove}
+          // The saved-filter calls settle even when the request fails.
+          onSavePreset={(name, opts) => void handleSavePreset(name, opts)}
+          onSetDefault={(id, value) => void gallery.savedFilters.setDefault(id, value)}
+          onDeletePreset={(id) => void gallery.savedFilters.remove(id)}
           trailing={
             <>
               {!isPlayer && (

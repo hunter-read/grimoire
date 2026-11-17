@@ -10,6 +10,7 @@ export default function FolderCategorySection() {
   const [envLocked, setEnvLocked] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     settingsApi
@@ -28,10 +29,15 @@ export default function FolderCategorySection() {
     const next = !disabled
     setDisabled(next)
     setSaving(true)
+    setError('')
     try {
       await settingsApi.patch({ disable_folder_category_inference: next })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      // The box was ticked before the request; put it back to what is stored.
+      setDisabled(!next)
+      setError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setSaving(false)
     }
@@ -63,7 +69,7 @@ export default function FolderCategorySection() {
           id="disable_folder_category_inference"
           type="checkbox"
           checked={disabled}
-          onChange={toggle}
+          onChange={() => void toggle()}
           disabled={envLocked || saving}
           style={{
             width: 16,
@@ -78,6 +84,12 @@ export default function FolderCategorySection() {
         {saving && <Spinner size={13} />}
         {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
       </label>
+
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>
+          {error}
+        </p>
+      )}
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.5 }}>
         {t('appSettings.folderCategory.perSystemHint')}

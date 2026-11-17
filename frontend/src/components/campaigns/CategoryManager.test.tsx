@@ -138,6 +138,33 @@ describe('CategoryManager', () => {
     )
   })
 
+  it('puts the old icon back and says so when saving an icon fails', async () => {
+    campaignsMock.updateCategory.mockRejectedValueOnce(new Error('Icon not saved'))
+    const onChanged = vi.fn()
+    const user = userEvent.setup()
+    renderManager({ onChanged })
+    await screen.findByText('Handouts')
+    await user.click(screen.getByRole('button', { name: 'Icon' }))
+    const dialog = screen.getByRole('dialog', { name: 'Icon' })
+    await user.click(within(dialog).getByRole('button', { name: 'castle' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Icon not saved')
+    expect(onChanged).not.toHaveBeenCalled()
+  })
+
+  it('says so and keeps the choice open when a delete fails', async () => {
+    campaignsMock.deleteCategory.mockRejectedValueOnce(new Error('Delete refused'))
+    const onChanged = vi.fn()
+    const user = userEvent.setup()
+    renderManager({ onChanged })
+    await screen.findByText('Handouts')
+    await user.click(screen.getByRole('button', { name: /^Delete: / }))
+    await user.click(screen.getByRole('button', { name: 'Leave items uncategorized' }))
+    expect(await screen.findByText('Delete refused')).toBeInTheDocument()
+    expect(screen.getByText('Delete "Handouts"?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Leave items uncategorized' })).toBeEnabled()
+    expect(onChanged).not.toHaveBeenCalled()
+  })
+
   it('asks how to handle contents before deleting', async () => {
     const user = userEvent.setup()
     renderManager()
@@ -166,6 +193,22 @@ describe('CategoryManager', () => {
     )
     // The move is said, since the row moving is only visible.
     expect(await screen.findByText(/^Moved .+ to position 1 of \d+$/)).toBeInTheDocument()
+  })
+
+  it('moves the rows back and says so when a reorder fails', async () => {
+    campaignsMock.reorderCategories.mockRejectedValueOnce(new Error('Order not saved'))
+    const user = userEvent.setup()
+    campaignsMock.listCategories.mockResolvedValue([
+      cat({ id: 'a', name: 'Alpha', sort_order: 0 }),
+      cat({ id: 'b', name: 'Beta', sort_order: 1 }),
+    ])
+    renderManager()
+    await screen.findByText('Alpha')
+    await user.click(screen.getAllByRole('button', { name: /^Move up: / })[1])
+    expect(await screen.findByRole('alert')).toHaveTextContent('Order not saved')
+    const items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Alpha')
+    expect(items[1]).toHaveTextContent('Beta')
   })
 
   it('closes via the close button', async () => {
@@ -202,6 +245,22 @@ describe('CategoryManager', () => {
           'type:map',
         ])
       )
+    })
+
+    it('restores the group order and says so when saving it fails', async () => {
+      campaignsMock.setResourceGroupOrder.mockRejectedValueOnce(new Error('Order not saved'))
+      const onGroupOrderChange = vi.fn()
+      const user = userEvent.setup()
+      renderManager({
+        typeGroups,
+        groupOrder: ['type:book', 'cat:c1', 'type:map'],
+        onGroupOrderChange,
+      })
+      await screen.findByText('Handouts')
+      await user.click(screen.getAllByRole('button', { name: /^Move up: / })[1])
+      expect(await screen.findByRole('alert')).toHaveTextContent('Order not saved')
+      expect(onGroupOrderChange).toHaveBeenLastCalledWith(['type:book', 'cat:c1', 'type:map'])
+      expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Books')
     })
   })
 })

@@ -21,6 +21,7 @@ export default function ScheduleSetup({ campaign, onChanged }: ScheduleSetupProp
   const [data, setData] = useState<ScheduleData | null>(null)
   const [editing, setEditing] = useState(false)
   const [togglingEnabled, setTogglingEnabled] = useState(false)
+  const [toggleError, setToggleError] = useState('')
 
   useEffect(() => {
     campaigns
@@ -48,28 +49,37 @@ export default function ScheduleSetup({ campaign, onChanged }: ScheduleSetupProp
       return
     }
     setTogglingEnabled(true)
+    setToggleError('')
     try {
       const result = await campaigns.setSchedule(campaign.id, { ...def, enabled: next })
       setData(result as ScheduleData)
       onChanged?.()
-    } catch {
-      /* leave the toggle as-is on failure */
+    } catch (err) {
+      // The toggle stays as it was; say why it did not move.
+      setToggleError((err as Error | undefined)?.message || t('common.error'))
     } finally {
       setTogglingEnabled(false)
     }
   }
 
   const toggle = (
-    <ToggleSwitch
-      id="schedule-enabled"
-      checked={enabled}
-      onChange={togglingEnabled ? () => {} : toggleEnabled}
-      label={
-        <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-          {enabled ? t('campaignEditor.scheduleEnabled') : t('campaignEditor.scheduleDisabled')}
-        </span>
-      }
-    />
+    <>
+      <ToggleSwitch
+        id="schedule-enabled"
+        checked={enabled}
+        onChange={togglingEnabled ? () => {} : (next) => void toggleEnabled(next)}
+        label={
+          <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+            {enabled ? t('campaignEditor.scheduleEnabled') : t('campaignEditor.scheduleDisabled')}
+          </span>
+        }
+      />
+      {toggleError && (
+        <div role="alert" style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>
+          {toggleError}
+        </div>
+      )}
+    </>
   )
 
   // Disabled: keep the definition, but collapse the editor.

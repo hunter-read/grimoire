@@ -98,7 +98,7 @@ export default function MoveModal({ items, onClose, onMoved }: MoveModalProps) {
           </button>
           <button
             type="button"
-            onClick={submit}
+            onClick={() => void submit()}
             disabled={selected === null || busy}
             style={btn(true)}
           >

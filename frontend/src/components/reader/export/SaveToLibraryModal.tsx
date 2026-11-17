@@ -246,7 +246,7 @@ export default function SaveToLibraryModal({
               </button>
               <button
                 type="button"
-                onClick={save}
+                onClick={() => void save()}
                 disabled={!canSave}
                 style={buttonStyle(true, !canSave)}
               >

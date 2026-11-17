@@ -244,7 +244,7 @@ export default function ExportSidebar({
           )}
           <button
             type="button"
-            onClick={download}
+            onClick={() => void download()}
             disabled={blocked || busy}
             style={{ ...buttonStyle(true, blocked || busy), flex: 1 }}
           >

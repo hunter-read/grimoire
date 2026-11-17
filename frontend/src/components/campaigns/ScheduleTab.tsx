@@ -8,6 +8,7 @@ import LoadError from '../LoadError'
 import ScheduleEditor from './ScheduleEditor'
 import AvailabilityChart from './AvailabilityChart'
 import useAvailabilityActions from './useAvailabilityActions'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import ScheduleSummary from './ScheduleSummary'
 
 interface ScheduleTabProps {
@@ -45,6 +46,8 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
 
   const { setAvailability: handleSetAvailability, cancelDate: handleCancelDate } =
     useAvailabilityActions(campaign.id, userId, loadAvailability)
+  // The actions reject on failure; run() turns that into a message by the chart.
+  const { run: runAvailability, error: availabilityError } = useAsyncAction()
 
   if (loadFailed) return <LoadError onRetry={() => void loadSchedule()} />
 
@@ -82,9 +85,16 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
         availability={availability}
         userId={userId}
         isOwner={isOwner}
-        onSetAvailability={handleSetAvailability}
-        onCancelDate={handleCancelDate}
+        onSetAvailability={(date, status, uid) =>
+          void runAvailability(() => handleSetAvailability(date, status, uid))
+        }
+        onCancelDate={(date) => void runAvailability(() => handleCancelDate(date))}
       />
+      {availabilityError && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '8px 0 0' }}>
+          {availabilityError}
+        </p>
+      )}
 
       {!def && !editingSchedule && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>

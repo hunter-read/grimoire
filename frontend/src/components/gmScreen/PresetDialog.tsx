@@ -92,7 +92,7 @@ export default function PresetDialog({
                 <button
                   type="button"
                   disabled={busy !== null}
-                  onClick={() => apply(preset)}
+                  onClick={() => void apply(preset)}
                   aria-label={t('gmScreen.presets.applyNamed', { name: preset.name })}
                   style={ghostBtn}
                 >

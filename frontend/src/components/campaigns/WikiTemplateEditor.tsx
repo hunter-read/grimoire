@@ -246,7 +246,11 @@ export default function WikiTemplateEditor({
       </label>
 
       {/* Right-aligned, where a form's confirming action belongs. */}
-      <button onClick={save} disabled={saving} style={{ ...goldBtn, alignSelf: 'flex-end' }}>
+      <button
+        onClick={() => void save()}
+        disabled={saving}
+        style={{ ...goldBtn, alignSelf: 'flex-end' }}
+      >
         {templateId ? (
           <>
             <LuSave size={14} /> {t('common.save')}

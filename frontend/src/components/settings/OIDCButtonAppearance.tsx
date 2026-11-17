@@ -254,7 +254,7 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
           {hasIcon && !iconLocked && (
             <button
               type="button"
-              onClick={() => run('oidc_button_icon', settingsApi.deleteOidcButtonIcon)}
+              onClick={() => void run('oidc_button_icon', settingsApi.deleteOidcButtonIcon)}
               disabled={savingField === 'oidc_button_icon'}
               style={dangerBtnStyle}
             >

@@ -110,8 +110,12 @@ export default function ScheduleEditor({
 
   const remove = async () => {
     if (!confirm(t('schedule.removeConfirm'))) return
-    await campaigns.deleteSchedule(campaign.id)
-    onDeleted()
+    try {
+      await campaigns.deleteSchedule(campaign.id)
+      onDeleted()
+    } catch (err) {
+      alert((err as Error | undefined)?.message || t('common.error'))
+    }
   }
 
   return (
@@ -307,11 +311,11 @@ export default function ScheduleEditor({
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={save} disabled={saving} style={submitBtn}>
+        <button onClick={() => void save()} disabled={saving} style={submitBtn}>
           <LuSave size={13} /> {saving ? t('schedule.saving') : t('schedule.saveSchedule')}
         </button>
         {existing && (
-          <button onClick={remove} style={dangerBtn}>
+          <button onClick={() => void remove()} style={dangerBtn}>
             <LuTrash2 size={13} /> {t('schedule.remove')}
           </button>
         )}

@@ -229,7 +229,7 @@ export default function PortraitDialog({
   const footer = readOnly ? null : (
     <>
       {hasArt ? (
-        <button type="button" onClick={removeArt} disabled={busy} style={ghostBtn}>
+        <button type="button" onClick={() => void removeArt()} disabled={busy} style={ghostBtn}>
           <LuTrash2 size={14} aria-hidden="true" />
           {t('characters.removePortrait')}
         </button>
@@ -245,7 +245,7 @@ export default function PortraitDialog({
       {hasArt ? (
         <button
           type="button"
-          onClick={save}
+          onClick={() => void save()}
           disabled={!changed || saving}
           style={{ ...goldBtn, opacity: !changed || saving ? 0.6 : 1 }}
         >
@@ -258,7 +258,7 @@ export default function PortraitDialog({
         accept={IMAGE_ACCEPT}
         aria-label={hasArt ? t('characters.changePortrait') : t('characters.addPortrait')}
         tabIndex={-1}
-        onChange={(event) => upload(event.target.files?.[0])}
+        onChange={(event) => void upload(event.target.files?.[0])}
         style={{ display: 'none' }}
       />
     </>

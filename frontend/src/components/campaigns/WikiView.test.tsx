@@ -588,6 +588,21 @@ describe('WikiView create / delete / search', () => {
     vi.mocked(window.confirm).mockRestore()
   })
 
+  it('says so and keeps the note open when the delete fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.deleteWikiPage.mockRejectedValue(new Error('Campaign is archived'))
+    renderView()
+    await screen.findByText('Here be dragons')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete: Dragons' }))
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Campaign is archived'))
+    expect(screen.getByText('Here be dragons')).toBeInTheDocument()
+    vi.mocked(window.confirm).mockRestore()
+    alertSpy.mockRestore()
+  })
+
   it('filters the page list by the search query', async () => {
     campaignsMock.listWikiPages.mockResolvedValue([
       { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
@@ -1380,6 +1395,31 @@ describe('WikiView multiselect', () => {
     expect(campaigns.hideWikiPage).toHaveBeenCalledWith('c1', 'p2')
     // The note the user could not delete is untouched on the server.
     expect(campaigns.deleteWikiPage).not.toHaveBeenCalledWith('c1', 'p2')
+  })
+
+  // One request per note, so a failure can land partway. What was done stays
+  // done, the dialog says what went wrong, and confirming again finishes the rest.
+  it('stops on a failed request, shows it, and carries on from there', async () => {
+    campaignsMock.hideWikiPage.mockRejectedValueOnce(new Error('Not allowed'))
+    renderView()
+    ctrlClick(await treeTitle('Mine'))
+    ctrlClick(await treeTitle('Theirs'))
+    fireEvent.click(screen.getByRole('button', { name: /Delete selected/i }))
+    // The server's list once "Mine" is gone.
+    campaignsMock.listWikiPages.mockResolvedValue([theirs])
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete and hide' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Not allowed')
+    expect(campaigns.deleteWikiPage).toHaveBeenCalledWith('c1', 'p1')
+    // Only the note still to do is left in the dialog.
+    expect(await within(dialog).findByText(/Hide 1 note you cannot delete\./)).toBeTruthy()
+    expect(within(dialog).queryByText(/Delete 1 note/)).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Hide' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(campaigns.deleteWikiPage).toHaveBeenCalledTimes(1)
+    expect(campaigns.hideWikiPage).toHaveBeenCalledTimes(2)
   })
 
   it('counts the children a hide would sweep along', async () => {

@@ -67,7 +67,7 @@ export default function RenameModal({ entry, onClose, onRename }: RenameModalPro
         aria-label={t('files.rename')}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
-        onSubmit={submit}
+        onSubmit={(e) => void submit(e)}
       >
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{t('files.rename')}</h3>
         <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14, lineHeight: 1.5 }}>

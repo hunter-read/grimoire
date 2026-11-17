@@ -44,7 +44,7 @@ export default function GiveToPlayer({ character, onTransferred, onError }: Prop
     <select
       // Always shows the prompt: picking a player acts at once, after a confirm.
       value=""
-      onChange={(e) => give(e.target.value)}
+      onChange={(e) => void give(e.target.value)}
       disabled={busy}
       aria-label={t('characters.giveToPlayer')}
       title={t('characters.giveToPlayerHelp')}

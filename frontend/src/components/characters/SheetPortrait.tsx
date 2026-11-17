@@ -56,7 +56,7 @@ export default function SheetPortrait({ className }: Props) {
           accept={IMAGE_ACCEPT}
           aria-label={t('characters.addPortrait')}
           tabIndex={-1}
-          onChange={(event) => upload(event.target.files?.[0])}
+          onChange={(event) => void upload(event.target.files?.[0])}
           style={{ display: 'none' }}
         />
       </figure>

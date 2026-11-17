@@ -5,6 +5,7 @@ import { LuFolderTree, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import RescanModal from '../RescanModal'
 import useScanStatus from '../../hooks/useScanStatus'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import scanPhaseLabel from './scanPhaseLabel'
 
 const buttonStyle = {
@@ -37,9 +38,11 @@ export default function SettingsQuickActions() {
   const { status, stopping, startRescan, stopScan } = useScanStatus()
   const [showModal, setShowModal] = useState(false)
   const { running } = status
+  // Starting and stopping both reject when the request fails; say why here.
+  const { run, error } = useAsyncAction()
 
   const handleConfirm = (metadata_mode: string) => {
-    startRescan({ scope: null, metadata_mode }).catch(() => {})
+    void run(() => startRescan({ scope: null, metadata_mode }))
   }
 
   const stopLabel = stopping ? t('maintenance.rescan.stopping') : t('maintenance.rescan.stop')
@@ -71,7 +74,7 @@ export default function SettingsQuickActions() {
         {running && (
           <button
             type="button"
-            onClick={stopScan}
+            onClick={() => void run(stopScan)}
             disabled={stopping}
             title={stopLabel}
             aria-label={stopLabel}
@@ -90,6 +93,11 @@ export default function SettingsQuickActions() {
           </button>
         )}
       </div>
+      {error && (
+        <span role="alert" style={{ fontSize: 13, color: 'var(--danger)' }}>
+          {error}
+        </span>
+      )}
       <Link to="/settings/files" style={buttonStyle}>
         <LuFolderTree size={14} aria-hidden="true" />
         {t('settings.quickActions.fileManager')}

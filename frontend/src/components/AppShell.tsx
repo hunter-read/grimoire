@@ -145,11 +145,13 @@ export default function AppShell() {
       .catch(() => {})
     void refreshUiSettings()
     const handleResize = () => setIsMobile(window.innerWidth < 768)
+    // refreshUiSettings never rejects: a failed reload keeps the settings in hand.
+    const handleSettingsChanged = () => void refreshUiSettings()
     window.addEventListener('resize', handleResize)
-    window.addEventListener('grimoire:settings-changed', refreshUiSettings)
+    window.addEventListener('grimoire:settings-changed', handleSettingsChanged)
     return () => {
       window.removeEventListener('resize', handleResize)
-      window.removeEventListener('grimoire:settings-changed', refreshUiSettings)
+      window.removeEventListener('grimoire:settings-changed', handleSettingsChanged)
     }
   }, [])
 

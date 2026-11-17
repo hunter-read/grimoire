@@ -164,23 +164,41 @@ export default function CategoryManager({
     }
   }
 
-  // Patch a category's icon and/or tint, optimistically then on the server.
+  // Patch a category's icon and/or tint, optimistically then on the server; a
+  // failed save puts the old icon back and says why.
   const patchIcon = async (id: string, patch: { icon?: string; icon_color?: string }) => {
-    setCats((prev) => prev!.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-    if (hasTypeGroups) setRows((prev) => prev!.map((r) => (r.id === id ? { ...r, ...patch } : r)))
-    await campaigns.updateCategory(campaignId, id, patch)
-    onChanged?.()
+    const before = cats?.find((c) => c.id === id)
+    const undo = {
+      ...('icon' in patch ? { icon: before?.icon ?? null } : {}),
+      ...('icon_color' in patch ? { icon_color: before?.icon_color ?? null } : {}),
+    }
+    const apply = (values: Partial<CatLike>) => {
+      setCats((prev) => prev!.map((c) => (c.id === id ? { ...c, ...values } : c)))
+      if (hasTypeGroups)
+        setRows((prev) => prev!.map((r) => (r.id === id ? { ...r, ...values } : r)))
+    }
+    apply(patch)
+    setError('')
+    try {
+      await campaigns.updateCategory(campaignId, id, patch)
+      onChanged?.()
+    } catch (err) {
+      apply(undo)
+      setError((err as Error | undefined)?.message || t('common.error'))
+    }
   }
 
   // Reorder in the unified (categories + type groups) list: persist the whole
   // group order, and also push category sort_order so the order is stable even
   // without a saved group order.
   const moveRow = async (index: number, dir: number) => {
-    const next = [...rows!]
+    const prev = rows!
+    const next = [...prev]
     const target = index + dir
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
     setRows(next)
+    setError('')
     setMoved(
       t('a11y.campaignNotes.movedTo', {
         name: next[target].name,
@@ -190,19 +208,29 @@ export default function CategoryManager({
     )
     const orderedKeys = next.map((r) => r.key)
     onGroupOrderChange?.(orderedKeys)
-    await campaigns.setResourceGroupOrder(campaignId, orderedKeys)
-    const catIds = next.filter((r) => r.kind === 'cat').map((r) => r.id!)
-    if (catIds.length) await campaigns.reorderCategories(campaignId, catIds)
-    onChanged?.()
+    try {
+      await campaigns.setResourceGroupOrder(campaignId, orderedKeys)
+      const catIds = next.filter((r) => r.kind === 'cat').map((r) => r.id!)
+      if (catIds.length) await campaigns.reorderCategories(campaignId, catIds)
+      onChanged?.()
+    } catch (err) {
+      // Put the rows back where they were, here and in the panel behind.
+      setRows(prev)
+      onGroupOrderChange?.(prev.map((r) => r.key))
+      setMoved('')
+      setError((err as Error | undefined)?.message || t('common.error'))
+    }
   }
 
   // Reorder categories only (notes kind, or any kind without type groups).
   const move = async (index: number, dir: number) => {
-    const next = [...cats!]
+    const prev = cats!
+    const next = [...prev]
     const target = index + dir
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
     setCats(next)
+    setError('')
     setMoved(
       t('a11y.campaignNotes.movedTo', {
         name: next[target].name,
@@ -210,20 +238,30 @@ export default function CategoryManager({
         total: next.length,
       })
     )
-    await campaigns.reorderCategories(
-      campaignId,
-      next.map((c) => c.id)
-    )
-    onChanged?.()
+    try {
+      await campaigns.reorderCategories(
+        campaignId,
+        next.map((c) => c.id)
+      )
+      onChanged?.()
+    } catch (err) {
+      setCats(prev)
+      setMoved('')
+      setError((err as Error | undefined)?.message || t('common.error'))
+    }
   }
 
   const doDelete = async (mode: DeleteMode) => {
     setBusy(true)
+    setError('')
     try {
       await campaigns.deleteCategory(campaignId, deleting!.id, mode)
       setDeleting(null)
       load()
       onChanged?.()
+    } catch (err) {
+      // The choice stays open, so the GM can try again or cancel.
+      setError((err as Error | undefined)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
@@ -261,9 +299,9 @@ export default function CategoryManager({
     <>
       <IconPicker
         value={c.icon}
-        onChange={(icon) => patchIcon(c.id, { icon: icon || '' })}
+        onChange={(icon) => void patchIcon(c.id, { icon: icon || '' })}
         color={c.icon_color}
-        onColorChange={(color) => patchIcon(c.id, { icon_color: color || '' })}
+        onColorChange={(color) => void patchIcon(c.id, { icon_color: color || '' })}
         fallback={<LuFolder size={15} aria-hidden="true" />}
         ariaLabel={t('campaignCategories.iconLabel')}
       />
@@ -299,7 +337,7 @@ export default function CategoryManager({
       )}
       {editingId === c.id ? (
         <button
-          onClick={() => rename(c.id)}
+          onClick={() => void rename(c.id)}
           aria-label={`${t('common.save')}: ${c.name}`}
           style={iconBtn}
         >
@@ -343,7 +381,7 @@ export default function CategoryManager({
         <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {rows!.map((r, i) => (
             <li key={r.key} style={rowStyle}>
-              {moveArrows(i, rows!.length, moveRow, r.name)}
+              {moveArrows(i, rows!.length, (at, dir) => void moveRow(at, dir), r.name)}
               {r.kind === 'type' ? (
                 <>
                   <LuLayers size={15} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
@@ -374,7 +412,7 @@ export default function CategoryManager({
       <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {cats!.map((c, i) => (
           <li key={c.id} style={rowStyle}>
-            {moveArrows(i, cats!.length, move, c.name)}
+            {moveArrows(i, cats!.length, (at, dir) => void move(at, dir), c.name)}
             {catControls(c)}
           </li>
         ))}
@@ -460,7 +498,7 @@ export default function CategoryManager({
               boxSizing: 'border-box',
             }}
           />
-          <button onClick={create} disabled={busy || !newName.trim()} style={goldBtn}>
+          <button onClick={() => void create()} disabled={busy || !newName.trim()} style={goldBtn}>
             <LuPlus size={14} /> {t('campaignCategories.add')}
           </button>
         </div>
@@ -488,11 +526,15 @@ export default function CategoryManager({
               {t('campaignCategories.deletePrompt', { name: deleting.name })}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => doDelete('uncategorize')} disabled={busy} style={ghostBtn}>
+              <button
+                onClick={() => void doDelete('uncategorize')}
+                disabled={busy}
+                style={ghostBtn}
+              >
                 {t('campaignCategories.leaveUncategorized')}
               </button>
               <button
-                onClick={() => doDelete('delete_items')}
+                onClick={() => void doDelete('delete_items')}
                 disabled={busy}
                 style={{ ...ghostBtn, color: 'var(--danger)', borderColor: 'var(--danger)' }}
               >

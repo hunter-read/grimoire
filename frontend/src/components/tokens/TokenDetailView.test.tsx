@@ -197,6 +197,36 @@ describe('TokenDetailView', () => {
     expect(api.patch).toHaveBeenCalledWith('/tokens/t2', { is_explicit: true })
   })
 
+  it('says so and keeps the tag editor open when saving tags fails', async () => {
+    mockApi('t2')
+    api.patch.mockRejectedValue(new Error('Tags not saved'))
+    render(<TokenDetailView />)
+    await userEvent.click(await screen.findByText('edit-Token Tags'))
+    await userEvent.click(screen.getByTestId('save-tags'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tags not saved')
+    expect(screen.getByTestId('save-tags')).toBeInTheDocument()
+  })
+
+  it('says so when saving folder tags fails', async () => {
+    mockApi('t2')
+    api.patch.mockRejectedValue(new Error('Folder tags not saved'))
+    render(<TokenDetailView />)
+    await userEvent.click(await screen.findByText('edit-Folder Tags'))
+    await userEvent.click(screen.getByTestId('save-tags'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Folder tags not saved')
+    expect(screen.getByTestId('save-tags')).toBeInTheDocument()
+  })
+
+  it('leaves the explicit flag off and says so when saving it fails', async () => {
+    mockApi('t2')
+    api.patch.mockRejectedValue(new Error('Flag not saved'))
+    render(<TokenDetailView />)
+    const checkbox = await screen.findByRole('checkbox')
+    await userEvent.click(checkbox)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Flag not saved')
+    expect(screen.getByRole('checkbox')).not.toBeChecked()
+  })
+
   it('favourites the token from the overflow menu', async () => {
     mockApi('t2')
     render(<TokenDetailView />)

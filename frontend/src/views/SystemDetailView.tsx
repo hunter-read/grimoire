@@ -713,7 +713,7 @@ export default function SystemDetailView() {
         onCycleViewMode={cycleSystemViewMode}
         canEdit={isEditor}
         backLabel={backTarget.label}
-        onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
+        onBack={() => void navigate(backTarget.to, { state: { restoreView: true } })}
         onCoverChange={(cover: Partial<System>) => setSystem((s) => (s ? { ...s, ...cover } : s))}
         onChildrenChange={(update: (children: System['children']) => System['children']) =>
           setSystem((s) => (s ? { ...s, children: update(s.children) } : s))
