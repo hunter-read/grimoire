@@ -34,11 +34,14 @@ rather than growing a million-digit integer.
 """
 import math
 import re
-from typing import Any, Callable, Union
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Callable, Iterator, Optional, Union
 
 __all__ = [
     "EVALUATION_ERRORS",
     "ExpressionError",
+    "each_work_budget",
     "evaluate",
     "parse",
     "referenced_names",
@@ -392,6 +395,35 @@ def _fn_count_refs(value: Any, prop: Any = None, expected: Any = True,
     )
 
 
+def _fn_at(value: Any, index: Any, prop: Any = None, entries: Any = None) -> Any:
+    """One item of a list by position — `at(classes, 0)`, `at(levels, -1, 'die')`.
+
+    Counts from 0; a negative index counts from the end. With a third argument
+    it reads that property: a `list` row's column, or a picked entry's own
+    property with the character's per-entry notes on top, as `ref` reads it.
+    Without one it returns the item itself, so `ref(at(classes, 0), 'hit_die')`
+    works too. Out of range, a non-list or a missing property reads as ``""``,
+    like `ref`, which is 0 in arithmetic.
+    """
+    if not isinstance(value, list):
+        return ""
+    position = math.floor(_to_number(index))
+    if not -len(value) <= position < len(value):  # past either end
+        return ""
+    item = value[position]
+    if prop is None:
+        return "" if item is None else item
+    if not isinstance(item, dict):
+        return ""
+    if "_ref" in item or item.get("_inline"):
+        found = _resolved(item, entries)
+        if not found:
+            return ""
+        item = found[0]
+    found_value = item.get(str(prop), "")
+    return "" if found_value is None else found_value
+
+
 FUNCTIONS: dict[str, Callable[..., Any]] = {
     "floor": _fn_floor,
     "ceil": _fn_ceil,
@@ -415,12 +447,171 @@ FUNCTIONS: dict[str, Callable[..., Any]] = {
     "has_ref": _fn_has_ref,
     "count_refs": _fn_count_refs,
     "sum_qty": _fn_sum_qty,
+    "at": _fn_at,
 }
 
 #: Functions that read resolved catalog entries. `_eval_node` passes the table
 #: to these as a keyword, so a schema author never writes it and the function's
 #: own parameter defaults still apply.
-_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty"})
+_ENTRY_AWARE: frozenset = frozenset({"ref", "sum_refs", "count_refs", "sum_qty", "at"})
+
+
+# --- per-row forms -------------------------------------------------------
+# `sum_each(equipment, row.ac_bonus, row.equipped)` works a formula out once
+# per row of a list - a `list` field's rows, or the entries a `content_list`
+# picks with the character's per-entry values on top - and folds the results.
+# Unlike every function above, the second and later arguments are not
+# evaluated up front: they are evaluated per row, with `row` naming that row
+# and every other name still reading the character, so a row formula can mix
+# the two (`row.ac_base + min(dexterity_mod, row.dex_cap)`). They are formulas
+# rather than quoted strings so validation still sees the field names they
+# read.
+
+#: The name a per-row formula reads its row through. Inside these forms it
+#: shadows a field of the same name.
+ROW_NAME = "row"
+
+#: Rows a single form will visit; past it the remaining rows are ignored. A
+#: list field is far shorter in practice, and nested forms multiply.
+MAX_EACH_ROWS = 1000
+
+#: Work the per-row forms may do in one pass of a sheet computation, shared by
+#: every form in it - every computed value, condition and rule. A row
+#: costs the size of the formulas run on it, and inside a form reading a value
+#: costs its size (a list's length, a string's length / 100), whether a name
+#: reads it or a call is handed it. Without one budget across the sheet, nested
+#: forms multiply - six deep over a ten-row list is a million rows - a row
+#: formula that rescans the list squares it, and a schema of many short
+#: formulas multiplies either. Past it the formula yields its default like any
+#: other bound.
+MAX_EACH_WORK = 1_000_000
+
+_EACH_FORMS: frozenset = frozenset({"sum_each", "max_each", "min_each", "count_each"})
+
+
+class _EachWork:
+    """The per-row budget in progress, and the rows of the forms open in it.
+
+    ``row`` reads the innermost open form's current row from here rather than
+    from a copy of the context, so a form costs nothing to start however many
+    fields the sheet has. A ContextVar holds it rather than a context key, so it
+    cannot collide with a field.
+    """
+
+    __slots__ = ("left", "rows")
+
+    def __init__(self) -> None:
+        self.left = MAX_EACH_WORK
+        self.rows: list[Any] = []
+
+    def spend(self, amount: int) -> None:
+        """Take ``amount`` from the budget, refusing once it runs out."""
+        self.left -= amount
+        if self.left < 0:
+            raise ExpressionError("Per-row forms did too much work")
+
+
+_each_work: ContextVar[Optional[_EachWork]] = ContextVar("_each_work", default=None)
+
+
+@contextmanager
+def each_work_budget(fresh: bool = False) -> Iterator[None]:
+    """Share one per-row budget across everything evaluated inside.
+
+    A sheet computation wraps itself in this so all its formulas draw on the
+    same budget; `evaluate` does too, so a formula on its own still has one.
+    Nested uses join the budget already open, unless ``fresh`` asks for a new
+    one - each pass of `compute_values` does, or a later pass would find the
+    budget spent and overwrite the values the first one worked out.
+    """
+    if not fresh and _each_work.get() is not None:
+        yield
+        return
+    token = _each_work.set(_EachWork())
+    try:
+        yield
+    finally:
+        _each_work.reset(token)
+
+
+def _value_cost(value: Any) -> int:
+    """What reading ``value`` inside a per-row form costs."""
+    if isinstance(value, (list, dict)):
+        return len(value)
+    if isinstance(value, str):
+        return len(value) // 100
+    return 0
+
+
+def _size(node: Any) -> int:
+    """How many AST nodes ``node`` holds - what one row of it costs."""
+    count = 0
+    stack: list[Any] = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, list):
+            stack.extend(current)
+        elif isinstance(current, tuple):
+            count += 1
+            stack.extend(current[1:])
+    return count
+
+
+def _each_rows(value: Any, entries: Any) -> list[dict]:
+    """The rows a per-row form visits: list rows, or resolved catalog entries."""
+    if isinstance(value, dict):
+        value = [value]
+    if not isinstance(value, list):
+        return []
+    # Cut before filtering or resolving: a schema's own `default` for a list is
+    # not held to the row cap, and a nested form would walk all of it each time.
+    value = value[:MAX_EACH_ROWS]
+    if any(isinstance(item, dict) and ("_ref" in item or item.get("_inline")) for item in value):
+        return _resolved(value, entries)
+    return _rows(value)
+
+
+def _eval_each(name: str, args: list, context: dict) -> Any:
+    """Evaluate one of `_EACH_FORMS`; its arguments arrive unevaluated."""
+    work = _each_work.get()
+    if work is None:
+        # Reached without `evaluate` setting up a budget: start one here.
+        with each_work_budget():
+            return _eval_each(name, args, context)
+    if not args:
+        return 0
+    rows = _each_rows(_eval_node(args[0], context), context.get("_entries"))
+    if name == "count_each":
+        formula, where, rest = None, (args[1] if len(args) > 1 else None), args[2:]
+    else:
+        if len(args) < 2:
+            return 0
+        formula, where, rest = args[1], (args[2] if len(args) > 2 else None), args[3:]
+    # Only max_each/min_each take one more argument: what an empty list
+    # yields. Anything else past the documented arity reads as 0, like a
+    # function called wrongly.
+    if len(rest) > (1 if name in ("max_each", "min_each") else 0):
+        return 0
+
+    results: list = []
+    if rows:
+        per_row = 1 + (_size(where) if where is not None else 0) + _size(formula)
+        work.rows.append(None)
+        try:
+            for row in rows:
+                work.spend(per_row)
+                work.rows[-1] = row
+                if where is not None and not _truthy(_eval_node(where, context)):
+                    continue
+                results.append(1 if formula is None else _to_number(_eval_node(formula, context)))
+        finally:
+            work.rows.pop()
+
+    if name in ("sum_each", "count_each"):
+        return sum(results)
+    if not results:
+        return _eval_node(rest[0], context) if rest else 0
+    return max(results) if name == "max_each" else min(results)
 
 
 def _truthy(value: Any) -> bool:
@@ -566,7 +757,7 @@ class _Parser:
                         args.append(self.parse_expression())
                 self.expect_op(")")
                 name = value.lower()
-                if name not in FUNCTIONS:
+                if name not in FUNCTIONS and name not in _EACH_FORMS:
                     raise ExpressionError(f"Unknown function {value!r}")
                 return ("call", name, args)
             # A dotted path reads one key out of a nested field value. It is a
@@ -601,8 +792,23 @@ def parse(source: str) -> tuple:
 
 
 def _lookup(path: list[str], context: dict) -> Any:
-    """Read a dotted path out of the context, missing keys reading as 0."""
+    """Read a dotted path out of the context, missing keys reading as 0.
+
+    Inside a per-row form `row` is that form's current row, and every read
+    there is paid for by its size.
+    """
     current: Any = context
+    work = _each_work.get()
+    if work is not None and work.rows:
+        if path[0] == ROW_NAME:
+            current = {ROW_NAME: work.rows[-1]}
+        value = _lookup_in(path, current)
+        work.spend(_value_cost(value))
+        return value
+    return _lookup_in(path, current)
+
+
+def _lookup_in(path: list[str], current: Any) -> Any:
     for key in path:
         if isinstance(current, dict):
             current = current.get(key)
@@ -631,6 +837,12 @@ def _compare(op: str, left: Any, right: Any) -> bool:
 
 
 def _equal(left: Any, right: Any) -> bool:
+    if isinstance(left, (list, dict)) or isinstance(right, (list, dict)):
+        # A list or a reference is never equal to text: spelling one out to
+        # compare would cost its whole size, and the two evaluators spell it
+        # differently. Two of them compare by length, as numbers do.
+        if isinstance(left, str) or isinstance(right, str):
+            return False
     if isinstance(left, str) or isinstance(right, str):
         # One side being text means a text comparison was intended; compare
         # case-insensitively so `race == 'Elf'` matches a stored "elf".
@@ -677,7 +889,14 @@ def _eval_node(node: tuple, context: dict) -> Any:
         )
     if kind == "call":
         name = node[1]
+        if name in _EACH_FORMS:
+            return _bounded(_eval_each(name, node[2], context))
         args = [_eval_node(arg, context) for arg in node[2]]
+        work = _each_work.get()
+        if work is not None and work.rows:
+            # Inside a per-row form a call runs once per row, so what it reads
+            # is paid for on every one of them.
+            work.spend(1 + sum(_value_cost(arg) for arg in args))
         # The catalog functions need the resolved entries to read an entry's own
         # properties. Threading that through as a visible argument would make
         # every formula carry `_entries`, so it is supplied here instead: an
@@ -742,8 +961,9 @@ def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
     ``parse`` directly.
     """
     try:
-        node = source if isinstance(source, tuple) else parse(source)
-        return _eval_node(node, context)
+        with each_work_budget():
+            node = source if isinstance(source, tuple) else parse(source)
+            return _eval_node(node, context)
     except EVALUATION_ERRORS:
         # ExpressionError covers the bounds above. The rest should be
         # unreachable now, but a formula is stranger-supplied and runs on every
@@ -752,17 +972,34 @@ def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
 
 
 def referenced_names(node: tuple) -> set[str]:
-    """Every top-level field name an AST reads, for dependency ordering."""
+    """Every top-level field name an AST reads, for dependency ordering.
+
+    Inside a per-row form's row formulas `row` names the row, not a field, so
+    it is left out there.
+    """
     found: set[str] = set()
-    stack: list[Any] = [node]
+    stack: list[tuple[Any, bool]] = [(node, False)]
     while stack:
-        current = stack.pop()
+        current, in_row = stack.pop()
         if not isinstance(current, tuple):
             if isinstance(current, list):
-                stack.extend(current)
+                stack.extend((item, in_row) for item in current)
             continue
         if current[0] == "name":
-            found.add(current[1][0])
+            if not (in_row and current[1][0] == ROW_NAME):
+                found.add(current[1][0])
             continue
-        stack.extend(current[1:])
+        if current[0] == "call" and current[1] in _EACH_FORMS and current[2]:
+            args = current[2]
+            # The list is read in the surrounding scope; the rest per row.
+            # max_each/min_each's empty-list fallback is outer too.
+            outer = [args[0]]
+            inner = list(args[1:])
+            if current[1] in ("max_each", "min_each") and len(args) > 3:
+                outer.append(args[3])
+                inner = list(args[1:3]) + list(args[4:])
+            stack.extend((item, in_row) for item in outer)
+            stack.extend((item, True) for item in inner)
+            continue
+        stack.extend((item, in_row) for item in current[1:])
     return found

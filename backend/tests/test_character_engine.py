@@ -1008,6 +1008,51 @@ class TestSumQty:
         assert svc.evaluate("count_refs(spells, 'prepared')", context) == 2
 
 
+class TestAt:
+    """Mirrors the frontend's at() cases: the two evaluators must agree."""
+
+    CONTEXT = {
+        "levels": [
+            {"class": "wizard", "die": 6},
+            {"class": "wizard", "die": 4},
+            {"class": "fighter", "die": 10},
+        ],
+        "classes": [
+            {"_ref": "wizard", "_per": {"subclass": "evoker"}},
+            {"_inline": True, "name": "Homebrew", "hit_die": 8},
+            {"_ref": "not-installed"},
+        ],
+        "langs": ["Elvish", "Dwarvish"],
+        "_entries": {"wizard": {"name": "Wizard", "hit_die": 6}},
+    }
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            ("at(levels, 0, 'die')", 6),
+            ("at(levels, -1, 'class')", "fighter"),
+            # A fractional index is floored, as floor() would.
+            ("at(levels, 1.7, 'die')", 4),
+            ("at(levels, 3, 'die')", ""),
+            ("at(levels, -4, 'die')", ""),
+            ("at(levels, 0, 'missing')", ""),
+            ("at(langs, 1)", "Dwarvish"),
+            ("at(langs, 0, 'name')", ""),
+            ("at(nothing, 0)", ""),
+            ("at(classes, 0, 'hit_die')", 6),
+            ("at(classes, 0, 'subclass')", "evoker"),
+            ("at(classes, 1, 'hit_die')", 8),
+            ("at(classes, 2, 'hit_die')", ""),
+            ("ref(at(classes, 0), 'name')", "Wizard"),
+            ("at(levels, 0, 'die') + at(levels, 1, 'die')", 10),
+            ("at(levels, 5, 'die') + 1", 1),
+            ("count_where(levels, 'class', at(levels, 0, 'class'))", 2),
+        ],
+    )
+    def test_reads_one_item_by_position(self, formula, expected):
+        assert svc.evaluate(formula, self.CONTEXT) == expected
+
+
 # --- derived defaults and picks ----------------------------------------------
 
 from backend.services.characters.schema import _build_context  # noqa: E402
@@ -1357,3 +1402,200 @@ def test_an_expression_past_the_length_limit_is_refused():
         expressions.parse(long_sum)
     assert expressions.evaluate(long_sum, {}, default=None) is None
     assert expressions.parse(" + ".join(["1"] * 1000))
+
+
+# ---------------------------------------------------------------------------
+# Per-row forms: sum_each / max_each / min_each / count_each
+# ---------------------------------------------------------------------------
+
+_GEAR_ENTRIES = {
+    "chain-mail": {"name": "Chain Mail", "ac_base": 16, "dex_cap": 0},
+    "scale-mail": {"name": "Scale Mail", "ac_base": 14, "dex_cap": 2},
+    "leather": {"name": "Leather Armor", "ac_base": 11},
+    "shield": {"name": "Shield", "ac_bonus": 2},
+}
+
+
+def _gear(*picks):
+    return [{"_ref": ref, "_per": {"equipped": equipped}} for ref, equipped in picks]
+
+
+class TestEachForms:
+    def _context(self, **values):
+        return {"dexterity_mod": 3, "_entries": _GEAR_ENTRIES, **values}
+
+    def test_sum_each_filters_by_a_row_condition(self):
+        context = self._context(gear=_gear(("shield", True), ("leather", True)))
+        assert svc.evaluate("sum_each(gear, row.ac_bonus, row.equipped)", context) == 2
+        context = self._context(gear=_gear(("shield", False), ("leather", True)))
+        assert svc.evaluate("sum_each(gear, row.ac_bonus, row.equipped)", context) == 0
+
+    def test_a_row_formula_mixes_the_row_and_the_character(self):
+        context = self._context(gear=_gear(("scale-mail", True), ("leather", True)))
+        formula = (
+            "max_each(gear, row.ac_base + (row.dex_cap == 0 ? dexterity_mod "
+            ": min(dexterity_mod, row.dex_cap)), row.equipped && row.ac_base > 0, "
+            "10 + dexterity_mod)"
+        )
+        assert svc.evaluate(formula, context) == 16  # 14 + min(3, 2) beats 11 + 3
+
+    def test_max_each_falls_back_when_no_row_matches(self):
+        context = self._context(gear=_gear(("chain-mail", False)))
+        assert svc.evaluate(
+            "max_each(gear, row.ac_base, row.equipped, 10 + dexterity_mod)", context
+        ) == 13
+        assert svc.evaluate("max_each(gear, row.ac_base, row.equipped)", context) == 0
+        assert svc.evaluate("min_each(gear, row.ac_base)", context) == 16
+
+    def test_count_each_counts_matching_rows(self):
+        context = self._context(gear=_gear(("chain-mail", True), ("shield", True)))
+        assert svc.evaluate("count_each(gear, row.ac_base > 0)", context) == 1
+        assert svc.evaluate("count_each(gear)", context) == 2
+
+    def test_plain_list_rows_are_read_as_they_are(self):
+        context = {"attacks": [{"bonus": 5, "magic": True}, {"bonus": 3}, "junk"]}
+        assert svc.evaluate("sum_each(attacks, row.bonus * 2, row.magic)", context) == 10
+        assert svc.evaluate("max_each(attacks, row.bonus)", context) == 5
+
+    def test_a_single_reference_is_one_row(self):
+        context = self._context(armor={"_ref": "leather"})
+        assert svc.evaluate("sum_each(armor, row.ac_base)", context) == 11
+
+    def test_nonsense_reads_as_zero(self):
+        assert svc.evaluate("sum_each(missing, row.x)", {}) == 0
+        assert svc.evaluate("sum_each(5, row.x)", {}) == 0
+        assert svc.evaluate("sum_each()", {}) == 0
+        assert svc.evaluate("sum_each(gear)", {"gear": [{"x": 1}]}) == 0
+        assert svc.evaluate("sum_each(gear, row.x, true, 1)", {"gear": [{"x": 1}]}) == 0
+
+    def test_row_shadows_a_field_only_inside_the_form(self):
+        context = {"row": 7, "gear": [{"x": 1}, {"x": 2}]}
+        assert svc.evaluate("row + sum_each(gear, row.x)", context) == 10
+
+    def test_nested_forms_see_their_own_row(self):
+        context = {"groups": [{"items": [{"x": 1}, {"x": 2}]}, {"items": [{"x": 5}]}]}
+        assert svc.evaluate("sum_each(groups, max_each(row.items, row.x))", context) == 7
+
+    def test_rows_past_the_limit_are_ignored(self):
+        from backend.services.characters import expressions
+
+        rows = [{"x": 1}] * (expressions.MAX_EACH_ROWS + 50)
+        assert svc.evaluate("sum_each(gear, row.x)", {"gear": rows}) == expressions.MAX_EACH_ROWS
+
+    def test_referenced_names_skip_row_inside_the_form_only(self):
+        ast = svc.parse("max_each(gear, row.ac_base + dexterity_mod, row.equipped, base)")
+        assert svc.referenced_names(ast) == {"gear", "dexterity_mod", "base"}
+        assert svc.referenced_names(svc.parse("row.x + 1")) == {"row"}
+
+    def test_a_schema_may_use_row_inside_a_form(self):
+        document = _schema(
+            fields={
+                "dex": {"type": "number", "label": "Dex"},
+                "gear": {"type": "list", "label": "Gear",
+                         "columns": [{"key": "ac", "label": "AC", "type": "number"}]},
+            },
+            computed={"ac": {"formula": "max_each(gear, row.ac + dex, true, 10 + dex)"}},
+        )
+        svc.validate_schema(document)
+        with pytest.raises(svc.SchemaError, match="unknown name"):
+            svc.validate_schema(_schema(computed={"x": {"formula": "row.ac + 1"}}))
+
+
+class TestEachWorkBudget:
+    """Mirrors the frontend's budget cases: the two evaluators must agree."""
+
+    @staticmethod
+    def _nested(depth):
+        formula = "row.x"
+        for _ in range(depth):
+            formula = f"sum_each(g, {formula})"
+        return formula
+
+    def test_nested_forms_stop_at_the_budget(self):
+        context = {"g": [{"x": 1}] * 10}
+        assert svc.evaluate(self._nested(4), context) == 10_000
+        assert svc.evaluate(self._nested(6), context, default=None) is None
+
+    def test_a_row_formula_that_rescans_the_list_is_charged_for_it(self):
+        context = {"g": [{"x": 1}] * 500}
+        scans = " + ".join(["count_where(g, 'x')"] * 50)
+        assert svc.evaluate(f"sum_each(g, {scans})", context, default=None) is None
+        assert svc.evaluate("sum_each(g, count_where(g, 'x'))", context) == 250_000
+
+    def test_every_form_in_one_formula_shares_the_budget(self):
+        context = {"g": [{"x": 1}] * 1000}
+        assert svc.evaluate("sum_each(g, row.x)", context) == 1000
+        siblings = " + ".join(["sum_each(g, row.x)"] * 600)
+        assert svc.evaluate(siblings, context, default=None) is None
+        # A fresh evaluation starts with a fresh budget.
+        assert svc.evaluate("sum_each(g, row.x)", context) == 1000
+
+    def test_a_realistic_nested_form_fits(self):
+        groups = [{"items": [{"x": 1}] * 50}] * 20
+        assert svc.evaluate("sum_each(groups, sum_each(row.items, row.x))", {"groups": groups}) == 1000
+
+    def test_the_walker_alone_still_gets_a_budget(self):
+        from backend.services.characters import expressions
+
+        node = svc.parse("sum_each(g, row.x)")
+        assert expressions._eval_node(node, {"g": [{"x": 2}] * 3}) == 6
+        assert expressions._each_work.get() is None
+        with pytest.raises(svc.ExpressionError):
+            expressions._eval_node(svc.parse(self._nested(6)), {"g": [{"x": 1}] * 10})
+        assert expressions._each_work.get() is None
+
+    def test_reading_a_whole_list_or_a_long_string_is_paid_for(self):
+        rows = [{"name": f"item{i}", "w": i} for i in range(350)]
+        context = {"M": rows, "notes": " " * 300_000 + "x"}
+        assert svc.evaluate("count_each(M, count_each(M, '' == M))", context, default=None) is None
+        assert svc.evaluate("count_each(M, count_each(M, notes))", context, default=None) is None
+
+    def test_a_list_past_the_row_cap_is_cut_before_it_is_walked(self):
+        from backend.services.characters import expressions
+
+        context = {"M": [{}] * 100_000}
+        assert svc.evaluate("count_each(M)", context) == expressions.MAX_EACH_ROWS
+        assert svc.evaluate("count_each(M, count_each(M, false))", context, default=None) is None
+
+    def test_one_budget_covers_a_whole_sheet(self):
+        from backend.services.characters import expressions
+        from backend.services.characters.schema import compute_values
+
+        formula = self._nested(4)  # 10,000 rows, about 22,000 units
+        fields = {"g": {"type": "list", "columns": [{"key": "x", "type": "number"}]}}
+        data = {"g": [{"x": 1}] * 10}
+        one = compute_values({"fields": fields, "computed": {"c": formula}}, data)
+        assert one == {"c": 10_000}
+        many = compute_values(
+            {"fields": fields, "computed": {f"c{i}": formula for i in range(100)}}, data
+        )
+        assert many["c0"] == 10_000
+        assert many["c99"] == 0  # the sheet's budget ran out before it got here
+        with expressions.each_work_budget():
+            costly = "sum_each(g, " + " + ".join(["count_where(g, 'x')"] * 20) + ")"
+            big = {"g": [{"x": 1}] * 150}
+            assert svc.evaluate(costly, big, default=None) == 150 * 20 * 150
+            assert svc.evaluate(costly, big, default=None) is None
+
+    def test_a_list_is_never_equal_to_text(self):
+        context = {"L": [{"tags": []}, {"tags": ["x"]}]}
+        assert svc.evaluate("count_each(L, row.tags == '')", context) == 0
+        assert svc.evaluate("count_each(L, row.tags == 0)", context) == 1
+        assert svc.evaluate("L == ''", context) is False
+
+
+class TestAtArity:
+    """Mirrors the frontend: a wrong number of arguments reads as 0 in both."""
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            ("at(L)", 0),
+            ("at()", 0),
+            ("at(L, 0, 'a', 'zz')", 0),
+            ("at(L, 0, 'constructor')", ""),
+            ("ref(L, 'a', 'b')", 0),
+        ],
+    )
+    def test_reads(self, formula, expected):
+        assert svc.evaluate(formula, {"L": [{"a": 1}]}) == expected

@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- **Character sheet formulas can read one item of a list and work through a list row by row.** `at(list, i)` returns an item by position, counting from 0 or from the end with a negative index, and `at(list, i, 'col')` reads one of its columns or a picked entry's property, as `ref` does. `sum_each`, `max_each`, `min_each` and `count_each` work a formula out once per row, with `row` naming the row and every other name reading the character - so armour class can come from the best equipped armour plus the bonus of every attuned item. See [List fields](docs/api.md#list-fields)
 - **PDF view works on phones and tablets.** Their browsers can't show a PDF inside a page, so PDF view there now opens Grimoire's own viewer: the whole book scrolls as one column, text can be selected, links work, and you can pinch to zoom. You can highlight, add text and draw on the pages, then save a copy of the PDF with those annotations in it. Phones can now pick PDF view at all - they used to be held to page view
 
 ### Changed

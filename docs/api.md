@@ -2643,7 +2643,7 @@ Every row is rebuilt from the declared columns on save, so a key the schema does
 not define is dropped - the same rule top-level fields follow. A missing cell
 falls back to its column's `default`. A list is capped at 500 rows.
 
-Five functions read across rows, taking the **column name as a string** (a bare
+These functions read across rows, taking the **column name as a string** (a bare
 name would resolve against the character before the function saw it):
 
 | Function | Returns |
@@ -2654,6 +2654,34 @@ name would resolve against the character before the function saw it):
 | `any_where(list, 'col')` | Whether any row matches |
 | `column(list, 'col')` | Every value of one column, for `sum()`/`min()`/`max()` |
 | `contains(value, x)` | Whether a multiselect holds `x`, or text contains it |
+| `at(list, i)` / `at(list, i, 'col')` | One item by position, from 0; a negative index counts from the end: `at(levels, -1, 'die')`. With a column it reads that cell, or a catalog entry's property as `ref` does (`at(classes, 0, 'hit_die')`). Out of range reads as `''` |
+
+When one column is not enough - a total that depends on two columns, a filter
+on more than one, or a row's value combined with the character's - four
+**per-row forms** work a formula out once per row. Their second and later
+arguments are formulas, not strings: inside them `row` names the current row
+(a list row, or a catalog entry with the character's per-entry values on top)
+and every other name still reads the character.
+
+| Form | Returns |
+|---|---|
+| `sum_each(list, formula, where?)` | Total of `formula` over the rows where `where` is true (all rows without it): `sum_each(magic_items, row.ac_bonus, row.equipped && row.attuned)` |
+| `max_each(list, formula, where?, empty?)` | Largest `formula` over the matching rows, or `empty` (default `0`) when none match: `max_each(equipment, row.ac_base + min(dex_mod, row.dex_cap), row.equipped, 10 + dex_mod)` |
+| `min_each(list, formula, where?, empty?)` | Smallest, likewise |
+| `count_each(list, where?)` | How many rows match |
+
+`list` may be a `list` field, a `content_list`, or a single `content_ref`.
+Inside the forms `row` shadows a field called `row`; a nested form sees its own
+row. To give `max_each`/`min_each` an `empty` value without filtering, pass
+`true` as `where`. A list or reference is never equal to text, so test for an
+empty one with `row.tags == 0` rather than `row.tags == ''`.
+
+A form visits at most 1,000 rows, and all the forms in one pass over a sheet -
+its computed values, conditions and rules - share a budget of work: each row
+costs the size of the formulas run on it, plus the size of every value read
+there. Nesting forms or rescanning the list on each row cannot run away; a
+formula past the budget yields its default, like any other formula that cannot
+be worked out.
 
 #### Conditional fields - `visible_if`
 
