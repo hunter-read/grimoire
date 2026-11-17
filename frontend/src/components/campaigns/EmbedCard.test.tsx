@@ -256,6 +256,40 @@ describe('EmbedCard', () => {
       expect(screen.queryByRole('dialog')).toBeNull()
     })
 
+    it('takes the click that ends a pinch or a drag as part of the gesture', async () => {
+      const user = userEvent.setup()
+      renderEmbed({ spec: 'image:img1', campaignId: 'c1' })
+      await user.click(screen.getByRole('button', { name: 'Open the image full screen' }))
+      const dialog = screen.getByRole('dialog')
+      const img = dialog.querySelector('img') as HTMLImageElement
+      const finger = (x: number) => ({ clientX: x, clientY: 100 })
+
+      // Pinch: one finger, then two, then the click the browser may fire.
+      fireEvent.touchStart(img, { touches: [finger(100)] })
+      fireEvent.touchStart(img, { touches: [finger(100), finger(200)] })
+      fireEvent.touchEnd(img, { touches: [] })
+      fireEvent.click(img)
+      expect(img.style.cursor).toBe('zoom-in')
+
+      // The same click ending on the backdrop does not close it either.
+      fireEvent.touchStart(img, { touches: [finger(100)] })
+      fireEvent.touchStart(img, { touches: [finger(100), finger(200)] })
+      fireEvent.click(dialog)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      // Drag past the slop.
+      fireEvent.touchStart(img, { touches: [finger(100)] })
+      fireEvent.touchMove(img, { touches: [finger(140)] })
+      fireEvent.click(img)
+      expect(img.style.cursor).toBe('zoom-in')
+
+      // A plain tap still toggles the size.
+      fireEvent.touchStart(img, { touches: [finger(100)] })
+      fireEvent.touchMove(img, { touches: [finger(104)] })
+      fireEvent.click(img)
+      expect(img.style.cursor).toBe('zoom-out')
+    })
+
     it('renders nothing without a campaign', () => {
       const { container } = renderEmbed({ spec: 'image:img1' })
       expect(container).toBeEmptyDOMElement()
