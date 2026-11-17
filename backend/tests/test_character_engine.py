@@ -1499,3 +1499,47 @@ class TestEachForms:
         svc.validate_schema(document)
         with pytest.raises(svc.SchemaError, match="unknown name"):
             svc.validate_schema(_schema(computed={"x": {"formula": "row.ac + 1"}}))
+
+
+class TestEachWorkBudget:
+    """Mirrors the frontend's budget cases: the two evaluators must agree."""
+
+    @staticmethod
+    def _nested(depth):
+        formula = "row.x"
+        for _ in range(depth):
+            formula = f"sum_each(g, {formula})"
+        return formula
+
+    def test_nested_forms_stop_at_the_budget(self):
+        context = {"g": [{"x": 1}] * 10}
+        assert svc.evaluate(self._nested(4), context) == 10_000
+        assert svc.evaluate(self._nested(6), context, default=None) is None
+
+    def test_a_row_formula_that_rescans_the_list_is_charged_for_it(self):
+        context = {"g": [{"x": 1}] * 500}
+        scans = " + ".join(["count_where(g, 'x')"] * 50)
+        assert svc.evaluate(f"sum_each(g, {scans})", context, default=None) is None
+        assert svc.evaluate("sum_each(g, count_where(g, 'x'))", context) == 250_000
+
+    def test_every_form_in_one_formula_shares_the_budget(self):
+        context = {"g": [{"x": 1}] * 1000}
+        assert svc.evaluate("sum_each(g, row.x)", context) == 1000
+        siblings = " + ".join(["sum_each(g, row.x)"] * 300)
+        assert svc.evaluate(siblings, context, default=None) is None
+        # A fresh evaluation starts with a fresh budget.
+        assert svc.evaluate("sum_each(g, row.x)", context) == 1000
+
+    def test_a_realistic_nested_form_fits(self):
+        groups = [{"items": [{"x": 1}] * 50}] * 20
+        assert svc.evaluate("sum_each(groups, sum_each(row.items, row.x))", {"groups": groups}) == 1000
+
+    def test_the_walker_alone_still_gets_a_budget(self):
+        from backend.services.characters import expressions
+
+        node = svc.parse("sum_each(g, row.x)")
+        assert expressions._eval_node(node, {"g": [{"x": 2}] * 3}) == 6
+        assert expressions._each_work.get() is None
+        with pytest.raises(svc.ExpressionError):
+            expressions._eval_node(svc.parse(self._nested(6)), {"g": [{"x": 1}] * 10})
+        assert expressions._each_work.get() is None

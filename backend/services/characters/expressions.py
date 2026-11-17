@@ -34,7 +34,8 @@ rather than growing a million-digit integer.
 """
 import math
 import re
-from typing import Any, Callable, Union
+from contextvars import ContextVar
+from typing import Any, Callable, Optional, Union
 
 __all__ = [
     "EVALUATION_ERRORS",
@@ -472,7 +473,42 @@ ROW_NAME = "row"
 #: list field is far shorter in practice, and nested forms multiply.
 MAX_EACH_ROWS = 1000
 
+#: Work the per-row forms may do in one evaluation, shared by every form in
+#: it. A row costs the size of the formulas run on it, and inside a form a call
+#: costs the length of each list it reads, as does the copy of the context a
+#: form makes. Without a shared budget nested forms multiply - six deep over a
+#: ten-row list is a million rows - and a row formula that scans the list again
+#: squares it. The figure sits near what the costliest formula without them can
+#: already do; past it the formula yields its default like any other bound.
+MAX_EACH_WORK = 500_000
+
 _EACH_FORMS: frozenset = frozenset({"sum_each", "max_each", "min_each", "count_each"})
+
+#: ``[work left, forms open]`` for the evaluation in progress, or None outside
+#: one. A ContextVar rather than a context key, so it cannot collide with a
+#: field and every form in one evaluation draws on the same budget.
+_each_work: ContextVar[Optional[list[int]]] = ContextVar("_each_work", default=None)
+
+
+def _spend(budget: list[int], amount: int) -> None:
+    """Take ``amount`` from the per-row budget, refusing once it runs out."""
+    budget[0] -= amount
+    if budget[0] < 0:
+        raise ExpressionError("Per-row forms did too much work")
+
+
+def _size(node: Any) -> int:
+    """How many AST nodes ``node`` holds - what one row of it costs."""
+    count = 0
+    stack: list[Any] = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, list):
+            stack.extend(current)
+        elif isinstance(current, tuple):
+            count += 1
+            stack.extend(current[1:])
+    return count
 
 
 def _each_rows(value: Any, entries: Any) -> list[dict]:
@@ -488,6 +524,14 @@ def _each_rows(value: Any, entries: Any) -> list[dict]:
 
 def _eval_each(name: str, args: list, context: dict) -> Any:
     """Evaluate one of `_EACH_FORMS`; its arguments arrive unevaluated."""
+    budget = _each_work.get()
+    if budget is None:
+        # Reached without `evaluate` setting up a budget: start one here.
+        token = _each_work.set([MAX_EACH_WORK, 0])
+        try:
+            return _eval_each(name, args, context)
+        finally:
+            _each_work.reset(token)
     if not args:
         return 0
     rows = _each_rows(_eval_node(args[0], context), context.get("_entries"))
@@ -504,11 +548,24 @@ def _eval_each(name: str, args: list, context: dict) -> Any:
         return 0
 
     results: list = []
-    for row in rows:
-        row_context = {**context, ROW_NAME: row}
-        if where is not None and not _truthy(_eval_node(where, row_context)):
-            continue
-        results.append(1 if formula is None else _to_number(_eval_node(formula, row_context)))
+    if rows:
+        # One copy per form, not per row: each row only rebinds `row`. A
+        # nested form makes its own copy, so this one is never seen changed.
+        _spend(budget, len(context))
+        row_context = dict(context)
+        per_row = 1 + (_size(where) if where is not None else 0) + _size(formula)
+        budget[1] += 1
+        try:
+            for row in rows:
+                _spend(budget, per_row)
+                row_context[ROW_NAME] = row
+                if where is not None and not _truthy(_eval_node(where, row_context)):
+                    continue
+                results.append(
+                    1 if formula is None else _to_number(_eval_node(formula, row_context))
+                )
+        finally:
+            budget[1] -= 1
 
     if name in ("sum_each", "count_each"):
         return sum(results)
@@ -774,6 +831,11 @@ def _eval_node(node: tuple, context: dict) -> Any:
         if name in _EACH_FORMS:
             return _bounded(_eval_each(name, node[2], context))
         args = [_eval_node(arg, context) for arg in node[2]]
+        budget = _each_work.get()
+        if budget is not None and budget[1]:
+            # Inside a per-row form a call runs once per row, so a list it
+            # reads is paid for on every one of them.
+            _spend(budget, 1 + sum(len(arg) for arg in args if isinstance(arg, (list, dict))))
         # The catalog functions need the resolved entries to read an entry's own
         # properties. Threading that through as a visible argument would make
         # every formula carry `_entries`, so it is supplied here instead: an
@@ -837,6 +899,7 @@ def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
     Callers that need to surface a bad formula (schema validation) should call
     ``parse`` directly.
     """
+    token = _each_work.set([MAX_EACH_WORK, 0])
     try:
         node = source if isinstance(source, tuple) else parse(source)
         return _eval_node(node, context)
@@ -845,6 +908,8 @@ def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
         # unreachable now, but a formula is stranger-supplied and runs on every
         # sheet render: whatever goes wrong, the sheet still draws.
         return default
+    finally:
+        _each_work.reset(token)
 
 
 def referenced_names(node: tuple) -> set[str]:

@@ -377,6 +377,42 @@ export const ROW_NAME = 'row'
 /** Rows a single form visits; the rest are ignored. Nested forms multiply. */
 export const MAX_EACH_ROWS = 1000
 
+/**
+ * Work the per-row forms may do in one evaluation, shared by every form in it:
+ * a row costs the size of the formulas run on it, and inside a form a call costs
+ * the length of each list it reads, as does the copy of the context a form
+ * makes. Nested forms multiply without it. Past it the formula yields its
+ * fallback. Mirrors MAX_EACH_WORK on the server.
+ */
+export const MAX_EACH_WORK = 500_000
+
+/** The budget of the evaluation in progress; null outside one. */
+let eachWork: { left: number; open: number } | null = null
+
+function spend(budget: { left: number }, amount: number): void {
+  budget.left -= amount
+  if (budget.left < 0) throw new ExpressionError('Per-row forms did too much work')
+}
+
+/** How many AST nodes a formula holds - what one row of it costs. */
+function nodeSize(node: unknown): number {
+  let count = 0
+  const stack: unknown[] = [node]
+  while (stack.length) {
+    const current = stack.pop()
+    if (!Array.isArray(current)) continue
+    // A node is a tuple tagged by a string; an args array is a plain list. A
+    // name's path and a constant are leaves, as on the server.
+    if (typeof current[0] === 'string') {
+      count += 1
+      if (current[0] !== 'name' && current[0] !== 'const') stack.push(...current.slice(1))
+    } else {
+      stack.push(...current)
+    }
+  }
+  return count
+}
+
 const EACH_FORMS = ['sum_each', 'max_each', 'min_each', 'count_each'] as const
 type EachForm = (typeof EACH_FORMS)[number]
 
@@ -401,6 +437,9 @@ function eachRows(value: ExprValue, entries: ExprValue): Row[] {
 }
 
 function evalEach(name: EachForm, args: ExprNode[], context: ExprContext | undefined): ExprValue {
+  // evaluate() is the only way in, and it always sets a budget up.
+  const budget = eachWork
+  if (!budget) throw new ExpressionError('Per-row form outside an evaluation')
   if (!args.length) return 0
   const rows = eachRows(evalNode(args[0], context), context?._entries as ExprValue)
   let formula: ExprNode | null
@@ -420,10 +459,23 @@ function evalEach(name: EachForm, args: ExprNode[], context: ExprContext | undef
   if (rest.length > (name === 'max_each' || name === 'min_each' ? 1 : 0)) return 0
 
   const results: number[] = []
-  for (const row of rows) {
-    const rowContext: ExprContext = { ...(context ?? {}), [ROW_NAME]: row }
-    if (where && !truthy(evalNode(where, rowContext))) continue
-    results.push(formula ? toNumber(evalNode(formula, rowContext)) : 1)
+  if (rows.length) {
+    // One copy per form, not per row: each row only rebinds `row`. A nested
+    // form makes its own copy, so this one is never seen changed.
+    spend(budget, Object.keys(context ?? {}).length)
+    const rowContext: ExprContext = { ...(context ?? {}) }
+    const perRow = 1 + (where ? nodeSize(where) : 0) + (formula ? nodeSize(formula) : 0)
+    budget.open += 1
+    try {
+      for (const row of rows) {
+        spend(budget, perRow)
+        rowContext[ROW_NAME] = row
+        if (where && !truthy(evalNode(where, rowContext))) continue
+        results.push(formula ? toNumber(evalNode(formula, rowContext)) : 1)
+      }
+    } finally {
+      budget.open -= 1
+    }
   }
   if (name === 'sum_each' || name === 'count_each') {
     return results.reduce((total, value) => total + value, 0)
@@ -638,6 +690,16 @@ function evalNode(node: ExprNode, context: ExprContext | undefined): ExprValue {
     case 'call': {
       const name = node[1]
       const args = node[2].map((arg) => evalNode(arg, context))
+      if (eachWork?.open) {
+        // Inside a per-row form a call runs once per row, so a list it reads
+        // is paid for on every one of them.
+        let cost = 1
+        for (const arg of args) {
+          if (Array.isArray(arg)) cost += arg.length
+          else if (arg && typeof arg === 'object') cost += Object.keys(arg).length
+        }
+        spend(eachWork, cost)
+      }
       // The catalog functions need the resolved entries. JS has no keyword
       // arguments, so the gap is filled with `undefined` rather than null —
       // `undefined` lets each parameter's own default apply, where null would
@@ -685,10 +747,14 @@ export function evaluate<F = number>(
   } catch {
     return fallback
   }
+  const previous = eachWork
+  eachWork = { left: MAX_EACH_WORK, open: 0 }
   try {
     return evalNode(node, context)
   } catch {
     return fallback
+  } finally {
+    eachWork = previous
   }
 }
 

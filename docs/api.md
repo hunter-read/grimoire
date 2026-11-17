@@ -2672,7 +2672,11 @@ and every other name still reads the character.
 
 `list` may be a `list` field, a `content_list`, or a single `content_ref`.
 Inside the forms `row` shadows a field called `row`; a nested form sees its own
-row. A form visits at most 1,000 rows.
+row. A form visits at most 1,000 rows, and all the forms in one formula share
+a budget of work - each row costs the size of the formulas run on it, plus
+every list a function reads there - so nesting forms or rescanning the list
+on each row cannot run away. A formula past the budget yields its default,
+like any other formula that cannot be worked out.
 
 #### Conditional fields - `visible_if`
 

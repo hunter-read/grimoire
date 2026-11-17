@@ -515,3 +515,48 @@ describe('per-row forms', () => {
     expect(evaluate('sum_each(gear, row.x)', { gear: rows })).toBe(MAX_EACH_ROWS)
   })
 })
+
+describe('per-row work budget', () => {
+  // Mirrors the backend's TestEachWorkBudget cases: the two evaluators must agree.
+  const nested = (depth: number) => {
+    let formula = 'row.x'
+    for (let i = 0; i < depth; i += 1) formula = `sum_each(g, ${formula})`
+    return formula
+  }
+  const rows = (count: number) => Array.from({ length: count }, () => ({ x: 1 }))
+
+  it('stops nested forms at the budget', () => {
+    const context = { g: rows(10) }
+    expect(evaluate(nested(4), context)).toBe(10_000)
+    expect(evaluate(nested(6), context, null)).toBeNull()
+  })
+
+  it('charges a row formula that rescans the list', () => {
+    const context = { g: rows(500) }
+    const scans = Array.from({ length: 50 }, () => "count_where(g, 'x')").join(' + ')
+    expect(evaluate(`sum_each(g, ${scans})`, context, null)).toBeNull()
+    expect(evaluate("sum_each(g, count_where(g, 'x'))", context)).toBe(250_000)
+  })
+
+  it('shares the budget across every form in one formula', () => {
+    const context = { g: rows(1000) }
+    expect(evaluate('sum_each(g, row.x)', context)).toBe(1000)
+    const siblings = Array.from({ length: 300 }, () => 'sum_each(g, row.x)').join(' + ')
+    expect(evaluate(siblings, context, null)).toBeNull()
+    // A fresh evaluation starts with a fresh budget.
+    expect(evaluate('sum_each(g, row.x)', context)).toBe(1000)
+  })
+
+  it('fits a realistic nested form', () => {
+    const groups = Array.from({ length: 20 }, () => ({ items: rows(50) }))
+    expect(evaluate('sum_each(groups, sum_each(row.items, row.x))', { groups })).toBe(1000)
+  })
+
+  it('runs inside a computed sheet', () => {
+    const DOC = {
+      fields: { g: { type: 'list', columns: [{ key: 'x', type: 'number' }] } },
+      computed: { total: { formula: 'sum_each(g, row.x)' } },
+    }
+    expect(computeValues(DOC, { g: rows(3) }).total).toBe(3)
+  })
+})
