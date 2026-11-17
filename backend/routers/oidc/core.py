@@ -7,7 +7,6 @@ The IdP is configured at runtime via Settings → Authentication. Each individua
 field can be locked by an environment variable; see backend/config/env.py.
 """
 import hmac
-import json
 import secrets
 from typing import Optional
 from urllib.parse import urlencode
@@ -38,10 +37,12 @@ from ...services.app_settings import (
     oidc_redirect_uri,
 )
 from ._helpers import (
+    OIDCProviderError,
     _OIDCError,
     _discover_issuer,
     _fetch_userinfo,
     _pkce_pair,
+    _provider_json,
     _resolve_user,
     _safe_return_to,
     _state_store,
@@ -112,7 +113,7 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
     try:
         resp = httpx.get(url, timeout=10.0, follow_redirects=True)
         resp.raise_for_status()
-        doc = resp.json()
+        doc = _provider_json(resp, "discovery")
     except httpx.HTTPError as e:
         logger.warning("OIDC discovery fetch from %s failed: %s", url, e)
         raise HTTPException(
@@ -120,8 +121,8 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
             "Could not fetch the discovery document from that issuer URL. "
             "The server log has the details.",
         ) from e
-    except json.JSONDecodeError as e:
-        logger.warning("OIDC discovery document from %s is not JSON: %s", url, e)
+    except OIDCProviderError as e:
+        logger.warning("OIDC discovery document from %s is not usable: %s", url, e)
         raise HTTPException(
             502, "That issuer URL did not return a valid discovery document."
         ) from e
@@ -155,7 +156,13 @@ def oidc_login(
         eff["oidc_issuer_url"], "authorization_endpoint"
     )
     if not auth_url:
-        raise HTTPException(500, "OIDC authorization endpoint is not configured")
+        # Unset, and discovery didn't supply one: the provider unreachable, or
+        # answering with something that isn't a discovery document. This is a
+        # page the browser navigates to, so send it back to the login page with
+        # the reason, as the callback does, rather than a bare error response.
+        # The login page doesn't auto-launch again while it shows an error.
+        logger.warning("OIDC sign-in not started: no authorization endpoint configured or discovered")
+        return _redirect_with_error("authorization endpoint not configured")
 
     state = secrets.token_urlsafe(24)
     nonce = secrets.token_urlsafe(24)
@@ -322,15 +329,18 @@ def _finish_sign_in(
             timeout=15.0,
         )
         token_resp.raise_for_status()
-        tokens = token_resp.json()
-    except httpx.HTTPError as e:
+        tokens = _provider_json(token_resp, "token")
+    except (httpx.HTTPError, OIDCProviderError) as e:
         logger.warning("OIDC token exchange failed: %s", e)
         return _redirect_with_error("token exchange failed")
 
     id_token = tokens.get("id_token")
     access_token = tokens.get("access_token")
-    if not id_token:
+    # A JWT is a string; anything else in its place can't be one.
+    if not id_token or not isinstance(id_token, str):
         return _redirect_with_error("no id_token returned")
+    if not isinstance(access_token, str):
+        access_token = None
 
     # Validate ID token — use the explicit token_issuer when set, otherwise
     # fetch the canonical issuer from the discovery doc so the iss claim

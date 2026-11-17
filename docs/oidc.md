@@ -92,6 +92,7 @@ page renders, so no setting can inject arbitrary CSS.
 - **Password Authentication** in **Settings → Sign-in** can only be turned off once OpenID Connect is configured, and OpenID Connect can't be turned off while password sign-in is off - so there is always a way in. `ALLOW_PASSWORD_AUTHENTICATION` pins it regardless.
 - Logging out via the in-app menu suppresses the next auto-launch (so you don't bounce straight back to the IdP).
 - The login button text is configurable per deployment (e.g. "Sign in with Acme SSO"), and so is its look - see [Style the sign-in button](#style-the-sign-in-button).
+- **A provider answering with something other than JSON** - an HTML error page from a proxy in front of it, say - fails the sign-in with a message on the login page ("token exchange failed", or "the sign-in could not be verified" when it's the signing keys), and the server log says which response it was. Without a working discovery document and no endpoints filled in, the login page shows "authorization endpoint not configured".
 - **Multiple replicas:** when `VALKEY_URL` is set, the short-lived login state and the cached IdP signing keys (JWKS) are shared through Valkey, so a callback can be handled by any worker or replica. Without it both are kept in process memory - fine for a single instance, but if you scale out without Valkey a login can land on a worker that never saw the flow start and fail with "invalid or expired login state".
 
 ---

@@ -56,6 +56,54 @@ def _safe_return_to(value: Optional[str]) -> str:
     return value
 
 
+# ---------------------------------------------------------------------------
+# Provider responses
+# ---------------------------------------------------------------------------
+
+
+class _OIDCError(Exception):
+    """A sign-in that can't go ahead.
+
+    ``str(e)`` is for the server log. ``public`` is what the login page may
+    show, set only for messages that are safe and useful to anyone - a setting
+    to fix, say - and None where the detail belongs in the log alone.
+    """
+
+    def __init__(self, message: str, public: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.public = public
+
+
+class OIDCProviderError(_OIDCError):
+    """The identity provider answered with something that isn't a JSON object.
+
+    An HTML error page from a proxy in front of it, an empty body, or JSON of
+    the wrong shape. A subclass of ``_OIDCError`` so a caller that already turns
+    that into a sign-in error handles this too; the reason stays in the log.
+    """
+
+
+def _provider_json(resp: httpx.Response, what: str) -> dict:
+    """``resp``'s body as a JSON object, or ``OIDCProviderError``.
+
+    Every endpoint an OpenID provider serves - discovery, token, JWKS, userinfo
+    - answers with a JSON object, and the callers read it with ``.get``. Without
+    this, a body that isn't JSON raised ``JSONDecodeError`` (a ``ValueError``,
+    which an ``httpx.HTTPError`` handler doesn't catch) and one that parses to a
+    list or a string failed at ``.get``: both a 500 rather than a sign-in error.
+    """
+    try:
+        body = resp.json()
+    except ValueError as e:
+        # JSONDecodeError, or UnicodeDecodeError for a body that isn't text.
+        raise OIDCProviderError(f"{what} response is not JSON: {e}") from e
+    if not isinstance(body, dict):
+        raise OIDCProviderError(
+            f"{what} response is a JSON {type(body).__name__}, not an object"
+        )
+    return body
+
+
 # Discovery documents fetched recently, by URL: (fetched at, document). Without
 # it, every sign-in on an instance with only the issuer configured fetched the
 # document again, once per endpoint looked up. Failures are not cached.
@@ -78,11 +126,11 @@ def _discovery_doc(issuer: str) -> dict:
     try:
         resp = httpx.get(url, timeout=5.0, follow_redirects=True)
         if resp.status_code == 200:
-            doc = resp.json() or {}
-            if isinstance(doc, dict) and doc:
+            doc = _provider_json(resp, "discovery")
+            if doc:
                 _discovery_cache[url] = (time.monotonic(), doc)
             return doc
-    except httpx.HTTPError as e:
+    except (httpx.HTTPError, OIDCProviderError) as e:
         # Discovery is best-effort (caller falls back to configured endpoints),
         # but log so a misconfigured/unreachable issuer is diagnosable.
         logger.warning("OIDC discovery fetch failed for %s: %s", url, e)
@@ -104,19 +152,6 @@ def _discover_issuer(issuer_url: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-class _OIDCError(Exception):
-    """A sign-in that can't go ahead.
-
-    ``str(e)`` is for the server log. ``public`` is what the login page may
-    show, set only for messages that are safe and useful to anyone - a setting
-    to fix, say - and None where the detail belongs in the log alone.
-    """
-
-    def __init__(self, message: str, public: Optional[str] = None) -> None:
-        super().__init__(message)
-        self.public = public
-
-
 def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
     """Return the IdP's signing keys, from cache unless ``force`` (key rotation)."""
     if not force:
@@ -126,7 +161,9 @@ def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
     try:
         resp = httpx.get(jwks_uri, timeout=10.0, follow_redirects=True)
         resp.raise_for_status()
-        keys = resp.json()
+        # A body that isn't a JSON object raises OIDCProviderError, an
+        # _OIDCError, and is not cached.
+        keys = _provider_json(resp, "jwks")
     except httpx.HTTPError as e:
         raise _OIDCError(f"jwks fetch failed: {e}") from e
     _jwks_cache.set(jwks_uri, keys)
@@ -251,8 +288,10 @@ def _fetch_userinfo(userinfo_url: Optional[str], access_token: Optional[str]) ->
             follow_redirects=True,
         )
         resp.raise_for_status()
-        return resp.json() or {}
-    except httpx.HTTPError as e:
+        return _provider_json(resp, "userinfo")
+    except (httpx.HTTPError, OIDCProviderError) as e:
+        # Best-effort, as before: the ID token has already proved who this is,
+        # and userinfo only adds claims some providers leave out of it.
         logger.warning("OIDC userinfo fetch failed: %s", e)
         return {}
 

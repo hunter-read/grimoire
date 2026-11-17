@@ -37,6 +37,10 @@ class MockIdP:
         self.id_claims: dict = {}
         self.userinfo: dict = {}
         self.token_requests: list[dict] = []
+        # Endpoint name ("discovery", "jwks", "userinfo", "token") -> the raw
+        # body and content type it answers with instead, for a provider that
+        # is misbehaving or sits behind a proxy serving its own error pages.
+        self.broken: dict[str, tuple[bytes, str]] = {}
 
     # --- the "browser" half: what the authorize endpoint would do ----------
 
@@ -55,7 +59,26 @@ class MockIdP:
 
     # --- the back channel ------------------------------------------------
 
+    def _broken(self, name, url, method="GET"):
+        if name not in self.broken:
+            return None
+        content, content_type = self.broken[name]
+        return httpx.Response(
+            200,
+            content=content,
+            headers={"content-type": content_type},
+            request=httpx.Request(method, url),
+        )
+
     def get(self, url, headers=None, **_):
+        names = {
+            f"{self.issuer}/.well-known/openid-configuration": "discovery",
+            f"{self.issuer}/jwks": "jwks",
+            f"{self.issuer}/userinfo": "userinfo",
+        }
+        broken = self._broken(names.get(url, ""), url)
+        if broken is not None:
+            return broken
         if url == f"{self.issuer}/.well-known/openid-configuration":
             return self._json(url, {
                 "issuer": self.issuer,
@@ -77,6 +100,9 @@ class MockIdP:
     def post(self, url, data=None, **_):
         assert url == f"{self.issuer}/token", url
         self.token_requests.append(dict(data))
+        broken = self._broken("token", url, method="POST")
+        if broken is not None:
+            return broken
         req = self.codes.pop(data["code"], None)
         if (
             req is None
@@ -420,6 +446,131 @@ class TestMockIdPUserinfo:
         idp.userinfo = {"sub": sub, "email": f"{sub}@example.com", "email_verified": True}
         assert _sign_in(client, idp).status_code == 302
         assert _user_by_sub(sub).email == f"{sub}@example.com"
+
+
+# What a provider can answer with that isn't a JSON object (issue #896): a
+# proxy's HTML error page, nothing at all, JSON of the wrong shape, and bytes
+# that aren't text.
+BAD_BODIES = {
+    "html": (b"<html><body><h1>502 Bad Gateway</h1></body></html>", "text/html"),
+    "empty": (b"", "application/json"),
+    "json-list": (b'["keys", "id_token"]', "application/json"),
+    "json-string": (b'"ok"', "application/json"),
+    "json-null": (b"null", "application/json"),
+    "not-text": (b"\xff\xfe\x00\x01", "application/octet-stream"),
+}
+
+
+@pytest.mark.parametrize("body", BAD_BODIES, ids=list(BAD_BODIES))
+class TestMockIdPBadResponses:
+    """A provider answering with something other than a JSON object ends the
+    sign-in with an error on the login page - or, for userinfo, which only adds
+    claims, signs in without it - and never a 500."""
+
+    def _sign_in_with_broken(self, client, idp, endpoint, body):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        idp.userinfo = {"sub": sub}
+        # Prime the discovery cache first, so breaking one endpoint later
+        # doesn't also break the lookup of every other.
+        if endpoint != "discovery":
+            from backend.routers.oidc._helpers import _discovery_doc
+
+            assert _discovery_doc(idp.issuer)
+        idp.broken[endpoint] = BAD_BODIES[body]
+        return sub, _sign_in(client, idp)
+
+    def test_token_response(self, client, idp, body, caplog):
+        with caplog.at_level("WARNING", logger="grimoire.oidc"):
+            sub, cb = self._sign_in_with_broken(client, idp, "token", body)
+        assert cb.status_code == 302
+        assert cb.headers["location"] == "/login?oidc_error=token+exchange+failed"
+        assert _user_by_sub(sub) is None
+        assert "token response" in caplog.text
+
+    def test_jwks_response(self, client, idp, body, caplog):
+        with caplog.at_level("WARNING", logger="grimoire.oidc"):
+            sub, cb = self._sign_in_with_broken(client, idp, "jwks", body)
+        assert cb.status_code == 302
+        assert cb.headers["location"].startswith("/login?oidc_error=")
+        assert _user_by_sub(sub) is None
+        assert "jwks response" in caplog.text
+
+    def test_userinfo_response(self, client, idp, body, caplog):
+        with caplog.at_level("WARNING", logger="grimoire.oidc"):
+            sub, cb = self._sign_in_with_broken(client, idp, "userinfo", body)
+        # The ID token already proved who this is, so the sign-in goes ahead
+        # without the extra claims, as it does when userinfo is unreachable.
+        assert cb.status_code == 302
+        assert cb.headers["location"] == "/library"
+        assert _user_by_sub(sub) is not None
+        assert "userinfo" in caplog.text
+
+    def test_discovery_response(self, client, idp, body, caplog):
+        # Every endpoint comes from discovery here, so without it the sign-in
+        # can't start: back to the login page with the reason.
+        idp.broken["discovery"] = BAD_BODIES[body]
+        with caplog.at_level("WARNING", logger="grimoire.oidc"):
+            start = client.get("/api/auth/openid/login", follow_redirects=False)
+        assert start.status_code == 302
+        assert start.headers["location"] == (
+            "/login?oidc_error=authorization+endpoint+not+configured"
+        )
+        assert "discovery" in caplog.text
+
+    def test_discovery_breaking_mid_sign_in(self, client, idp, body):
+        # Started while discovery worked, then the provider broke before the
+        # callback: no token endpoint to exchange the code at.
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub}
+        start = client.get("/api/auth/openid/login", follow_redirects=False)
+        grant = idp.authorize(start.headers["location"])
+        from backend.routers.oidc._helpers import _discovery_cache
+
+        _discovery_cache.clear()
+        idp.broken["discovery"] = BAD_BODIES[body]
+        cb = client.get("/api/auth/openid/callback", params=grant, follow_redirects=False)
+        assert cb.status_code == 302
+        assert cb.headers["location"] == "/login?oidc_error=token+endpoint+not+configured"
+        assert _user_by_sub(sub) is None
+
+    def test_admin_discover(self, client, admin_headers, idp, body):
+        idp.broken["discovery"] = BAD_BODIES[body]
+        resp = client.post(
+            "/api/auth/openid/discover",
+            headers=admin_headers,
+            json={"issuer_url": idp.issuer},
+        )
+        assert resp.status_code == 502
+        assert resp.json()["detail"] == (
+            "That issuer URL did not return a valid discovery document."
+        )
+
+
+class TestMockIdPRecovery:
+    def test_a_bad_jwks_answer_is_not_cached(self, client, idp):
+        sub = f"sub-{uuid.uuid4().hex[:8]}"
+        idp.id_claims = {"sub": sub, "preferred_username": sub}
+        idp.broken["jwks"] = BAD_BODIES["html"]
+        assert _sign_in(client, idp).headers["location"].startswith("/login?oidc_error=")
+        # The provider recovers; the next sign-in fetches the keys again.
+        del idp.broken["jwks"]
+        assert _sign_in(client, idp).headers["location"] == "/library"
+        assert _user_by_sub(sub) is not None
+
+    @pytest.mark.parametrize("id_token", [12345, ["a.b.c"], {"jwt": "a.b.c"}])
+    def test_an_id_token_that_is_not_a_string_is_refused(
+        self, client, idp, monkeypatch, id_token
+    ):
+        def answer(url, data=None, **_):
+            return MockIdP._json(
+                url, {"id_token": id_token, "access_token": "x"}, method="POST"
+            )
+
+        monkeypatch.setattr(httpx, "post", answer)
+        cb = _sign_in(client, idp)
+        assert cb.status_code == 302
+        assert cb.headers["location"] == "/login?oidc_error=no+id_token+returned"
 
 
 class TestMockIdPBrowserBinding:
