@@ -21,6 +21,7 @@ import hashlib
 import os
 from email.utils import formatdate, parsedate
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import FileResponse, Response
@@ -38,9 +39,13 @@ def md5_hexdigest(data: bytes, *, usedforsecurity: bool = True) -> str:
 # keeps these access-controlled responses out of shared/proxy caches.
 UPLOAD_CACHE_CONTROL = "private, max-age=300, must-revalidate"
 
-# Per-response policy headers a 304 repeats, so they replace the app-wide
-# defaults the middleware would otherwise add to it.
-_REVALIDATED_HEADERS = frozenset({"content-security-policy", "x-frame-options"})
+# Per-response headers a 304 repeats: the content policy, so it replaces the
+# app-wide defaults the middleware would otherwise add, and the disposition, so
+# a browser that cached a file as a download learns it now opens inline (a
+# cached copy keeps every stored header a 304 leaves out, RFC 9111 §4.3.4).
+_REVALIDATED_HEADERS = frozenset(
+    {"content-security-policy", "x-frame-options", "content-disposition"}
+)
 
 
 def _validators(stat_result: os.stat_result) -> tuple[str, str]:
@@ -49,6 +54,14 @@ def _validators(stat_result: os.stat_result) -> tuple[str, str]:
     etag = f'"{md5_hexdigest(etag_base.encode(), usedforsecurity=False)}"'
     last_modified = formatdate(stat_result.st_mtime, usegmt=True)
     return etag, last_modified
+
+
+def _content_disposition(filename: str, disposition_type: str) -> str:
+    """The ``Content-Disposition`` value ``FileResponse`` builds for ``filename``."""
+    quoted = quote(filename)
+    if quoted != filename:
+        return f"{disposition_type}; filename*=utf-8''{quoted}"
+    return f'{disposition_type}; filename="{filename}"'
 
 
 def _not_modified(request: Request, etag: str, last_modified: str) -> bool:
@@ -104,6 +117,12 @@ def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response
     # Applied here rather than left to each caller, as serve_user_file does,
     # so an uploaded SVG is always inert whichever route serves it.
     headers.update(inert_svg_headers(kwargs.get("media_type"), path))
+    # Built here rather than left to FileResponse, so the 304 below can repeat
+    # it; FileResponse keeps a disposition it is handed.
+    if kwargs.get("filename") is not None:
+        headers["Content-Disposition"] = _content_disposition(
+            kwargs["filename"], kwargs.get("content_disposition_type", "attachment")
+        )
 
     if _not_modified(request, etag, last_modified):
         return Response(

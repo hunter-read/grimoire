@@ -2440,6 +2440,35 @@ class TestCampaignFileUploads:
         saved = client.get(f"{url}/{doc['resource_id']}", headers=gm_headers)
         assert saved.headers["content-disposition"].startswith("attachment")
 
+    def test_svg_file_still_downloads(self, client, gm_headers, campaign):
+        url = f"/api/campaigns/{campaign['id']}/files"
+        svg = client.post(
+            url,
+            files={
+                "file": ("art.svg", b"<svg xmlns='http://www.w3.org/2000/svg'/>", "image/svg+xml")
+            },
+            headers=gm_headers,
+        ).json()
+        dl = client.get(f"{url}/{svg['resource_id']}", headers=gm_headers)
+        assert dl.status_code == 200
+        assert dl.headers["content-disposition"].startswith("attachment")
+
+    def test_revalidated_image_keeps_its_inline_disposition(self, client, gm_headers, campaign):
+        # A browser refreshes a cached copy's headers from the 304, so the 304
+        # must say inline too, or a copy cached as a download stays one.
+        url = f"/api/campaigns/{campaign['id']}/files"
+        img = client.post(
+            url, files={"file": ("map.png", _png_bytes(), "image/png")}, headers=gm_headers
+        ).json()
+        first = client.get(f"{url}/{img['resource_id']}", headers=gm_headers)
+        again = client.get(
+            f"{url}/{img['resource_id']}",
+            headers={**gm_headers, "If-None-Match": first.headers["etag"]},
+        )
+        assert again.status_code == 304
+        assert again.headers["content-disposition"] == first.headers["content-disposition"]
+        assert again.headers["content-disposition"].startswith("inline")
+
     def test_removing_file_resource_deletes_file(self, client, gm_headers, campaign):
         res = client.post(
             f"/api/campaigns/{campaign['id']}/files",

@@ -88,10 +88,6 @@ _EXTRA_FILE_TYPES = {
 }
 
 
-# Raster images a campaign file may be shown in the browser as (never SVG).
-_INLINE_IMAGE_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"})
-
-
 def _file_media_type(media_type: Optional[str]) -> str:
     """``media_type`` if it is one campaign files are served as, else a download."""
     base = (media_type or "").split(";")[0].strip().lower()
@@ -875,10 +871,13 @@ def get_campaign_file(
     # Rows stored before uploads were labelled by extension get the same
     # treatment, and the file is an inert document if opened on its own.
     media_type = _file_media_type(cf.mime_type)
-    # A raster image opens in the browser tab instead of downloading: the type
-    # is one the upload route verified, so showing it inline is as inert as the
-    # attachment default. Everything else (PDFs, text, SVG) stays a download.
-    inline_image = media_type in _INLINE_IMAGE_TYPES
+    # A raster image (the types that also get a thumbnail) opens in the
+    # browser tab instead of downloading. The type comes from the file's
+    # extension, not its bytes, so an HTML file renamed .png is served inline
+    # as image/png: it stays inert because of the nosniff and sandbox CSP in
+    # INERT_DOCUMENT_HEADERS, not because the type was checked - keep them.
+    # Everything else (PDFs, text, SVG) stays a download.
+    inline_image = media_type in _IMAGE_TYPES
     return cached_file_response(
         request,
         path,
