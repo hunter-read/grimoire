@@ -530,6 +530,11 @@ def serve_frontend(full_path: str, _: Request):
     candidate = os.path.realpath(os.path.join(FRONTEND_DIR, full_path))
     if full_path and candidate.startswith(frontend_real + os.sep) and os.path.isfile(candidate):
         return FileResponse(candidate)
+    if full_path == ".well-known" or full_path.startswith(".well-known/"):
+        # Clients probe these for discovery documents (e.g. OAuth metadata
+        # after a 401 from /mcp) and parse the answer as JSON; the SPA's
+        # index.html would make them fail with a parse error.
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
     index_path = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(
