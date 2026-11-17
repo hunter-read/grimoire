@@ -2672,11 +2672,16 @@ and every other name still reads the character.
 
 `list` may be a `list` field, a `content_list`, or a single `content_ref`.
 Inside the forms `row` shadows a field called `row`; a nested form sees its own
-row. A form visits at most 1,000 rows, and all the forms in one formula share
-a budget of work - each row costs the size of the formulas run on it, plus
-every list a function reads there - so nesting forms or rescanning the list
-on each row cannot run away. A formula past the budget yields its default,
-like any other formula that cannot be worked out.
+row. To give `max_each`/`min_each` an `empty` value without filtering, pass
+`true` as `where`. A list or reference is never equal to text, so test for an
+empty one with `row.tags == 0` rather than `row.tags == ''`.
+
+A form visits at most 1,000 rows, and all the forms in one pass over a sheet -
+its computed values, conditions and rules - share a budget of work: each row
+costs the size of the formulas run on it, plus the size of every value read
+there. Nesting forms or rescanning the list on each row cannot run away; a
+formula past the budget yields its default, like any other formula that cannot
+be worked out.
 
 #### Conditional fields - `visible_if`
 

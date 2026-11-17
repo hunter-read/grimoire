@@ -1525,7 +1525,7 @@ class TestEachWorkBudget:
     def test_every_form_in_one_formula_shares_the_budget(self):
         context = {"g": [{"x": 1}] * 1000}
         assert svc.evaluate("sum_each(g, row.x)", context) == 1000
-        siblings = " + ".join(["sum_each(g, row.x)"] * 300)
+        siblings = " + ".join(["sum_each(g, row.x)"] * 600)
         assert svc.evaluate(siblings, context, default=None) is None
         # A fresh evaluation starts with a fresh budget.
         assert svc.evaluate("sum_each(g, row.x)", context) == 1000
@@ -1543,3 +1543,59 @@ class TestEachWorkBudget:
         with pytest.raises(svc.ExpressionError):
             expressions._eval_node(svc.parse(self._nested(6)), {"g": [{"x": 1}] * 10})
         assert expressions._each_work.get() is None
+
+    def test_reading_a_whole_list_or_a_long_string_is_paid_for(self):
+        rows = [{"name": f"item{i}", "w": i} for i in range(350)]
+        context = {"M": rows, "notes": " " * 300_000 + "x"}
+        assert svc.evaluate("count_each(M, count_each(M, '' == M))", context, default=None) is None
+        assert svc.evaluate("count_each(M, count_each(M, notes))", context, default=None) is None
+
+    def test_a_list_past_the_row_cap_is_cut_before_it_is_walked(self):
+        from backend.services.characters import expressions
+
+        context = {"M": [{}] * 100_000}
+        assert svc.evaluate("count_each(M)", context) == expressions.MAX_EACH_ROWS
+        assert svc.evaluate("count_each(M, count_each(M, false))", context, default=None) is None
+
+    def test_one_budget_covers_a_whole_sheet(self):
+        from backend.services.characters import expressions
+        from backend.services.characters.schema import compute_values
+
+        formula = self._nested(4)  # 10,000 rows, about 22,000 units
+        fields = {"g": {"type": "list", "columns": [{"key": "x", "type": "number"}]}}
+        data = {"g": [{"x": 1}] * 10}
+        one = compute_values({"fields": fields, "computed": {"c": formula}}, data)
+        assert one == {"c": 10_000}
+        many = compute_values(
+            {"fields": fields, "computed": {f"c{i}": formula for i in range(100)}}, data
+        )
+        assert many["c0"] == 10_000
+        assert many["c99"] == 0  # the sheet's budget ran out before it got here
+        with expressions.each_work_budget():
+            costly = "sum_each(g, " + " + ".join(["count_where(g, 'x')"] * 20) + ")"
+            big = {"g": [{"x": 1}] * 150}
+            assert svc.evaluate(costly, big, default=None) == 150 * 20 * 150
+            assert svc.evaluate(costly, big, default=None) is None
+
+    def test_a_list_is_never_equal_to_text(self):
+        context = {"L": [{"tags": []}, {"tags": ["x"]}]}
+        assert svc.evaluate("count_each(L, row.tags == '')", context) == 0
+        assert svc.evaluate("count_each(L, row.tags == 0)", context) == 1
+        assert svc.evaluate("L == ''", context) is False
+
+
+class TestAtArity:
+    """Mirrors the frontend: a wrong number of arguments reads as 0 in both."""
+
+    @pytest.mark.parametrize(
+        "formula,expected",
+        [
+            ("at(L)", 0),
+            ("at()", 0),
+            ("at(L, 0, 'a', 'zz')", 0),
+            ("at(L, 0, 'constructor')", ""),
+            ("ref(L, 'a', 'b')", 0),
+        ],
+    )
+    def test_reads(self, formula, expected):
+        assert svc.evaluate(formula, {"L": [{"a": 1}]}) == expected

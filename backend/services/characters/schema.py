@@ -18,7 +18,13 @@ import math
 import re
 from typing import Any, Optional
 
-from .expressions import EVALUATION_ERRORS, evaluate, parse, referenced_names
+from .expressions import (
+    EVALUATION_ERRORS,
+    each_work_budget,
+    evaluate,
+    parse,
+    referenced_names,
+)
 from .layout_html import LayoutHtmlError, parse_layout_html
 from .styles import StylesError, scope_styles
 
@@ -1030,6 +1036,10 @@ def image_fields(document: Any) -> set[str]:
     }
 
 
+# Every formula a sheet computation runs shares one per-row budget (see
+# MAX_EACH_WORK in expressions.py), so each entry point below opens it and the
+# ones they call join it.
+@each_work_budget()
 def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -> dict:
     """The value of every field, for evaluating formulas and conditions against.
 
@@ -1144,6 +1154,7 @@ def computed_overrides(document: dict, data: dict) -> dict:
     return {name: value for name, value in stored.items() if name in computed}
 
 
+@each_work_budget()
 def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -> dict:
     """Evaluate a schema's computed values against a character's data.
 
@@ -1170,23 +1181,27 @@ def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -
     context.update(overrides)
     for _ in range(MAX_COMPUTE_PASSES):
         changed = False
-        for computed_name, definition in computed.items():
-            if computed_name in overrides:
-                continue
-            formula = (
-                definition.get("formula") if isinstance(definition, dict) else definition
-            )
-            value = evaluate(formula, context)
-            if results.get(computed_name) != value:
-                results[computed_name] = value
-                context[computed_name] = value
-                changed = True
+        # A pass of its own budget: the same inputs then cost the same on every
+        # pass, so a formula that fit the first time still fits.
+        with each_work_budget(fresh=True):
+            for computed_name, definition in computed.items():
+                if computed_name in overrides:
+                    continue
+                formula = (
+                    definition.get("formula") if isinstance(definition, dict) else definition
+                )
+                value = evaluate(formula, context)
+                if results.get(computed_name) != value:
+                    results[computed_name] = value
+                    context[computed_name] = value
+                    changed = True
         if not changed:
             break
 
     return results
 
 
+@each_work_budget()
 def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -> list[dict]:
     """Evaluate a schema's validators against a character.
 
@@ -1242,6 +1257,7 @@ def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -
     return fired
 
 
+@each_work_budget()
 def visible_fields(document: dict, data: dict, entries: Optional[dict] = None) -> dict[str, bool]:
     """Which fields a `visible_if` currently shows, keyed by field name.
 

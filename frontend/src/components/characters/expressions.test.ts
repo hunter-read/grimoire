@@ -541,7 +541,7 @@ describe('per-row work budget', () => {
   it('shares the budget across every form in one formula', () => {
     const context = { g: rows(1000) }
     expect(evaluate('sum_each(g, row.x)', context)).toBe(1000)
-    const siblings = Array.from({ length: 300 }, () => 'sum_each(g, row.x)').join(' + ')
+    const siblings = Array.from({ length: 600 }, () => 'sum_each(g, row.x)').join(' + ')
     expect(evaluate(siblings, context, null)).toBeNull()
     // A fresh evaluation starts with a fresh budget.
     expect(evaluate('sum_each(g, row.x)', context)).toBe(1000)
@@ -552,11 +552,55 @@ describe('per-row work budget', () => {
     expect(evaluate('sum_each(groups, sum_each(row.items, row.x))', { groups })).toBe(1000)
   })
 
+  it('charges reading a whole list or a long string', () => {
+    const M = Array.from({ length: 350 }, (_, i) => ({ name: `item${i}`, w: i }))
+    const context = { M, notes: ' '.repeat(300_000) + 'x' }
+    expect(evaluate("count_each(M, count_each(M, '' == M))", context, null)).toBeNull()
+    expect(evaluate('count_each(M, count_each(M, notes))', context, null)).toBeNull()
+  })
+
+  it('cuts a list past the row cap before walking it', () => {
+    const context = { M: Array.from({ length: 100_000 }, () => ({})) }
+    expect(evaluate('count_each(M)', context)).toBe(MAX_EACH_ROWS)
+    expect(evaluate('count_each(M, count_each(M, false))', context, null)).toBeNull()
+  })
+
+  it('covers a whole sheet with one budget', () => {
+    const formula = nested(4) // 10,000 rows, about 22,000 units
+    const fields = { g: { type: 'list', columns: [{ key: 'x', type: 'number' }] } }
+    const data = { g: rows(10) }
+    expect(computeValues({ fields, computed: { c: formula } }, data)).toEqual({ c: 10_000 })
+    const computed = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`c${i}`, formula]))
+    const many = computeValues({ fields, computed }, data)
+    expect(many.c0).toBe(10_000)
+    expect(many.c99).toBe(0) // the sheet's budget ran out before it got here
+  })
+
+  it('never finds a list equal to text', () => {
+    const context = { L: [{ tags: [] }, { tags: ['x'] }] }
+    expect(evaluate("count_each(L, row.tags == '')", context)).toBe(0)
+    expect(evaluate('count_each(L, row.tags == 0)', context)).toBe(1)
+    expect(evaluate("L == ''", context)).toBe(false)
+  })
+
   it('runs inside a computed sheet', () => {
     const DOC = {
       fields: { g: { type: 'list', columns: [{ key: 'x', type: 'number' }] } },
       computed: { total: { formula: 'sum_each(g, row.x)' } },
     }
     expect(computeValues(DOC, { g: rows(3) }).total).toBe(3)
+  })
+})
+
+describe('at arity', () => {
+  // Mirrors the backend's TestAtArity: a wrong number of arguments reads as 0 in both.
+  it.each([
+    ['at(L)', 0],
+    ['at()', 0],
+    ["at(L, 0, 'a', 'zz')", 0],
+    ["at(L, 0, 'constructor')", ''],
+    ["ref(L, 'a', 'b')", 0],
+  ])('%s evaluates to %s', (formula, expected) => {
+    expect(evaluate(formula, { L: [{ a: 1 }] })).toBe(expected)
   })
 })

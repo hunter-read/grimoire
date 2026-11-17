@@ -292,6 +292,8 @@ const FUNCTIONS = {
     prop: ExprValue = null,
     entries: ExprValue = undefined
   ) => {
+    // No index: the server's call fails for want of one, which reads as 0.
+    if (index === undefined) return 0
     if (!Array.isArray(value)) return ''
     let position = Math.floor(toNumber(index))
     if (position < 0) position += value.length
@@ -304,7 +306,9 @@ const FUNCTIONS = {
       if (!found.length) return ''
       item = found[0]
     }
-    return (item as Row)[String(prop)] ?? ''
+    // Own properties only, as lookup() reads: `constructor` is not a column.
+    const key = String(prop)
+    return Object.prototype.hasOwnProperty.call(item, key) ? ((item as Row)[key] ?? '') : ''
   },
 }
 
@@ -378,20 +382,52 @@ export const ROW_NAME = 'row'
 export const MAX_EACH_ROWS = 1000
 
 /**
- * Work the per-row forms may do in one evaluation, shared by every form in it:
- * a row costs the size of the formulas run on it, and inside a form a call costs
- * the length of each list it reads, as does the copy of the context a form
- * makes. Nested forms multiply without it. Past it the formula yields its
- * fallback. Mirrors MAX_EACH_WORK on the server.
+ * Work the per-row forms may do in one pass of a sheet computation, shared by
+ * every form in it - every computed value, condition and rule. A row costs
+ * the size of the formulas run on it, and inside a form reading a value costs
+ * its size (a list's length, a string's length / 100), whether a name reads it
+ * or a call is handed it. Past it the formula yields its fallback. Mirrors
+ * MAX_EACH_WORK on the server, which explains the figure.
  */
-export const MAX_EACH_WORK = 500_000
+export const MAX_EACH_WORK = 1_000_000
 
-/** The budget of the evaluation in progress; null outside one. */
-let eachWork: { left: number; open: number } | null = null
+type EachWork = { left: number; rows: ExprValue[] }
 
-function spend(budget: { left: number }, amount: number): void {
+/**
+ * The budget in progress, and the rows of the forms open in it; null outside
+ * one. `row` reads the innermost open form's current row from here rather than
+ * from a copy of the context, so a form costs nothing to start however many
+ * fields the sheet has.
+ */
+let eachWork: EachWork | null = null
+
+/**
+ * Run `fn` on one per-row budget, joining the one already open unless `fresh`
+ * asks for a new one - each pass of computeValues does, or a later pass would
+ * find the budget spent and overwrite what the first one worked out.
+ */
+function withEachBudget<T>(fn: () => T, fresh = false): T {
+  if (eachWork && !fresh) return fn()
+  const previous = eachWork
+  eachWork = { left: MAX_EACH_WORK, rows: [] }
+  try {
+    return fn()
+  } finally {
+    eachWork = previous
+  }
+}
+
+function spend(budget: EachWork, amount: number): void {
   budget.left -= amount
   if (budget.left < 0) throw new ExpressionError('Per-row forms did too much work')
+}
+
+/** What reading `value` inside a per-row form costs. */
+function valueCost(value: unknown): number {
+  if (Array.isArray(value)) return value.length
+  if (value !== null && typeof value === 'object') return Object.keys(value).length
+  if (typeof value === 'string') return Math.floor(value.length / 100)
+  return 0
 }
 
 /** How many AST nodes a formula holds - what one row of it costs. */
@@ -421,11 +457,11 @@ function isEachForm(name: string): name is EachForm {
 }
 
 function eachRows(value: ExprValue, entries: ExprValue): Row[] {
-  const items: ExprValue[] = Array.isArray(value)
-    ? value
-    : value && typeof value === 'object'
-      ? [value]
-      : []
+  // Cut before filtering or resolving: a schema's own `default` for a list is
+  // not held to the row cap, and a nested form would walk all of it each time.
+  const items: ExprValue[] = (
+    Array.isArray(value) ? value : value && typeof value === 'object' ? [value] : []
+  ).slice(0, MAX_EACH_ROWS)
   const isRef = items.some(
     (item) =>
       !!item &&
@@ -433,7 +469,7 @@ function eachRows(value: ExprValue, entries: ExprValue): Row[] {
       !Array.isArray(item) &&
       ('_ref' in item || !!(item as Row)._inline)
   )
-  return (isRef ? resolveRefs(items, entries) : listRows(items)).slice(0, MAX_EACH_ROWS)
+  return isRef ? resolveRefs(items, entries) : listRows(items)
 }
 
 function evalEach(name: EachForm, args: ExprNode[], context: ExprContext | undefined): ExprValue {
@@ -460,21 +496,17 @@ function evalEach(name: EachForm, args: ExprNode[], context: ExprContext | undef
 
   const results: number[] = []
   if (rows.length) {
-    // One copy per form, not per row: each row only rebinds `row`. A nested
-    // form makes its own copy, so this one is never seen changed.
-    spend(budget, Object.keys(context ?? {}).length)
-    const rowContext: ExprContext = { ...(context ?? {}) }
     const perRow = 1 + (where ? nodeSize(where) : 0) + (formula ? nodeSize(formula) : 0)
-    budget.open += 1
+    budget.rows.push(null)
     try {
       for (const row of rows) {
         spend(budget, perRow)
-        rowContext[ROW_NAME] = row
-        if (where && !truthy(evalNode(where, rowContext))) continue
-        results.push(formula ? toNumber(evalNode(formula, rowContext)) : 1)
+        budget.rows[budget.rows.length - 1] = row
+        if (where && !truthy(evalNode(where, context))) continue
+        results.push(formula ? toNumber(evalNode(formula, context)) : 1)
       }
     } finally {
-      budget.open -= 1
+      budget.rows.pop()
     }
   }
   if (name === 'sum_each' || name === 'count_each') {
@@ -637,6 +669,19 @@ export function parse(source: unknown): ExprNode {
 // --- evaluation -----------------------------------------------------------
 
 function lookup(path: string[], context: unknown): ExprValue {
+  // Inside a per-row form `row` is that form's current row, and every read
+  // there is paid for by its size.
+  const work = eachWork
+  if (work?.rows.length) {
+    const scope = path[0] === ROW_NAME ? { [ROW_NAME]: work.rows[work.rows.length - 1] } : context
+    const value = lookupIn(path, scope)
+    spend(work, valueCost(value))
+    return value
+  }
+  return lookupIn(path, context)
+}
+
+function lookupIn(path: string[], context: unknown): ExprValue {
   let current: unknown = context
   for (const key of path) {
     // Own properties only: a path must not be able to walk up a prototype
@@ -650,6 +695,13 @@ function lookup(path: string[], context: unknown): ExprValue {
 }
 
 function equal(left: ExprValue, right: ExprValue): boolean {
+  const container = (value: ExprValue) => value !== null && typeof value === 'object'
+  if (container(left) || container(right)) {
+    // A list or a reference is never equal to text: spelling one out to compare
+    // would cost its whole size, and the two evaluators spell it differently.
+    // Two of them compare by length, as numbers do.
+    if (typeof left === 'string' || typeof right === 'string') return false
+  }
   if (typeof left === 'string' || typeof right === 'string') {
     return String(left).trim().toLowerCase() === String(right).trim().toLowerCase()
   }
@@ -690,15 +742,13 @@ function evalNode(node: ExprNode, context: ExprContext | undefined): ExprValue {
     case 'call': {
       const name = node[1]
       const args = node[2].map((arg) => evalNode(arg, context))
-      if (eachWork?.open) {
-        // Inside a per-row form a call runs once per row, so a list it reads
-        // is paid for on every one of them.
-        let cost = 1
-        for (const arg of args) {
-          if (Array.isArray(arg)) cost += arg.length
-          else if (arg && typeof arg === 'object') cost += Object.keys(arg).length
-        }
-        spend(eachWork, cost)
+      if (eachWork?.rows.length) {
+        // Inside a per-row form a call runs once per row, so what it reads is
+        // paid for on every one of them.
+        spend(
+          eachWork,
+          args.reduce((cost: number, arg) => cost + valueCost(arg), 1)
+        )
       }
       // The catalog functions need the resolved entries. JS has no keyword
       // arguments, so the gap is filled with `undefined` rather than null —
@@ -707,6 +757,9 @@ function evalNode(node: ExprNode, context: ExprContext | undefined): ExprValue {
       // entries whose `prepared` was null rather than true).
       const entryPosition = ENTRY_AWARE[name]
       if (entryPosition) {
+        // More arguments than the function takes: the server's keyword
+        // `entries` collides with the extra one and reads as 0, so here too.
+        if (args.length >= entryPosition) return 0
         while (args.length < entryPosition - 1) args.push(undefined)
         args[entryPosition - 1] = context?._entries as ExprValue
       }
@@ -747,14 +800,10 @@ export function evaluate<F = number>(
   } catch {
     return fallback
   }
-  const previous = eachWork
-  eachWork = { left: MAX_EACH_WORK, open: 0 }
   try {
-    return evalNode(node, context)
+    return withEachBudget(() => evalNode(node, context))
   } catch {
     return fallback
-  } finally {
-    eachWork = previous
   }
 }
 
@@ -816,7 +865,7 @@ const EMPTY_BY_TYPE: Record<string, ExprValue> = {
 // presence in `data` is what marks a field as the player's, so once they set it
 // their value wins and the formula stops applying. Deriving a value from the
 // class or species is therefore a starting point, never a lock.
-export function buildContext(
+function buildContextWithin(
   document: ExpressionDocument | null | undefined,
   data: ExprContext | null | undefined
 ): ExprContext {
@@ -957,7 +1006,7 @@ export function computedOverrides(
 
 // An overridden value is used as-is and its formula never runs. It is in the
 // context from the first pass, so everything depending on it follows.
-export function computeValues(
+function computeValuesWithin(
   document: ExpressionDocument | null | undefined,
   data: ExprContext | null | undefined
 ): ExprContext {
@@ -971,16 +1020,20 @@ export function computeValues(
   Object.assign(context, overrides)
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {
     let changed = false
-    for (const [name, definition] of Object.entries(computed)) {
-      if (name in overrides) continue
-      const formula = typeof definition === 'string' ? definition : definition?.formula
-      const value = evaluate(formula, context)
-      if (results[name] !== value) {
-        results[name] = value
-        context[name] = value
-        changed = true
+    // A pass of its own budget: the same inputs then cost the same on every
+    // pass, so a formula that fit the first time still fits.
+    withEachBudget(() => {
+      for (const [name, definition] of Object.entries(computed)) {
+        if (name in overrides) continue
+        const formula = typeof definition === 'string' ? definition : definition?.formula
+        const value = evaluate(formula, context)
+        if (results[name] !== value) {
+          results[name] = value
+          context[name] = value
+          changed = true
+        }
       }
-    }
+    }, true)
     if (!changed) break
   }
   return results
@@ -999,7 +1052,7 @@ const UNEVALUATED = Symbol('unevaluated')
  * means a stored document drifted, and inventing a warning the author never
  * wrote would be worse than staying quiet.
  */
-export function runValidators(
+function runValidatorsWithin(
   document: ExpressionDocument | null | undefined,
   data: ExprContext | null | undefined
 ): ValidatorResult[] {
@@ -1033,7 +1086,7 @@ export function runValidators(
  * condition that cannot be evaluated shows the field, because hiding part of a
  * sheet over a broken expression loses the player access to their own data.
  */
-export function visibleFields(
+function visibleFieldsWithin(
   document: ExpressionDocument | null | undefined,
   data: ExprContext | null | undefined
 ): Record<string, boolean> {
@@ -1047,6 +1100,36 @@ export function visibleFields(
     }
   }
   return result
+}
+
+// Every formula a sheet computation runs shares one per-row budget (see
+// MAX_EACH_WORK), so each entry point opens it and the ones they call join it.
+export function buildContext(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ExprContext {
+  return withEachBudget(() => buildContextWithin(document, data))
+}
+
+export function computeValues(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ExprContext {
+  return withEachBudget(() => computeValuesWithin(document, data))
+}
+
+export function runValidators(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ValidatorResult[] {
+  return withEachBudget(() => runValidatorsWithin(document, data))
+}
+
+export function visibleFields(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): Record<string, boolean> {
+  return withEachBudget(() => visibleFieldsWithin(document, data))
 }
 
 // Whether one `visible_if` passes, for a layout section or a directive.
