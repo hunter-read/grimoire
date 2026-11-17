@@ -120,11 +120,14 @@ Key points:
 - **Handler → DB** - handlers open a session via `SessionLocal()` (or the `get_db`
   dependency) and return dicts/Pydantic models that FastAPI serializes to JSON.
 - **Static assets** - the Vite build's hashed assets are mounted at `/assets` via
-  `StaticFiles`. Any other non-`/api` path falls through to `serve_frontend`, which returns
+  `StaticFiles`. Any path no route takes falls through to `serve_frontend`, which returns
   the requested file if it exists (with a path-traversal guard) or `index.html` with
-  `Cache-Control: no-store` so the SPA can client-route. A missing `/.well-known/*` path
-  gets a JSON 404 instead, since clients probe those for discovery documents and parse
-  the answer as JSON.
+  `Cache-Control: no-store` so the SPA can client-route. HEAD gets the same answer as GET,
+  and other methods a 405. Paths under a server-side prefix - `/api`, `/mcp`, `/opds`,
+  `/.well-known`, and the OAuth fallbacks `/authorize`, `/token` and `/register` - are
+  never SPA routes, so a miss there gets a JSON 404 (or a 405 when another route takes the
+  path under a different method) instead: their callers parse the answer as JSON. See
+  [`backend/spa_fallback.py`](../backend/spa_fallback.py).
 
 ### Page images and caching
 

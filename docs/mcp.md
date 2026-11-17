@@ -122,6 +122,10 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
 - **`401`** - the key is missing, wrong or expired. Check the header name is exactly
   `X-API-Key`. Some clients react to a `401` by starting an OAuth sign-in, which Grimoire does not
   offer; fix the key rather than following that prompt.
+- **"Protected resource metadata not found", or a `404` from `/.well-known/...`,
+  `/authorize`, `/token` or `/register`** - the client got a `401` and went looking for an
+  OAuth sign-in, which Grimoire does not offer. It is the same problem as a `401`: send a
+  valid key in `X-API-Key`.
 - **`403` "API keys are disabled on this server"** - set `API_KEYS_ENABLED=true`.
 - **`403` "API keys are not enabled for your account"** - an admin needs to turn keys on for
   you in Settings → People.
@@ -130,7 +134,7 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
 - **`403` "This host name isn't allowed for MCP"** - the assistant reaches Grimoire at an
   address that isn't loopback or `BASE_URL`'s host, such as a LAN IP. Set `BASE_URL` to it, or
   add it to `MCP_ALLOWED_HOSTS`.
-- **`/mcp` returns the Grimoire web page, or `405` for `POST`** - `MCP_ENABLED` is not set.
+- **`/mcp` returns `404 Not Found`** - `MCP_ENABLED` is not set.
 - **`406 Not Acceptable`** - the client's `Accept` header excludes `application/json`. MCP clients send `application/json, text/event-stream`; a script calling `/mcp` directly should send that, or `*/*`.
 
 ## See also

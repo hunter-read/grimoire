@@ -19,6 +19,10 @@ and archive downloads, OIDC redirects, and the SPA catch-all.
 `backend/tests/test_openapi_response_models.py` enforces this: a new JSON route
 that omits its `response_model=` fails the suite.
 
+An `/api` address that no endpoint takes returns a JSON `404` (`{"detail": "Not Found"}`),
+and one called with a method it doesn't take returns a `405` with an `Allow` header. Neither
+returns the web app's page. The same goes for `/mcp` and `/opds` when they are turned off.
+
 ---
 
 ## Authentication
