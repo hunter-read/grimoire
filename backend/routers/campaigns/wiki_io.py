@@ -69,9 +69,9 @@ from ._wiki_map_io import (
     pins_frontmatter,
     pins_markdown,
 )
+from ._wiki_helpers import SlugAllocator
 from ._wiki_maps import MAP_PAGE_TYPE
 from .wiki import (
-    _ensure_unique_slug,
     _page_summary,
     can_view_page,
     rebuild_links,
@@ -1048,24 +1048,31 @@ def _order_parents_first(records: list) -> list:
     parent_key names no record in the set are treated as roots (the LK container
     they pointed at wasn't exported). Any cycle is broken by falling back to input
     order for the records left over.
+
+    Each record, in input order, brings its not-yet-placed ancestors in ahead of
+    it, nearest-to-the-root first. The walk up is a loop, not recursion: an
+    import may hold `_MAX_IMPORT_FILES` pages, and a chain that deep ran past
+    Python's recursion limit. Every record is walked over once, so the whole
+    ordering is linear in the number of records.
     """
     by_key = _parent_index(records)
     ordered = []
-    placed = set()
-
-    def place(rec, stack):
-        rid = id(rec)
-        if rid in placed or rid in stack:
-            return
-        parent = by_key.get(rec["parent_key"]) if rec["parent_key"] else None
-        if parent is not None and parent is not rec:
-            place(parent, stack | {rid})
-        if rid not in placed:
-            ordered.append(rec)
-            placed.add(rid)
+    placed: set = set()
 
     for rec in records:
-        place(rec, set())
+        # Climb from `rec` until reaching a placed record, a root, or a record
+        # already on this climb (a cycle - stop there, so it goes in as found).
+        chain = []
+        on_chain: set = set()
+        node = rec
+        while node is not None and id(node) not in placed and id(node) not in on_chain:
+            chain.append(node)
+            on_chain.add(id(node))
+            parent = by_key.get(node["parent_key"]) if node["parent_key"] else None
+            node = parent if parent is not node else None
+        for node in reversed(chain):
+            ordered.append(node)
+            placed.add(id(node))
     return ordered
 
 
@@ -1140,6 +1147,10 @@ def import_wiki(
     # `parent: <slug>` finds the record it names.
     by_key = _parent_index(records)
     key_to_id: dict = {}
+    # One query for the campaign's slugs, not one per page per suffix tried:
+    # an import of many same-titled pages probed its way up `-2`, `-3`, ...
+    # for each one in turn.
+    unique_slug = SlugAllocator(db, campaign_id)
     created = []
     created_records = []
     for rec in _order_parents_first(records):
@@ -1153,7 +1164,7 @@ def import_wiki(
         page = WikiPage(
             campaign_id=campaign_id,
             title=rec["title"],
-            slug=_ensure_unique_slug(db, campaign_id, slugify(rec["title"])),
+            slug=unique_slug(slugify(rec["title"])),
             body=_remap_links(rec["body"], key_to_title),
             visibility=rec["visibility"],
             page_type=rec["page_type"],

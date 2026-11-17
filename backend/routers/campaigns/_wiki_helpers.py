@@ -175,6 +175,34 @@ def _ensure_unique_slug(
         n += 1
 
 
+class SlugAllocator:
+    """Hand out unique slugs for a batch of new pages in one campaign.
+
+    The same answers as calling `_ensure_unique_slug` once per page, after each
+    earlier page was saved - but from one query for the campaign's slugs rather
+    than one per suffix tried, which made a batch of same-titled pages cost a
+    number of queries quadratic in its size. Each base slug remembers the last
+    suffix it handed out: slugs are only ever added during the batch, so no
+    smaller suffix can have come free since.
+    """
+
+    def __init__(self, db, campaign_id: str) -> None:
+        rows = db.query(WikiPage.slug).filter_by(campaign_id=campaign_id)
+        self._taken = {slug for (slug,) in rows}
+        self._next: dict[str, int] = {}
+
+    def __call__(self, base_slug: str) -> str:
+        slug = base_slug
+        if slug in self._taken:
+            n = self._next.get(base_slug, 2)
+            while f"{base_slug}-{n}" in self._taken:
+                n += 1
+            slug = f"{base_slug}-{n}"
+            self._next[base_slug] = n + 1
+        self._taken.add(slug)
+        return slug
+
+
 def resolve_link_target(db, campaign_id: str, link: LinkTarget):
     """Resolve a parsed [[...]] target to a WikiPage, or None.
 
