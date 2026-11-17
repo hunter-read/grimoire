@@ -32,7 +32,8 @@ export default function GuestShareDialog({ share, onClose }: GuestShareDialogPro
       setCopied(key)
       setTimeout(() => setCopied(''), 1500)
     } catch {
-      /* clipboard unavailable */
+      // Clipboard unavailable (insecure origin or denied permission): the button
+      // never says "Copied", and the message stays on screen to copy by hand.
     }
   }
 
@@ -80,10 +81,10 @@ export default function GuestShareDialog({ share, onClose }: GuestShareDialogPro
           {copied ? t('guests.copied') : ''}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <ShareBtn onClick={() => copy(share.message, 'msg')}>
+          <ShareBtn onClick={() => void copy(share.message, 'msg')}>
             <LuCopy size={13} /> {copied === 'msg' ? t('guests.copied') : t('guests.copyMessage')}
           </ShareBtn>
-          <ShareBtn onClick={() => copy(share.discord_message, 'discord')}>
+          <ShareBtn onClick={() => void copy(share.discord_message, 'discord')}>
             <LuCopy size={13} />{' '}
             {copied === 'discord' ? t('guests.copied') : t('guests.copyForDiscord')}
           </ShareBtn>

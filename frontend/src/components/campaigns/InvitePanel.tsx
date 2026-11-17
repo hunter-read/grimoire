@@ -101,7 +101,7 @@ export default function InvitePanel({ campaignId, onInvited }: InvitePanelProps)
                 </span>
                 <button
                   type="button"
-                  onClick={() => invite(u.id)}
+                  onClick={() => void invite(u.id)}
                   // One per user: say who.
                   aria-label={t('a11y.campaign.inviteNamed', {
                     name: u.display_name || u.username,

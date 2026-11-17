@@ -146,6 +146,33 @@ describe('ScheduleTab handleSetAvailability', () => {
     await waitFor(() => expect(campaigns.cancelDate).toHaveBeenCalledWith('c1', '2026-07-01'))
   })
 
+  it('shows the error when setting availability fails', async () => {
+    campaignsMock.setAvailability.mockRejectedValue(new Error('Could not save availability'))
+    render(<ScheduleTab campaign={campaign} isOwner={true} userId="gm1" />)
+    await waitFor(() => expect(screen.getByText('Frodo')).toBeTruthy())
+    campaignsMock.getAvailability.mockClear()
+
+    clickStatusForCell(1, 'Unavailable')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save availability')
+    // Nothing landed, so there is nothing to reload.
+    expect(campaigns.getAvailability).not.toHaveBeenCalled()
+  })
+
+  it('shows the error when cancelling a date fails', async () => {
+    campaignsMock.cancelDate.mockRejectedValue(new Error('Could not cancel'))
+    render(<ScheduleTab campaign={campaign} isOwner={true} userId="gm1" />)
+    await waitFor(() => expect(screen.getByText('Gandalf')).toBeTruthy())
+
+    const buttons = screen.getAllByTitle((_, el) =>
+      ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
+    )
+    fireEvent.click(buttons[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: /Cancel session/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not cancel')
+  })
+
   it('renders the schedule editor when no schedule is defined', async () => {
     campaignsMock.getSchedule.mockResolvedValue({
       definition: null,

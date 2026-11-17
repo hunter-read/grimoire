@@ -103,7 +103,13 @@ export default function GmScreenView() {
   }
 
   const exportBoard = async () => {
-    const document = await gmScreen.exportBoard(campaignId)
+    let document
+    try {
+      document = await gmScreen.exportBoard(campaignId)
+    } catch (e) {
+      setStatus((e as Error).message)
+      return
+    }
     const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = window.document.createElement('a')
@@ -125,8 +131,10 @@ export default function GmScreenView() {
   }
 
   const reset = async (scope: Scope) => {
-    await screen.reset(scope)
-    setStatus(t(`gmScreen.resets.done.${scope}`))
+    setStatus('')
+    // A failed reset is reported by the hook's alert; saying "done" beside it
+    // would contradict it.
+    if (await screen.reset(scope)) setStatus(t(`gmScreen.resets.done.${scope}`))
   }
 
   const toolbarBtn = { ...ghostBtn, padding: '7px 12px' }
@@ -187,7 +195,7 @@ export default function GmScreenView() {
             items={PANEL_KINDS.map((kind) => ({
               key: kind,
               label: kindTitle(kind),
-              onSelect: () => screen.addPanel(kind, kindTitle(kind)),
+              onSelect: () => void screen.addPanel(kind, kindTitle(kind)),
             }))}
           />
           {(['scene', 'session', 'rest'] as Scope[]).map((scope) => {
@@ -196,7 +204,7 @@ export default function GmScreenView() {
               <button
                 key={scope}
                 type="button"
-                onClick={() => reset(scope)}
+                onClick={() => void reset(scope)}
                 title={t(`gmScreen.resets.hint.${scope}`)}
                 style={toolbarBtn}
               >
@@ -228,7 +236,7 @@ export default function GmScreenView() {
                 key: 'export',
                 label: t('gmScreen.board.export'),
                 icon: <LuDownload size={14} aria-hidden="true" />,
-                onSelect: exportBoard,
+                onSelect: () => void exportBoard(),
                 disabled: !hasPanels,
               },
               {
@@ -278,7 +286,7 @@ export default function GmScreenView() {
           <div style={{ ...emptyState, display: 'grid', gap: 12, justifyItems: 'center' }}>
             <p style={{ margin: 0 }}>{t('gmScreen.empty')}</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button type="button" onClick={startBasic} style={goldBtn}>
+              <button type="button" onClick={() => void startBasic()} style={goldBtn}>
                 {t('gmScreen.startBasic')}
               </button>
               <button type="button" onClick={() => setDialog('presets')} style={ghostBtn}>
@@ -292,13 +300,13 @@ export default function GmScreenView() {
         ) : (
           <GmBoard
             panels={panels}
-            onMove={screen.moveCells}
+            onMove={(cells) => void screen.moveCells(cells)}
             renderPanel={(panel, handles) => (
               <GmPanel
                 panel={panel}
                 handles={handles}
-                onSave={(patch) => screen.savePanel(panel.id, patch)}
-                onRemove={() => screen.removePanel(panel.id)}
+                onSave={(patch) => void screen.savePanel(panel.id, patch)}
+                onRemove={() => void screen.removePanel(panel.id)}
               />
             )}
           />

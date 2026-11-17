@@ -259,7 +259,7 @@ export default function MergeDialog({ resourceType, ids, keepId, onClose, onDone
           </button>
           <button
             type="button"
-            onClick={link}
+            onClick={() => void link()}
             disabled={!ready}
             title={t('merge.linkHint')}
             style={{ ...secondaryBtn, opacity: ready ? 1 : 0.6 }}
@@ -268,7 +268,7 @@ export default function MergeDialog({ resourceType, ids, keepId, onClose, onDone
           </button>
           <button
             type="button"
-            onClick={merge}
+            onClick={() => void merge()}
             disabled={!ready}
             style={{ ...primaryBtn, opacity: ready ? 1 : 0.6 }}
           >

@@ -308,7 +308,7 @@ export default function BackupScheduleSection({ onSaved }: BackupScheduleSection
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             style={{
               display: 'inline-flex',

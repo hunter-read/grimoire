@@ -98,7 +98,7 @@ export default function ImageField({ name, label, value, readOnly = false, hideL
           </button>
           <button
             type="button"
-            onClick={remove}
+            onClick={() => void remove()}
             disabled={busy}
             aria-label={t('characters.removeImage', { label })}
             title={t('characters.removeImage', { label })}
@@ -115,7 +115,7 @@ export default function ImageField({ name, label, value, readOnly = false, hideL
           accept={IMAGE_ACCEPT}
           aria-label={t('characters.chooseImage', { label })}
           tabIndex={-1}
-          onChange={(event) => upload(event.target.files?.[0])}
+          onChange={(event) => void upload(event.target.files?.[0])}
           style={{ display: 'none' }}
         />
       ) : null}

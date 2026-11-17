@@ -125,8 +125,8 @@ export default function LogsTab() {
     }
   }, [level, user])
 
-  // Live tailing stops while nobody is using the tab and catches up on return.
-  useIdleAwareInterval(async () => {
+  // One live-tail poll. Never rejects: a missed poll is retried on the next tick.
+  const pollLive = async () => {
     if (!liveRef.current) return
     const seq = lastSeqRef.current
     if (seq === 0) return
@@ -144,7 +144,10 @@ export default function LogsTab() {
     } catch {
       // A missed poll is retried on the next tick.
     }
-  }, 1000)
+  }
+
+  // Live tailing stops while nobody is using the tab and catches up on return.
+  useIdleAwareInterval(() => void pollLive(), 1000)
 
   useEffect(() => {
     const id = setInterval(() => {

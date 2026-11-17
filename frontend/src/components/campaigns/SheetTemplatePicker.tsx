@@ -85,7 +85,7 @@ export default function SheetTemplatePicker({
           {items.map((item) => (
             <button
               key={item.id}
-              onClick={() => duplicate(sourceType, item.id)}
+              onClick={() => void duplicate(sourceType, item.id)}
               disabled={busy}
               style={{
                 textAlign: 'left',

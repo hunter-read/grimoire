@@ -246,7 +246,7 @@ export default function ScheduledRescanSection() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={saving}
               style={{
                 display: 'inline-flex',

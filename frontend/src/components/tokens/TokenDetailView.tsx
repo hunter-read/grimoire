@@ -15,6 +15,7 @@ import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import LoadError from '../LoadError'
 import useCancellableFetch from '../../hooks/useCancellableFetch'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -53,6 +54,9 @@ export default function TokenDetailView() {
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const imagePane = useRef<HTMLDivElement>(null)
+  // A failed edit says so in the sidebar and leaves the value as it was, rather
+  // than looking saved until the next reload.
+  const { run: runSave, error: saveError } = useAsyncAction()
 
   const tokenDetailPath = useCallback((id: string) => `/tokens/${id}`, [])
   const {
@@ -103,21 +107,27 @@ export default function TokenDetailView() {
   const isArchive = isArchiveMedia(token)
 
   const saveTokenTags = async (tags: string[]) => {
-    await api.patch(`/tokens/${tokenId}`, { tags })
-    setToken({ ...token, tags })
-    setEditingTokenTags(false)
+    await runSave(async () => {
+      await api.patch(`/tokens/${tokenId}`, { tags })
+      setToken({ ...token, tags })
+      setEditingTokenTags(false)
+    })
   }
 
   const saveFolderTags = async (tags: string[]) => {
-    await api.patch('/token-folders', { path: token.folder_path, tags })
-    setToken({ ...token, folder_tags: tags })
-    setEditingFolderTags(false)
+    await runSave(async () => {
+      await api.patch('/token-folders', { path: token.folder_path, tags })
+      setToken({ ...token, folder_tags: tags })
+      setEditingFolderTags(false)
+    })
   }
 
   const toggleExplicit = async () => {
     const next = !token.is_explicit
-    await api.patch(`/tokens/${tokenId}`, { is_explicit: next })
-    setToken({ ...token, is_explicit: next })
+    await runSave(async () => {
+      await api.patch(`/tokens/${tokenId}`, { is_explicit: next })
+      setToken({ ...token, is_explicit: next })
+    })
   }
 
   return (
@@ -317,6 +327,12 @@ export default function TokenDetailView() {
             {t('tokens.detail.title')}
           </h2>
 
+          {saveError && (
+            <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 16px' }}>
+              {saveError}
+            </p>
+          )}
+
           {canEdit && (
             <div style={{ marginBottom: 20 }}>
               <label
@@ -333,7 +349,7 @@ export default function TokenDetailView() {
                   id="token-is-explicit"
                   type="checkbox"
                   checked={token.is_explicit || false}
-                  onChange={toggleExplicit}
+                  onChange={() => void toggleExplicit()}
                   style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--danger)' }}
                 />
                 <span style={{ fontSize: 13, color: 'var(--danger)' }}>
@@ -376,7 +392,7 @@ export default function TokenDetailView() {
                 </h3>
                 <InlineTagEditor
                   tags={currentFolderTags}
-                  onSave={saveFolderTags}
+                  onSave={(tags) => void saveFolderTags(tags)}
                   onCancel={() => setEditingFolderTags(false)}
                   resourceType="token"
                 />
@@ -410,7 +426,7 @@ export default function TokenDetailView() {
               </h3>
               <InlineTagEditor
                 tags={token.tags}
-                onSave={saveTokenTags}
+                onSave={(tags) => void saveTokenTags(tags)}
                 onCancel={() => setEditingTokenTags(false)}
                 resourceType="token"
               />

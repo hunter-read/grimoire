@@ -90,7 +90,7 @@ export default function RulesetEntryDialog({
       }}
     >
       <form
-        onSubmit={save}
+        onSubmit={(event) => void save(event)}
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',

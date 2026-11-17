@@ -343,7 +343,7 @@ export default function TokenEditorView() {
       >
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => void navigate(-1)}
           aria-label={t('common.back')}
           style={iconBtn}
         >
@@ -400,7 +400,12 @@ export default function TokenEditorView() {
 
           {source && (
             <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              <button type="button" onClick={onDownload} disabled={!canSave} style={primaryBtn}>
+              <button
+                type="button"
+                onClick={() => void onDownload()}
+                disabled={!canSave}
+                style={primaryBtn}
+              >
                 {busy ? <Spinner size={13} /> : <LuDownload size={14} aria-hidden="true" />}
                 {t('tokenEditor.download')}
               </button>
@@ -479,8 +484,8 @@ export default function TokenEditorView() {
         <SendToCampaignDialog
           userId={user?.id}
           onClose={() => setChoosingDestination(false)}
-          onChooseMember={saveAsMemberToken}
-          onChooseCampaign={saveToCampaign}
+          onChooseMember={(choice) => void saveAsMemberToken(choice)}
+          onChooseCampaign={(choice) => void saveToCampaign(choice)}
         />
       )}
     </div>

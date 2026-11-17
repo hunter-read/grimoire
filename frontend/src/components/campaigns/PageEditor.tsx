@@ -733,7 +733,7 @@ export default function PageEditor({
         <button type="button" onClick={onCancel} style={ghostBtn}>
           {t('common.cancel')}
         </button>
-        <button type="button" onClick={save} disabled={saving} style={goldBtn}>
+        <button type="button" onClick={() => void save()} disabled={saving} style={goldBtn}>
           {saving ? t('wiki.saving') : t('common.save')}
         </button>
       </div>

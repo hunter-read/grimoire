@@ -319,7 +319,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
                   </select>
                   <button
                     type="button"
-                    onClick={createLink}
+                    onClick={() => void createLink()}
                     disabled={creating}
                     style={{ ...button(true), opacity: creating ? 0.6 : 1 }}
                   >
@@ -352,7 +352,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
                       fontSize: 13,
                     }}
                   />
-                  <button type="button" onClick={copy} style={button(false)}>
+                  <button type="button" onClick={() => void copy()} style={button(false)}>
                     {copied ? <LuCircleCheck size={13} /> : <LuCopy size={13} />}
                     {copied ? t('maps.otfbm.copied') : t('maps.otfbm.copy')}
                   </button>

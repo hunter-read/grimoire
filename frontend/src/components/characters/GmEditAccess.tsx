@@ -45,7 +45,7 @@ export default function GmEditAccess({ character, onChanged, onError }: Props) {
         type="checkbox"
         checked={Boolean(character.gm_can_edit)}
         disabled={busy}
-        onChange={(e) => toggle(e.target.checked)}
+        onChange={(e) => void toggle(e.target.checked)}
       />
       {t('characters.gmCanEdit')}
     </label>

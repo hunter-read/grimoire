@@ -132,14 +132,16 @@ describe('ScheduleSetup', () => {
     expect(campaigns.setSchedule).not.toHaveBeenCalled()
   })
 
-  it('keeps the toggle as-is when persisting the flag fails', async () => {
+  it('keeps the toggle as-is and says why when persisting the flag fails', async () => {
     campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
     campaignsMock.setSchedule.mockRejectedValue(new Error('boom'))
-    render(<ScheduleSetup campaign={campaign} />)
+    const onChanged = vi.fn()
+    render(<ScheduleSetup campaign={campaign} onChanged={onChanged} />)
     await screen.findByText('schedule.edit')
     fireEvent.click(screen.getByRole('switch'))
-    await waitFor(() => expect(campaigns.setSchedule).toHaveBeenCalled())
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
     expect(screen.getByText('campaignEditor.scheduleEnabled')).toBeInTheDocument()
+    expect(onChanged).not.toHaveBeenCalled()
   })
 
   it('summarises custom dates by count', async () => {

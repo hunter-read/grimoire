@@ -75,9 +75,8 @@ export default function ReaderView() {
   const goBack = () => {
     if (!confirmLeavePdf()) return
     pdfDirtyRef.current = false
-    return backPathRef.current
-      ? navigate(backPathRef.current, { state: { restoreView: true } })
-      : navigate(-1)
+    if (backPathRef.current) void navigate(backPathRef.current, { state: { restoreView: true } })
+    else void navigate(-1)
   }
 
   const _prefs = getBookPrefs(bookId)
@@ -126,6 +125,9 @@ export default function ReaderView() {
   const [showShortcuts, setShowShortcuts] = useState(false)
 
   const { isFavorite, toggleFavorite } = useFavorites()
+  // The toolbar's favorite: a failed toggle leaves the heart as it was and
+  // says why under the toolbar.
+  const { run: runFavorite, error: favoriteError } = useAsyncAction()
   // Said aloud for a shortcut that changes something with no visible focus
   // change to show for it (the favorite heart).
   const [announcement, setAnnouncement] = useState('')
@@ -714,7 +716,7 @@ export default function ReaderView() {
         onToggleShortcuts={() => setShowShortcuts((v) => !v)}
         onBack={goBack}
         isFavorite={isFavorite('book', bookId)}
-        onToggleFavorite={() => toggleFavorite('book', bookId)}
+        onToggleFavorite={() => void runFavorite(() => toggleFavorite('book', bookId))}
         onBookmarkPage={() => {
           setPendingBookmark({ page: currentPage })
           setPendingLabel('')
@@ -726,7 +728,7 @@ export default function ReaderView() {
           // from a path this view already resolved, so both leave the reader.
           // A rename is safe to stay on: the record — and so every page URL,
           // which is keyed by id — is unchanged.
-          if (action === 'delete' || action === 'move') void goBack()
+          if (action === 'delete' || action === 'move') goBack()
         }}
         zoom={zoom}
         canZoomIn={canZoomIn}
@@ -736,6 +738,21 @@ export default function ReaderView() {
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
       />
+
+      {favoriteError && (
+        <p
+          role="alert"
+          style={{
+            margin: 0,
+            padding: '4px 12px',
+            fontSize: 12,
+            color: 'var(--danger)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          {favoriteError}
+        </p>
+      )}
 
       {/* Where the reader is, said again whenever the page turns. */}
       {mode !== 'pdf' && totalPages > 0 && (

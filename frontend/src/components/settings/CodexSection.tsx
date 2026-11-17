@@ -136,7 +136,7 @@ export default function CodexSection() {
             id="codex-send-hashes"
             checked={values.send_hashes}
             disabled={saving || locked('send_hashes')}
-            onChange={(v) => save({ send_hashes: v })}
+            onChange={(v) => void save({ send_hashes: v })}
             label={t('codex.settings.sendHashes')}
             hint={
               locked('send_hashes')

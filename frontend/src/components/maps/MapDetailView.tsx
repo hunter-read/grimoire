@@ -10,6 +10,7 @@ import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import LoadError from '../LoadError'
 import useCancellableFetch from '../../hooks/useCancellableFetch'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
 import MapPdfViewer from './MapPdfViewer'
@@ -64,6 +65,9 @@ export default function MapDetailView() {
   const [editingGrid, setEditingGrid] = useState(false)
   const [vttData, setVttData] = useState<VttData | null>(null)
   const imagePane = useRef<HTMLDivElement>(null)
+  // A tag save that fails keeps the editor open and says so, rather than
+  // dropping the change without a word.
+  const tagSave = useAsyncAction()
 
   const mapDetailPath = useCallback((id: string) => `/maps/${id}`, [])
   const {
@@ -130,17 +134,19 @@ export default function MapDetailView() {
   const isVideo = map.media_kind === 'video'
   const isVtt = map.media_kind === 'vtt'
 
-  const saveMapTags = async (tags: string[]) => {
-    await api.patch(`/maps/${mapId}`, { tags })
-    setMap({ ...map, tags })
-    setEditingMapTags(false)
-  }
+  const saveMapTags = (tags: string[]) =>
+    void tagSave.run(async () => {
+      await api.patch(`/maps/${mapId}`, { tags })
+      setMap({ ...map, tags })
+      setEditingMapTags(false)
+    })
 
-  const saveFolderTags = async (tags: string[]) => {
-    await api.patch('/map-folders', { path: map.folder_path, tags })
-    setMap({ ...map, folder_tags: tags })
-    setEditingFolderTags(false)
-  }
+  const saveFolderTags = (tags: string[]) =>
+    void tagSave.run(async () => {
+      await api.patch('/map-folders', { path: map.folder_path, tags })
+      setMap({ ...map, folder_tags: tags })
+      setEditingFolderTags(false)
+    })
 
   const gridSourceLabel: Record<string, string> = {
     filename: t('maps.detail.gridSourceFilename'),
@@ -526,6 +532,12 @@ export default function MapDetailView() {
                 </div>
               )}
             </div>
+          )}
+
+          {tagSave.error && (
+            <p role="alert" style={{ margin: '12px 0 0', fontSize: 13, color: 'var(--danger)' }}>
+              {tagSave.error}
+            </p>
           )}
 
           {/* Folder tags */}

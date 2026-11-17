@@ -186,7 +186,7 @@ export function useLibraryPane(initialPath = '') {
   // rather than the pane root.
   const refresh = useCallback(() => {
     const targets = new Set([path, ...expanded])
-    targets.forEach((target) => load(target))
+    targets.forEach((target) => void load(target))
   }, [load, path, expanded])
 
   /**

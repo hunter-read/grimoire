@@ -130,7 +130,7 @@ export default function BookCoverUpload({ book, onChange }: BookCoverUploadProps
         {custom && (
           <button
             type="button"
-            onClick={() => remove()}
+            onClick={() => void remove()}
             disabled={busy}
             style={{
               display: 'flex',

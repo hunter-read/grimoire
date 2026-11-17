@@ -41,6 +41,7 @@ export default function BulkActionBar({
 }: Props) {
   const { t } = useTranslation()
   const [tagInput, setTagInput] = useState('')
+  const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -55,7 +56,14 @@ export default function BulkActionBar({
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean)
     if (!tags.length || disabled || applying || !onApplyTags) return
-    await onApplyTags(tags)
+    setError('')
+    try {
+      await onApplyTags(tags)
+    } catch (e) {
+      // Keep what was typed so the tags can be retried as they are.
+      setError((e as Error | undefined)?.message || t('common.error'))
+      return
+    }
     setTagInput('')
     inputRef.current?.focus()
   }
@@ -101,16 +109,24 @@ export default function BulkActionBar({
             aria-label={t('bulk.tagsPlaceholder')}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applyTags()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void applyTags()
+            }}
             placeholder={t('bulk.tagsPlaceholder')}
             style={{ gridArea: 'input', fontSize: 14, width: '100%', boxSizing: 'border-box' }}
           />
         )}
 
+        {error && (
+          <span role="alert" style={{ gridColumn: '1 / -1', fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </span>
+        )}
+
         <div className="bulk-bar-actions">
           {onApplyTags && (
             <button
-              onClick={applyTags}
+              onClick={() => void applyTags()}
               disabled={!tagInput.trim() || disabled || applying}
               style={{
                 ...goldBtn,

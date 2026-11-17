@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import { settings as settingsApi } from '../../api'
 import type { BodyOf, Schema } from '../../api'
 import Spinner from '../Spinner'
+import { failureMessage } from './useInstantSettings'
 
 type UploadKey =
   'campaign_uploads_disabled' | 'campaign_upload_max_file_mb' | 'campaign_upload_max_total_mb'
@@ -23,20 +24,27 @@ export default function CampaignUploadsSection() {
   const [values, setValues] = useState<UploadValues | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  // The values in force on the server, to put back when a save is refused.
+  const stored = useRef<UploadValues | null>(null)
 
   useEffect(() => {
+    const show = (loaded: UploadValues) => {
+      stored.current = loaded
+      setValues(loaded)
+    }
     settingsApi
       .get()
       .then((res) => {
         const d = res as UploadSettings
-        setValues({
+        show({
           campaign_uploads_disabled: !!d.campaign_uploads_disabled,
           campaign_upload_max_file_mb: d.campaign_upload_max_file_mb ?? 0,
           campaign_upload_max_total_mb: d.campaign_upload_max_total_mb ?? 0,
         })
       })
       .catch(() =>
-        setValues({
+        show({
           campaign_uploads_disabled: false,
           campaign_upload_max_file_mb: 0,
           campaign_upload_max_total_mb: 0,
@@ -47,11 +55,25 @@ export default function CampaignUploadsSection() {
   const save = async (patch: BodyOf<'/settings', 'patch'>) => {
     setValues((v) => ({ ...v!, ...patch }) as UploadValues)
     setSaving(true)
+    setSaved(false)
+    setError('')
     try {
       await settingsApi.patch(patch)
+      stored.current = { ...stored.current!, ...patch } as UploadValues
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       window.dispatchEvent(new CustomEvent('grimoire:settings-changed'))
+    } catch (e) {
+      // Put the refused field back, so the page never shows a value not in force.
+      const keys = Object.keys(patch) as UploadKey[]
+      setValues(
+        (v) =>
+          ({
+            ...v!,
+            ...Object.fromEntries(keys.map((k) => [k, stored.current?.[k] ?? v![k]])),
+          }) as UploadValues
+      )
+      setError(failureMessage(e, t))
     } finally {
       setSaving(false)
     }
@@ -93,7 +115,7 @@ export default function CampaignUploadsSection() {
               id="campaign_uploads_disabled"
               type="checkbox"
               checked={values.campaign_uploads_disabled}
-              onChange={(e) => save({ campaign_uploads_disabled: e.target.checked })}
+              onChange={(e) => void save({ campaign_uploads_disabled: e.target.checked })}
               style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }}
             />
             <span style={{ fontSize: 14, color: 'var(--text)' }}>
@@ -124,7 +146,7 @@ export default function CampaignUploadsSection() {
                 aria-describedby="campaign-uploads-hint"
                 value={values[key]}
                 onChange={(e) => setValues((v) => ({ ...v!, [key]: e.target.value }))}
-                onBlur={(e) => save({ [key]: parseInt(e.target.value) || 0 })}
+                onBlur={(e) => void save({ [key]: parseInt(e.target.value) || 0 })}
                 style={{
                   width: 90,
                   padding: '6px 8px',
@@ -144,6 +166,11 @@ export default function CampaignUploadsSection() {
           >
             {t('appSettings.campaignUploads.hint')}
           </p>
+          {error && (
+            <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>
+              {error}
+            </p>
+          )}
         </div>
       )}
     </div>

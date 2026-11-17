@@ -15,7 +15,8 @@ interface GridWarning {
 
 export interface MapGridEditorProps {
   map: Pick<Schema<'MapDetailResponse'>, 'id' | 'grid' | 'grid_width' | 'grid_height' | 'grid_px'>
-  onSaved: () => void
+  /** Awaited, so a failed reload after the save shows here like a failed save. */
+  onSaved: () => void | Promise<void>
   onCancel: () => void
 }
 
@@ -61,9 +62,11 @@ export default function MapGridEditor({ map, onSaved, onCancel }: MapGridEditorP
   const [cellPx, setCellPx] = useState(String(map.grid_px ?? detected.cell_px ?? ''))
   const [warning, setWarning] = useState<GridWarning | null>(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const save = async () => {
     setSaving(true)
+    setError('')
     try {
       const res = (await api.patch(`/maps/${map.id}`, {
         grid_width: toNumber(width),
@@ -77,18 +80,21 @@ export default function MapGridEditor({ map, onSaved, onCancel }: MapGridEditorP
         setSaving(false)
         return
       }
-      onSaved()
-    } catch {
+      await onSaved()
+    } catch (e) {
+      setError((e as Error | undefined)?.message || t('common.error'))
       setSaving(false)
     }
   }
 
   const clear = async () => {
     setSaving(true)
+    setError('')
     try {
       await api.patch(`/maps/${map.id}`, { grid_width: 0, grid_height: 0, grid_px: 0 })
-      onSaved()
-    } catch {
+      await onSaved()
+    } catch (e) {
+      setError((e as Error | undefined)?.message || t('common.error'))
       setSaving(false)
     }
   }
@@ -173,8 +179,14 @@ export default function MapGridEditor({ map, onSaved, onCancel }: MapGridEditorP
         </div>
       )}
 
+      {error && (
+        <p role="alert" style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--danger)' }}>
+          {error}
+        </p>
+      )}
+
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={save} disabled={saving} style={btnStyle}>
+        <button type="button" onClick={() => void save()} disabled={saving} style={btnStyle}>
           {warning ? t('maps.detail.gridSaveAnyway') : t('common.save')}
         </button>
         <button type="button" onClick={onCancel} disabled={saving} style={btnStyle}>
@@ -183,7 +195,7 @@ export default function MapGridEditor({ map, onSaved, onCancel }: MapGridEditorP
         {(map.grid_width || map.grid_height) && (
           <button
             type="button"
-            onClick={clear}
+            onClick={() => void clear()}
             disabled={saving}
             style={{ ...btnStyle, marginLeft: 'auto' }}
           >

@@ -49,7 +49,10 @@ export default [
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
-    rules: { '@typescript-eslint/no-floating-promises': 'error' },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: true }],
+    },
   },
   {
     // Test files legitimately define local wrapper/harness components.

@@ -210,6 +210,8 @@ export default function CampaignDetailView() {
 
   const { setAvailability: handleSetAvailability, cancelDate: handleCancelDate } =
     useAvailabilityActions(campaignId, user?.id, loadAvailability)
+  // The actions reject on failure; run() turns that into a message by the chart.
+  const { run: runAvailability, error: availabilityError } = useAsyncAction()
 
   if (error) {
     return (
@@ -761,9 +763,19 @@ export default function CampaignDetailView() {
               availability={availability}
               userId={user?.id}
               isOwner={canManage}
-              onSetAvailability={handleSetAvailability}
-              onCancelDate={handleCancelDate}
+              onSetAvailability={(date, status, uid) =>
+                void runAvailability(() => handleSetAvailability(date, status, uid))
+              }
+              onCancelDate={(date) => void runAvailability(() => handleCancelDate(date))}
             />
+            {availabilityError && (
+              <p
+                role="alert"
+                style={{ fontSize: 13, color: 'var(--danger)', margin: '8px 0 0', flexShrink: 0 }}
+              >
+                {availabilityError}
+              </p>
+            )}
           </div>
         )}
       </div>

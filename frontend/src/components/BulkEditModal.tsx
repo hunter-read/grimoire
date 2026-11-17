@@ -436,7 +436,7 @@ export default function BulkEditModal({
             {t('common.cancel')}
           </button>
           <button
-            onClick={saveAll}
+            onClick={() => void saveAll()}
             disabled={saving}
             style={{ ...goldBtn, opacity: saving ? 0.5 : 1 }}
           >

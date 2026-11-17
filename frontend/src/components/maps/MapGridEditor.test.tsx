@@ -111,13 +111,38 @@ describe('MapGridEditor', () => {
     )
   })
 
-  it('stays open when the save fails', async () => {
+  it('stays open and says why when the save fails', async () => {
     vi.mocked(api.patch).mockRejectedValue(new Error('nope'))
     const onSaved = vi.fn()
     render(<MapGridEditor map={baseMap} onSaved={onSaved} onCancel={vi.fn()} />)
     await userEvent.click(screen.getByText('common.save'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
     await waitFor(() => expect(screen.getByText('common.save')).toBeEnabled())
     expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  it('shows the error when clearing the override fails', async () => {
+    vi.mocked(api.patch).mockRejectedValue(new Error('clear failed'))
+    const onSaved = vi.fn()
+    render(
+      <MapGridEditor
+        map={{ ...baseMap, grid_width: 10.5, grid_height: 14.5 }}
+        onSaved={onSaved}
+        onCancel={vi.fn()}
+      />
+    )
+    await userEvent.click(screen.getByText('maps.detail.gridReset'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('clear failed')
+    expect(onSaved).not.toHaveBeenCalled()
+    expect(screen.getByText('maps.detail.gridReset')).toBeEnabled()
+  })
+
+  it('shows the error when reloading the saved map fails', async () => {
+    const onSaved = vi.fn().mockRejectedValue(new Error('reload failed'))
+    render(<MapGridEditor map={baseMap} onSaved={onSaved} onCancel={vi.fn()} />)
+    await userEvent.click(screen.getByText('common.save'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('reload failed')
+    await waitFor(() => expect(screen.getByText('common.save')).toBeEnabled())
   })
 
   it('cancels without saving', async () => {

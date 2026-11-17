@@ -95,7 +95,7 @@ export default function DatabaseCleanupSection() {
 
       <button
         type="button"
-        onClick={findMissing}
+        onClick={() => void findMissing()}
         disabled={busy !== null}
         style={{
           ...dangerButton,
@@ -185,7 +185,7 @@ export default function DatabaseCleanupSection() {
           title={t('maintenance.cleanup.confirmTitle')}
           message={t('maintenance.cleanup.confirmMessage')}
           confirmLabel={t('maintenance.cleanup.confirmButton', { count: missingTotal })}
-          onConfirm={remove}
+          onConfirm={() => void remove()}
           onClose={() => setPreview(null)}
         >
           <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.7 }}>

@@ -75,7 +75,7 @@ export default function CharacterPlacement({
     <>
       <select
         value={character.campaign_id || ''}
-        onChange={(e) => save({ campaign_id: e.target.value })}
+        onChange={(e) => void save({ campaign_id: e.target.value })}
         disabled={busy}
         aria-label={t('characters.campaign')}
         title={t('characters.campaignHelp')}
@@ -90,7 +90,7 @@ export default function CharacterPlacement({
       </select>
       <select
         value={status}
-        onChange={(e) => save({ status: e.target.value })}
+        onChange={(e) => void save({ status: e.target.value })}
         disabled={busy}
         aria-label={t('characters.status')}
         title={t('characters.statusHelp')}

@@ -102,7 +102,7 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={handleDelete}
+              onClick={() => void handleDelete()}
               disabled={deleting}
               style={{
                 padding: '7px 16px',

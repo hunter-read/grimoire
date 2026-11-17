@@ -51,6 +51,17 @@ describe('FolderCategorySection', () => {
     )
   })
 
+  it('reverts the box and shows the error when saving fails', async () => {
+    mockSettings()
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('save failed'))
+    render(<FolderCategorySection />)
+    const checkbox = await screen.findByLabelText('Disable folder-name category inference')
+    fireEvent.click(checkbox)
+    expect(await screen.findByRole('alert')).toHaveTextContent('save failed')
+    expect(checkbox).not.toBeChecked()
+    await waitFor(() => expect(checkbox).not.toBeDisabled())
+  })
+
   it('disables the toggle and shows a notice when env-locked', async () => {
     mockSettings({
       disable_folder_category_inference: true,

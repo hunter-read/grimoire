@@ -74,7 +74,9 @@ export default function NotePanel({ panel }: PanelBodyProps) {
         pages={titles}
         currentPageId={page.id}
         headingLevelOffset={2}
-        onOpenPage={(target) => target && navigate(notesUrl(target.id))}
+        onOpenPage={(target) => {
+          if (target) void navigate(notesUrl(target.id))
+        }}
       />
     </div>
   )

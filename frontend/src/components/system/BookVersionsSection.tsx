@@ -221,7 +221,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
                 aria-label={t('variants.changeKind')}
                 value={entry.kind}
                 disabled={busy}
-                onChange={(e) => changeKind(entry, e.target.value)}
+                onChange={(e) => void changeKind(entry, e.target.value)}
                 style={{
                   background: 'var(--bg-card)',
                   color: 'var(--text)',
@@ -244,7 +244,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => makeMain(entry.id)}
+                onClick={() => void makeMain(entry.id)}
                 style={btnStyle}
               >
                 {t('variants.makeMain')}
@@ -252,7 +252,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => unlink(entry.id)}
+                onClick={() => void unlink(entry.id)}
                 style={btnStyle}
               >
                 {t('variants.unlink')}
@@ -300,7 +300,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => remove(entry.id, true)}
+                onClick={() => void remove(entry.id, true)}
                 style={{ ...btnStyle, color: 'var(--danger)' }}
               >
                 {t('variants.deleteFile')}
@@ -308,7 +308,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => remove(entry.id, false)}
+                onClick={() => void remove(entry.id, false)}
                 style={btnStyle}
               >
                 {t('variants.deleteEntryOnly')}

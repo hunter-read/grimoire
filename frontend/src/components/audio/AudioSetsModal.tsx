@@ -203,7 +203,7 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
                         e.stopPropagation()
                         setRenaming(null)
                       }}
-                      onBlur={() => submitRename(set)}
+                      onBlur={() => void submitRename(set)}
                       aria-label={t('audioSets.renameLabel', { name: set.name })}
                       style={{ ...inlineInput, flex: 1 }}
                     />
@@ -256,7 +256,8 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => remove(set.id)}
+                        // remove() reports its own failure through the hook's error.
+                        onClick={() => void remove(set.id)}
                         aria-label={t('audioSets.delete', { name: set.name })}
                         title={t('audioSets.delete', { name: set.name })}
                         style={{ ...iconBtn, color: 'var(--danger)' }}
@@ -278,7 +279,7 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => doLoad(confirming!.set, confirming!.append)}
+                        onClick={() => void doLoad(confirming!.set, confirming!.append)}
                         style={goldBtn}
                       >
                         {t('audioSets.replace')}

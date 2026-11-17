@@ -223,7 +223,7 @@ export default function FolderAccessSection() {
         <ConfirmModal
           title={t('appSettings.folderAccess.removeTitle')}
           message={t('appSettings.folderAccess.removeConfirm', { path: removing.path })}
-          onConfirm={remove}
+          onConfirm={() => void remove()}
           onClose={() => setRemoving(null)}
         />
       )}

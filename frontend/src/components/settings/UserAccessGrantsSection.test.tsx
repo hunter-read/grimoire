@@ -106,6 +106,20 @@ describe('UserAccessGrantsSection', () => {
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/users/u1/access-grants/g1'))
   })
 
+  it('surfaces a failure to revoke a grant and keeps the row', async () => {
+    mockApi({
+      grants: [{ id: 'g1', scope_type: 'system', scope_id: 's1', scope_name: 'D&D', level: 'gm' }],
+    })
+    vi.mocked(api.delete).mockRejectedValue(new Error('revoke refused'))
+    render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
+    const revoke = await screen.findByRole('button', { name: 'a11y.settingsAccess.revokeGrant' })
+    fireEvent.click(revoke)
+    expect(await screen.findByRole('alert')).toHaveTextContent('revoke refused')
+    expect(screen.getByRole('status')).toHaveTextContent('')
+    expect(screen.getByText(/D&D/)).toBeInTheDocument()
+    await waitFor(() => expect(revoke).not.toBeDisabled())
+  })
+
   it('surfaces a failure to create a grant', async () => {
     mockApi({ systems: [{ id: 's1', name: 'Ravenloft', access_level: 'admin' }] })
     vi.mocked(api.post).mockRejectedValue(new Error('denied'))

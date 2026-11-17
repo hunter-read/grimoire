@@ -244,7 +244,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
           ) : (
             <>
               {config.password_auth_enabled && (
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={(e) => void handleSubmit(e)}>
                   <div style={{ marginBottom: 16 }}>
                     <label htmlFor="login-username" style={labelStyle}>
                       {t('login.username')}
@@ -359,7 +359,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
                   {t('login.haveInviteCode')}
                 </button>
               ) : (
-                <form onSubmit={handleGuestSubmit}>
+                <form onSubmit={(e) => void handleGuestSubmit(e)}>
                   <label htmlFor="guest-code" style={labelStyle}>
                     {t('login.inviteCode')}
                   </label>

@@ -229,7 +229,7 @@ export default function AppearanceSection() {
               </span>
               <button
                 type="button"
-                onClick={() => remove(theme.id)}
+                onClick={() => void remove(theme.id)}
                 disabled={busy}
                 aria-label={t('appearance.remove', { name: theme.name })}
                 style={{ background: 'none', color: 'var(--danger)', display: 'flex', padding: 4 }}
@@ -345,7 +345,7 @@ export default function AppearanceSection() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => install(theme.id)}
+                    onClick={() => void install(theme.id)}
                     disabled={busy}
                     aria-label={t('a11y.settings.installNamed', { name: theme.name })}
                     style={actionStyle}

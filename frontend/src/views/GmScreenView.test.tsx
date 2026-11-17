@@ -146,6 +146,30 @@ describe('GmScreenView', () => {
     expect(api.reset.mock.calls.map((call) => call[1])).toEqual(['scene', 'session', 'rest'])
   })
 
+  it('does not call a failed reset done', async () => {
+    api.reset.mockResolvedValueOnce({ panels: [{ ...counter, state: { value: 0 } }] })
+    renderView()
+    await screen.findByRole('heading', { name: 'Fear' })
+    fireEvent.click(screen.getByRole('button', { name: /End scene/ }))
+    expect(await screen.findByText('Scene ended.')).toBeInTheDocument()
+
+    api.reset.mockRejectedValueOnce(new Error('Campaign is archived'))
+    fireEvent.click(screen.getByRole('button', { name: /End session/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Campaign is archived')
+    // Neither this reset's "done" nor the last one's is left beside the error.
+    expect(screen.queryByText('Session ended.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Scene ended.')).not.toBeInTheDocument()
+  })
+
+  it('reports an export that fails', async () => {
+    api.exportBoard.mockRejectedValue(new Error('Export failed'))
+    renderView()
+    await screen.findByRole('heading', { name: 'Fear' })
+    fireEvent.click(screen.getByRole('button', { name: /Board/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Export' }))
+    expect(await screen.findByText('Export failed')).toBeInTheDocument()
+  })
+
   it('copies another campaign’s board below this one', async () => {
     api.sources.mockResolvedValue({
       campaigns: [

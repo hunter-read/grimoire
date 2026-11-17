@@ -139,6 +139,26 @@ describe('CampaignsView', () => {
     )
   })
 
+  it('says so and keeps the invite when answering it fails', async () => {
+    const invite = {
+      ...joinedGmCampaign,
+      id: 'c3',
+      name: 'Curse of Strahd',
+      invitation_status: 'invited',
+    }
+    mockCampaigns.list.mockResolvedValue([invite])
+    mockCampaigns.updateMember.mockRejectedValue(new Error('invite expired'))
+    const changed = vi.fn()
+    window.addEventListener('grimoire:campaigns-changed', changed)
+    renderView()
+    fireEvent.click(await screen.findByText('Accept'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('invite expired')
+    expect(screen.getByText('Accept')).toBeTruthy()
+    expect(mockCampaigns.list).toHaveBeenCalledTimes(1)
+    expect(changed).not.toHaveBeenCalled()
+    window.removeEventListener('grimoire:campaigns-changed', changed)
+  })
+
   it('shows empty state when there are no campaigns', async () => {
     mockCampaigns.list.mockResolvedValue([])
     renderView()

@@ -123,7 +123,7 @@ export default function DeleteModal<E extends DeleteTarget>({
       <form
         style={panel}
         onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
+        onSubmit={(e) => void submit(e)}
         role="dialog"
         aria-modal="true"
         aria-label={deleteFiles ? t('files.deleteTitle') : t('files.removeTitle')}

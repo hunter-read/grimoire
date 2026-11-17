@@ -26,7 +26,7 @@ export default function DisplayNameSection() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError((err as Error | null)?.message || t('common.save'))
+      setError((err as Error | null)?.message || t('common.error'))
     } finally {
       setSaving(false)
     }
@@ -40,7 +40,7 @@ export default function DisplayNameSection() {
         {t('userSettings.displayName.description')}
       </p>
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => void handleSubmit(e)}
         style={{
           display: 'flex',
           gap: 10,

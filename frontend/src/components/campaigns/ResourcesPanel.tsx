@@ -150,24 +150,41 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
 
   const members = (campaign.members || []).filter((m) => !m.is_owner)
 
-  const remove = async (resource: Resource) => {
-    if (resource.resource_type === 'file' && !confirm(t('resources.deleteFileConfirm'))) return
-    await campaigns.removeResource(campaign.id, resource.id)
+  // A row action that fails says so, the way a failed upload does, then
+  // reloads so the list shows what the server actually holds - a drop that
+  // moved a resource to a new category may have half-landed.
+  const reportFailure = (err: unknown) => {
+    alert((err as Error | undefined)?.message || t('common.error'))
     load()
   }
 
-  const setVisibility = async (resourceId: string, visibility: string) => {
-    await campaigns.updateResource(campaign.id, resourceId, { visibility })
-    load()
+  const remove = async (resource: Resource) => {
+    if (resource.resource_type === 'file' && !confirm(t('resources.deleteFileConfirm'))) return
+    try {
+      await campaigns.removeResource(campaign.id, resource.id)
+      load()
+    } catch (err) {
+      reportFailure(err)
+    }
   }
-  const setShares = async (resourceId: string, ids: string[]) => {
-    await campaigns.updateResource(campaign.id, resourceId, { shared_user_ids: ids })
-    load()
+
+  const updateResource = async (
+    resourceId: string,
+    data: Parameters<typeof campaigns.updateResource>[2]
+  ) => {
+    try {
+      await campaigns.updateResource(campaign.id, resourceId, data)
+      load()
+    } catch (err) {
+      reportFailure(err)
+    }
   }
-  const setCategory = async (resourceId: string, categoryId: string) => {
-    await campaigns.updateResource(campaign.id, resourceId, { category_id: categoryId || '' })
-    load()
-  }
+  const setVisibility = (resourceId: string, visibility: string) =>
+    updateResource(resourceId, { visibility })
+  const setShares = (resourceId: string, ids: string[]) =>
+    updateResource(resourceId, { shared_user_ids: ids })
+  const setCategory = (resourceId: string, categoryId: string) =>
+    updateResource(resourceId, { category_id: categoryId || '' })
 
   const uploadDisabled = ui.campaign_uploads_disabled && user?.role !== 'admin'
 
@@ -210,14 +227,18 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
     if (!id || id === target.id) return
     // Reorder: place dragged before target, and adopt target's category.
     const dragged = resources!.find((r) => r.id === id)
-    if (dragged && (dragged.category_id || '') !== (target.category_id || '')) {
-      await campaigns.updateResource(campaign.id, id, { category_id: target.category_id || '' })
+    try {
+      if (dragged && (dragged.category_id || '') !== (target.category_id || '')) {
+        await campaigns.updateResource(campaign.id, id, { category_id: target.category_id || '' })
+      }
+      const ids = resources!.map((r) => r.id).filter((x) => x !== id)
+      const idx = ids.indexOf(target.id)
+      ids.splice(idx, 0, id)
+      await campaigns.reorderResources(campaign.id, ids)
+      load()
+    } catch (err) {
+      reportFailure(err)
     }
-    const ids = resources!.map((r) => r.id).filter((x) => x !== id)
-    const idx = ids.indexOf(target.id)
-    ids.splice(idx, 0, id)
-    await campaigns.reorderResources(campaign.id, ids)
-    load()
   }
 
   /** Move `resource` one place up or down among the rows of its group. */
@@ -228,7 +249,13 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
     const ids = resources.map((r) => r.id).filter((x) => x !== resource.id)
     ids.splice(ids.indexOf(neighbour.id) + (direction === 1 ? 1 : 0), 0, resource.id)
     refocusMove.current = `${resource.id}:${direction}`
-    await campaigns.reorderResources(campaign.id, ids)
+    try {
+      await campaigns.reorderResources(campaign.id, ids)
+    } catch (err) {
+      // Nothing moved, so announce nothing.
+      reportFailure(err)
+      return
+    }
     setMoveMessage(
       t('a11y.campaign.moved', {
         name: resource.name || resource.resource_id,
@@ -333,7 +360,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
             <input
               ref={fileInputRef}
               type="file"
-              onChange={handleFile}
+              onChange={(e) => void handleFile(e)}
               style={{ display: 'none' }}
             />
           </div>
@@ -376,7 +403,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
               <section
                 key={g.key}
                 onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
-                onDrop={isOwner ? () => onDropToGroup(g) : undefined}
+                onDrop={isOwner ? () => void onDropToGroup(g) : undefined}
                 style={{ marginBottom: 4 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -471,7 +498,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
                       <li
                         key={r.id}
                         onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
-                        onDrop={isOwner ? (e) => onDropOnResource(e, r) : undefined}
+                        onDrop={isOwner ? (e) => void onDropOnResource(e, r) : undefined}
                       >
                         <ResourceRow
                           campaignId={campaign.id}
@@ -480,13 +507,15 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
                           isGmCampaign={isGmCampaign}
                           members={members}
                           categories={categories}
-                          onRemove={remove}
-                          onSetVisibility={setVisibility}
-                          onSetShares={setShares}
-                          onSetCategory={setCategory}
+                          onRemove={(res) => void remove(res)}
+                          onSetVisibility={(id, v) => void setVisibility(id, v)}
+                          onSetShares={(id, ids) => void setShares(id, ids)}
+                          onSetCategory={(id, cat) => void setCategory(id, cat)}
                           onDragStart={onDragStart}
                           onMove={
-                            isOwner ? (direction) => moveResource(r, g.items, direction) : undefined
+                            isOwner
+                              ? (direction) => void moveResource(r, g.items, direction)
+                              : undefined
                           }
                           canMoveUp={i > 0}
                           canMoveDown={i < g.items.length - 1}

@@ -148,6 +148,29 @@ describe('BannerUploadModal', () => {
     expect(p.onClose).toHaveBeenCalled()
   })
 
+  it('shows the error and stays open when saving a reposition fails', async () => {
+    const p = props({
+      hasBanner: true,
+      focusY: 50,
+      onFocusChange: vi.fn().mockRejectedValue(new Error('focus failed')),
+    })
+    render(<BannerUploadModal {...p} previewSrc="http://banner.png" />)
+
+    const img = document.querySelector('img')!
+    Object.defineProperty(img, 'naturalWidth', { value: 100, configurable: true })
+    Object.defineProperty(img, 'naturalHeight', { value: 400, configurable: true })
+    fireEvent.load(img)
+
+    fireEvent.change(await screen.findByLabelText('campaignDetail.banner.verticalPosition'), {
+      target: { value: '30' },
+    })
+    await userEvent.click(screen.getByText('campaignDetail.banner.savePosition'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('focus failed')
+    expect(p.onClose).not.toHaveBeenCalled()
+    expect(screen.getByText('campaignDetail.banner.savePosition')).toBeEnabled()
+  })
+
   it('offers no reposition save until the position actually moves', async () => {
     render(<BannerUploadModal {...props({ hasBanner: true, focusY: 50 })} previewSrc="/b.png" />)
 

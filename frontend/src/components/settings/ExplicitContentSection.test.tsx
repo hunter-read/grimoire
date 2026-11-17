@@ -34,6 +34,16 @@ describe('ExplicitContentSection', () => {
     expect(refreshUser).toHaveBeenCalled()
   })
 
+  it('says so and does not report it saved when the change fails', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('Preference save failed'))
+    render(<ExplicitContentSection />)
+    await userEvent.click(screen.getByRole('checkbox'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Preference save failed')
+    expect(screen.queryByText('common.saved')).toBeNull()
+    expect(refreshUser).not.toHaveBeenCalled()
+    expect(screen.getByRole('checkbox')).toBeEnabled()
+  })
+
   it('defaults to allowed when the flag is undefined', () => {
     mockUser = {}
     render(<ExplicitContentSection />)

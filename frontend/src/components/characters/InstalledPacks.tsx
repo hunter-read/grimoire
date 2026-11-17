@@ -129,7 +129,7 @@ export default function InstalledPacks({ schemas, onChanged }: InstalledPacksPro
               {isAdmin ? (
                 <button
                   type="button"
-                  onClick={() => uninstall(pack)}
+                  onClick={() => void uninstall(pack)}
                   aria-label={t('contentPacks.uninstall', { name: pack.name })}
                   title={t('contentPacks.uninstall', { name: pack.name })}
                   style={iconBtn}

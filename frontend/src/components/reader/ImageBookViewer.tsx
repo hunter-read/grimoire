@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import usePageTitle from '../../hooks/usePageTitle'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
@@ -32,6 +33,7 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
   usePageTitle(book.title)
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { run: runFavorite, error: favoriteError } = useAsyncAction()
 
   return (
     <div
@@ -50,7 +52,7 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
         }}
       >
         <button
-          onClick={() => (backPath ? navigate(backPath) : navigate(-1))}
+          onClick={() => void (backPath ? navigate(backPath) : navigate(-1))}
           aria-label={t('reader.back')}
           style={{
             background: 'none',
@@ -84,8 +86,13 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
         >
           {book.title}
         </h1>
+        {favoriteError && (
+          <span role="alert" style={{ color: 'var(--danger)', fontSize: 12 }}>
+            {favoriteError}
+          </span>
+        )}
         <button
-          onClick={() => toggleFavorite('book', bookId)}
+          onClick={() => void runFavorite(() => toggleFavorite('book', bookId))}
           title={
             isFavorite('book', bookId)
               ? t('reader.removeFromFavorites')

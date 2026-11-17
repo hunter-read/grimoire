@@ -87,6 +87,16 @@ describe('PendingInvitesBanner', () => {
     )
   })
 
+  it('keeps the invite and shows the error when accepting fails', async () => {
+    campaignsMock.invites.mockResolvedValue(oneInvite)
+    campaignsMock.updateMember.mockRejectedValue(new Error('invite failed'))
+    renderBanner()
+    fireEvent.click(await screen.findByText('Accept'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('invite failed')
+    expect(screen.getByText(/Lost Mines/)).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('Accept')).toBeEnabled())
+  })
+
   it('shows a count and View button for multiple invites', async () => {
     campaignsMock.invites.mockResolvedValue(twoInvites)
     renderBanner()

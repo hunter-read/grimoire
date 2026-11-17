@@ -120,7 +120,7 @@ export default function AddToCampaignModal({ items, onClose, onAdded }: AddToCam
             {t('common.cancel')}
           </button>
           <button
-            onClick={submit}
+            onClick={() => void submit()}
             disabled={!campaignId || saving || (list !== null && list.length === 0)}
             style={{
               ...goldBtn,

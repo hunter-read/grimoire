@@ -9,6 +9,7 @@ const mockRemove = vi.fn()
 const mockEntries = vi.fn()
 const mockRemoveEntry = vi.fn()
 const mockGetEntry = vi.fn()
+const mockUpdateEntry = vi.fn()
 const mockInstallable = vi.fn()
 const mockBrowsePacks = vi.fn()
 const mockImport = vi.fn()
@@ -23,6 +24,7 @@ vi.mock('../../api', () => ({
     entries: (...a: unknown[]) => mockEntries(...a),
     removeEntry: (...a: unknown[]) => mockRemoveEntry(...a),
     getEntry: (...a: unknown[]) => mockGetEntry(...a),
+    updateEntry: (...a: unknown[]) => mockUpdateEntry(...a),
     installable: (...a: unknown[]) => mockInstallable(...a),
     browsePacks: (...a: unknown[]) => mockBrowsePacks(...a),
     installPack: vi.fn(),
@@ -218,6 +220,25 @@ describe('RulesetsPanel', () => {
     await userEvent.click(await screen.findByLabelText(/^Edit /))
     await waitFor(() => expect(mockGetEntry).toHaveBeenCalledWith('r1', 'e1'))
     expect(await screen.findByDisplayValue('Flames from below.')).toBeInTheDocument()
+  })
+
+  it('says so when the entries cannot be re-read after a save', async () => {
+    mockGetEntry.mockResolvedValue({
+      id: 'e1',
+      content_type: 'spell',
+      entry_id: 'hellfire',
+      name: 'Hellfire',
+      data: { name: 'Hellfire' },
+    })
+    mockUpdateEntry.mockResolvedValue({ id: 'e1', name: 'Hellfire' })
+    renderView()
+    await userEvent.click(await screen.findByText('Strahd house rules'))
+    await screen.findByText('Hellfire')
+    mockEntries.mockRejectedValue(new Error('entries unavailable'))
+    await userEvent.click(await screen.findByLabelText(/^Edit /))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('entries unavailable')
+    expect(mockUpdateEntry).toHaveBeenCalled()
   })
 
   it('deletes an entry after confirmation', async () => {

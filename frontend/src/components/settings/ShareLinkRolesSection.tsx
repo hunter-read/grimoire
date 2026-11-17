@@ -86,7 +86,7 @@ export default function ShareLinkRolesSection({ onChanged }: ShareLinkRolesSecti
               disabled={false}
               checked={Boolean(state.share_links_role_gm)}
               accent="var(--gold)"
-              onChange={() => toggle('gm')}
+              onChange={() => void toggle('gm')}
             />
             <PermissionToggle
               id="share-role-player"
@@ -95,7 +95,7 @@ export default function ShareLinkRolesSection({ onChanged }: ShareLinkRolesSecti
               disabled={false}
               checked={Boolean(state.share_links_role_player)}
               accent="var(--gold)"
-              onChange={() => toggle('player')}
+              onChange={() => void toggle('player')}
             />
           </div>
           {error && (

@@ -99,7 +99,7 @@ export default function AttachCharacterPicker({
               <li key={character.id}>
                 <button
                   type="button"
-                  onClick={() => attach(character)}
+                  onClick={() => void attach(character)}
                   disabled={busy}
                   style={{
                     display: 'block',

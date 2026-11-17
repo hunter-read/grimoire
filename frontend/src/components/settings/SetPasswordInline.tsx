@@ -70,7 +70,12 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
           {err}
         </span>
       )}
-      <button onClick={handleSave} disabled={saving} aria-busy={saving} style={saveBtnStyle}>
+      <button
+        onClick={() => void handleSave()}
+        disabled={saving}
+        aria-busy={saving}
+        style={saveBtnStyle}
+      >
         {saving ? t('common.saving') : t('users.setPassword')}
       </button>
       <button onClick={onCancel} style={ghostBtnStyle}>

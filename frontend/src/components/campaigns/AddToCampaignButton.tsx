@@ -202,7 +202,7 @@ export default function AddToCampaignButton({
                     key={c.id}
                     type="button"
                     role="menuitem"
-                    onClick={() => handleAdd(c.id)}
+                    onClick={() => void handleAdd(c.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',

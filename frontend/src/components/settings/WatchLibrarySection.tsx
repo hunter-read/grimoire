@@ -39,6 +39,8 @@ export default function WatchLibrarySection() {
   const [mode, setMode] = useState<Mode>('auto')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  // The last save's failure, said beside the button; the edits stay unsaved.
+  const [saveError, setSaveError] = useState('')
 
   const apply = useCallback((next: Settings) => {
     setData(next)
@@ -66,6 +68,7 @@ export default function WatchLibrarySection() {
     if (!data) return
     setSaving(true)
     setSaved(false)
+    setSaveError('')
     try {
       const body: { library_watch_enabled?: boolean; library_watch_mode?: string } = {}
       if (!data.library_watch_env_locked) body.library_watch_enabled = enabled
@@ -80,6 +83,8 @@ export default function WatchLibrarySection() {
           .then((fresh) => setData(fresh))
           .catch(() => {})
       }, 2000)
+    } catch (err) {
+      setSaveError(failureMessage(err, t))
     } finally {
       setSaving(false)
     }
@@ -217,7 +222,7 @@ export default function WatchLibrarySection() {
           {canSave && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <button
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={saving}
                 style={{
                   display: 'inline-flex',
@@ -253,6 +258,11 @@ export default function WatchLibrarySection() {
                   </>
                 )}
               </span>
+              {saveError && (
+                <span role="alert" style={{ fontSize: 13, color: 'var(--danger)' }}>
+                  {saveError}
+                </span>
+              )}
             </div>
           )}
         </div>

@@ -27,7 +27,7 @@ export default function GuestAccessSection() {
           id="guest_access_enabled"
           label={t('authSettings.guestAccess.enable')}
           checked={values.guest_access_enabled}
-          onChange={() => toggle('guest_access_enabled')}
+          onChange={() => void toggle('guest_access_enabled')}
           locked={locked}
           saving={saving === 'guest_access_enabled'}
           saved={saved === 'guest_access_enabled'}

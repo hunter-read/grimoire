@@ -94,6 +94,31 @@ describe('CampaignUploadsSection', () => {
     )
     expect(perCampaign().value).toBe('0')
   })
+
+  it('puts the switch back and says why when the save is refused', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue({} as Settings)
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('nope'))
+    render(<CampaignUploadsSection />)
+    fireEvent.click(await screen.findByRole('checkbox'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.offline')
+    expect(disableBox()).not.toBeChecked()
+    expect(screen.getByRole('status')).toHaveTextContent('')
+  })
+
+  it('puts a refused limit back to the one in force', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue({
+      campaign_upload_max_file_mb: 25,
+    } as unknown as Settings)
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('nope'))
+    render(<CampaignUploadsSection />)
+    await screen.findByRole('checkbox')
+
+    fireEvent.change(perFile(), { target: { value: '40' } })
+    fireEvent.blur(perFile())
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.offline')
+    expect(perFile().value).toBe('25')
+  })
 })
 
 describe('CampaignUploadsSection accessibility', () => {

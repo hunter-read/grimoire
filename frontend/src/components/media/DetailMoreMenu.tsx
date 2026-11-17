@@ -6,6 +6,7 @@ import { LuEllipsisVertical, LuHeart, LuScroll, LuShare2 } from 'react-icons/lu'
 import { useUISettings } from '../../context/UISettingsContext'
 import { useFavorites } from '../../context/FavoritesContext'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ShareLinkDialog from '../share/ShareLinkDialog'
@@ -58,6 +59,7 @@ export default function DetailMoreMenu({
   const canShare = useCanShare()
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<string | null>(null)
+  const { run: runFavorite, error: favoriteError, setError: setFavoriteError } = useAsyncAction()
   const { triggerRef, panelRef, style: menuStyle } = useAnchoredMenu(open, { width: MENU_WIDTH })
   // Portaled to <body>, so without this the items are out of Tab's reach.
   useMenuKeyboard(open, panelRef, triggerRef, () => setOpen(false))
@@ -113,7 +115,10 @@ export default function DetailMoreMenu({
     <>
       <button
         ref={triggerRef}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setFavoriteError('')
+          setOpen((o) => !o)
+        }}
         aria-label={t('bookActions.menu')}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -150,12 +155,26 @@ export default function DetailMoreMenu({
           >
             <button
               role="menuitem"
-              onClick={run(() => favorites?.toggleFavorite?.(resourceType, resourceId))}
+              onClick={() => {
+                // Closes once it has worked; on failure the menu stays open to say so.
+                void runFavorite(async () => {
+                  await favorites?.toggleFavorite?.(resourceType, resourceId)
+                  setOpen(false)
+                })
+              }}
               style={{ ...itemStyle, color: isFavorite ? 'var(--gold)' : 'var(--text)' }}
             >
               <LuHeart size={15} aria-hidden="true" fill={isFavorite ? 'var(--gold)' : 'none'} />
               {isFavorite ? t('common.removeFromFavorites') : t('common.addToFavorites')}
             </button>
+            {favoriteError && (
+              <div
+                role="alert"
+                style={{ fontSize: 11, color: 'var(--danger)', padding: '2px 12px 8px' }}
+              >
+                {favoriteError}
+              </div>
+            )}
             {!hide_campaigns && (
               <button role="menuitem" onClick={run(() => setDialog('campaign'))} style={itemStyle}>
                 <LuScroll size={15} aria-hidden="true" />

@@ -42,7 +42,7 @@ export default function ErrorFallback() {
         </button>
         <button
           type="button"
-          onClick={() => (canGoBack ? navigate(-1) : navigate('/'))}
+          onClick={() => void (canGoBack ? navigate(-1) : navigate('/'))}
           style={buttonStyle}
         >
           <LuArrowLeft size={16} aria-hidden="true" /> {t('common.back')}

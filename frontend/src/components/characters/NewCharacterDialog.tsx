@@ -76,7 +76,11 @@ export default function NewCharacterDialog({
         </>
       }
     >
-      <form id="new-character-form" onSubmit={submit} style={{ display: 'grid', gap: 18 }}>
+      <form
+        id="new-character-form"
+        onSubmit={(event) => void submit(event)}
+        style={{ display: 'grid', gap: 18 }}
+      >
         {error ? (
           <div role="alert" style={{ color: 'var(--danger)', fontSize: 13 }}>
             {error}

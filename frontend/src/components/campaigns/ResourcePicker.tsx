@@ -108,6 +108,7 @@ export default function ResourcePicker({
   const [tagList, setTagList] = useState<TagRow[]>([])
   const [tagValue, setTagValue] = useState('')
   const [tagAdding, setTagAdding] = useState(false)
+  const [tagError, setTagError] = useState('')
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query.trim()), DEBOUNCE_MS)
@@ -150,6 +151,7 @@ export default function ResourcePicker({
   const addByTag = async (internal: string) => {
     if (!internal || tagAdding) return
     setTagAdding(true)
+    setTagError('')
     try {
       // Every page, not just the first: a broad tag can carry hundreds of items.
       const items = await tagsApi.allItems(internal)
@@ -177,6 +179,9 @@ export default function ResourcePicker({
         return additions.length ? [...prev, ...additions] : prev
       })
       setTagValue('')
+    } catch (e) {
+      // Nothing was added; the tag stays chosen so it can be tried again.
+      setTagError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setTagAdding(false)
     }
@@ -324,13 +329,18 @@ export default function ResourcePicker({
           </select>
           <button
             type="button"
-            onClick={() => addByTag(tagValue)}
+            onClick={() => void addByTag(tagValue)}
             disabled={!tagValue || tagAdding}
             style={{ ...typeTab(false), opacity: !tagValue || tagAdding ? 0.5 : 1 }}
           >
             {t('campaignEditor.resources.addByTagButton')}
           </button>
         </div>
+      )}
+      {tagError && (
+        <p role="alert" style={{ fontSize: 12, color: 'var(--danger)', margin: '0 0 10px' }}>
+          {tagError}
+        </p>
       )}
 
       {/* Folder browser */}

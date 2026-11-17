@@ -229,7 +229,7 @@ export default function GuestsSection({
                     )}
                   </select>
                   <button
-                    onClick={submitMerge}
+                    onClick={() => void submitMerge()}
                     disabled={!mergeTarget || merging}
                     style={{
                       ...mergeBtnStyle,

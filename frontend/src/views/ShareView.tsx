@@ -123,7 +123,10 @@ export default function ShareView({ token }: ShareViewProps) {
     )
   } else if (status === 'locked') {
     body = (
-      <form onSubmit={unlock} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form
+        onSubmit={(e) => void unlock(e)}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+      >
         <div style={{ textAlign: 'center' }}>
           <LuLock size={28} style={{ color: 'var(--gold)' }} aria-hidden="true" />
           <h1 style={{ fontSize: 20, margin: '10px 0 6px' }}>{t('sharePage.lockedTitle')}</h1>

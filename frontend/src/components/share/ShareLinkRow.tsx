@@ -120,7 +120,7 @@ export default function ShareLinkRow({
         {!revoked && link.url && (
           <button
             type="button"
-            onClick={() => copy('page', publicUrl(link.url!))}
+            onClick={() => void copy('page', publicUrl(link.url!))}
             style={actionStyle()}
           >
             {copied === 'page' ? <LuCircleCheck size={12} /> : <LuLink size={12} />}
@@ -130,7 +130,7 @@ export default function ShareLinkRow({
         {!revoked && link.file_url && !link.has_password && (
           <button
             type="button"
-            onClick={() => copy('file', publicUrl(link.file_url!))}
+            onClick={() => void copy('file', publicUrl(link.file_url!))}
             title={t('share.row.copyFileHint')}
             style={actionStyle()}
           >

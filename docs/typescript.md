@@ -119,6 +119,17 @@ that does nothing. Two hooks cover the common cases:
 Prefix a promise with `void` only when nothing can go wrong that the user needs to hear
 about - the callee catches its own errors, or the work is best-effort, like a prefetch.
 
+`@typescript-eslint/no-misused-promises` (with `checksVoidReturn`) covers the same files and
+catches the other way a failure goes missing: an `async` function handed to something that
+expects `() => void`, such as `onClick={save}`. React drops the promise that returns, so a
+rejection reaches nobody. Make the handler deal with its own failure - show the error, and
+don't report success, close the dialog or keep an optimistic change after it - then pass
+it as `onClick={() => void save()}`. Where the callee really does await the callback and
+handle a rejection (a dialog that shows its own busy and error state), type the prop as
+`() => void | Promise<void>` instead. A hook action that fails should say so to its caller,
+by resolving to whether it worked or by rethrowing, so the caller never shows "done" after
+an error.
+
 ## TypeScript version
 
 TypeScript is held at 5.x: `openapi-typescript` and `typescript-eslint` are built on

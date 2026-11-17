@@ -362,7 +362,7 @@ export default function ImagePickerModal({
           }}
         >
           {hasImage && onRemove && (
-            <button onClick={remove} disabled={working} style={dangerBtn}>
+            <button onClick={() => void remove()} disabled={working} style={dangerBtn}>
               <LuTrash2 size={14} /> {t('imagePicker.remove')}
             </button>
           )}
@@ -370,7 +370,7 @@ export default function ImagePickerModal({
             {t('common.cancel')}
           </button>
           <button
-            onClick={confirm}
+            onClick={() => void confirm()}
             disabled={!canConfirm}
             style={{ ...goldBtn, opacity: canConfirm ? 1 : 0.5 }}
           >

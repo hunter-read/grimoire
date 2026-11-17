@@ -353,7 +353,7 @@ export default function FolderNamingDialog({ rule, fields, onClose, onSaved }: P
             {isSaved && (
               <button
                 type="button"
-                onClick={applyTitles}
+                onClick={() => void applyTitles()}
                 disabled={busy || titleIds.length === 0}
                 style={buttonStyle(false, busy || titleIds.length === 0)}
               >
@@ -372,7 +372,7 @@ export default function FolderNamingDialog({ rule, fields, onClose, onSaved }: P
             )}
             <button
               type="button"
-              onClick={save}
+              onClick={() => void save()}
               disabled={busy || !path || !trimmed || isSaved}
               style={buttonStyle(true, busy || !path || !trimmed || isSaved)}
             >
@@ -389,7 +389,7 @@ export default function FolderNamingDialog({ rule, fields, onClose, onSaved }: P
         <ConfirmModal
           title={t('filenameRules.preview.renameTitle')}
           message={t('filenameRules.preview.renameConfirm', { count: renameIds.length })}
-          onConfirm={applyRenames}
+          onConfirm={() => void applyRenames()}
           onClose={() => setConfirmRename(false)}
         />
       )}

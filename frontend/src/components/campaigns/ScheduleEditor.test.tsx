@@ -373,6 +373,26 @@ describe('ScheduleEditor', () => {
     confirmSpy.mockRestore()
   })
 
+  it('alerts and keeps the schedule when the delete request fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.deleteSchedule.mockRejectedValue(new Error('delete failed'))
+    const onDeleted = vi.fn()
+    render(
+      <ScheduleEditor
+        campaign={mockCampaign}
+        existing={{ frequency: 'weekly', days: [0], custom_dates: [] }}
+        onSaved={vi.fn()}
+        onDeleted={onDeleted}
+      />
+    )
+    fireEvent.click(screen.getByText('Remove'))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('delete failed'))
+    expect(onDeleted).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+    alertSpy.mockRestore()
+  })
+
   it('keeps the schedule when the delete confirmation is dismissed', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const onDeleted = vi.fn()

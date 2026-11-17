@@ -46,7 +46,7 @@ export default function SidebarVisibilitySection() {
               id={key}
               label={t(labelKey)}
               checked={values[key]}
-              onChange={() => toggle(key)}
+              onChange={() => void toggle(key)}
               saving={saving === key}
               saved={saved === key}
               error={error?.key === key ? error.message : null}

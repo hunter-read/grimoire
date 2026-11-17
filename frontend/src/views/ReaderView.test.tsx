@@ -28,10 +28,13 @@ vi.mock('../hooks/useReaderGestures', () => ({
   default: () => ({ handleTouchStart: vi.fn(), handleTouchMove: vi.fn(), handleTouchEnd: vi.fn() }),
 }))
 
+const mockToggleFavorite = vi.fn<(type: string, id: string) => Promise<void>>(() =>
+  Promise.resolve()
+)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({
     isFavorite: () => false,
-    toggleFavorite: vi.fn(() => Promise.resolve()),
+    toggleFavorite: (type: string, id: string) => mockToggleFavorite(type, id),
   }),
 }))
 
@@ -262,6 +265,16 @@ describe('ReaderView — jump navigation history behaviour', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
     })
     expect(screen.getByText('Test Book')).toBeInTheDocument()
+  })
+
+  it('says why when the toolbar favorite fails to save', async () => {
+    mockToggleFavorite.mockRejectedValueOnce(new Error('favorites offline'))
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await userEvent.click(screen.getByLabelText('More actions'))
+    await userEvent.click(screen.getByText('Add to favorites'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('favorites offline')
+    expect(mockToggleFavorite).toHaveBeenCalledWith('book', 'book-1')
   })
 
   it('uses replace:true for the initial page sync (continuous reading)', async () => {

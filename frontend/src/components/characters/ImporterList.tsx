@@ -130,7 +130,7 @@ export default function ImporterList({ listing, onChanged }: ImporterListProps) 
     return (
       <button
         type="button"
-        onClick={() => install(item)}
+        onClick={() => void install(item)}
         disabled={busy}
         aria-label={t(
           item.install_as === 'server'
@@ -201,8 +201,12 @@ export default function ImporterList({ listing, onChanged }: ImporterListProps) 
                 importer={importer}
                 downloads={downloads}
                 working={Boolean(working)}
-                onUpdate={() => act(importer.id, () => charactersApi.installImporter(importer.id))}
-                onRemove={() => act(importer.id, () => charactersApi.removeImporter(importer.id))}
+                onUpdate={() =>
+                  void act(importer.id, () => charactersApi.installImporter(importer.id))
+                }
+                onRemove={() =>
+                  void act(importer.id, () => charactersApi.removeImporter(importer.id))
+                }
               />
             ))}
           </ul>

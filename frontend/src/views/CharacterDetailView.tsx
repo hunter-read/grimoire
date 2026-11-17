@@ -176,7 +176,8 @@ export default function CharacterDetailView() {
 
   const schedule = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(flush, SAVE_DELAY_MS)
+    // save() catches its own failure into `error`, so the flush never rejects.
+    timerRef.current = setTimeout(() => void flush(), SAVE_DELAY_MS)
   }, [flush])
 
   const applyPatch = useCallback(
@@ -245,6 +246,12 @@ export default function CharacterDetailView() {
       }
     },
     [applyPatch, document, lookup]
+  )
+  // The sheet's change handler. onChange never rejects - a follow-up that
+  // fails lands in `error` - so the sheet need not wait on it.
+  const onSheetChange = useCallback(
+    (name: string, value: unknown, meta?: unknown) => void onChange(name, value, meta),
+    [onChange]
   )
 
   // Hand a field back to its `default_from` value.
@@ -401,7 +408,7 @@ export default function CharacterDetailView() {
         >
           <button
             type="button"
-            onClick={() => navigate('/characters')}
+            onClick={() => void navigate('/characters')}
             aria-label={t('characters.backToList')}
             title={t('characters.backToList')}
             style={iconBtn}
@@ -427,7 +434,7 @@ export default function CharacterDetailView() {
                 onChange={(e) =>
                   setCharacter((prev) => (prev ? { ...prev, name: e.target.value } : prev))
                 }
-                onBlur={(e) => rename(e.target.value)}
+                onBlur={(e) => void rename(e.target.value)}
                 aria-label={t('characters.name')}
                 style={{
                   width: '100%',
@@ -511,7 +518,7 @@ export default function CharacterDetailView() {
             ) : null}
             <button
               type="button"
-              onClick={exportCharacter}
+              onClick={() => void exportCharacter()}
               aria-label={t('characters.export')}
               title={t('characters.export')}
               style={actionBtn}
@@ -553,7 +560,7 @@ export default function CharacterDetailView() {
             // A party member may read another player's sheet but not edit it; the
             // server refuses the write, so the controls should not be offered.
             readOnly={readOnly}
-            onChange={onChange}
+            onChange={onSheetChange}
             onReset={onReset}
             onOverride={onOverride}
             entries={{ ...(character.entries || {}), ...pickedEntries }}
@@ -569,7 +576,7 @@ export default function CharacterDetailView() {
             data={data}
             entries={{ ...(character.entries || {}), ...pickedEntries }}
             schemaId={character.schema_ref}
-            onChange={onChange}
+            onChange={onSheetChange}
             onReset={onReset}
             onOverride={onOverride}
             readOnly={readOnly}

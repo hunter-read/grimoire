@@ -240,6 +240,24 @@ describe('MemberRow sheet actions', () => {
     confirmSpy.mockRestore()
   })
 
+  it('alerts and keeps the sheet when removing it fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.deleteMemberSheet.mockRejectedValue(new Error('delete failed'))
+    const onMediaChanged = vi.fn()
+    renderRow(
+      { has_sheet: true, character_sheet_filename: 'char.pdf' },
+      { currentUserId: 'u1', onMediaChanged }
+    )
+    await userEvent.click(screen.getByLabelText('Remove alice’s character sheet'))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('delete failed'))
+    expect(onMediaChanged).not.toHaveBeenCalled()
+    // busy resets, so the remove button can be tried again.
+    expect(screen.getByLabelText('Remove alice’s character sheet')).toBeEnabled()
+    alertSpy.mockRestore()
+    confirmSpy.mockRestore()
+  })
+
   it('keeps the sheet when the removal is not confirmed', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderRow({ has_sheet: true, character_sheet_filename: 'char.pdf' }, { currentUserId: 'u1' })

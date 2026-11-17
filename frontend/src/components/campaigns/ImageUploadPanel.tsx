@@ -158,7 +158,7 @@ export default function ImageUploadPanel({
           {t('common.cancel')}
         </button>
         <button
-          onClick={submit}
+          onClick={() => void submit()}
           disabled={busy || (mode === 'new' && !newName.trim())}
           style={miniBtn}
         >

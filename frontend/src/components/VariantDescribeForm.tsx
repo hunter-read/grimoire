@@ -87,7 +87,7 @@ export default function VariantDescribeForm({
 
   return (
     <form
-      onSubmit={save}
+      onSubmit={(e) => void save(e)}
       // Clicks and keys inside the form must not reach a surrounding menu, which
       // would treat them as a choice (or Escape) and close itself.
       onMouseDown={(e) => e.stopPropagation()}

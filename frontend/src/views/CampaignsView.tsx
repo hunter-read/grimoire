@@ -75,7 +75,14 @@ export default function CampaignsView() {
   const joinedCampaigns = active.filter((c) => c.owner_id !== user?.id)
 
   const respondToInvite = async (campaign: Campaign, status: string) => {
-    await campaigns.updateMember(campaign.id, user!.id, status)
+    setError(null)
+    try {
+      await campaigns.updateMember(campaign.id, user!.id, status)
+    } catch (e) {
+      // The invite stays listed, so it can be answered again.
+      setError((e as Error | undefined)?.message || t('common.error'))
+      return
+    }
     load()
     // Let the app-level invite banner drop this invite too.
     window.dispatchEvent(new CustomEvent('grimoire:campaigns-changed'))
@@ -283,7 +290,7 @@ export default function CampaignsView() {
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                       <button
-                        onClick={() => respondToInvite(c, 'accepted')}
+                        onClick={() => void respondToInvite(c, 'accepted')}
                         // One pair per invitation: say which campaign each is for.
                         aria-label={t('a11y.campaign.acceptInvite', { name: c.name })}
                         style={{
@@ -300,7 +307,7 @@ export default function CampaignsView() {
                         {t('campaigns.accept')}
                       </button>
                       <button
-                        onClick={() => respondToInvite(c, 'declined')}
+                        onClick={() => void respondToInvite(c, 'declined')}
                         aria-label={t('a11y.campaign.declineInvite', { name: c.name })}
                         style={{
                           padding: '7px 16px',

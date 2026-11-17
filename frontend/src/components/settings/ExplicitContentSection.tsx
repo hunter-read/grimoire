@@ -13,6 +13,7 @@ export default function ExplicitContentSection() {
   const me = auth?.user && 'allow_explicit' in auth.user ? auth.user : null
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const allowed = me?.allow_explicit ?? true
   // Turned off by an admin or the sign-in provider: shown, but not changeable
   // back on from here (the server refuses it too).
@@ -20,11 +21,15 @@ export default function ExplicitContentSection() {
 
   const toggle = async () => {
     setSaving(true)
+    setError(null)
     try {
       await api.patch('/users/me/preferences', { allow_explicit: !allowed })
       await auth?.refreshUser()
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      // The box follows the signed-in user, so it already shows what was kept.
+      setError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setSaving(false)
     }
@@ -63,7 +68,7 @@ export default function ExplicitContentSection() {
           id="explicit-content-allowed"
           type="checkbox"
           checked={allowed}
-          onChange={toggle}
+          onChange={() => void toggle()}
           disabled={saving || locked}
           aria-describedby={locked ? 'explicit-content-locked' : undefined}
           style={{
@@ -84,6 +89,11 @@ export default function ExplicitContentSection() {
           style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 8 }}
         >
           {t('userSettings.contentPreferences.lockedHint')}
+        </p>
+      )}
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>
+          {error}
         </p>
       )}
     </div>

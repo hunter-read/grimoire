@@ -43,6 +43,7 @@ export default function BannerUploadModal({
   const { t } = useTranslation()
   const [focus, setFocus] = useState(focusY)
   const [savingFocus, setSavingFocus] = useState(false)
+  const [focusError, setFocusError] = useState('')
 
   // Only write the focal point when it actually moved.
   const commitFocus = async () => {
@@ -54,9 +55,13 @@ export default function BannerUploadModal({
   // on close, which would also fire on cancel.
   const saveFocusOnly = async () => {
     setSavingFocus(true)
+    setFocusError('')
     try {
       await commitFocus()
       onClose()
+    } catch (e) {
+      // Stay open with the moved position so the user can try again.
+      setFocusError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setSavingFocus(false)
     }
@@ -79,7 +84,7 @@ export default function BannerUploadModal({
           {hasBanner && focusMoved && (
             <button
               type="button"
-              onClick={saveFocusOnly}
+              onClick={() => void saveFocusOnly()}
               disabled={savingFocus}
               style={{
                 display: 'block',
@@ -96,6 +101,11 @@ export default function BannerUploadModal({
             >
               {t('campaignDetail.banner.savePosition')}
             </button>
+          )}
+          {focusError && (
+            <p role="alert" style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--danger)' }}>
+              {focusError}
+            </p>
           )}
         </>
       )}

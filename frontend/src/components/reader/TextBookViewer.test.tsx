@@ -126,6 +126,14 @@ describe('TextBookViewer', () => {
     expect(toggleFavorite).toHaveBeenCalledWith('book', 'b1')
   })
 
+  it('says so when the favourite fails to toggle', async () => {
+    toggleFavorite.mockRejectedValueOnce(new Error('Favourite failed'))
+    setup()
+    await userEvent.click(screen.getByLabelText('reader.addToFavorites'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favourite failed')
+    expect(screen.getByLabelText('reader.addToFavorites')).toBeInTheDocument()
+  })
+
   it('offers a download link for the original file', async () => {
     setup()
     const link = screen.getByLabelText('reader.downloadFile')

@@ -84,7 +84,7 @@ export default function CategoryAccessSection() {
             <select
               id={`access-${category}`}
               value={levels[category] || ACCESS_OPEN}
-              onChange={(e) => setLevel(category, e.target.value)}
+              onChange={(e) => void setLevel(category, e.target.value)}
               aria-disabled={saving || undefined}
               /* The visible label is the bare category name, but several of
                  those ("Maps") also name an unrelated toggle elsewhere on this

@@ -100,7 +100,7 @@ export default function SetupView({ onSetup }: Props) {
             {t('setup.subtitle')}
           </p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={(e) => void handleSubmit(e)}>
             <div style={{ marginBottom: 16 }}>
               <label htmlFor="setup-username" style={labelStyle}>
                 {t('setup.username')}

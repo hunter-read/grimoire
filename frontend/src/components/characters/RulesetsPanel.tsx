@@ -230,10 +230,16 @@ export default function RulesetsPanel() {
     }
   }
 
+  // The entry is already saved; a failed re-read says so rather than leaving
+  // the list silently stale.
   const refreshEntries = async () => {
-    const refreshed = await rulesetsApi.entries(open!.id)
-    setEntries(refreshed.entries || [])
-    void load()
+    try {
+      const refreshed = await rulesetsApi.entries(open!.id)
+      setEntries(refreshed.entries || [])
+      void load()
+    } catch (e) {
+      setError((e as Error | undefined)?.message || t('common.error'))
+    }
   }
 
   if (loading) return <Spinner />
@@ -257,7 +263,7 @@ export default function RulesetsPanel() {
             </div>
           </div>
           {current.editable ? (
-            <button onClick={() => remove(current)} style={ghostBtn}>
+            <button onClick={() => void remove(current)} style={ghostBtn}>
               <LuTrash2 size={14} />
               {t('rulesets.delete')}
             </button>
@@ -304,7 +310,11 @@ export default function RulesetsPanel() {
               {t('rulesets.newEntry')}
             </button>
             {packs.map((pack) => (
-              <button key={pack.pack_id} onClick={() => importPack(pack.pack_id)} style={ghostBtn}>
+              <button
+                key={pack.pack_id}
+                onClick={() => void importPack(pack.pack_id)}
+                style={ghostBtn}
+              >
                 <LuPackagePlus size={14} />
                 {t('rulesets.importPack', { name: pack.name, count: pack.entry_count })}
               </button>
@@ -334,7 +344,7 @@ export default function RulesetsPanel() {
                 {entry.editable ? (
                   <>
                     <button
-                      onClick={() => editEntry(entry)}
+                      onClick={() => void editEntry(entry)}
                       aria-label={t('a11y.mediaDetail.editNamed', { name: entry.name })}
                       title={t('common.edit')}
                       style={iconBtn}
@@ -342,7 +352,7 @@ export default function RulesetsPanel() {
                       <LuPencil size={15} />
                     </button>
                     <button
-                      onClick={() => removeEntry(entry)}
+                      onClick={() => void removeEntry(entry)}
                       aria-label={t('a11y.characters.deleteNamed', { name: entry.name })}
                       title={t('rulesets.deleteEntry')}
                       style={iconBtn}
@@ -362,7 +372,7 @@ export default function RulesetsPanel() {
             contentType={editing.contentType}
             typeDefinition={types.find((type) => type.name === editing.contentType) || {}}
             entry={editing.entry}
-            onSaved={refreshEntries}
+            onSaved={() => void refreshEntries()}
             onClose={() => setEditing(null)}
           />
         ) : null}
@@ -374,7 +384,7 @@ export default function RulesetsPanel() {
   const anyEditable = rulesets.some((row) => row.editable)
   return (
     <div>
-      <InstalledPacks schemas={schemas} onChanged={load} />
+      <InstalledPacks schemas={schemas} onChanged={() => void load()} />
 
       <section aria-labelledby="rulesets-heading">
         <div style={sectionBar}>
@@ -414,7 +424,7 @@ export default function RulesetsPanel() {
 
         {creating ? (
           <form
-            onSubmit={create}
+            onSubmit={(event) => void create(event)}
             style={{
               ...card,
               marginBottom: 20,
@@ -481,7 +491,7 @@ export default function RulesetsPanel() {
 
         {pasting ? (
           <form
-            onSubmit={importDocument}
+            onSubmit={(event) => void importDocument(event)}
             style={{ ...card, marginBottom: 20, display: 'grid', gap: 12 }}
           >
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>

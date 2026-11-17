@@ -115,6 +115,8 @@ export default function MemberRow({
         await campaigns.deleteMemberSheet(campaignId, member.id!)
       }
       onMediaChanged?.()
+    } catch (err) {
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
@@ -164,7 +166,7 @@ export default function MemberRow({
         isMemberOwner={isMemberOwner}
         displayLabel={displayLabel}
         busy={busy}
-        onUpload={uploadArt}
+        onUpload={(file) => void uploadArt(file)}
         artVersion={artVersion}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -204,7 +206,7 @@ export default function MemberRow({
               }}
             />
             <button
-              onClick={saveCharName}
+              onClick={() => void saveCharName()}
               style={{ ...smallBtn('var(--gold)'), padding: '3px 8px', fontSize: 12 }}
             >
               {t('members.save')}
@@ -380,7 +382,7 @@ export default function MemberRow({
                 )}
                 {canEditMedia && (
                   <button
-                    onClick={removeSheet}
+                    onClick={() => void removeSheet()}
                     disabled={busy}
                     aria-label={t('a11y.campaign.removeSheetFor', { name: displayLabel })}
                     title={t('members.removeSheet')}
@@ -421,7 +423,7 @@ export default function MemberRow({
                   }}
                 />
                 <button
-                  onClick={saveSheetUrl}
+                  onClick={() => void saveSheetUrl()}
                   disabled={busy}
                   style={{ ...smallBtn('var(--gold)'), padding: '3px 8px' }}
                 >
@@ -469,7 +471,7 @@ export default function MemberRow({
                 ref={sheetInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
-                onChange={handleSheetFile}
+                onChange={(e) => void handleSheetFile(e)}
                 style={{ display: 'none' }}
               />
             )}

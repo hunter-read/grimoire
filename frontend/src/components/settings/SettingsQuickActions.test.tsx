@@ -62,13 +62,23 @@ describe('SettingsQuickActions', () => {
     expect(await screen.findByRole('button', { name: 'Stopping…' })).toBeDisabled()
   })
 
-  it('swallows a failed rescan request and returns to idle', async () => {
+  it('says why a rescan did not start and returns to idle', async () => {
     vi.mocked(api.post).mockRejectedValue(new Error('busy'))
     renderActions()
     fireEvent.click(screen.getByRole('button', { name: 'Rescan' }))
     fireEvent.click(await screen.findByText('Start rescan'))
 
-    await waitFor(() => expect(api.post).toHaveBeenCalled())
+    expect(await screen.findByRole('alert')).toHaveTextContent('busy')
     expect(await screen.findByRole('button', { name: 'Rescan' })).not.toBeDisabled()
+  })
+
+  it('says why a scan did not stop and offers Stop again', async () => {
+    vi.mocked(api.get).mockResolvedValue({ running: true, phase: 'scanning' })
+    vi.mocked(api.post).mockRejectedValue(new Error('offline'))
+    renderActions()
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('offline')
+    expect(screen.getByRole('button', { name: 'Stop' })).not.toBeDisabled()
   })
 })

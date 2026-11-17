@@ -20,6 +20,7 @@ export default function PendingInvitesBanner() {
   const [invites, setInvites] = useState<Schema<'CampaignInviteOut'>[]>([])
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === 'true')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   const load = () => {
     campaigns
@@ -37,12 +38,14 @@ export default function PendingInvitesBanner() {
   const respond = async (invite: Schema<'CampaignInviteOut'>, status: string) => {
     if (busy) return
     setBusy(true)
+    setError('')
     try {
       await campaigns.updateMember(invite.campaign_id, user!.id, status)
       setInvites((cur) => cur.filter((i) => i.campaign_id !== invite.campaign_id))
       window.dispatchEvent(new CustomEvent('grimoire:campaigns-changed'))
-    } catch {
-      // Leave the invite in place so the user can retry.
+    } catch (e) {
+      // Leave the invite in place so the user can retry, and say why it stayed.
+      setError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
@@ -85,13 +88,18 @@ export default function PendingInvitesBanner() {
         ) : (
           <span>{t('campaigns.inviteBanner.multi', { count: invites.length })}</span>
         )}
+        {error && (
+          <span role="alert" style={{ display: 'block', color: 'var(--danger)', fontSize: 13 }}>
+            {error}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
         {single ? (
           <>
             <button
               disabled={busy}
-              onClick={() => respond(single, 'accepted')}
+              onClick={() => void respond(single, 'accepted')}
               aria-label={t('a11y.campaign.acceptInvite', { name: single.name })}
               style={{
                 padding: '6px 14px',
@@ -108,7 +116,7 @@ export default function PendingInvitesBanner() {
             </button>
             <button
               disabled={busy}
-              onClick={() => respond(single, 'declined')}
+              onClick={() => void respond(single, 'declined')}
               aria-label={t('a11y.campaign.declineInvite', { name: single.name })}
               style={{
                 padding: '6px 14px',

@@ -92,6 +92,20 @@ describe('useScanStatus', () => {
     }
   )
 
+  // A stop that never reached the server stopped nothing: the button comes back
+  // for another try, and the caller hears why.
+  it('offers Stop again and rejects when the request fails', async () => {
+    mockApi.get.mockResolvedValue({ running: true, phase: 'scanning' })
+    const { result } = renderHook(() => useScanStatus())
+    await waitFor(() => expect(result.current.status.running).toBe(true))
+    mockApi.post.mockRejectedValue(new Error('offline'))
+
+    await act(() => expect(result.current.stopScan()).rejects.toThrow('offline'))
+
+    expect(result.current.stopping).toBe(false)
+    expect(result.current.status.running).toBe(true)
+  })
+
   it('keeps showing the scan while a live one winds down', async () => {
     mockApi.get.mockResolvedValue({ running: true, phase: 'scanning' })
     const { result } = renderHook(() => useScanStatus())

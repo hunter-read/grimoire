@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
 import LoadError from '../LoadError'
 import useCancellableFetch from '../../hooks/useCancellableFetch'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -38,7 +39,8 @@ export default function AudioDetailView() {
   const backPathRef = useRef(location.state?.from ?? null)
   // Going back is a *return* to the gallery, so it restores the filters the user
   // had rather than re-applying their saved default over them.
-  const goBack = () => navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
+  const goBack = () =>
+    void navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
   const { t, i18n } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   // Only the response for the item on screen lands, and a failure shows instead
@@ -61,6 +63,9 @@ export default function AudioDetailView() {
   const [showCoverPicker, setShowCoverPicker] = useState(false)
   // Cache-buster so a replaced cover isn't served from the browser cache.
   const [coverVersion, setCoverVersion] = useState(0)
+  // A tag save that fails keeps the editor open and says so, rather than
+  // dropping the change without a word.
+  const tagSave = useAsyncAction()
 
   const audioDetailPath = useCallback((id: string) => `/audio/${id}`, [])
   const {
@@ -103,17 +108,19 @@ export default function AudioDetailView() {
   const currentFolderTags = track.folder_tags ?? []
   const isArchive = isArchiveMedia(track)
 
-  const saveTrackTags = async (tags: string[]) => {
-    await api.patch(`/audio/${audioId}`, { tags })
-    setTrack({ ...track, tags })
-    setEditingTrackTags(false)
-  }
+  const saveTrackTags = (tags: string[]) =>
+    void tagSave.run(async () => {
+      await api.patch(`/audio/${audioId}`, { tags })
+      setTrack({ ...track, tags })
+      setEditingTrackTags(false)
+    })
 
-  const saveFolderTags = async (tags: string[]) => {
-    await api.patch('/audio-folders', { path: track.folder_path, tags })
-    setTrack({ ...track, folder_tags: tags })
-    setEditingFolderTags(false)
-  }
+  const saveFolderTags = (tags: string[]) =>
+    void tagSave.run(async () => {
+      await api.patch('/audio-folders', { path: track.folder_path, tags })
+      setTrack({ ...track, folder_tags: tags })
+      setEditingFolderTags(false)
+    })
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -357,6 +364,12 @@ export default function AudioDetailView() {
             />
           )}
           <MetaRow label={t('audio.detail.fileSize')} value={formatSize(track.file_size!)} />
+
+          {tagSave.error && (
+            <p role="alert" style={{ margin: '12px 0 0', fontSize: 13, color: 'var(--danger)' }}>
+              {tagSave.error}
+            </p>
+          )}
 
           {/* Folder tags */}
           {folder &&

@@ -167,6 +167,31 @@ describe('ResourcesPanel', () => {
     expect(campaigns.updateResource).toHaveBeenCalledWith('c1', 'r1', { shared_user_ids: ['u2'] })
   })
 
+  it('says so and reloads when removing a resource fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.removeResource.mockRejectedValue(new Error('remove failed'))
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Cave'))
+    campaignsMock.listResources.mockClear()
+    await userEvent.click(screen.getByText('remove-r3'))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('remove failed'))
+    expect(campaigns.listResources).toHaveBeenCalled()
+    expect(screen.getByText('Cave')).toBeInTheDocument()
+    alertSpy.mockRestore()
+  })
+
+  it('says so when a row update fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.updateResource.mockRejectedValue(new Error('update failed'))
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Cave'))
+    await userEvent.click(screen.getByText('vis-r1'))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('update failed'))
+    alertSpy.mockRestore()
+  })
+
   it('opens the category manager and the resource picker', async () => {
     campaignsMock.listResources.mockResolvedValue([])
     render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
@@ -244,6 +269,31 @@ describe('ResourcesPanel', () => {
     fireEvent.dragOver(battleWrapper)
     fireEvent.drop(battleWrapper)
     await waitFor(() => expect(campaigns.reorderResources).toHaveBeenCalled())
+  })
+
+  it('says so when a dropped reorder fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.reorderResources.mockRejectedValue(new Error('reorder failed'))
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Cave'))
+    fireEvent.click(screen.getByText('drag-r1'))
+    const battleWrapper = screen.getByText('Battle').closest('div')!.parentElement!
+    fireEvent.drop(battleWrapper)
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('reorder failed'))
+    alertSpy.mockRestore()
+  })
+
+  it('announces no move when a keyboard reorder fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.reorderResources.mockRejectedValue(new Error('move failed'))
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Tavern'))
+    await userEvent.click(screen.getByText('down-r1'))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('move failed'))
+    expect(screen.queryByText(/moved to position/)).not.toBeInTheDocument()
+    alertSpy.mockRestore()
   })
 
   // The keyboard way to do what dragging does: one place at a time within the

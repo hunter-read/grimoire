@@ -104,6 +104,15 @@ describe('ImageBookViewer', () => {
     expect(toggleFavorite).toHaveBeenCalledWith('book', 7)
   })
 
+  it('shows the error when toggling the favorite fails', async () => {
+    toggleFavorite.mockRejectedValueOnce(new Error('Favorites are unavailable'))
+    setup({ favorite: false })
+    await userEvent.click(screen.getByTitle('reader.addToFavorites'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favorites are unavailable')
+    // Still offered as not-yet-a-favorite.
+    expect(screen.getByTitle('reader.addToFavorites')).toBeInTheDocument()
+  })
+
   it('shows the remove-from-favorites affordance when the book is a favorite', () => {
     setup({ favorite: true })
     expect(screen.getByTitle('reader.removeFromFavorites')).toBeInTheDocument()

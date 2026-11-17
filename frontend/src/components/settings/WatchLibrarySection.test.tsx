@@ -73,6 +73,24 @@ describe('WatchLibrarySection', () => {
     )
   })
 
+  it('says why a save failed and does not claim it saved', async () => {
+    get.mockResolvedValue(settings() as never)
+    patch.mockRejectedValue(Object.assign(new Error('Settings are read-only'), { status: 500 }))
+    render(<WatchLibrarySection />)
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Check regularly' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not saved - Settings are read-only')
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    // The unsaved choice is kept, to try again.
+    expect(screen.getByRole('radio', { name: 'Check regularly' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+  })
+
   it('refreshes the status a moment after saving', async () => {
     get.mockResolvedValue(settings() as never)
     patch.mockResolvedValue(settings({ library_watch_enabled: false }) as never)

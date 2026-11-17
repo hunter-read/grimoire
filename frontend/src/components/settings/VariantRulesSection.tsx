@@ -132,7 +132,7 @@ export default function VariantRulesSection() {
         </button>
         <button
           type="button"
-          onClick={save}
+          onClick={() => void save()}
           disabled={busy || !dirty}
           style={buttonStyle(true, busy || !dirty)}
         >

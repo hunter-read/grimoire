@@ -244,13 +244,13 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
             ref={fileRef}
             type="file"
             aria-label={t('characters.importChooseFile')}
-            onChange={(event) => importFile(event.target.files?.[0])}
+            onChange={(event) => void importFile(event.target.files?.[0])}
             style={{ display: 'none' }}
           />
         </div>
 
         {acceptsLinks ? (
-          <form onSubmit={importLink}>
+          <form onSubmit={(event) => void importLink(event)}>
             <label htmlFor="character-import-url" style={fieldLabel}>
               {t('characters.importLink')}
             </label>
@@ -325,7 +325,7 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
               <div>
                 <button
                   type="button"
-                  onClick={() => importExternal(lastRequest)}
+                  onClick={() => void importExternal(lastRequest)}
                   disabled={busy}
                   style={busy ? disabledBtn : goldBtn}
                 >

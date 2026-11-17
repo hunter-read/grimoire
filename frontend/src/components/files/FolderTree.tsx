@@ -91,7 +91,8 @@ export default function FolderTree({
   )
 
   useEffect(() => {
-    expanded.forEach((path) => load(path))
+    // load() never rejects: a failed listing becomes an empty, unwritable folder.
+    expanded.forEach((path) => void load(path))
     // Mount only: later expansions load from `toggle`.
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

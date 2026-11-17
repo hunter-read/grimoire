@@ -202,7 +202,7 @@ export default function ActiveSessionsSection() {
                 {!session.current && (
                   <button
                     type="button"
-                    onClick={() => revokeOne(session.id)}
+                    onClick={() => void revokeOne(session.id)}
                     disabled={busyId === session.id}
                     // "Revoke" once per row says nothing about which device.
                     aria-label={t('a11y.settings.revokeSession', { device: deviceName(session) })}
@@ -234,7 +234,7 @@ export default function ActiveSessionsSection() {
       {others.length > 0 && (
         <button
           type="button"
-          onClick={revokeOthers}
+          onClick={() => void revokeOthers()}
           disabled={busyId === 'others'}
           style={{
             display: 'inline-flex',

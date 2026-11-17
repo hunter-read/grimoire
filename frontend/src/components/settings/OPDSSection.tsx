@@ -12,6 +12,7 @@ export default function OPDSSection() {
   const [working, setWorking] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState('')
   // Which feed version's URL is shown. The newest is the default; v1 stays on
   // offer for readers already subscribed to it (issue #673).
   const [version, setVersion] = useState<string | null>(null)
@@ -27,27 +28,24 @@ export default function OPDSSection() {
       .catch(() => setStatus({ opds_enabled: false }))
   }, [])
 
-  const handleGenerate = async () => {
+  // Either request failing leaves the feed as it was and says so; a revoke
+  // keeps its confirmation open so it can be tried again.
+  const updateToken = async (request: () => Promise<Status>) => {
     setWorking(true)
+    setError('')
     try {
-      const next = await opds.generateToken()
+      const next = await request()
       setStatus(next)
       setConfirming(false)
+    } catch (e) {
+      setError((e as Error | undefined)?.message || t('common.error'))
     } finally {
       setWorking(false)
     }
   }
 
-  const handleRevoke = async () => {
-    setWorking(true)
-    try {
-      const next = await opds.revokeToken()
-      setStatus(next)
-      setConfirming(false)
-    } finally {
-      setWorking(false)
-    }
-  }
+  const handleGenerate = () => updateToken(opds.generateToken)
+  const handleRevoke = () => updateToken(opds.revokeToken)
 
   const handleCopy = () => {
     if (feedUrl) {
@@ -76,7 +74,7 @@ export default function OPDSSection() {
         <Spinner size={16} />
       ) : !status.has_token ? (
         <button
-          onClick={handleGenerate}
+          onClick={() => void handleGenerate()}
           disabled={working}
           style={{
             display: 'inline-flex',
@@ -198,7 +196,7 @@ export default function OPDSSection() {
           {!confirming ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button
-                onClick={handleGenerate}
+                onClick={() => void handleGenerate()}
                 disabled={working}
                 style={{
                   display: 'inline-flex',
@@ -249,7 +247,7 @@ export default function OPDSSection() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={handleRevoke}
+                  onClick={() => void handleRevoke()}
                   disabled={working}
                   style={{
                     padding: '7px 14px',
@@ -288,6 +286,12 @@ export default function OPDSSection() {
             </div>
           )}
         </div>
+      )}
+
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginTop: 10 }}>
+          {error}
+        </p>
       )}
     </div>
   )

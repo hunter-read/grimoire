@@ -75,7 +75,7 @@ export default function ChangePasswordSection() {
       </p>
 
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => void handleSubmit(e)}
         style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360 }}
       >
         {fields.map(({ label, value, onChange, complete, id }) => (

@@ -150,7 +150,7 @@ export default function MergeExactDialog({ groups, onClose, onDone }: Props) {
           </button>
           <button
             type="button"
-            onClick={confirm}
+            onClick={() => void confirm()}
             disabled={!ready}
             style={{ ...primaryBtn, opacity: ready ? 1 : 0.6 }}
           >

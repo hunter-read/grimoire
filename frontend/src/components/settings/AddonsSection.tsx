@@ -267,8 +267,9 @@ export default function AddonsSection() {
             onContextMenu={handleContextMenu}
             menuOpen={contextMenu?.addon.id === addon.id}
             onUpdate={update}
-            onToggleEnabled={toggleEnabled}
-            onRemove={remove}
+            // run() reports its own failure in the add-on's status, and never rejects.
+            onToggleEnabled={(addon) => void toggleEnabled(addon)}
+            onRemove={(addon) => void remove(addon)}
           />
         ))}
       </ul>
@@ -314,7 +315,7 @@ export default function AddonsSection() {
         }}
       >
         <button
-          onClick={refresh}
+          onClick={() => void refresh()}
           disabled={busy}
           style={{
             display: 'flex',
@@ -333,7 +334,7 @@ export default function AddonsSection() {
         </button>
         {pendingUpdates > 0 && (
           <button
-            onClick={updateAll}
+            onClick={() => void updateAll()}
             disabled={busy}
             style={{
               display: 'flex',
@@ -369,7 +370,7 @@ export default function AddonsSection() {
         <input
           type="checkbox"
           checked={data.allow_scripts}
-          onChange={(e) => toggleScripts(e.target.checked)}
+          onChange={(e) => void toggleScripts(e.target.checked)}
           style={{ marginTop: 2 }}
         />
         <span>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import usePageTitle from '../../hooks/usePageTitle'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
@@ -40,6 +41,7 @@ export default function TextBookViewer({ book, bookId, backPath }: TextBookViewe
   usePageTitle(book.title)
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { run: runFavorite, error: favoriteError } = useAsyncAction()
   const totalPages = book?.page_count || 1
   const [page, setPage] = useState(1)
   const [text, setText] = useState<string | null>(null)
@@ -101,7 +103,7 @@ export default function TextBookViewer({ book, bookId, backPath }: TextBookViewe
         }}
       >
         <button
-          onClick={() => (backPath ? navigate(backPath) : navigate(-1))}
+          onClick={() => void (backPath ? navigate(backPath) : navigate(-1))}
           aria-label={t('reader.back')}
           style={{
             background: 'none',
@@ -154,8 +156,14 @@ export default function TextBookViewer({ book, bookId, backPath }: TextBookViewe
             </button>
           </div>
         )}
+        {/* A failed toggle leaves the heart as it was and says why beside it. */}
+        {favoriteError && (
+          <span role="alert" style={{ color: 'var(--danger)', fontSize: 12 }}>
+            {favoriteError}
+          </span>
+        )}
         <button
-          onClick={() => toggleFavorite('book', bookId)}
+          onClick={() => void runFavorite(() => toggleFavorite('book', bookId))}
           aria-label={fav ? t('reader.removeFromFavorites') : t('reader.addToFavorites')}
           style={btnStyle}
         >

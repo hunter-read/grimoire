@@ -109,7 +109,7 @@ export default function CalendarSubscribeDialog({
           }}
         />
         <button
-          onClick={() => copy(value, key)}
+          onClick={() => void copy(value, key)}
           style={btn}
           title={t('calendar.copy')}
           aria-label={t('a11y.campaignNotes.copyNamed', { name: label })}
@@ -206,7 +206,7 @@ export default function CalendarSubscribeDialog({
           <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button
-                onClick={() => run(() => campaigns.generateCalendarToken(campaign?.id))}
+                onClick={() => void run(() => campaigns.generateCalendarToken(campaign?.id))}
                 disabled={busy}
                 style={btn}
               >
@@ -215,7 +215,7 @@ export default function CalendarSubscribeDialog({
               </button>
               {sub.has_token && (
                 <button
-                  onClick={() => run(() => campaigns.revokeCalendarToken())}
+                  onClick={() => void run(() => campaigns.revokeCalendarToken())}
                   disabled={busy}
                   style={btn}
                 >

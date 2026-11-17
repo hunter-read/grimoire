@@ -87,7 +87,7 @@ export default function NewFolderModal({
         aria-label={t('files.newFolder')}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
-        onSubmit={submit}
+        onSubmit={(e) => void submit(e)}
       >
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{t('files.newFolder')}</h3>
         <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 14 }}>

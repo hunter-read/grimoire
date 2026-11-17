@@ -164,6 +164,16 @@ describe('AudioDetailView', () => {
     expect(api.patch).toHaveBeenCalledWith('/audio-folders', { path: 'Ambient', tags: ['new'] })
   })
 
+  it('keeps the tag editor open and shows the error when saving folder tags fails', async () => {
+    vi.mocked(api.get).mockResolvedValue(detail())
+    vi.mocked(api.patch).mockRejectedValue(new Error('tag save failed'))
+    render(<AudioDetailView />)
+    await userEvent.click(await screen.findByText('edit-Folder Tags'))
+    await userEvent.click(screen.getByTestId('save-tags'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('tag save failed')
+    expect(screen.getByTestId('save-tags')).toBeInTheDocument()
+  })
+
   describe('cover art (issue #286)', () => {
     it('hides the cover control from players', async () => {
       authUser = { id: 'u2', role: 'player' }

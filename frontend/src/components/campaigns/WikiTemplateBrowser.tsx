@@ -260,7 +260,7 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
                             that fades after a moment, and reappears on a
                             re-download), and the resting "you have this" hint. */}
                           <button
-                            onClick={() => download(tpl.id, tpl.index_url)}
+                            onClick={() => void download(tpl.id, tpl.index_url)}
                             disabled={busyId !== null}
                             // Every row has this button; the name says which.
                             aria-label={`${

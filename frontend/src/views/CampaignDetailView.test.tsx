@@ -314,6 +314,16 @@ describe('CampaignDetailView rendering', () => {
     )
   })
 
+  it('says so by the chart when setting availability fails', async () => {
+    mockLoad({
+      schedule: { enabled: true, definition: { frequency: 'weekly', days: [4] } },
+    })
+    mockCampaigns.setAvailability.mockRejectedValue(new Error('availability failed'))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'set p1' }))
+    expect(await screen.findByText('availability failed')).toHaveAttribute('role', 'alert')
+  })
+
   it('shows a read-only notice when the campaign is locked', async () => {
     mockLoad({ campaign: makeCampaign({ locked: true }) })
     renderView()
