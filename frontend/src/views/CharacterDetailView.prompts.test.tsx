@@ -205,7 +205,7 @@ describe('CharacterDetailView — prompts', () => {
   })
 
   it('grants what a prompt names, as references the catalog has, under the source given', async () => {
-    mockResolve.mockImplementation(async (schema, ids) => ({
+    mockResolve.mockImplementation(async () => ({
       entries: {
         'action-surge': { entry_id: 'action-surge', content_type: 'feature', source: 'xphb' },
       },
