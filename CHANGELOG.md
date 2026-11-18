@@ -29,6 +29,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- A player's edit to a wiki page that leaves a backslash right where a GM secret sits now saves. It used to be refused with "This edit leaves a code block open"
 - An image added to a campaign's resources now opens in the browser tab when you click it, instead of downloading. PDFs, SVGs and other files still download
 - **An MCP client with a missing or wrong API key now gets a clear "not found" instead of a parse error.** After a `401` from `/mcp`, some clients look for an OAuth sign-in at `/.well-known/oauth-protected-resource` and then `/authorize`, `/token` and `/register`; Grimoire answered with its web page, and the client failed with "Unrecognized token '<'". Those paths now return a JSON `404`, and so do `/mcp` and `/opds` when MCP or OPDS is off and any `/api` address that doesn't exist. An `/api` address called with the wrong method now gets a `405` rather than the web page, and a `HEAD` request for a page or a file gets the same answer as `GET` rather than a `405`
 - Importing campaign notes in which notes sit inside one another many levels deep no longer fails with a server error. An import of up to its 2,000-file limit now keeps every level of nesting. Importing many notes with the same title is also much faster: each one used to check every earlier name in turn before it found a free one

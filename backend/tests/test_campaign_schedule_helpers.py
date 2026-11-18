@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from backend.routers.campaigns._helpers import (
     escape_player_pipes,
     extract_snippet,
+    _secret_spans,
     merge_gm_secrets,
     strip_gm_secrets,
 )
@@ -200,13 +201,36 @@ class TestBackslashBeforePipes:
             assert strip_gm_secrets(mine) == mine, typed
             assert strip_gm_secrets(f"{mine}\n||x||\n{mine}") == f"{mine}\n\n{mine}", typed
 
-    def test_an_edit_leaving_a_backslash_before_a_secret_is_refused(self):
-        # The secret goes back right after the player's backslash, where its
-        # opening marker would read as literal pipes: refused, not stored.
+    def test_an_edit_leaving_a_backslash_before_a_secret_keeps_it(self):
+        # Right after the player's backslash its opening marker would read as
+        # literal pipes, so the secret goes back before the backslash instead.
         stored = "ab||s||c"
         assert merge_gm_secrets(stored, "abc") == stored
-        with pytest.raises(HTTPException):
-            merge_gm_secrets(stored, escape_player_pipes("a\\c"))
+        merged = merge_gm_secrets(stored, escape_player_pipes("a\\c"))
+        assert merged == "a||s||\\c"
+        assert strip_gm_secrets(merged) == "a\\c"
+
+    def test_adjacent_secrets_after_backslashes_keep_their_order(self):
+        stored = "ab||one||||two||c"
+        merged = merge_gm_secrets(stored, "a\\\\c")
+        assert merged == "a||one||||two||\\\\c"
+        assert strip_gm_secrets(merged) == "a\\\\c"
+
+    @pytest.mark.parametrize("seed", range(4))
+    def test_whatever_a_player_types_the_secrets_stay_and_stay_hidden(self, seed):
+        rng = random.Random(seed)
+        stored = "a||one|| b ||two||c"
+        for _ in range(300):
+            typed = "".join(rng.choice("\\|ab \n") for _ in range(rng.randint(0, 10)))
+            new = escape_player_pipes(typed)
+            try:
+                merged = merge_gm_secrets(stored, new)
+            except HTTPException:
+                continue
+            # The player's text is stored as sent (a secret whose place was lost
+            # goes on a line of its own at the end), and both are still secrets.
+            assert strip_gm_secrets(merged).rstrip("\n") == new.rstrip("\n"), typed
+            assert sorted(merged[s:e] for s, e in _secret_spans(merged)) == ["||one||", "||two||"]
 
 
 class TestMergeGmSecrets:
