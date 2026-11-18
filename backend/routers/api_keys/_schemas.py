@@ -36,6 +36,13 @@ class ApiKeyOut(BaseModel):
     last_used_at: Optional[datetime.datetime] = None
     expires_at: Optional[datetime.datetime] = None
     expired: bool
+    # "key" for a key made here; "app" for an OAuth grant - an MCP client a
+    # user approved (issue #906), which holds tokens instead of a key and
+    # can't be regenerated.
+    kind: str = "key"
+    # For an app: the name it registered with, and the host it signs in through.
+    client_name: Optional[str] = None
+    redirect_host: Optional[str] = None
 
 
 class ApiKeyWithSecret(BaseModel):
@@ -43,6 +50,33 @@ class ApiKeyWithSecret(BaseModel):
 
     api_key: ApiKeyOut
     key: str
+
+
+class OAuthApproveIn(BaseModel):
+    # {permission: level}, as for a key. Omitted: Read on everything the role can read.
+    permissions: Optional[dict[str, str]] = None
+
+
+class OAuthRequestOut(BaseModel):
+    """A pending MCP sign-in, for the consent page (issue #906)."""
+
+    client_name: str
+    # Where the browser goes once approved: the one detail a lookalike app
+    # calling itself "Claude" can't fake. Show it prominently.
+    redirect_host: str
+    redirect_uri: Optional[str] = None
+    # Whether the caller may approve (they may hold keys), and if not, why.
+    may_approve: bool
+    reason: Optional[str] = None
+    default_permissions: dict[str, str]
+    # {permission: [levels]} the caller's role can grant, as for a key.
+    levels: dict[str, list[str]]
+
+
+class OAuthRedirectOut(BaseModel):
+    # The client's redirect address with a code or an error; the page sends
+    # the browser there.
+    redirect_to: str
 
 
 class ApiKeyPermissionOut(BaseModel):

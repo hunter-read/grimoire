@@ -6,6 +6,7 @@ and re-exported here so callers can keep using ``from backend.models import X``.
 
 from .access import FolderAccessRule, UserAccessGrant
 from .api_keys import ApiKey
+from .oauth import OAuthClient, OAuthCode
 from .armies import Army, PublicationLink
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
@@ -151,6 +152,8 @@ __all__ = [
     # Settings
     "AppSetting",
     "ApiKey",
+    "OAuthClient",
+    "OAuthCode",
     "ShareLink",
     # Tags
     "Tag",

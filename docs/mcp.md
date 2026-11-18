@@ -120,12 +120,13 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
 ## Troubleshooting
 
 - **`401`** - the key is missing, wrong or expired. Check the header name is exactly
-  `X-API-Key`. Some clients react to a `401` by starting an OAuth sign-in, which Grimoire does not
-  offer; fix the key rather than following that prompt.
+  `X-API-Key`. Some clients react to a `401` by starting an OAuth sign-in; unless
+  `MCP_OAUTH_ENABLED` is on, Grimoire offers none, so fix the key rather than following that
+  prompt.
 - **"Protected resource metadata not found", or a `404` from `/.well-known/...`,
-  `/authorize`, `/token` or `/register`** - the client got a `401` and went looking for an
-  OAuth sign-in, which Grimoire does not offer. It is the same problem as a `401`: send a
-  valid key in `X-API-Key`.
+  `/authorize`, `/token` or `/register`** - the client went looking for an OAuth sign-in and
+  `MCP_OAUTH_ENABLED` is off, or sign-in is off because `BASE_URL` isn't `https` (see the log).
+  Send a valid key in `X-API-Key`.
 - **`403` "API keys are disabled on this server"** - set `API_KEYS_ENABLED=true`.
 - **`403` "API keys are not enabled for your account"** - an admin needs to turn keys on for
   you in Settings → People.

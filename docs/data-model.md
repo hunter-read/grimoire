@@ -59,6 +59,8 @@ erDiagram
     users ||--o{ campaign_resource_shares : "shared with"
     users ||--o{ campaign_files : "uploaded by"
     users ||--o{ api_keys : owns
+    users ||--o{ oauth_codes : approves
+    oauth_clients ||--o{ oauth_codes : requests
     users ||--o{ share_links : creates
     users ||--o{ armies : owns
     users ||--o{ leagues : organises
@@ -180,6 +182,8 @@ its migration in the same change (and the reverse).
 | `ruleset_entries.ruleset_id` | `rulesets.id` | entries, deleted with their ruleset |
 | `auth_sessions.user_id` | `users.id` | one row per login session; deleted with the user |
 | `api_keys.user_id` | `users.id` | the user the key acts as; keys are deleted with the user and never moved by a guest merge |
+| `oauth_codes.client_id` | `oauth_clients.client_id` | the client that asked; deleted with the client |
+| `oauth_codes.user_id` | `users.id` | the user who approved (null while pending); deleted with the user and never moved by a guest merge |
 | `share_links.user_id` | `users.id` | the link's creator, whose permissions it serves with; links are deleted with the user and never moved by a guest merge |
 | `campaigns.owner_id` | `users.id` | the GM / creator |
 | `campaigns.parent_campaign_id` | `campaigns.id` | self-referential; nullable |
@@ -393,7 +397,9 @@ only what a user imported or typed.
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `api_keys` | A personal key that lets a script or integration call the API as its owner (issue #489). | FK `user_id` (indexed) - the key acts as this user, narrowed by `permissions`. `name` (required, not unique). `key_hash` is a SHA-256 of the full key, unique + indexed - the key itself is never stored, and is returned only by create/regenerate. `prefix` is its first characters (12 for a `grim_` key, 4 for one migrated from the old plaintext `stats_api_key` setting), kept for display. `permissions` JSON is `{permission: "read"\|"write"}`, where `"*"` sets a floor for every permission; an absent permission means no access. `last_used_at` is written at most once a minute per key; `expires_at` null means never. |
+| `api_keys` | A personal key that lets a script or integration call the API as its owner (issue #489). | FK `user_id` (indexed) - the key acts as this user, narrowed by `permissions`. `name` (required, not unique). `key_hash` is a SHA-256 of the full key, unique + indexed - the key itself is never stored, and is returned only by create/regenerate. `prefix` is its first characters (12 for a `grim_` key, 4 for one migrated from the old plaintext `stats_api_key` setting), kept for display. `permissions` JSON is `{permission: "read"\|"write"}`, where `"*"` sets a floor for every permission; an absent permission means no access. `last_used_at` is written at most once a minute per key; `expires_at` null means never. A row with `client_id` set (indexed) is an **OAuth grant** for `/mcp` (issue #906): an MCP client a user approved, which holds tokens instead of a key. Its `key_hash` is the hash of a value nobody was given, and `api_keys.authenticate` refuses grant rows outright. `access_token_hash` and `refresh_token_hash` (SHA-256, unique + indexed) with `access_expires_at` / `refresh_expires_at` are its current tokens; `prev_refresh_hash` (unique + indexed) is the refresh token just replaced, accepted until `prev_refresh_until` so two refreshes sent at once both succeed. All are null for an ordinary key. |
+| `oauth_clients` | An MCP client that registered itself through OAuth dynamic client registration (issue #906). [`backend/models/oauth.py`](../backend/models/oauth.py) | `client_id` PK (a UUID the server issues). `info` JSON is the registered metadata (redirect addresses, grant types, name) without the secret; `client_secret_hash` is a SHA-256 of the secret, which is never stored. `client_name` copied out for display. `created_at` indexed: a client with no grant in `api_keys` is deleted a day after it registered. No user FK - registering grants nothing. |
+| `oauth_codes` | One OAuth authorization request for `/mcp`, from `/authorize` through the user's approval to the code exchange (issue #906). [`backend/models/oauth.py`](../backend/models/oauth.py) | FK `client_id` → `oauth_clients` (indexed). `request_hash` (unique + indexed) is a SHA-256 of the id the consent page is opened with. Approving sets FK `user_id` (indexed, nullable until then), `permissions` JSON (as on `api_keys`) and `code_hash` (unique + indexed), in one conditional update; the exchange sets `used_at` the same way, so neither can happen twice. `params` JSON holds what `/authorize` validated (redirect address, PKCE challenge, state, scopes, resource) and, once exchanged, the grant's id, so a code presented again revokes that grant. `expires_at` (indexed): 10 minutes pending, 5 once approved; expired rows are deleted on the next `/authorize`. Deleted with the user, never moved by a guest merge. |
 
 ### Share links - [`backend/models/share_links.py`](../backend/models/share_links.py)
 

@@ -6204,6 +6204,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe a pending MCP sign-in request
+         * @description What a client is asking for, for the consent page to show.
+         */
+        get: operations["get_request_api_oauth_requests__request_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending MCP sign-in request
+         * @description Returns the client's redirect address with a code, for the page to open.
+         */
+        post: operations["approve_request_api_oauth_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/requests/{request_id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deny a pending MCP sign-in request
+         * @description Deny: the browser goes back to the client with ``access_denied``.
+         */
+        post: operations["deny_request_api_oauth_requests__request_id__deny_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/parent-systems": {
         parameters: {
             query?: never;
@@ -8201,6 +8261,8 @@ export interface components {
          * @description A key as listed: everything but the secret, which is never stored.
          */
         ApiKeyOut: {
+            /** Client Name */
+            client_name?: string | null;
             /** Created At */
             created_at?: string | null;
             /** Expired */
@@ -8209,6 +8271,11 @@ export interface components {
             expires_at?: string | null;
             /** Id */
             id: string;
+            /**
+             * Kind
+             * @default key
+             */
+            kind?: string;
             /** Last Used At */
             last_used_at?: string | null;
             /** Name */
@@ -8219,6 +8286,8 @@ export interface components {
             };
             /** Prefix */
             prefix: string;
+            /** Redirect Host */
+            redirect_host?: string | null;
             /** User Id */
             user_id: string;
             /** Username */
@@ -14962,6 +15031,42 @@ export interface components {
         NamingStatusResponse: {
             /** Status */
             status: string;
+        };
+        /** OAuthApproveIn */
+        OAuthApproveIn: {
+            /** Permissions */
+            permissions?: {
+                [key: string]: string;
+            } | null;
+        };
+        /** OAuthRedirectOut */
+        OAuthRedirectOut: {
+            /** Redirect To */
+            redirect_to: string;
+        };
+        /**
+         * OAuthRequestOut
+         * @description A pending MCP sign-in, for the consent page (issue #906).
+         */
+        OAuthRequestOut: {
+            /** Client Name */
+            client_name: string;
+            /** Default Permissions */
+            default_permissions: {
+                [key: string]: string;
+            };
+            /** Levels */
+            levels: {
+                [key: string]: string[];
+            };
+            /** May Approve */
+            may_approve: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Redirect Host */
+            redirect_host: string;
+            /** Redirect Uri */
+            redirect_uri?: string | null;
         };
         /** OpdsFeedUrl */
         OpdsFeedUrl: {
@@ -33848,6 +33953,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VariantRulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_request_api_oauth_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthRequestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_request_api_oauth_requests__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthApproveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthRedirectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deny_request_api_oauth_requests__request_id__deny_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthRedirectOut"];
                 };
             };
             /** @description Validation Error */

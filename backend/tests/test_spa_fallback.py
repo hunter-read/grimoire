@@ -50,6 +50,7 @@ RESERVED_PATHS = [
     "/authorize?response_type=code&client_id=x",
     "/token",
     "/register",
+    "/revoke",
 ]
 
 
