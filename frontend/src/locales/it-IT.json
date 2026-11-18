@@ -2952,6 +2952,7 @@
     "editHint": "Fai clic sulla mappa per aggiungere un segnaposto. Trascina un segnaposto per spostarlo, oppure selezionalo e usa le frecce (Maiusc per passi più grandi).",
     "missing": "Questa mappa non è più nella biblioteca.",
     "noMap": "Per questa pagina non è stata ancora scelta una mappa.",
+    "hidden": "Il GM non ha condiviso questa mappa con te.",
     "pinsKept": "Il suo {{count}} segnaposto viene conservato e ritorna sulla nuova mappa.",
     "pinsKept_other": "I suoi {{count}} segnaposti vengono conservati e ritornano sulla nuova mappa.",
     "locations": "Luoghi",

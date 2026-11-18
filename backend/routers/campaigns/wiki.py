@@ -254,7 +254,7 @@ def get_page(
         "shared_user_ids": [s.user_id for s in shares],
         "shared_write_user_ids": [s.user_id for s in shares if s.can_write],
         "backlinks": backlinks,
-        "map": resolve_page_map(db, page),
+        "map": resolve_page_map(db, page, c, current_user),
         "pins": pins_for(db, c, page, current_user),
         "updated_at": page.updated_at.isoformat() if page.updated_at else None,
     }

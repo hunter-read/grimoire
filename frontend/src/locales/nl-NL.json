@@ -2952,6 +2952,7 @@
     "editHint": "Klik op de kaart om een speld te plaatsen. Sleep een speld om hem te verplaatsen, of focus hem en gebruik de pijltjestoetsen (Shift voor grotere stappen).",
     "missing": "Deze kaart staat niet meer in de bibliotheek.",
     "noMap": "Voor deze pagina is nog geen kaart gekozen.",
+    "hidden": "De GM heeft deze kaart niet met je gedeeld.",
     "pinsKept": "Haar {{count}} speld blijft bewaard en komt terug op de nieuwe kaart.",
     "pinsKept_other": "Haar {{count}} spelden blijven bewaard en komen terug op de nieuwe kaart.",
     "locations": "Plaatsen",

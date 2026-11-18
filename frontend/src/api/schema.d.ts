@@ -19049,8 +19049,9 @@ export interface components {
          *
          *     ``source`` is ``library`` (a library map, by ``id``), ``file`` (the
          *     campaign's own image, by ``id``), ``missing`` (its picture has gone, so
-         *     the page renders a placeholder with Replace map and keeps its pins), or
-         *     ``none`` (no picture chosen yet).
+         *     the page renders a placeholder with Replace map and keeps its pins),
+         *     ``none`` (no picture chosen yet), or ``hidden`` (a picture this viewer may
+         *     not see, such as a map the campaign links as GM-only; no id or name).
          */
         WikiMapOut: {
             /**

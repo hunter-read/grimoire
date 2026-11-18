@@ -2,11 +2,12 @@
 
 Stored lowercase (``english``) and shown with a capital (``English``). The
 Codex keeps the same list (grimoire-codex-db ``src/shared/languages.ts``) and
-the frontend mirrors it in ``frontend/src/lib/languages.ts`` (a test checks the
+the frontend mirrors it in ``frontend/src/utils/languages.ts`` (a test checks the
 two here agree), so a value moves between them unchanged.
 
-Input is forgiving: any case, an ISO 639 code (``en``, ``eng``, ``pt-BR``) or
-the language's own name (``Deutsch``) resolves to the stored value.
+Input is forgiving about form but not spelling: any case, an ISO 639 code
+(``en``, ``eng``, ``pt-BR``) or the language's own name (``Deutsch``) resolves
+to the stored value, and anything else names no language.
 """
 from typing import Optional
 
@@ -78,44 +79,23 @@ for _lang in LANGUAGES:
         _LOOKUP[_alias] = _lang
 
 
-def _distance(a: str, b: str) -> int:
-    """Levenshtein distance: the single-letter edits that turn ``a`` into ``b``."""
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        cur = [i]
-        for j, cb in enumerate(b, 1):
-            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
-        prev = cur
-    return prev[-1]
-
-
-def _misspelt(v: str) -> Optional[str]:
-    """The one listed language ``v`` is a near miss of ("italan"), else None.
-
-    Within one edit for a word of up to five letters, two for longer ones, and
-    only the single closest language: "italan" is one edit from Italian and two
-    from Catalan, so it is Italian; a tie names neither.
-    """
-    if len(v) < 4:
-        return None
-    allowed = 1 if len(v) <= 5 else 2
-    scored = sorted((_distance(v, lang), lang) for lang in LANGUAGES)
-    best, lang = scored[0]
-    if best > allowed or scored[1][0] == best:
-        return None
-    return lang
+# Longer than any name, code or regional tag on the list, so not worth looking up.
+MAX_LOOKUP_LENGTH = 64
 
 
 def find_language(value: Optional[str]) -> Optional[str]:
     """The listed language ``value`` names, or None when it names none.
 
-    A regional tag (``en-US``, ``pt_BR``, ``zh-Hant``) is decided by its base
-    code, and a near-miss spelling ("Italan") by the language it misses.
+    Only an exact name, code or own-language name counts, in any case. A
+    regional tag (``en-US``, ``pt_BR``, ``zh-Hant``) is decided by its base
+    code. A spelling the list does not hold is no match, not a guess: a guess
+    would read a real unlisted language as its listed neighbour (Bulgarian as
+    Hungarian, Javanese as Japanese).
     """
     v = " ".join((value or "").strip().lower().replace("_", "-").split())
-    if not v:
+    if not v or len(v) > MAX_LOOKUP_LENGTH:
         return None
-    return _LOOKUP.get(v) or _LOOKUP.get(v.split("-")[0]) or _misspelt(v)
+    return _LOOKUP.get(v) or _LOOKUP.get(v.split("-")[0])
 
 
 def stored_language(value: Optional[str]) -> str:

@@ -26,8 +26,8 @@ from .uploads import (
     _assert_can_edit_member,
     _get_member_or_404,
     _remove_existing,
-    can_read_campaign_file,
 )
+from ._file_access import can_read_campaign_file
 
 
 def _is_pdf_name(name: str) -> bool:

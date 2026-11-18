@@ -38,6 +38,7 @@ from ...services.app_settings import (
 )
 from ._helpers import (
     OIDCProviderError,
+    PROVIDER_ERRORS,
     _OIDCError,
     _discover_issuer,
     _fetch_userinfo,
@@ -114,6 +115,8 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
         resp = httpx.get(url, timeout=10.0, follow_redirects=True)
         resp.raise_for_status()
         doc = _provider_json(resp, "discovery")
+    except (httpx.InvalidURL, UnicodeError) as e:
+        raise HTTPException(400, "That issuer URL is not a valid URL.") from e
     except httpx.HTTPError as e:
         logger.warning("OIDC discovery fetch from %s failed: %s", url, e)
         raise HTTPException(
@@ -330,7 +333,7 @@ def _finish_sign_in(
         )
         token_resp.raise_for_status()
         tokens = _provider_json(token_resp, "token")
-    except (httpx.HTTPError, OIDCProviderError) as e:
+    except PROVIDER_ERRORS as e:
         logger.warning("OIDC token exchange failed: %s", e)
         return _redirect_with_error("token exchange failed")
 

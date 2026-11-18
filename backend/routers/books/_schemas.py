@@ -22,6 +22,11 @@ _BOOK_ACCESS_VALUES = frozenset({ACCESS_INHERIT, "", "gm", "admin"})
 # The width of ``books.category``; PostgreSQL refuses a longer value outright.
 CATEGORY_MAX_LENGTH = 100
 
+# The longest ``language`` a book edit takes. Far past any name or code on the
+# list, so a scraped value such as "English, French, German" still saves (with
+# no language set) rather than failing the edit.
+MAX_LANGUAGE_INPUT = 200
+
 
 # NOTE: the variant_* columns are deliberately absent from BookUpdate and
 # BookBulkUpdate. bulk_service.apply_updates does a blind setattr for any field
@@ -42,7 +47,7 @@ class BookUpdate(BaseModel):
     isbn: Optional[str] = None
     product_code: Optional[str] = None
     version: Optional[str] = None
-    language: Optional[str] = None
+    language: Optional[str] = Field(default=None, max_length=MAX_LANGUAGE_INPUT)
     license: Optional[str] = None
     year: Optional[int] = Field(default=None, ge=0, le=9999)
     month: Optional[int] = None
@@ -77,11 +82,11 @@ class BookUpdate(BaseModel):
     def dedupe_tags(cls, v):
         return tag_service.dedupe_tags(v, validate=True) if v is not None else v
 
-    # A fixed list (models/languages.py): any case, a code ("en"), the
-    # language's own name or a near-miss spelling ("Italan") resolves to the
-    # stored lowercase name. Anything else is stored as "not set" rather than
-    # refused, so a save carrying scraped or hand-typed metadata never fails
-    # over its language.
+    # A fixed list (models/languages.py): any case, a code ("en") or the
+    # language's own name resolves to the stored lowercase name. Anything else
+    # is stored as "not set" rather than refused, so a save carrying scraped or
+    # hand-typed metadata does not fail over its language; only a value longer
+    # than MAX_LANGUAGE_INPUT is refused.
     @field_validator("language")
     @classmethod
     def check_language(cls, v):

@@ -228,8 +228,9 @@ def parse_roster(xml: bytes) -> dict[str, Any]:
     """
     try:
         root = SafeElementTree.fromstring(xml, forbid_dtd=True)
-    except (ElementTree.ParseError, ValueError) as exc:
-        # defusedxml's refusals (a DOCTYPE, an entity) are ValueErrors.
+    except (ElementTree.ParseError, ValueError, LookupError) as exc:
+        # defusedxml's refusals (a DOCTYPE, an entity) are ValueErrors; an
+        # encoding Python does not know is a LookupError.
         raise RosterError("That file is not a BattleScribe roster") from exc
     if _tag(root) != "roster":
         raise RosterError("That file is not a BattleScribe roster")
