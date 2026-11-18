@@ -1894,7 +1894,7 @@ A value outside these rules is `400`, naming the field. A schedule stored before
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/campaigns/:id/availability` | GET | member or owner | Availability chart for next 10 scheduled sessions |
-| `/api/campaigns/:id/availability/:date` | PUT | member or owner | Set availability. Body: `{status, is_cancelled?, user_id?}` - `status` is `available`/`tentative`/`unavailable`. `user_id` (a user id string) and `is_cancelled` are GM/admin only: `user_id` sets that member's availability instead of the caller's |
+| `/api/campaigns/:id/availability/:date` | PUT | member or owner | Set availability. Body: `{status, is_cancelled?, user_id?}` - `status` is `available`/`tentative`/`unavailable`. `user_id` (a user id string) and `is_cancelled` are GM/admin only: `user_id` sets that member's availability instead of the caller's, and must name the campaign's owner or an accepted member (`404` otherwise) |
 | `/api/campaigns/:id/availability/:date/cancel` | PUT | owner | Toggle session cancellation for a date |
 
 Availability statuses: `available`, `tentative`, `unavailable`

@@ -408,6 +408,43 @@ class TestAvailability:
         )
         assert r.status_code == 403
 
+    def test_gm_cannot_set_availability_for_someone_outside_the_campaign(
+        self, client, gm_headers, player_id, gm_campaign
+    ):
+        from backend.config import SessionLocal
+        from backend.models import SessionAvailability
+
+        cid = gm_campaign["id"]
+        # A user id that names nobody, and a real user who never joined.
+        for user_id in ("no-such-user", player_id):
+            r = client.put(
+                f"/api/campaigns/{cid}/availability/2026-01-01",
+                json={"status": "available", "user_id": user_id},
+                headers=gm_headers,
+            )
+            assert r.status_code == 404, r.text
+        with SessionLocal() as db:
+            assert db.query(SessionAvailability).filter_by(campaign_id=cid).count() == 0
+
+    def test_gm_can_set_availability_for_an_invited_member_only_once_accepted(
+        self, client, gm_headers, player_headers, player_id, gm_campaign
+    ):
+        cid = gm_campaign["id"]
+        client.post(
+            f"/api/campaigns/{cid}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        body = {"status": "available", "user_id": player_id}
+        url = f"/api/campaigns/{cid}/availability/2026-01-01"
+        assert client.put(url, json=body, headers=gm_headers).status_code == 404
+        client.patch(
+            f"/api/campaigns/{cid}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        assert client.put(url, json=body, headers=gm_headers).status_code == 200
+        own = {"status": "tentative", "user_id": gm_campaign["owner_id"]}
+        assert client.put(url, json=own, headers=gm_headers).status_code == 200
+
     def test_cancel_session_date_toggles(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         r = client.put(

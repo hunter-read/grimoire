@@ -12,6 +12,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import CampaignMember, CampaignSchedule, SessionAvailability, User
 from ._helpers import assert_can_manage, assert_not_archived, can_view, get_campaign_or_404
+from ...services.campaigns.access import is_member
 from ...services.campaigns.schedule import (
     MAX_CUSTOM_DATES,
     MONTHLY_WEEKS,
@@ -301,6 +302,10 @@ def set_availability(
     if data.user_id is not None and data.user_id != current_user.id:
         if not is_gm:
             raise HTTPException(403, "Only the GM can set another member's availability")
+        # Only someone in the campaign has availability to set: the GM or an
+        # accepted member, not any user id at all.
+        if data.user_id != c.owner_id and not is_member(db, campaign_id, data.user_id):
+            raise HTTPException(404, "No such member in this campaign")
         target_user_id = data.user_id
     else:
         target_user_id = current_user.id
