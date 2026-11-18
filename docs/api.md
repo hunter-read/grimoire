@@ -1,6 +1,6 @@
 # Grimoire API Reference
 
-**Version:** 0.1.0
+This reference follows the current code on `main`. A running server reports its own version at [`GET /api/about`](#library) and in its OpenAPI schema (`info.version`).
 
 ## Interactive docs
 
@@ -132,7 +132,9 @@ A permission is an area of the API, taken from each endpoint's OpenAPI tag:
 | `tokens` | `tokens`, `token-frames` | Tokens, token folders and token frames |
 | `audio` | `audio` | Audio tracks, covers and folders |
 | `models` | `models` | 3D models and model folders |
+| `share-links` | `share-links` | The owner's public share links to library items: create, list and revoke |
 | `campaigns` | `campaigns` | The owner's campaigns: members, sessions, wiki, resources, schedule |
+| `characters` | `characters`, `content`, `rulesets` | Character sheets and the characters built on them, the content catalogue, and the rulesets a table plays with |
 | `downloads` | `downloads` | Zip archive downloads |
 | `files` | `files` | The library file manager |
 | `duplicates` | `duplicates` | Duplicate detection and resolution |
@@ -277,7 +279,7 @@ environment:
 | Role | Permissions |
 |------|-------------|
 | `admin` | Full access including user management and app settings |
-| `gm` | Read + edit metadata, rescan library, manage campaigns |
+| `gm` | Read + edit metadata, rescan a single book, manage campaigns |
 | `player` | Read-only access |
 
 ---
@@ -2218,6 +2220,7 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 |----------|--------|------|-------------|
 | `/api/addons` | GET | admin | Installed add-ons, everything in the cached index, and add-on settings. `source_credentials` maps each configured index URL that has an access token to `{header, env_locked, unreadable}` - never the token |
 | `/api/addons/refresh` | POST | admin | Re-fetch the community index. Returns `{status, count}` |
+| `/api/addons/verify-index?url=` | GET | any | The one add-on route open to every signed-in user: whether `url` is one of the official community index URLs, compared after trimming whitespace and a trailing `/`. Returns `{url, verified, trusted_index_urls}`. A missing or empty `url` is `verified: false` |
 | `/api/addons/update-all` | POST | admin | Refresh the index, then update every installed add-on with a newer version. Returns `{status, updated: [{id, from, to}], failed: [{id, error}]}` |
 | `/api/addons/settings` | PATCH | admin | Set `index_url` and/or `allow_scripts`. An index URL must be `https://`, or `http://` on `localhost` or a private network address; anything else is a `422` |
 | `/api/addons/sources/credential` | PUT | admin | Store a [private source's](addons.md#private-sources) access token. Body `{url, token, header?}`; `url` must be a configured index URL, and `header` defaults to `Authorization` (sent as `Bearer <token>`). `400` for an unconfigured URL, one pinned by `ADDON_INDEX_CREDENTIALS`, or an unusable token or header. Returns `{source_credentials}`. Session only |

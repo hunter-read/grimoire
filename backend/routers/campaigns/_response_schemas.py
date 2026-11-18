@@ -2,7 +2,8 @@
 
 Kept separate from ``_schemas.py`` (the request models) because the campaigns
 package serves the largest route surface in the app and one combined file would
-be unwieldy — see the "prefer smaller, focused files" rule in ``CLAUDE.md``.
+be unwieldy — larger router packages add focused modules, as "Router package
+shape" in ``docs/architecture.md`` describes.
 
 ``response_model`` makes FastAPI *filter and validate* what a handler returns, so
 every field below is typed against what the handler actually builds:
