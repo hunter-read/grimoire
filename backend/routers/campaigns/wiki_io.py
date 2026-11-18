@@ -70,7 +70,7 @@ from ._wiki_map_io import (
     pins_markdown,
 )
 from ._wiki_helpers import SlugAllocator
-from ._wiki_maps import MAP_PAGE_TYPE
+from ._wiki_maps import MAP_PAGE_TYPE, resolve_page_map
 from .wiki import (
     _page_summary,
     can_view_page,
@@ -119,7 +119,9 @@ def _safe_icon_color(value) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
-def _frontmatter(page: WikiPage, parent_slug, pins: Optional[list] = None) -> str:
+def _frontmatter(
+    page: WikiPage, parent_slug, pins: Optional[list] = None, show_map: bool = True
+) -> str:
     """A minimal YAML frontmatter block for a markdown export of a page."""
     lines = ["---", f"title: {_yaml_scalar(page.title)}", f"visibility: {page.visibility}"]
     if parent_slug:
@@ -133,9 +135,9 @@ def _frontmatter(page: WikiPage, parent_slug, pins: Optional[list] = None) -> st
     if page.session_date:
         lines.append(f"session_date: {page.session_date}")
     if page.page_type == MAP_PAGE_TYPE:
-        if page.map_id:
+        if page.map_id and show_map:
             lines.append(f"map: {page.map_id}")
-        if page.map_file_id:
+        if page.map_file_id and show_map:
             lines.append(f"map_file: {page.map_file_id}")
         if pins:
             lines.append(f"pins: {pins_frontmatter(pins)}")
@@ -274,6 +276,13 @@ def export_wiki(
         for p in pages
         if p.page_type == MAP_PAGE_TYPE
     }
+    # A map page's picture only if this reader may see it, as in the reader.
+    map_hidden = {
+        p.id
+        for p in pages
+        if p.page_type == MAP_PAGE_TYPE
+        and (resolve_page_map(db, p, c, current_user) or {}).get("source") == "hidden"
+    }
 
     if format == "json":
         bundle = {
@@ -292,8 +301,8 @@ def export_wiki(
                     "parent": parent_slug[p.id],
                     **(
                         {
-                            "map_id": p.map_id,
-                            "map_file_id": p.map_file_id,
+                            "map_id": None if p.id in map_hidden else p.map_id,
+                            "map_file_id": None if p.id in map_hidden else p.map_file_id,
                             "pins": pins_of.get(p.id, []),
                         }
                         if p.page_type == MAP_PAGE_TYPE
@@ -339,7 +348,9 @@ def export_wiki(
                 fname = f"{name}-{n}.md"
                 n += 1
             used.add(fname)
-            fm = _frontmatter(p, parent_slug[p.id], pins_of.get(p.id))
+            fm = _frontmatter(
+                p, parent_slug[p.id], pins_of.get(p.id), show_map=p.id not in map_hidden
+            )
             zf.writestr(fname, f"{fm}\n\n{body_of(p)}\n")
     return Response(
         content=buf.getvalue(),

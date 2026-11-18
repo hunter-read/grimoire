@@ -2952,6 +2952,7 @@
     "editHint": "Click the map to add a pin. Drag a pin to move it, or focus it and use the arrow keys (Shift for bigger steps).",
     "missing": "This map is no longer in the library.",
     "noMap": "No map has been chosen for this page yet.",
+    "hidden": "The GM hasn't shared this map with you.",
     "pinsKept": "Its {{count}} pin is kept and comes back on the new map.",
     "pinsKept_other": "Its {{count}} pins are kept and come back on the new map.",
     "locations": "Locations",

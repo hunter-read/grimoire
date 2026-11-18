@@ -11,9 +11,16 @@ the index", a folder going with everything in it - every campaign that uses the
 map gets the file copied into its own uploads first, as a ``CampaignFile``:
 
 * its map pages are pointed at the copy, and keep their pins;
-* ``[[map:<id>]]`` embeds in its notes become ``[[image:<file id>]]``;
+* ``[[map:<id>]]`` embeds in its notes become ``[[image:<file id>]]``, keeping
+  any ``|label``;
 * the map's resource link is swapped for a file resource with the same
   visibility, share list and category.
+
+The copy is read by the people who could see the map in the campaign
+(``routers/campaigns/_file_access.py``): a map linked as a resource is held to
+that link, so a GM-only map stays GM-only wherever it is shown, and a map that
+was never linked is shared with whoever can read a page embedding it or showing
+it as its map.
 
 A copy is bounded by the same campaign upload settings an upload is (**Settings
 → App**: uploads off, the per-file cap and the per-campaign total). A copy the
@@ -62,8 +69,8 @@ _IMAGE_MIME = {
 }
 
 # A `[[map:<id>]]` embed, with an optional `|label` (and a `:page`, for symmetry
-# with book embeds). Group 1 is the id.
-_MAP_EMBED_RE = re.compile(r"\[\[\s*map:\s*([A-Za-z0-9_-]+)\s*(?::[^\]|]*)?(?:\|[^\]]*)?\]\]", re.I)
+# with book embeds). Group 1 is the id, group 2 the label.
+_MAP_EMBED_RE = re.compile(r"\[\[\s*map:\s*([A-Za-z0-9_-]+)\s*(?::[^\]|]*)?(?:\|([^\]]*))?\]\]", re.I)
 
 _CHUNK = 400
 _INFO_KEY = "campaign_map_copies"
@@ -206,9 +213,13 @@ def _discard_on_rollback(db: Session) -> None:
 
 
 def _rewrite_embeds(body: str, map_id: str, file_id: str) -> str:
-    return _MAP_EMBED_RE.sub(
-        lambda m: f"[[image:{file_id}]]" if m.group(1) == map_id else m.group(0), body
-    )
+    def repl(m: re.Match) -> str:
+        if m.group(1) != map_id:
+            return m.group(0)
+        label = m.group(2)
+        return f"[[image:{file_id}|{label}]]" if label else f"[[image:{file_id}]]"
+
+    return _MAP_EMBED_RE.sub(repl, body)
 
 
 def _copy_into(db: Session, m: GenericMap, item: PlannedCopy, use: _Use) -> str:
@@ -228,14 +239,15 @@ def _copy_into(db: Session, m: GenericMap, item: PlannedCopy, use: _Use) -> str:
         mime_type=_IMAGE_MIME[ext],
         size_bytes=item.size,
         is_image=True,
+        map_copy="linked" if use.resource is not None else "unlinked",
     )
     db.add(cf)
     db.flush()
 
     # The file takes the map's place among the campaign's resources, seen by
     # exactly who saw the map. A map that was only embedded or on a map page had
-    # no link: its copy is the GM's, like any upload, and a map page still shows
-    # it to whoever can read that page.
+    # no link: its copy is listed as the GM's, like any upload, and the pages
+    # that embed or show it still show it to whoever can read them.
     old = use.resource
     res = CampaignResource(
         campaign_id=item.campaign_id,
