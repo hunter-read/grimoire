@@ -7,6 +7,7 @@ import binascii
 import hashlib
 import json
 import io
+import math
 import os
 import re
 from pathlib import Path
@@ -368,6 +369,37 @@ def vtt_image_bytes(filepath: str) -> bytes:
         raise ValueError("Universal VTT image is not valid base64") from None
 
 
+#: The largest cell, in pixels, a file's ``pixels_per_grid`` is read as; the
+#: same bound an authored document has.
+MAX_VTT_PIXELS_PER_GRID = 20000
+#: The largest map, in grid cells along one side, a file's ``map_size`` is read as.
+MAX_VTT_GRID_CELLS = 100000
+
+
+def _vtt_number(value: Any, limit: float) -> Optional[float]:
+    """A finite number within +/- ``limit`` from a file, or None for anything else.
+
+    A number written as text ("70") reads as that number, as it always has.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    if not math.isfinite(number) or abs(number) > limit:
+        return None
+    return number
+
+
+def _vtt_cell_pixels(value: Any) -> Optional[int]:
+    """A file's ``pixels_per_grid`` as a whole, positive number of pixels, or None."""
+    number = _vtt_number(value, MAX_VTT_PIXELS_PER_GRID)
+    if number is None or round(number) < 1:
+        return None
+    return round(number)
+
+
 def vtt_metadata(filepath: str) -> dict:
     """Grid/wall/portal/light summary for a Universal VTT file, minus the image.
 
@@ -385,10 +417,10 @@ def vtt_metadata(filepath: str) -> dict:
     walls = _vtt_get(data, "line_of_sight") or []
     objects_los = _vtt_get(data, "objects_line_of_sight") or []
     return {
-        "format": _vtt_get(data, "format"),
-        "pixels_per_grid": _vtt_get(resolution, "pixels_per_grid"),
-        "grid_width": map_size.get("x") if isinstance(map_size, dict) else None,
-        "grid_height": map_size.get("y") if isinstance(map_size, dict) else None,
+        "format": _vtt_number(_vtt_get(data, "format"), 1000),
+        "pixels_per_grid": _vtt_cell_pixels(_vtt_get(resolution, "pixels_per_grid")),
+        "grid_width": _vtt_number(map_size.get("x"), MAX_VTT_GRID_CELLS),
+        "grid_height": _vtt_number(map_size.get("y"), MAX_VTT_GRID_CELLS),
         "wall_count": len(walls) if isinstance(walls, list) else 0,
         "object_wall_count": len(objects_los) if isinstance(objects_los, list) else 0,
         "portal_count": len(portals) if isinstance(portals, list) else 0,

@@ -156,7 +156,7 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
 
     what = f"Field {field_name!r} column {key!r}"
     column_type = column.get("type", "text")
-    if column_type not in COLUMN_TYPES:
+    if not isinstance(column_type, str) or column_type not in COLUMN_TYPES:
         allowed = ", ".join(sorted(COLUMN_TYPES))
         raise SchemaError(
             f"{what} has unknown type {column_type!r} (expected one of: {allowed})"
@@ -217,7 +217,7 @@ def _validate_definition(
     definition = _require_dict(definition, what)
 
     field_type = definition.get("type", "text")
-    if field_type not in FIELD_TYPES:
+    if not isinstance(field_type, str) or field_type not in FIELD_TYPES:
         allowed = ", ".join(sorted(FIELD_TYPES))
         raise SchemaError(
             f"{what} has unknown type {field_type!r} (expected one of: {allowed})"
@@ -573,7 +573,7 @@ def _validate_content_type(name: str, definition: Any) -> None:
 
     # The entry's "name" — what a reference shows and what the catalog sorts by.
     identity = definition.get("identity_field", "name")
-    if identity not in fields:
+    if not isinstance(identity, str) or identity not in fields:
         raise SchemaError(
             f"{what} identity_field {identity!r} is not one of its fields"
         )
@@ -586,7 +586,7 @@ def _validate_content_type(name: str, definition: Any) -> None:
             continue
         if not isinstance(names, list):
             raise SchemaError(f"{what} {key!r} must be a list of field names")
-        unknown = [n for n in names if n not in fields]
+        unknown = [n for n in names if not isinstance(n, str) or n not in fields]
         if unknown:
             raise SchemaError(
                 f"{what} {key!r} names unknown "
