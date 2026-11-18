@@ -258,13 +258,13 @@ class TestCatalogApi:
         assert levels == ["1", "3", "9"]
         assert result["filters_available"]["school"][0]["value"] == "abjuration"
 
-    def test_large_facet_appears_after_narrowing_another_filter(self, client, admin_headers, catalog):
+    def test_large_facet_remains_available_and_narrows(self, client, admin_headers, catalog):
         from backend.models import ContentEntry
 
         db = SessionLocal()
         try:
             pack = db.query(ContentEntry).filter_by(schema_id="catalog-demo").first().pack_id
-            for i in range(51):
+            for i in range(157):
                 db.add(ContentEntry(pack_id=pack, schema_id="catalog-demo", content_type="spell",
                                     entry_id=f"extra-{i}", source="srd", name=f"Extra {i}",
                                     data={"name": f"Extra {i}", "level": 2,
@@ -275,7 +275,7 @@ class TestCatalogApi:
 
         url = "/api/content/catalog-demo/spell"
         initial = client.get(url, headers=admin_headers).json()
-        assert "school" not in initial["filters_available"]
+        assert len(initial["filters_available"]["school"]) == 160
         narrowed = client.get(url, params={"filter[level]": "1"}, headers=admin_headers).json()
         assert {item["value"] for item in narrowed["filters_available"]["school"]} == {
             "abjuration", "evocation"
