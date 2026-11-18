@@ -14,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python dependencies (compilers live here, not in the runtime image)
-FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS backend-builder
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS backend-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -148,7 +148,7 @@ RUN ./configure \
 # The cost: the bundled files belong to no package in the runtime image's dpkg
 # database, so an image scanner does not match them against Debian advisories.
 # Rebuilding picks up whatever Debian has fixed, as before.
-FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS tools-builder
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS tools-builder
 
 # /base-files is written first: it is how bundle_tool.sh knows what the runtime
 # image already has. icu-devtools and binutils are for trim_icu_data.sh.
@@ -182,7 +182,7 @@ RUN trim_icu_data.sh \
     && SKIP_BUNDLES=/bundle/unar bundle_tool.sh /bundle/tesseract /usr/bin/tesseract /usr/share/tesseract-ocr
 
 # Stage 5: Runtime base shared by both variants (no build toolchain)
-FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS runtime-base
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS runtime-base
 
 WORKDIR /app
 
