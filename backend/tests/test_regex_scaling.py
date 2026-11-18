@@ -58,7 +58,7 @@ class TestWikiLinks:
     def test_map_embed(self):
         assert _elapsed(_MAP_EMBED_RE.findall, "[[map:a:" * 50_000) < LIMIT
         assert _elapsed(_MAP_EMBED_RE.findall, "[[map:a|" * 50_000) < LIMIT
-        assert _MAP_EMBED_RE.findall("[[map:abc]] [[ Map: x-1 :2|label]]") == ["abc", "x-1"]
+        assert _MAP_EMBED_RE.findall("[[map:abc]] [[ Map: x-1 :2|label]]") == [("abc", ""), ("x-1", "label")]
 
 
 class TestLegendKeeperLinks:
