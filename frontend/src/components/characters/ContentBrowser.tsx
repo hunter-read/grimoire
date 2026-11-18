@@ -103,6 +103,7 @@ export default function ContentBrowser({
   }, [onClose])
 
   const chosenIds = new Set(chosen.map((item) => item?._ref).filter(Boolean))
+  const dependentOrigin = schemaId === 'dnd-5e-2014' && contentType === 'feature'
   const pageSize = 50
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -121,6 +122,7 @@ export default function ContentBrowser({
     setPage(1)
     setFilters((prev) => {
       const next = { ...prev }
+      if (dependentOrigin && field === 'class' && value !== prev.class) delete next.origin
       if (!value) delete next[field]
       else next[field] = value
       return next
@@ -212,6 +214,7 @@ export default function ContentBrowser({
                   </label>
                   <select
                     id={`facet-${field}`}
+                    disabled={dependentOrigin && field === 'origin' && !filters.class}
                     value={filters[field] || ''}
                     onChange={(event) => setFilter(field, event.target.value)}
                     style={fieldInput}

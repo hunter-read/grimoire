@@ -121,6 +121,30 @@ describe('ContentBrowser', () => {
     await waitFor(() => expect(screen.queryByLabelText('School')).not.toBeInTheDocument())
   })
 
+  it('enables the 2014 feature origin filter only when a class is selected', async () => {
+    const facets = {
+      class: [{ value: 'Fighter', count: 1 }, { value: 'Wizard', count: 1 }],
+      origin: [{ value: 'Rune Knight', count: 1 }],
+    }
+    mockBrowse.mockResolvedValue({ ...RESULT, filters_available: facets })
+    renderBrowser({
+      schemaId: 'dnd-5e-2014',
+      contentType: 'feature',
+      typeDefinition: { ...TYPE, fields: { class: { label: 'Class' }, origin: { label: 'From' } } },
+    })
+    const origin = await screen.findByLabelText('From')
+    expect(origin).toBeDisabled()
+    await userEvent.selectOptions(screen.getByLabelText('Class'), 'Fighter')
+    expect(origin).toBeEnabled()
+    await userEvent.selectOptions(origin, 'Rune Knight')
+    await userEvent.selectOptions(screen.getByLabelText('Class'), 'Wizard')
+    await waitFor(() => expect(mockBrowse).toHaveBeenLastCalledWith(
+      'dnd-5e-2014', 'feature', expect.objectContaining({ filters: { class: 'Wizard' } })
+    ))
+    await userEvent.selectOptions(screen.getByLabelText('Class'), '')
+    expect(origin).toBeDisabled()
+  })
+
   it('reports a choice as a reference, not a copy', async () => {
     const onChoose = vi.fn()
     renderBrowser({ onChoose })
