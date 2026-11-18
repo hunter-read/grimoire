@@ -4114,6 +4114,8 @@
     "promptMore": "Uno in più a {{name}}",
     "promptNoEntries": "Niente da scegliere",
     "promptSearch": "Cerca",
+    "promptShowDetails": "Mostra i dettagli di {{name}}",
+    "promptHideDetails": "Nascondi i dettagli di {{name}}",
     "promptUseAverage": "Usa la media ({{value}})",
     "promptPending": "Scelte in sospeso:",
     "promptDismiss": "Scarta {{name}}",
