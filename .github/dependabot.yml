@@ -21,6 +21,11 @@ updates:
         patterns: [fastapi, starlette, "uvicorn*", "pydantic*"]
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Held below 9.2 until pytest-xdist's `--dist loadgroup` works with it:
+      # see the comment on the pytest pin in requirements-test.txt.
+      - dependency-name: pytest
+        versions: [">=9.2"]
 
   - package-ecosystem: npm
     directory: /frontend

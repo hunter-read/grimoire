@@ -1,10 +1,63 @@
 """Upcoming session dates from a campaign's recurring schedule."""
 import datetime
-from typing import List, Optional
+import re
+from typing import List, Optional, Tuple
+
+# The weeks a monthly schedule can fall on: the 1st to 4th, or -1 for the last.
+MONTHLY_WEEKS = (1, 2, 3, 4, -1)
+
+# How far from today a custom session date may be, either way, and how many a
+# schedule may list. Ten years of weekly sessions fit in the count.
+CUSTOM_DATE_WINDOW = datetime.timedelta(days=3653)
+MAX_CUSTOM_DATES = 600
+
+_ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_CLOCK_RE = re.compile(r"(\d{1,2}):(\d{2})(?::\d{2})?")
+
+
+def parse_iso_date(value: object) -> Optional[datetime.date]:
+    """``value`` as a date when it is exactly ``YYYY-MM-DD``, else None.
+
+    ``date.fromisoformat`` alone also takes ``20270102`` and week dates, which
+    nothing else here would read the same way.
+    """
+    if not isinstance(value, str) or not _ISO_DATE_RE.fullmatch(value):
+        return None
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def in_custom_date_window(day: datetime.date, today: Optional[datetime.date] = None) -> bool:
+    """Whether ``day`` is within ``CUSTOM_DATE_WINDOW`` of today."""
+    today = today or datetime.date.today()
+    try:
+        return today - CUSTOM_DATE_WINDOW <= day <= today + CUSTOM_DATE_WINDOW
+    except OverflowError:
+        return False
+
+
+def parse_clock(value: object) -> Optional[Tuple[int, int]]:
+    """``(hour, minute)`` from an ``HH:MM`` (or ``HH:MM:SS``) clock, else None."""
+    if not isinstance(value, str):
+        return None
+    m = _CLOCK_RE.fullmatch(value)
+    if not m:
+        return None
+    hour, minute = int(m.group(1)), int(m.group(2))
+    if hour > 23 or minute > 59:
+        return None
+    return hour, minute
 
 
 def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
-    """Return the next n session dates (YYYY-MM-DD) from today based on schedule."""
+    """Return the next n session dates (YYYY-MM-DD) from today based on schedule.
+
+    A value the schedule editor would refuse - a custom date that is not a date
+    or is far from today, a month week outside ``MONTHLY_WEEKS`` - is skipped
+    rather than raised on, so a row stored before those checks still reads.
+    """
     if not definition:
         return []
     frequency = definition.get("frequency", "weekly")
@@ -12,8 +65,13 @@ def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
     today = datetime.date.today() - datetime.timedelta(days=1)
 
     if frequency == "custom":
-        custom_dates = definition.get("custom_dates", [])
-        future = sorted(d for d in custom_dates if d >= today.isoformat())
+        custom_dates = definition.get("custom_dates") or []
+        if not isinstance(custom_dates, list):
+            return []
+        parsed = (parse_iso_date(d) for d in custom_dates)
+        future = sorted(
+            {d.isoformat() for d in parsed if d and d >= today and in_custom_date_window(d)}
+        )
         return future[:n]
 
     days = definition.get("days", [])
@@ -25,6 +83,10 @@ def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
     if frequency == "monthly":
         weekday = days[0]
         monthly_week = definition.get("monthly_week", 1)
+        # A 5th week is readable too (months without one are skipped), though
+        # the editor never offers it; anything else would overflow the date math.
+        if monthly_week not in (*MONTHLY_WEEKS, 5) or not isinstance(weekday, int):
+            return []
         year, month = today.year, today.month
         for _ in range(24):
             if len(results) >= n:

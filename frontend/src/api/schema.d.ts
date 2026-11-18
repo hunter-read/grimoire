@@ -16268,7 +16268,7 @@ export interface components {
         };
         /**
          * ScanStatusResponse
-         * @description Live scan state, mirroring `_helpers._DEFAULT_STATUS`.
+         * @description Live scan state, mirroring `services.library_scan.runner.DEFAULT_STATUS`.
          *
          *     The counters are Optional because the payload can come back from Valkey,
          *     where a status blob written by an older build may predate a counter that was

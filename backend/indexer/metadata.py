@@ -301,8 +301,12 @@ def opf_fields(root: ElementTree.Element) -> dict:
 
     description = _find_text("description")
     if description:
-        # Strip any embedded HTML tags from Calibre descriptions
-        description = re.sub(r"<[^>]+>", "", description).strip()
+        # Strip any embedded HTML tags from Calibre descriptions. Every tag ends
+        # at a `>`, so only the text up to the last one is searched: a `<` after
+        # it can start no tag, and searching there would rescan to the end once
+        # per `<`.
+        end = description.rfind(">") + 1
+        description = (re.sub(r"<[^>]+>", "", description[:end]) + description[end:]).strip()
         if description:
             meta["description"] = description
 

@@ -70,7 +70,12 @@ _IMAGE_MIME = {
 
 # A `[[map:<id>]]` embed, with an optional `|label` (and a `:page`, for symmetry
 # with book embeds). Group 1 is the id, group 2 the label.
-_MAP_EMBED_RE = re.compile(r"\[\[\s*map:\s*([A-Za-z0-9_-]+)\s*(?::[^\]|]*)?(?:\|([^\]]*))?\]\]", re.I)
+# As with wiki links, neither suffix may contain a second `[[` opener.
+_MAP_EMBED_RE = re.compile(
+    r"\[\[\s*map:\s*([A-Za-z0-9_-]+)\s*"
+    r"(?::(?:[^\]|\[]|\[(?!\[))*)?(?:\|((?:[^\]\[]|\[(?!\[))*))?\]\]",
+    re.I,
+)
 
 _CHUNK = 400
 _INFO_KEY = "campaign_map_copies"

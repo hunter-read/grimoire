@@ -23,7 +23,7 @@ import logging
 import os
 import sys
 import urllib.parse
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, overload
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # Every variable read below, recorded by _raw.
@@ -41,12 +41,37 @@ def _str_env(name: str, default: str) -> str:
     return default if raw is None else raw
 
 
-def _bool_env(name: str) -> Optional[bool]:
-    """True for "true" (any case), False for anything else, None when unset."""
+_TRUE_WORDS = frozenset({"true", "1", "yes", "on"})
+_FALSE_WORDS = frozenset({"false", "0", "no", "off"})
+
+
+@overload
+def _bool_env(name: str) -> Optional[bool]: ...
+@overload
+def _bool_env(name: str, default: bool) -> bool: ...
+def _bool_env(name: str, default: Optional[bool] = None) -> Optional[bool]:
+    """Read a true/false env var: true/1/yes/on or false/0/no/off, in any case.
+
+    Unset or blank yields ``default``. So does any other value, with a warning:
+    a typo is not taken to mean either answer. A pin (``default`` None) then
+    stays unset, which leaves the matching DB setting in charge.
+    """
     raw = _raw(name)
-    if raw is None:
-        return None
-    return raw.strip().lower() == "true"
+    if raw is None or not raw.strip():
+        return default
+    word = raw.strip().lower()
+    if word in _TRUE_WORDS:
+        return True
+    if word in _FALSE_WORDS:
+        return False
+    if default is None:
+        fallback = "leaving it unset"
+    else:
+        fallback = f"using the default, {'true' if default else 'false'}"
+    _defer_warning(
+        "%s=%r is not true or false (true/1/yes/on, false/0/no/off) - %s", name, raw, fallback
+    )
+    return default
 
 
 def _int_env(name: str) -> Optional[int]:
@@ -110,7 +135,7 @@ def _version_from_file() -> str:
 VERSION: str
 NAMES.add("APP_VERSION")  # read then, by __getattr__
 COMMIT_HASH = _str_env("COMMIT_HASH", "")
-OPDS_ENABLED = _str_env("OPDS_ENABLED", "false").lower() == "true"
+OPDS_ENABLED = _bool_env("OPDS_ENABLED", False)
 # Who may open the interactive API docs (/api/docs, /api/redoc) and the schema
 # behind them (/api/openapi.json): "signed-in" (the default; a browser's
 # session cookie is enough), "public", or "off". Type generation is unaffected:
@@ -124,7 +149,7 @@ if API_DOCS not in _API_DOCS_MODES:
     API_DOCS = "signed-in"
 # The MCP server at /mcp, for AI assistants (Claude Code, ...). Off by default;
 # when on, it authenticates with API keys, so API_KEYS_ENABLED must be on too.
-MCP_ENABLED = _str_env("MCP_ENABLED", "false").lower() == "true"
+MCP_ENABLED = _bool_env("MCP_ENABLED", False)
 # Extra host names (comma-separated, optionally with :port or :*) that MCP
 # clients may reach /mcp under, besides loopback and BASE_URL's host. The
 # Host header is checked against them, against DNS rebinding.
@@ -159,7 +184,7 @@ VALKEY_URL = _str_env("VALKEY_URL", "")
 #                     OCR_ENABLED=false) — a runtime off switch for users hitting
 #                     repeated OCR errors or OOMs, without pulling the slim image.
 #   OCR_PAGE_TIMEOUT — per-page OCR budget in seconds (see _read_ocr_page_timeout).
-OCR_ENABLED = _str_env("OCR_ENABLED", "true").lower() == "true"
+OCR_ENABLED = _bool_env("OCR_ENABLED", True)
 OCR_LANGUAGES = _str_env("OCR_LANGUAGES", "eng").strip() or "eng"
 
 # Set false to skip the library scan that otherwise runs on every start (issue
@@ -168,7 +193,7 @@ OCR_LANGUAGES = _str_env("OCR_LANGUAGES", "eng").strip() or "eng"
 # change rarely mean new files. New files then wait for a manual or scheduled
 # rescan, and so do queued OCR and model previews.
 def _read_startup_scan() -> bool:
-    return _str_env("STARTUP_SCAN", "true").strip().lower() != "false"
+    return _bool_env("STARTUP_SCAN", True)
 
 
 STARTUP_SCAN = _read_startup_scan()
@@ -176,9 +201,7 @@ STARTUP_SCAN = _read_startup_scan()
 # Set true to disable the "update available" check that proxies GitHub's
 # releases API. When disabled, /api/latest-release always returns null and no
 # outbound request to GitHub is ever made.
-DISABLE_VERSION_CHECKING = (
-    _str_env("DISABLE_VERSION_CHECKING", "false").lower() == "true"
-)
+DISABLE_VERSION_CHECKING = _bool_env("DISABLE_VERSION_CHECKING", False)
 
 
 def _apply_configured_umask(warn: Callable[..., None] = _log_warning) -> None:
@@ -488,14 +511,14 @@ GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 # API keys for the whole instance (issue #489). On unless set to "false", which
 # turns them off for everyone, admins included: keys stop authenticating, the
 # /api/api-keys endpoints refuse, and the UI hides them.
-API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED") is not False
+API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED", True)
 
 # Share links for the whole instance (issue #541): public, revocable URLs for a
 # single library item. On unless set to "false", which turns them off for
 # everyone: every existing link stops resolving (404), creating one is refused,
 # and the UI hides the share menus. Links are kept, so turning it back on
 # restores them.
-SHARE_LINKS_ENABLED: bool = _bool_env("SHARE_LINKS_ENABLED") is not False
+SHARE_LINKS_ENABLED: bool = _bool_env("SHARE_LINKS_ENABLED", True)
 
 
 #   CORS_ALLOWED_ORIGINS — comma-separated origins (scheme://host[:port]) whose
@@ -586,7 +609,7 @@ BACKUP_RETENTION_GB_ENV: Optional[int] = _int_env("BACKUP_RETENTION_GB")
 # installs are enabled by default.
 #
 # Replaces WIKI_TEMPLATES_DOWNLOAD_DISABLED, which covered templates alone.
-DISABLE_EXTERNAL_ADD_ON_INSTALL: bool = _bool_env("DISABLE_EXTERNAL_ADD_ON_INSTALL") or False
+DISABLE_EXTERNAL_ADD_ON_INSTALL: bool = _bool_env("DISABLE_EXTERNAL_ADD_ON_INSTALL", False)
 
 # Access tokens for private add-on index sources (issue #642): a JSON object
 # mapping an index URL to a token, or to {"token": "...", "header": "..."}.
@@ -765,14 +788,12 @@ ACCOUNT_RATE_LIMIT = _str_env("ACCOUNT_RATE_LIMIT", "20/hour")
 # sys.modules because this module is imported at collection time, before any
 # individual test sets PYTEST_CURRENT_TEST.
 UNDER_PYTEST = "pytest" in sys.modules
-RATE_LIMIT_ENABLED = (
-    _str_env("RATE_LIMIT_ENABLED", "false" if UNDER_PYTEST else "true").strip().lower() == "true"
-)
+RATE_LIMIT_ENABLED = _bool_env("RATE_LIMIT_ENABLED", not UNDER_PYTEST)
 
 # Trust a reverse proxy's X-Forwarded-For header. Default on so clients behind a
 # proxy don't all share the proxy's single IP bucket. Set to "false" to ignore the
 # header entirely and always key on the connecting address.
-TRUST_FORWARDED_FOR = _str_env("TRUST_FORWARDED_FOR", "true").strip().lower() != "false"
+TRUST_FORWARDED_FOR = _bool_env("TRUST_FORWARDED_FOR", True)
 
 # Which connecting addresses count as a reverse proxy whose X-Forwarded-For is
 # read (comma-separated addresses or CIDR ranges). The default is loopback, the

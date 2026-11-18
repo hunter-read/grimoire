@@ -41,7 +41,10 @@ export function wikiUrlTransform(url: string): string {
     ? url
     : defaultUrlTransform(url)
 }
-const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
+// Mirrors LINK_RE in backend/text/wikilinks.py. Neither the target nor the
+// label may contain `[[` - a second opener starts a new link - which also keeps
+// matching linear on a long run of unclosed `[[`.
+const LINK_RE = /\[\[((?:[^\]|[]|\[(?!\[))+?)(?:\|((?:[^\][]|\[(?!\[))+))?\]\]/g
 
 // Book-page embeds whose page is loaded while the note is open (issue #640).
 // The rest still load on hover. A cap, because each is a render on the server

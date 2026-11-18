@@ -60,7 +60,7 @@ from ._helpers import (
     get_campaign_or_404,
     strip_gm_secrets,
 )
-from ._schemas import clean_icon_color
+from ._schemas import WIKI_BODY_MAX_LENGTH, clean_icon_color
 from ._wiki_map_io import (
     apply_imported_map,
     clean_import_id,
@@ -94,7 +94,9 @@ _LK_WRAP_RE = re.compile(r"<div class=['\"]lk-tab['\"][^>]*>(.*)</div>\s*$", re.
 _LK_SPECIAL_RE = re.compile(r"<div data-node-type[^>]*>.*?</div>", re.DOTALL)
 # A markdown link to a LegendKeeper page, as markdownify renders the original
 # <a href="<id>.html">: [label](<id>.html). The id may be percent/relative-pathed.
-_MD_LK_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]*?)\.html\)")
+# The label holds no `[` and the target no `](`, so a match attempt stops at the
+# next link instead of scanning on to the end of the page.
+_MD_LK_LINK_RE = re.compile(r"\[([^\]\[]*)\]\(((?:[^)\]]|\](?!\())*?)\.html\)")
 
 # Frontmatter keys we read/write. Anything else in a foreign file is ignored.
 _FM_KEYS = (
@@ -1157,6 +1159,14 @@ def import_wiki(
     # which can't be stored as UTF-8.
     if holds_lone_surrogate(records):
         raise HTTPException(400, NOT_UNICODE)
+    # The same per-page cap a save through the editor has.
+    for rec in records:
+        if len(rec["body"] or "") > WIKI_BODY_MAX_LENGTH:
+            raise HTTPException(
+                422,
+                f"Page {rec['title']!r} is too long to import "
+                f"(limit {WIKI_BODY_MAX_LENGTH:,} characters)",
+            )
 
     if not records:
         raise HTTPException(400, "No pages found to import")

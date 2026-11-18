@@ -1,7 +1,7 @@
 """Admin-only structural file management for the library (issue #302).
 
 Handlers stay thin: every filesystem decision, path guard, and DB relink lives in
-``services/library_fs.py``, so the same primitive can back the bulk browser, the
+the ``services/library_fs`` package, so the same primitive can back the bulk browser, the
 per-item affordances, and (later) the automated reorganisation of issue #53
 without three implementations drifting apart.
 

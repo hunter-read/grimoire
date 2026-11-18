@@ -36,7 +36,14 @@ from typing import Callable, Iterator, NamedTuple, Optional
 from . import slugs
 
 # Matches [[target]] or [[target|label]]; target/label captured separately.
-LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
+#
+# Neither part may contain `[[`: a second opener starts a new link, so in
+# `[[a [[b]]` the link is `[[b]]`. A lone `[` is still allowed. This also keeps
+# matching linear - each attempt stops at the next `[[` instead of rescanning
+# the rest of the body from every opener.
+_NO_OPENER = r"(?:[^\]|\[]|\[(?!\[))"
+_NO_OPENER_LABEL = r"(?:[^\]\[]|\[(?!\[))"
+LINK_RE = re.compile(rf"\[\[({_NO_OPENER}+?)(?:\|({_NO_OPENER_LABEL}+))?\]\]")
 
 # A fenced code block: an opening run of 3+ backticks or tildes and its info
 # string, then everything up to a closing run of the same character at least as

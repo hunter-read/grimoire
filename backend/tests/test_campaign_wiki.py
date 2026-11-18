@@ -1238,6 +1238,12 @@ class TestWikiHiddenPages:
         listed = client.get(f"/api/campaigns/{cid}/wiki", headers=player_headers).json()
         assert any(p["id"] == page["id"] for p in listed)
 
+    def test_unhide_refuses_a_non_member(self, client, gm_headers, player_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        page = _create(client, gm_headers, cid, title="Clutter", visibility="group").json()
+        r = client.delete(f"/api/campaigns/{cid}/wiki/{page['id']}/hide", headers=player_headers)
+        assert r.status_code == 403
+
     def test_hiding_a_parent_hides_its_descendants(
         self, client, gm_headers, player_headers, campaign_with_member
     ):

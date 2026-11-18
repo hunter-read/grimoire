@@ -7,7 +7,10 @@ Every environment variable is read in ``config/env.py``, and
 """
 import importlib
 import logging
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,7 +18,8 @@ import pytest
 from backend import config
 from backend.config import env, valkey
 
-_DOCS = Path(__file__).resolve().parents[2] / "docs" / "configuration.md"
+_REPO = Path(__file__).resolve().parents[2]
+_DOCS = _REPO / "docs" / "configuration.md"
 
 
 class TestFacade:
@@ -157,6 +161,74 @@ class TestEnvironment:
         with caplog.at_level(logging.WARNING, logger="grimoire"):
             config.startup()
         assert "REFRESH_TOKEN_EXPIRE_DAYS='soon' is not an integer" in caplog.text
+
+    @pytest.mark.parametrize("raw", ["true", "TRUE", " 1 ", "yes", "On"])
+    def test_bool_true_words(self, monkeypatch, raw):
+        monkeypatch.setattr(env, "_deferred_warnings", [])
+        monkeypatch.setenv("OPDS_ENABLED", raw)
+        assert env._bool_env("OPDS_ENABLED", False) is True
+        assert env._bool_env("OPDS_ENABLED") is True
+        assert env._deferred_warnings == []
+
+    @pytest.mark.parametrize("raw", ["false", "False", "0", " no ", "OFF"])
+    def test_bool_false_words(self, monkeypatch, raw):
+        monkeypatch.setattr(env, "_deferred_warnings", [])
+        monkeypatch.setenv("OPDS_ENABLED", raw)
+        assert env._bool_env("OPDS_ENABLED", True) is False
+        assert env._bool_env("OPDS_ENABLED") is False
+        assert env._deferred_warnings == []
+
+    @pytest.mark.parametrize("raw", [None, "", "  "])
+    def test_bool_unset_or_blank_is_the_default(self, monkeypatch, raw):
+        monkeypatch.setattr(env, "_deferred_warnings", [])
+        if raw is None:
+            monkeypatch.delenv("OPDS_ENABLED", raising=False)
+        else:
+            monkeypatch.setenv("OPDS_ENABLED", raw)
+        assert env._bool_env("OPDS_ENABLED", True) is True
+        assert env._bool_env("OPDS_ENABLED", False) is False
+        assert env._bool_env("OPDS_ENABLED") is None
+        assert env._deferred_warnings == []
+
+    def test_bool_unrecognised_warns_and_uses_the_default(self, monkeypatch):
+        monkeypatch.setattr(env, "_deferred_warnings", [])
+        monkeypatch.setenv("OPDS_ENABLED", "enabled")
+        assert env._bool_env("OPDS_ENABLED", True) is True
+        assert env._bool_env("OPDS_ENABLED", False) is False
+        assert env._bool_env("OPDS_ENABLED") is None
+        fallbacks = [args[2] for _, args in env._deferred_warnings]
+        assert fallbacks == [
+            "using the default, true",
+            "using the default, false",
+            "leaving it unset",
+        ]
+
+    @pytest.mark.parametrize(
+        "name, raw, expected",
+        [
+            ("RATE_LIMIT_ENABLED", None, "True"),
+            ("RATE_LIMIT_ENABLED", "1", "True"),
+            ("RATE_LIMIT_ENABLED", "yes", "True"),
+            ("RATE_LIMIT_ENABLED", "off", "False"),
+            ("RATE_LIMIT_ENABLED", "sometimes", "True"),
+            ("DISABLE_EXTERNAL_ADD_ON_INSTALL", None, "False"),
+            ("DISABLE_EXTERNAL_ADD_ON_INSTALL", "1", "True"),
+            ("DISABLE_EXTERNAL_ADD_ON_INSTALL", "On", "True"),
+            ("DISABLE_EXTERNAL_ADD_ON_INSTALL", "no", "False"),
+            ("DISABLE_EXTERNAL_ADD_ON_INSTALL", "sometimes", "False"),
+        ],
+    )
+    def test_named_switches_read_at_import(self, name, raw, expected):
+        # A fresh interpreter, so the module-level value is the one read from
+        # the environment (and RATE_LIMIT_ENABLED's default is not pytest's).
+        child_env = {k: v for k, v in os.environ.items() if k != name}
+        if raw is not None:
+            child_env[name] = raw
+        out = subprocess.run(
+            [sys.executable, "-c", f"from backend.config import env; print(env.{name})"],
+            cwd=_REPO, env=child_env, capture_output=True, text=True, check=True,
+        )
+        assert out.stdout.strip() == expected
 
     def test_codex_token_is_stripped(self, monkeypatch):
         monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "  cdx_x  ")

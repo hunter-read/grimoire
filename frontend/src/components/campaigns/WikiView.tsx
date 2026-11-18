@@ -59,7 +59,8 @@ type DropWhere = 'before' | 'after' | 'inside'
 type ExportFormat = Parameters<typeof campaigns.exportWiki>[1]
 
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
-const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
+// No `[[` inside, as with LINK_RE in WikiMarkdown.tsx.
+const AUDIO_EMBED_RE = /\[\[audio:((?:[^\]|[]|\[(?!\[))+?)(?:\|(?:[^\][]|\[(?!\[))+)?\]\]/g
 function extractAudioEmbedIds(body: string | null | undefined): string[] {
   if (!body) return []
   return Array.from(body.matchAll(AUDIO_EMBED_RE), (m) => m[1].trim()).filter(Boolean)
