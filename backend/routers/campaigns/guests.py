@@ -22,6 +22,7 @@ from ...models import Campaign, CampaignMember, User
 from ...sessions import revoke_user_sessions
 from ...services.app_settings import get_raw, guest_access_effective
 from ._helpers import assert_can_manage, get_campaign_or_404
+from ...services.campaigns.upload_files import member_upload_paths, remove_after_commit
 from ...services.campaigns.user_data import generate_guest_code, release_guest_membership
 from ._schemas import GuestCreate
 
@@ -168,6 +169,7 @@ def remove_guest(
     _get_managed_campaign(db, campaign_id, current_user)
     member = _get_guest_member(db, campaign_id, member_id)
     user_id, guest_code = member.user_id, member.guest_code
+    remove_after_commit(db, member_upload_paths([member]))
     db.delete(member)
     # A guest in no other campaign loses its backing User and contributions too,
     # so no orphan account lingers; a merged guest keeps its other campaigns.

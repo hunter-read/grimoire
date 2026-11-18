@@ -42,6 +42,7 @@ from ...services.campaigns.user_data import (
     detach_child_campaigns,
     release_guest_membership,
 )
+from ...services.campaigns.upload_files import campaign_upload_paths, remove_after_commit
 from ._writable import ARCHIVED, writable_while
 from ._schemas import (
     CampaignArchive,
@@ -402,6 +403,8 @@ def delete_campaign(
         (m.user_id, m.guest_code)
         for m in db.query(CampaignMember).filter_by(campaign_id=c.id, is_guest=True).all()
     ]
+    # Its banner, files and members' uploads go with it, once the delete commits.
+    remove_after_commit(db, campaign_upload_paths(db, [c.id]))
     detach_campaign_characters(db, [c.id])
     detach_child_campaigns(db, [c.id])
     db.delete(c)
