@@ -389,6 +389,24 @@ class TestCachedBookInfo:
 
 
 class TestAllowExplicit:
+    """Users here are written straight to the DB and removed afterwards.
+
+    When this file is the first of an xdist slice, a user left behind makes the
+    session's ``/api/auth/setup`` answer "already initialized" for every later
+    file in the slice.
+    """
+
+    def setup_method(self):
+        self._made = []
+
+    def teardown_method(self):
+        db = SessionLocal()
+        try:
+            db.query(User).filter(User.id.in_(self._made)).delete(synchronize_session=False)
+            db.commit()
+        finally:
+            db.close()
+
     def _make_user(self, allow_explicit):
         db = SessionLocal()
         u = User(
@@ -401,6 +419,7 @@ class TestAllowExplicit:
         db.commit()
         uid = u.id
         db.close()
+        self._made.append(uid)
         return uid
 
     def test_defaults_true_for_unknown_user(self):
