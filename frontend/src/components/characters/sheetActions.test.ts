@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findAction, planAction, MAX_LIST_ROWS } from './sheetActions'
+import { actionPrompts, findAction, planAction, MAX_LIST_ROWS } from './sheetActions'
 import type { SheetAction } from './sheetActions'
 
 const DOCUMENT = {
@@ -124,5 +124,24 @@ describe('findAction', () => {
     expect(findAction({ actions: [action] }, 'rest')).toBe(action)
     expect(findAction({ actions: [action] }, 'other')).toBeUndefined()
     expect(findAction({}, 'rest')).toBeUndefined()
+  })
+})
+
+describe('actionPrompts', () => {
+  it('lists the prompts an action opens, in order, and writes nothing for them', () => {
+    const action: SheetAction = {
+      name: 'gain',
+      label: 'Gain',
+      steps: [{ prompt: 'level_up' }, { set: 'level', to: '2' }, { prompt: 'spells' }],
+    }
+    expect(actionPrompts(action)).toEqual(['level_up', 'spells'])
+    expect(
+      planAction(action, {
+        document: { fields: { level: { type: 'number' } } },
+        data: {},
+        context: {},
+      })
+    ).toEqual({ level: 2 })
+    expect(actionPrompts(undefined)).toEqual([])
   })
 })

@@ -6,6 +6,7 @@ import type { ComponentProps } from 'react'
 import LayoutRenderer from './LayoutRenderer'
 import type { LayoutNode } from './LayoutRenderer'
 import { CharacterMediaContext } from './characterMedia'
+import { PromptLauncher } from './sheetPrompts'
 
 vi.mock('../../api', () => ({
   characters: {
@@ -819,6 +820,67 @@ describe('LayoutRenderer — actions', () => {
 
   it('draws nothing for an action the sheet does not declare', () => {
     renderLayout(button({ name: 'nope' }), { document: doc, data, onChange: vi.fn() })
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('LayoutRenderer — prompts', () => {
+  const doc = {
+    ...DOCUMENT,
+    fields: { ...DOCUMENT.fields, level: { type: 'number' } },
+    prompts: {
+      level_up: {
+        label: 'Level up',
+        steps: [{ key: 'hp', type: 'number' }],
+        apply: [{ set: 'level', to: 'level + 1' }],
+      },
+    },
+    actions: [
+      {
+        name: 'gain',
+        label: 'Gain a level',
+        steps: [{ set: 'level', to: 'level + 1' }, { prompt: 'level_up' }],
+      },
+    ],
+  }
+  const draw = (
+    attrs: Record<string, string>,
+    open: ((r: unknown) => void) | null,
+    readOnly = false
+  ) =>
+    render(
+      <PromptLauncher.Provider value={open}>
+        <LayoutRenderer
+          ast={[{ tag: 'g-action', attrs, children: [] }]}
+          document={doc}
+          data={{ level: 3 }}
+          onChange={vi.fn()}
+          readOnly={readOnly}
+        />
+      </PromptLauncher.Provider>
+    )
+
+  it('opens a prompt named on the button, with its label', async () => {
+    const open = vi.fn()
+    draw({ prompt: 'level_up' }, open)
+    await userEvent.click(screen.getByRole('button', { name: 'Level up' }))
+    expect(open).toHaveBeenCalledWith({ prompt: 'level_up' })
+  })
+
+  it("opens an action's prompts after its writes", async () => {
+    const open = vi.fn()
+    draw({ name: 'gain' }, open)
+    await userEvent.click(screen.getByRole('button', { name: 'Gain a level' }))
+    expect(open).toHaveBeenCalledWith({ prompt: 'level_up' })
+  })
+
+  it('is disabled where no prompt can open, or the sheet is read only', () => {
+    draw({ prompt: 'level_up' }, null)
+    expect(screen.getByRole('button', { name: 'Level up' })).toBeDisabled()
+  })
+
+  it('draws nothing for a prompt the sheet does not declare', () => {
+    draw({ prompt: 'nope' }, vi.fn())
     expect(screen.queryByRole('button')).toBeNull()
   })
 })

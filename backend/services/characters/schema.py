@@ -289,7 +289,11 @@ _CHOOSE_TARGETS: frozenset = frozenset({"multiselect"})
 
 
 def _validate_on_pick(
-    field_name: str, definition: dict, fields: dict, content_types: dict
+    field_name: str,
+    definition: dict,
+    fields: dict,
+    content_types: dict,
+    prompts: frozenset | set = frozenset(),
 ) -> None:
     """Check a content_ref's `on_pick` rules.
 
@@ -326,11 +330,18 @@ def _validate_on_pick(
     for index, rule in enumerate(rules):
         if not isinstance(rule, dict):
             raise SchemaError(f"{what} rule {index} must be an object")
-        verbs = [verb for verb in ("grant", "choose") if verb in rule]
+        verbs = [verb for verb in ("grant", "choose", "prompt") if verb in rule]
         if len(verbs) != 1:
-            raise SchemaError(f"{what} rule {index} needs exactly one of 'grant' or 'choose'")
+            raise SchemaError(
+                f"{what} rule {index} needs exactly one of 'grant', 'choose' or 'prompt'"
+            )
         verb = verbs[0]
         target = rule[verb]
+        if verb == "prompt":
+            # Opens one of the sheet's prompts, reading the picked entry as `row`.
+            if not isinstance(target, str) or target not in prompts:
+                raise SchemaError(f"{what} rule {index} opens unknown prompt {target!r}")
+            continue
         if not isinstance(target, str) or target not in fields:
             raise SchemaError(f"{what} rule {index} targets unknown field {target!r}")
         if target == field_name:
@@ -412,41 +423,78 @@ ACTION_ROW_NAME = "row"
 #: `on_pick` rules run; an image is an upload.
 _ACTION_SET_TYPES: frozenset = frozenset({"text", "number", "textarea", "checkbox", "select"})
 
+#: Prompts a sheet may declare: windows that ask the player a few questions -
+#: hit points, an ability increase or a feat - and write the answers.
+MAX_PROMPTS = 30
+MAX_PROMPT_STEPS = 20
+MAX_PROMPT_LABEL = 200
+#: The most options a `choose`/`distribute`/`select` step may list by hand.
+MAX_PROMPT_OPTIONS = 100
+#: What a prompt's formulas read besides the sheet: the answers given so far,
+#: the entry whose pick opened the prompt, and - inside an `entry` step's
+#: `filter` - the catalog entry being considered.
+PROMPT_ANSWER_NAME = "answer"
+PROMPT_ROW_NAME = "row"
+PROMPT_ENTRY_NAME = "entry"
+_PROMPT_STEP_TYPES: frozenset = frozenset({"choose", "distribute", "entry", "number", "select"})
+_PATTERN_RE = re.compile(r"^\d{1,2}(,\d{1,2}){0,9}$")
 
-def _validate_actions(
-    actions: Any, fields: dict, known: set[str], images: frozenset
+
+def _validate_formula(source: Any, what: str, known: set[str], images: frozenset) -> None:
+    if not isinstance(source, str) or not source.strip():
+        raise SchemaError(f"{what} must be a non-empty expression")
+    _validate_condition(source, what, known, images)
+
+
+def _validate_label(value: Any, what: str, limit: int, required: bool = True) -> None:
+    if value is None and not required:
+        return
+    if not isinstance(value, str) or not value.strip() or len(value) > limit:
+        raise SchemaError(f"{what} needs a 'label' under {limit} characters")
+
+
+def _validate_write_steps(
+    steps: Any,
+    what: str,
+    fields: dict,
+    known: set[str],
+    images: frozenset,
+    *,
+    prompts: set[str],
+    prompt_verbs: bool = False,
 ) -> None:
-    """Check a sheet's `actions`: named buttons that change several values at once.
-
-    A rest is the example - every "used" counter that recovers on a long rest
-    back to nought, hit points to their maximum, death saves cleared. Each step
-    is data, as an `on_pick` rule is: a target and a formula, read against the
-    sheet as it stands when the button is pressed. Nothing here is about one
-    game; an action is only a list of writes the player could make by hand.
+    """Check a list of writes, as an action's `steps` or a prompt's `apply`.
 
     - `{"set": field, "to": formula}` writes one field.
     - `{"each": list, "where": condition, "set": {column: formula}}` writes
       columns of the rows `where` picks (every row without it), with `row`
       naming the row - a list's columns, or a content_list's per-entry fields.
     - `{"append": list, "values": {column: formula}}` adds a row to a list.
+    - `{"prompt": name}` opens one of the sheet's prompts once the writes are
+      made.
+
+    A prompt's `apply` may also:
+
+    - `{"add": multiselect, "values": formula}` add the values a formula lists
+      to a multiselect, skipping any it already has;
+    - `{"pick": content field, "entry": formula, "values": {field: formula}}`
+      put the entry a formula names (an `entry` step's answer) in a content_ref
+      or a new row of a content_list, with its per-entry fields, and follow
+      its `on_pick` as a pick by hand.
     """
-    if not isinstance(actions, list):
-        raise SchemaError("'actions' must be a list")
-    if len(actions) > MAX_ACTIONS:
-        raise SchemaError(f"Schema has more than {MAX_ACTIONS} actions")
+    if not isinstance(steps, list) or not steps:
+        raise SchemaError(f"{what} must be a non-empty list of steps")
+    if len(steps) > MAX_ACTION_STEPS:
+        raise SchemaError(f"{what} has more than {MAX_ACTION_STEPS} steps")
 
-    def _formula(source: Any, what: str, names_known: set[str]) -> None:
-        if not isinstance(source, str) or not source.strip():
-            raise SchemaError(f"{what} must be a non-empty expression")
-        _validate_condition(source, what, names_known, images)
-
-    def _row_keys(target: str, what: str, *, appendable: bool) -> set[str]:
-        definition = fields.get(target)
-        field_type = (definition or {}).get("type", "text") if isinstance(definition, dict) else None
+    def _row_keys(target: str, where: str, *, appendable: bool) -> set[str]:
+        found = fields.get(target)
+        definition: dict = found if isinstance(found, dict) else {}
+        field_type = definition.get("type", "text") if isinstance(found, dict) else None
         allowed = ("list",) if appendable else ("list", "content_list")
         if field_type not in allowed:
             kinds = "a list" if appendable else "a list or a content_list"
-            raise SchemaError(f"{what} targets {target!r}, which is not {kinds}")
+            raise SchemaError(f"{where} targets {target!r}, which is not {kinds}")
         if field_type == "list":
             return {
                 column["key"]
@@ -455,13 +503,80 @@ def _validate_actions(
             }
         return set(definition.get("per_entry_fields") or {})
 
-    def _cells(values: Any, keys: set[str], target: str, what: str, names_known: set[str]) -> None:
+    def _cells(values: Any, keys: set[str], target: str, where: str, names_known: set[str]) -> None:
         if not isinstance(values, dict) or not values:
-            raise SchemaError(f"{what} needs an object of column formulas")
+            raise SchemaError(f"{where} needs an object of column formulas")
         for key, source in values.items():
             if key not in keys:
-                raise SchemaError(f"{what} writes {key!r}, which {target!r} does not have")
-            _formula(source, f"{what} {key!r}", names_known)
+                raise SchemaError(f"{where} writes {key!r}, which {target!r} does not have")
+            _validate_formula(source, f"{where} {key!r}", names_known, images)
+
+    verbs_allowed = ["each", "append", "prompt"] + (["add", "pick"] if prompt_verbs else [])
+    for step_index, step in enumerate(steps):
+        step = _require_dict(step, f"{what} step {step_index}")
+        where = f"{what} step {step_index}"
+        verbs = [verb for verb in verbs_allowed if verb in step]
+        if len(verbs) > 1 or (not verbs and "set" not in step):
+            names = ", ".join(repr(verb) for verb in ["set", *verbs_allowed])
+            raise SchemaError(f"{where} needs exactly one of {names}")
+        verb = verbs[0] if verbs else "set"
+        target = step[verb]
+
+        if verb == "prompt":
+            if not isinstance(target, str) or target not in prompts:
+                raise SchemaError(f"{where} opens unknown prompt {target!r}")
+            continue
+        if not isinstance(target, str) or target not in fields:
+            raise SchemaError(f"{where} targets unknown field {target!r}")
+        field_type = (fields[target] or {}).get("type", "text")
+
+        if verb == "set":
+            if field_type not in _ACTION_SET_TYPES:
+                raise SchemaError(
+                    f"{where} sets {target!r}, a {field_type}; 'set' writes a single "
+                    "value - change a list with 'each' or 'append'"
+                )
+            _validate_formula(step.get("to"), f"{where} 'to'", known, images)
+        elif verb == "each":
+            keys = _row_keys(target, where, appendable=False)
+            row_known = known | {ACTION_ROW_NAME}
+            if "where" in step:
+                _validate_formula(step["where"], f"{where} 'where'", row_known, images)
+            _cells(step.get("set"), keys, target, f"{where} 'set'", row_known)
+        elif verb == "append":
+            keys = _row_keys(target, where, appendable=True)
+            _cells(step.get("values"), keys, target, f"{where} 'values'", known)
+        elif verb == "add":
+            if field_type != "multiselect":
+                raise SchemaError(f"{where} adds to {target!r}, which is not a multiselect")
+            _validate_formula(step.get("values"), f"{where} 'values'", known, images)
+        else:
+            if field_type not in _CONTENT_TYPES_FIELDS:
+                raise SchemaError(
+                    f"{where} picks into {target!r}, which is not a content_ref or a content_list"
+                )
+            _validate_formula(step.get("entry"), f"{where} 'entry'", known, images)
+            if "values" in step:
+                keys = set((fields[target] or {}).get("per_entry_fields") or {})
+                _cells(step["values"], keys, target, f"{where} 'values'", known)
+
+
+def _validate_actions(
+    actions: Any, fields: dict, known: set[str], images: frozenset, prompts: set[str]
+) -> None:
+    """Check a sheet's `actions`: named buttons that change several values at once.
+
+    A rest is the example - every "used" counter that recovers on a long rest
+    back to nought, hit points to their maximum, death saves cleared. Each step
+    is data, as an `on_pick` rule is: a target and a formula, read against the
+    sheet as it stands when the button is pressed. Nothing here is about one
+    game; an action is only a list of writes the player could make by hand
+    (see `_validate_write_steps`).
+    """
+    if not isinstance(actions, list):
+        raise SchemaError("'actions' must be a list")
+    if len(actions) > MAX_ACTIONS:
+        raise SchemaError(f"Schema has more than {MAX_ACTIONS} actions")
 
     seen: set[str] = set()
     for index, action in enumerate(actions):
@@ -474,49 +589,166 @@ def _validate_actions(
         seen.add(name)
         what = f"Action {name!r}"
 
-        label = action.get("label")
-        if not isinstance(label, str) or not label.strip() or len(label) > MAX_ACTION_LABEL:
-            raise SchemaError(f"{what} needs a 'label' under {MAX_ACTION_LABEL} characters")
+        _validate_label(action.get("label"), what, MAX_ACTION_LABEL)
         confirm = action.get("confirm")
         if confirm is not None and (
             not isinstance(confirm, str) or not confirm.strip() or len(confirm) > MAX_ACTION_CONFIRM
         ):
             raise SchemaError(f"{what} 'confirm' must be text under {MAX_ACTION_CONFIRM} characters")
+        if not isinstance(action.get("steps"), list) or not action.get("steps"):
+            raise SchemaError(f"{what} needs a non-empty list of 'steps'")
+        _validate_write_steps(action["steps"], what, fields, known, images, prompts=prompts)
 
-        steps = action.get("steps")
+
+def _validate_prompt_options(options: Any, where: str, known: set[str], images: frozenset) -> None:
+    """A step's options: a list written out, or a formula that lists them."""
+    if isinstance(options, str):
+        _validate_formula(options, f"{where} 'options'", known, images)
+        return
+    if not isinstance(options, list) or not options:
+        raise SchemaError(f"{where} needs 'options': a non-empty list or a formula")
+    if len(options) > MAX_PROMPT_OPTIONS:
+        raise SchemaError(f"{where} lists more than {MAX_PROMPT_OPTIONS} options")
+    for option in options:
+        value = option.get("value") if isinstance(option, dict) else option
+        label = option.get("label", "") if isinstance(option, dict) else ""
+        if (
+            not isinstance(value, (str, int))
+            or isinstance(value, bool)
+            or not isinstance(label, str)
+        ):
+            raise SchemaError(f"{where} options must be text or {{value, label}} objects")
+
+
+def _validate_prompts(
+    prompts: Any, fields: dict, known: set[str], images: frozenset, content_types: dict
+) -> None:
+    """Check a sheet's `prompts`: windows asking the player for a few answers.
+
+    A level gained is the example: the hit points rolled, then an ability
+    increase or a feat, the feat picked from the catalog. Each prompt is a
+    list of `steps`, one question each, and an `apply` list of writes made
+    once the player confirms - the same writes an action makes, reading what
+    was answered as `answer.<key>` and the entry whose pick opened the prompt
+    as `row`. A step's `visible_if` hides it until an earlier answer calls for
+    it, so one prompt can branch.
+
+    Steps, by `type`:
+
+    - `choose`: `count` values from `options` (or the `target` multiselect's),
+      leaving out those `target` already has.
+    - `distribute`: points spread over `options` in one of the `patterns`
+      allowed, each a comma-separated list of amounts ("2", "1,1").
+    - `entry`: one catalog entry of `content_type`, narrowed by fixed
+      `filters` and a `filter` formula reading the candidate as `entry`.
+    - `number`: a number, starting from `default`, with a button for `average`.
+    - `select`: one of `options`.
+    """
+    prompts = _require_dict(prompts, "'prompts'")
+    if len(prompts) > MAX_PROMPTS:
+        raise SchemaError(f"Schema has more than {MAX_PROMPTS} prompts")
+    names = set(prompts)
+    base = known | {PROMPT_ANSWER_NAME, PROMPT_ROW_NAME}
+
+    for name, prompt in prompts.items():
+        if not isinstance(name, str) or not _NAME_RE.match(name):
+            raise SchemaError(f"Prompt {name!r} needs a name that is a valid identifier")
+        what = f"Prompt {name!r}"
+        prompt = _require_dict(prompt, what)
+        _validate_label(prompt.get("label"), what, MAX_PROMPT_LABEL)
+
+        steps = prompt.get("steps")
         if not isinstance(steps, list) or not steps:
             raise SchemaError(f"{what} needs a non-empty list of 'steps'")
-        if len(steps) > MAX_ACTION_STEPS:
-            raise SchemaError(f"{what} has more than {MAX_ACTION_STEPS} steps")
+        if len(steps) > MAX_PROMPT_STEPS:
+            raise SchemaError(f"{what} has more than {MAX_PROMPT_STEPS} steps")
+        keys: set[str] = set()
+        for index, step in enumerate(steps):
+            where = f"{what} step {index}"
+            step = _require_dict(step, where)
+            key = step.get("key")
+            if not isinstance(key, str) or not _NAME_RE.match(key):
+                raise SchemaError(f"{where} needs a 'key' that is a valid identifier")
+            if key in keys:
+                raise SchemaError(f"{what} has two steps keyed {key!r}")
+            keys.add(key)
+            where = f"{what} step {key!r}"
+            kind = step.get("type")
+            if kind not in _PROMPT_STEP_TYPES:
+                allowed = ", ".join(sorted(_PROMPT_STEP_TYPES))
+                raise SchemaError(f"{where} needs a 'type': one of {allowed}")
+            _validate_label(step.get("label"), where, MAX_PROMPT_LABEL, required=False)
+            _validate_condition(step.get("visible_if"), f"{where} visible_if", base, images)
 
-        for step_index, step in enumerate(steps):
-            step = _require_dict(step, f"{what} step {step_index}")
-            where = f"{what} step {step_index}"
-            verbs = [verb for verb in ("each", "append") if verb in step]
-            if len(verbs) > 1 or (not verbs and "set" not in step):
-                raise SchemaError(f"{where} needs exactly one of 'set', 'each' or 'append'")
-            verb = verbs[0] if verbs else "set"
-            target = step[verb]
-            if not isinstance(target, str) or target not in fields:
-                raise SchemaError(f"{where} targets unknown field {target!r}")
-
-            if verb == "set":
-                field_type = (fields[target] or {}).get("type", "text")
-                if field_type not in _ACTION_SET_TYPES:
+            if kind == "choose":
+                target = step.get("target")
+                if target is not None and (
+                    target not in fields or (fields[target] or {}).get("type") != "multiselect"
+                ):
+                    raise SchemaError(f"{where} 'target' must name a multiselect field")
+                if "options" in step:
+                    _validate_prompt_options(step["options"], where, base, images)
+                elif target is None:
+                    raise SchemaError(f"{where} needs 'options' or a multiselect 'target'")
+                count = step.get("count", 1)
+                if isinstance(count, str):
+                    _validate_formula(count, f"{where} 'count'", base, images)
+                elif isinstance(count, bool) or not isinstance(count, int) or not (
+                    1 <= count <= MAX_CHOOSE_COUNT
+                ):
+                    raise SchemaError(f"{where} 'count' must be 1-{MAX_CHOOSE_COUNT} or a formula")
+            elif kind == "distribute":
+                _validate_prompt_options(step.get("options"), where, base, images)
+                patterns = step.get("patterns")
+                if (
+                    not isinstance(patterns, list)
+                    or not patterns
+                    or len(patterns) > 10
+                    or not all(isinstance(p, str) and _PATTERN_RE.match(p) for p in patterns)
+                ):
                     raise SchemaError(
-                        f"{where} sets {target!r}, a {field_type}; 'set' writes a single "
-                        "value - change a list with 'each' or 'append'"
+                        f"{where} needs 'patterns': the amounts the points may be spread in, "
+                        'such as ["2", "1,1"]'
                     )
-                _formula(step.get("to"), f"{where} 'to'", known)
-            elif verb == "each":
-                keys = _row_keys(target, where, appendable=False)
-                row_known = known | {ACTION_ROW_NAME}
-                if "where" in step:
-                    _formula(step["where"], f"{where} 'where'", row_known)
-                _cells(step.get("set"), keys, target, f"{where} 'set'", row_known)
+            elif kind == "entry":
+                content_type = step.get("content_type")
+                if content_type not in content_types:
+                    raise SchemaError(f"{where} picks from unknown content type {content_type!r}")
+                filters = step.get("filters")
+                if filters is not None and (
+                    not isinstance(filters, dict)
+                    or not all(
+                        isinstance(value, (str, int)) and not isinstance(value, bool)
+                        for value in filters.values()
+                    )
+                ):
+                    raise SchemaError(f"{where} 'filters' must map properties to fixed values")
+                if "filter" in step:
+                    _validate_formula(
+                        step["filter"], f"{where} 'filter'", base | {PROMPT_ENTRY_NAME}, images
+                    )
+            elif kind == "number":
+                for formula in ("default", "average"):
+                    if formula in step:
+                        _validate_formula(step[formula], f"{where} {formula!r}", base, images)
+                for bound in ("min", "max"):
+                    value = step.get(bound)
+                    if value is not None and (
+                        isinstance(value, bool) or not isinstance(value, (int, float))
+                    ):
+                        raise SchemaError(f"{where} {bound!r} must be a number")
             else:
-                keys = _row_keys(target, where, appendable=True)
-                _cells(step.get("values"), keys, target, f"{where} 'values'", known)
+                _validate_prompt_options(step.get("options"), where, base, images)
+
+        _validate_write_steps(
+            prompt.get("apply"),
+            f"{what} 'apply'",
+            fields,
+            base,
+            images,
+            prompts=names,
+            prompt_verbs=True,
+        )
 
 
 def _validate_computed(name: str, definition: Any) -> tuple:
@@ -916,9 +1148,13 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
                     f"which the schema does not define (has: {declared})"
                 )
 
+    prompts = document.get("prompts")
+    prompt_names = set(prompts) if isinstance(prompts, dict) else set()
     for field_name, definition in fields.items():
         if isinstance(definition, dict) and "on_pick" in definition:
-            _validate_on_pick(field_name, definition, fields, content_types)
+            _validate_on_pick(
+                field_name, definition, fields, content_types, prompt_names
+            )
 
     # The field that holds the character's name, kept in step with it.
     name_field = document.get("name_field")
@@ -936,8 +1172,10 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     for index, validator in enumerate(validators):
         _validate_validator(index, validator, known, images)
 
+    if "prompts" in document:
+        _validate_prompts(prompts, fields, known, images, content_types)
     if "actions" in document:
-        _validate_actions(document["actions"], fields, known, images)
+        _validate_actions(document["actions"], fields, known, images, prompt_names)
 
     if "layout" in document:
         _validate_layout(document["layout"], known, images)

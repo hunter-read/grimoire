@@ -1,4 +1,4 @@
-import { createElement, Fragment, useEffect, useMemo } from 'react'
+import { createElement, Fragment, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import FieldRenderer from './FieldRenderer'
 import DerivedCell from './DerivedCell'
@@ -10,7 +10,9 @@ import TierSelect from './TierSelect'
 import Pips from './Pips'
 import { fieldState } from './onPick'
 import SheetPortrait from './SheetPortrait'
-import { findAction, planAction } from './sheetActions'
+import { actionPrompts, findAction, planAction } from './sheetActions'
+import { findPrompt, PromptLauncher } from './sheetPrompts'
+import type { PromptRequest } from './sheetPrompts'
 import { disabledBtn, ghostBtn } from './characterStyles'
 
 /**
@@ -86,6 +88,8 @@ interface RenderContext {
   entries: Record<string, unknown>
   schemaId?: string
   rowScope?: RowScope
+  // Opens one of the sheet's prompts, when the page showing the sheet can.
+  openPrompt?: (request: PromptRequest) => void
 }
 
 interface Props {
@@ -267,6 +271,7 @@ export default function LayoutRenderer({
     () => sheetContext || { ...(data || {}), ...(computed || {}) },
     [sheetContext, data, computed]
   )
+  const openPrompt = useContext(PromptLauncher) || undefined
 
   if (!Array.isArray(ast)) return null
 
@@ -285,6 +290,7 @@ export default function LayoutRenderer({
           readOnly,
           entries,
           schemaId,
+          openPrompt,
         })
       )}
     </div>
@@ -596,14 +602,23 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       // A button for one of the sheet's `actions`: a rest, a level gained.
       // Pressing it works out every step against the sheet as it stands and
       // writes the result through the same path as an edit by hand, so a
-      // content list's picks and losses are followed up as usual.
+      // content list's picks and losses are followed up as usual; the prompts
+      // the action names open after. With `prompt` instead of `name`, the
+      // button opens that prompt alone - to make a choice again.
       const action = findAction(schemaDocument, name)
-      if (!action) return null
-      const editable = Boolean(!readOnly && onChange)
+      const prompt = attrs.prompt ? findPrompt(schemaDocument, attrs.prompt) : undefined
+      if (!action && !prompt) return null
+      const opens = action ? actionPrompts(action) : [attrs.prompt!]
+      const editable = Boolean(
+        !readOnly && (action ? onChange : true) && (!opens.length || ctx.openPrompt)
+      )
       const run = () => {
-        if (action.confirm && !window.confirm(action.confirm)) return
-        const patch = planAction(action, { document: schemaDocument, data, context, entries })
-        for (const [field, value] of Object.entries(patch)) onChange?.(field, value)
+        if (action) {
+          if (action.confirm && !window.confirm(action.confirm)) return
+          const patch = planAction(action, { document: schemaDocument, data, context, entries })
+          for (const [field, value] of Object.entries(patch)) onChange?.(field, value)
+        }
+        for (const promptName of opens) ctx.openPrompt?.({ prompt: promptName })
       }
       return (
         <button
@@ -614,7 +629,7 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
           disabled={!editable}
           onClick={editable ? run : undefined}
         >
-          {attrs.label || action.label}
+          {attrs.label || action?.label || prompt?.label}
         </button>
       )
     }
