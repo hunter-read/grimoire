@@ -10346,6 +10346,10 @@ export interface components {
             filters_available?: {
                 [key: string]: components["schemas"]["FilterOption"][];
             };
+            /** Filters Without Parent */
+            filters_without_parent?: {
+                [key: string]: boolean;
+            };
             /** Page */
             page: number;
             /** Page Size */
@@ -11453,6 +11457,10 @@ export interface components {
             /** Fields */
             fields?: {
                 [key: string]: unknown;
+            };
+            /** Filter Depends */
+            filter_depends?: {
+                [key: string]: string;
             };
             /** Filter Fields */
             filter_fields?: string[];

@@ -7,6 +7,7 @@ export interface ContentTypeDefinition {
   label_plural?: string
   identity_field?: string
   compact_display?: string
+  filter_depends?: Record<string, string>
   fields?: Record<string, FieldDefinition>
   [key: string]: unknown
 }

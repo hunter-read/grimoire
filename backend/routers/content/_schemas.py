@@ -58,6 +58,7 @@ class CatalogResponse(BaseModel):
     # Facets built from the content type's `filter_fields`, each with the values
     # actually present and how many entries carry them.
     filters_available: dict[str, list[FilterOption]] = Field(default_factory=dict)
+    filters_without_parent: dict[str, bool] = Field(default_factory=dict)
 
 
 class ContentTypeSummary(BaseModel):
@@ -71,6 +72,7 @@ class ContentTypeSummary(BaseModel):
     sort_default: list[str] = Field(default_factory=list)
     search_fields: list[str] = Field(default_factory=list)
     filter_fields: list[str] = Field(default_factory=list)
+    filter_depends: dict[str, str] = Field(default_factory=dict)
     compact_display: str = ""
     fields: dict[str, Any] = Field(default_factory=dict)
     entry_count: int = 0

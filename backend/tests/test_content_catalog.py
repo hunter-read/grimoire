@@ -227,12 +227,20 @@ def catalog(client, admin_headers, pack_root):
 
 
 class TestCatalogApi:
+    @pytest.mark.parametrize("dependencies", [{"origin": "missing"}, {"origin": "origin"}, {"origin": "class", "class": "origin"}])
+    def test_invalid_filter_dependencies_are_rejected(self, dependencies):
+        from backend.services.characters.schema import SchemaError, _validate_content_type
+
+        definition = {"fields": {"name": {"type": "text"}, "class": {"type": "text"}, "origin": {"type": "text"}}, "filter_fields": ["class", "origin"], "filter_depends": dependencies}
+        with pytest.raises(SchemaError, match="filter_depends"):
+            _validate_content_type("feature", definition)
+
     def test_dnd_feature_class_facet_is_not_narrowed_by_origin(self, monkeypatch):
         from types import SimpleNamespace
 
         from backend.routers.content import core
 
-        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"]}}}
+        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"], "filter_depends": {"origin": "class"}}}}
         rows = [
             SimpleNamespace(id="1", entry_id="1", source="test", name="Rage", content_type="feature",
                             data={"class": "Barbarian", "origin": "Berserker"}, ruleset=False),
@@ -246,6 +254,34 @@ class TestCatalogApi:
         assert {option["value"] for option in result["filters_available"]["class"]} == {"Barbarian", "Fighter"}
         assert {option["value"] for option in result["filters_available"]["origin"]} == {"Berserker"}
         assert [entry["name"] for entry in result["entries"]] == ["Rage"]
+
+    def test_missing_selected_facet_is_preserved_with_original_case(self, monkeypatch):
+        from types import SimpleNamespace
+        from backend.routers.content import core
+
+        document = {"content_types": {"spell": {"filter_fields": ["level", "ritual"]}}}
+        rows = [
+            SimpleNamespace(id="1", entry_id="1", source="test", name="Ritual", content_type="spell", data={"level": 1, "ritual": "Yes"}, ruleset=False),
+            SimpleNamespace(id="2", entry_id="2", source="test", name="Wish", content_type="spell", data={"level": 9, "ritual": "No"}, ruleset=False),
+        ]
+        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
+        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
+        request = SimpleNamespace(query_params={"filter[level]": "9", "filter[ritual]": "yes"})
+        result = core.browse_content(request, "test", "spell", current_user=SimpleNamespace(id="u"), db=None)
+        assert {item['value']: item['count'] for item in result['filters_available']['ritual']} == {"No": 1, "Yes": 0}
+        assert result['total'] == 0
+
+    def test_dependency_reports_classless_features(self, monkeypatch):
+        from types import SimpleNamespace
+        from backend.routers.content import core
+
+        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"], "filter_depends": {"origin": "class"}}}}
+        rows = [SimpleNamespace(id="1", entry_id="1", source="test", name="Trait", content_type="feature", data={"origin": "Elf"}, ruleset=False)]
+        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
+        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
+        result = core.browse_content(SimpleNamespace(query_params={}), "any-sheet", "feature", current_user=SimpleNamespace(id="u"), db=None)
+        assert result["filters_without_parent"] == {"origin": True}
+        assert "class" not in result["filters_available"]
 
     def test_lists_packs_with_their_credit(self, client, admin_headers, catalog):
         packs_seen = client.get("/api/content/packs", headers=admin_headers).json()["packs"]
