@@ -14,6 +14,7 @@ travel back over a subscribed feed.
 """
 
 import datetime
+import logging
 import secrets
 from typing import List, Optional
 
@@ -28,7 +29,9 @@ from ...config import BASE_URL, get_db
 from ...models import Campaign, CampaignMember, CampaignSchedule, SessionAvailability, User
 from ._calendar import build_calendar, build_event, session_uid
 from ._helpers import can_view, get_campaign_or_404
-from ...services.campaigns.schedule import compute_next_sessions
+from ...services.campaigns.schedule import compute_next_sessions, parse_clock
+
+logger = logging.getLogger("grimoire.campaigns")
 
 # How far ahead a subscription feed publishes. Calendar apps re-poll, so this
 # only has to outrun the polling interval by a comfortable margin.
@@ -103,7 +106,13 @@ def _campaign_events(
     if not sched or not sched.enabled:
         return []
 
-    dates = compute_next_sessions(sched.definition or {}, n=_FEED_SESSIONS)
+    # A feed covers every campaign the user is in, so a schedule stored in a
+    # shape it cannot read leaves that campaign out rather than failing them all.
+    try:
+        dates = compute_next_sessions(sched.definition or {}, n=_FEED_SESSIONS)
+    except (ValueError, TypeError, OverflowError, AttributeError):
+        logger.warning("Calendar feed: skipped unreadable schedule of campaign %s", campaign.id)
+        return []
     if not dates:
         return []
 
@@ -123,7 +132,13 @@ def _campaign_events(
     # row the startup migration has not converted yet (it runs before serving, so
     # in practice this is the belt to that braces).
     session_time = definition.get("time_local") or definition.get("time_utc")
+    if session_time and parse_clock(session_time) is None:
+        # Publish all-day events rather than none at all.
+        logger.warning("Calendar feed: ignored bad session time of campaign %s", campaign.id)
+        session_time = None
     tz_name = definition.get("timezone")
+    if not isinstance(tz_name, str):
+        tz_name = None
     link = f"{BASE_URL}/campaigns/{campaign.id}?tab=schedule"
 
     events = []
@@ -149,8 +164,8 @@ def _campaign_events(
             description_parts.append("")
             description_parts.append(campaign.description)
 
-        events.append(
-            build_event(
+        try:
+            event = build_event(
                 uid=session_uid(campaign.id, date),
                 dtstamp=dtstamp,
                 session_date=date,
@@ -161,7 +176,12 @@ def _campaign_events(
                 url=link,
                 cancelled=is_cancelled,
             )
-        )
+        except (ValueError, TypeError, OverflowError):
+            logger.warning(
+                "Calendar feed: skipped session %s of campaign %s", date, campaign.id
+            )
+            continue
+        events.append(event)
     return events
 
 

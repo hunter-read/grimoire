@@ -87,13 +87,14 @@ def _zone_or_none(tz_name: Optional[str]) -> Optional[zoneinfo.ZoneInfo]:
 
     Schedules validate the zone on write, but the tz database is the *server's*,
     so a name valid at save time can still be missing after a rebuild. Falling
-    back beats raising inside a feed every client is polling.
+    back beats raising inside a feed every client is polling. A name that is a
+    directory in the tz database ("Europe") raises OSError, so that counts too.
     """
     if not tz_name:
         return None
     try:
         return zoneinfo.ZoneInfo(tz_name)
-    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError, TypeError):
         return None
 
 

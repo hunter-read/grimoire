@@ -183,6 +183,79 @@ class TestSchedule:
         )
         assert bad_days.status_code == 400
 
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"time_local": "25:61"},
+            {"time_local": "24:00"},
+            {"time_local": "evening"},
+            {"time_utc": "18:99"},
+            {"timezone": "Europe"},
+            {"timezone": "A" * 3000},
+            {"timezone": ""},
+            {"frequency": "monthly", "monthly_week": 2147483648},
+            {"frequency": "monthly", "monthly_week": 0},
+            {"frequency": "monthly", "monthly_week": 5},
+            {"frequency": "biweekly", "biweekly_reference": "2027-01-02T10:00"},
+            {"frequency": "custom", "custom_dates": ["x"]},
+            {"frequency": "custom", "custom_dates": ["2027-01-02T10:00:00"]},
+            {"frequency": "custom", "custom_dates": ["20270102"]},
+            {"frequency": "custom", "custom_dates": ["9999-12-31"]},
+            {"frequency": "custom", "custom_dates": ["2027-01-02", "9998-12-30"]},
+            {"frequency": "custom", "custom_dates": ["1900-01-01"]},
+            {"days": [1, 2, 3, 4, 5, 6, 0, 7]},
+        ],
+    )
+    def test_upsert_rejects_out_of_range_values(self, client, gm_headers, gm_campaign, change):
+        cid = gm_campaign["id"]
+        body = {"frequency": "weekly", "days": [5], "time_local": "18:00", "enabled": True}
+        body.update(change)
+        r = client.put(f"/api/campaigns/{cid}/schedule", json=body, headers=gm_headers)
+        assert r.status_code == 400, r.text
+        assert client.get(f"/api/campaigns/{cid}/schedule", headers=gm_headers).json()[
+            "definition"
+        ] is None
+
+    def test_upsert_rejects_too_many_custom_dates(self, client, gm_headers, gm_campaign):
+        import datetime
+
+        from backend.services.campaigns.schedule import MAX_CUSTOM_DATES
+
+        start = datetime.date.today()
+        dates = [
+            (start + datetime.timedelta(days=i)).isoformat() for i in range(MAX_CUSTOM_DATES + 1)
+        ]
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={"frequency": "custom", "custom_dates": dates},
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={"frequency": "custom", "custom_dates": dates[:-1]},
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+
+    def test_upsert_normalises_values(self, client, gm_headers, gm_campaign):
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "monthly",
+                "days": [5, 2, 5],
+                "monthly_week": -1,
+                "time_local": "9:30:00",
+                "timezone": "Europe/Berlin",
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        definition = r.json()["definition"]
+        assert definition["days"] == [5, 2]
+        assert definition["time_local"] == "09:30"
+        assert definition["monthly_week"] == -1
+
     def test_upsert_rejects_non_gm_campaign(self, client, gm_headers, plain_campaign):
         r = client.put(
             f"/api/campaigns/{plain_campaign['id']}/schedule",

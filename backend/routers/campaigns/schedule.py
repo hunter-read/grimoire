@@ -12,8 +12,54 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import CampaignMember, CampaignSchedule, SessionAvailability, User
 from ._helpers import assert_can_manage, assert_not_archived, can_view, get_campaign_or_404
-from ...services.campaigns.schedule import compute_next_sessions
+from ...services.campaigns.schedule import (
+    MAX_CUSTOM_DATES,
+    MONTHLY_WEEKS,
+    compute_next_sessions,
+    in_custom_date_window,
+    parse_clock,
+    parse_iso_date,
+)
 from ._schemas import AvailabilityUpdate, ScheduleUpsert
+
+# Longer than any IANA zone name ("America/Argentina/ComodRivadavia" is 32).
+_MAX_ZONE_NAME = 64
+
+
+def _valid_zone(tz_name: str) -> bool:
+    """Whether ``tz_name`` names a zone in this host's tz database.
+
+    A name that is a directory there ("Europe") or too long for a path raises
+    OSError rather than ZoneInfoNotFoundError, so both are caught.
+    """
+    if not tz_name or len(tz_name) > _MAX_ZONE_NAME:
+        return False
+    try:
+        zoneinfo.ZoneInfo(tz_name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        return False
+    return True
+
+
+def _normal_clock(value: str | None) -> str | None:
+    """An already-checked clock as ``HH:MM``; None stays None."""
+    clock = parse_clock(value)
+    return f"{clock[0]:02d}:{clock[1]:02d}" if clock else None
+
+
+def _checked_custom_dates(values: list[str] | None) -> list[str]:
+    """Custom session dates, sorted and de-duplicated, or 400 on a bad one."""
+    unique = sorted(set(values or []))
+    if len(unique) > MAX_CUSTOM_DATES:
+        raise HTTPException(400, f"custom_dates holds at most {MAX_CUSTOM_DATES} dates")
+    today = datetime.date.today()
+    for value in unique:
+        day = parse_iso_date(value)
+        if day is None:
+            raise HTTPException(400, "custom_dates must be dates as YYYY-MM-DD")
+        if not in_custom_date_window(day, today):
+            raise HTTPException(400, "custom_dates must be within ten years of today")
+    return unique
 
 
 def _utc_clock_to_local(utc_clock: str, tz_name: str | None) -> str:
@@ -34,7 +80,7 @@ def _utc_clock_to_local(utc_clock: str, tz_name: str | None) -> str:
         return utc_clock
     try:
         zone = zoneinfo.ZoneInfo(tz_name)
-    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
         return utc_clock
     try:
         hour, minute = (int(p) for p in utc_clock.split(":")[:2])
@@ -82,27 +128,39 @@ def upsert_schedule(
         raise HTTPException(400, "Schedules are only available on GM-run campaigns")
     if data.frequency not in ("weekly", "biweekly", "monthly", "custom"):
         raise HTTPException(400, "frequency must be weekly | biweekly | monthly | custom")
-    if data.frequency != "custom" and any(d < 0 or d > 6 for d in data.days):
+    days = list(dict.fromkeys(data.days))  # order kept: monthly reads days[0]
+    if len(days) > 7 or (data.frequency != "custom" and any(d < 0 or d > 6 for d in days)):
         raise HTTPException(400, "days must be weekday indices 0-6")
 
-    if data.timezone is not None:
-        try:
-            zoneinfo.ZoneInfo(data.timezone)
-        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
-            raise HTTPException(400, "timezone must be a valid IANA zone name")
+    if data.timezone is not None and not _valid_zone(data.timezone):
+        raise HTTPException(400, "timezone must be a valid IANA zone name")
+
+    # Stored clocks are always "HH:MM", whatever form a client sent.
+    for name in ("time_local", "time_utc"):
+        value = getattr(data, name)
+        if value is not None and parse_clock(value) is None:
+            raise HTTPException(400, f"{name} must be a time as HH:MM")
+    clock_local = _normal_clock(data.time_local)
+    clock_utc = _normal_clock(data.time_utc)
+
+    if data.biweekly_reference is not None and parse_iso_date(data.biweekly_reference) is None:
+        raise HTTPException(400, "biweekly_reference must be YYYY-MM-DD")
+    if data.monthly_week is not None and data.monthly_week not in MONTHLY_WEEKS:
+        raise HTTPException(400, "monthly_week must be 1, 2, 3, 4 or -1")
+    custom_dates = _checked_custom_dates(data.custom_dates)
 
     # Both halves of the stored pair are local. A legacy client posting only the
     # UTC form is converted here, using the zone it also sends; without a zone
     # there is nothing to convert with, so the clock is taken at face value.
-    time_local = data.time_local
-    if time_local is None and data.time_utc is not None:
-        time_local = _utc_clock_to_local(data.time_utc, data.timezone)
+    time_local = clock_local
+    if time_local is None and clock_utc is not None:
+        time_local = _utc_clock_to_local(clock_utc, data.timezone)
     elif (
         time_local is not None
-        and data.time_utc is not None
-        and time_local == data.time_utc
+        and clock_utc is not None
+        and time_local == clock_utc
         and data.timezone
-        and _utc_clock_to_local(data.time_utc, data.timezone) != data.time_utc
+        and _utc_clock_to_local(clock_utc, data.timezone) != clock_utc
     ):
         # A stale frontend bundle converts the picked time to UTC and then sends
         # it in *both* fields, so an already-converted clock arrives labelled
@@ -110,10 +168,10 @@ def upsert_schedule(
         # — the UI stops converting too, so 19:30 displays and publishes as
         # 02:30 with nothing to reveal the error. When both fields agree on a
         # value that is not its own local equivalent, trust the UTC reading.
-        time_local = _utc_clock_to_local(data.time_utc, data.timezone)
+        time_local = _utc_clock_to_local(clock_utc, data.timezone)
 
     definition: dict = {
-        "days": data.days,
+        "days": days,
         "frequency": data.frequency,
         "time_local": time_local,
         "timezone": data.timezone,
@@ -128,7 +186,7 @@ def upsert_schedule(
     if data.frequency == "monthly":
         definition["monthly_week"] = data.monthly_week if data.monthly_week is not None else 1
     if data.frequency == "custom":
-        definition["custom_dates"] = sorted(set(data.custom_dates or []))
+        definition["custom_dates"] = custom_dates
 
     sched = db.query(CampaignSchedule).filter_by(campaign_id=campaign_id).first()
     if sched:

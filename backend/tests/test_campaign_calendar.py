@@ -594,6 +594,97 @@ class TestAggregateFeed:
     def test_invalid_token_is_404(self, client):
         assert client.get("/api/campaigns/calendar/bogus/all.ics").status_code == 404
 
+    @pytest.mark.parametrize(
+        "definition",
+        [
+            {"frequency": "weekly", "days": [1], "time_local": "25:61"},
+            {"frequency": "weekly", "days": [1], "time_local": "18:00", "timezone": "Europe"},
+            {"frequency": "weekly", "days": [1], "timezone": "A" * 3000},
+            {"frequency": "monthly", "days": [1], "monthly_week": 2147483648},
+            {"frequency": "monthly", "days": ["x"], "monthly_week": 1},
+            {"frequency": "custom", "custom_dates": ["x", "2027-01-02T10:00", 5]},
+            {"frequency": "custom", "custom_dates": ["9999-12-31"]},
+            {"frequency": "custom", "custom_dates": ["2027-01-02", "9998-12-30"]},
+        ],
+    )
+    def test_a_bad_stored_schedule_does_not_break_the_feed(
+        self, client, gm_headers, scheduled_campaign, definition
+    ):
+        """A row saved before the schedule checks still leaves the feed working."""
+        import time
+
+        from backend.models import CampaignSchedule
+
+        bad = client.post(
+            "/api/campaigns",
+            json={"name": f"Bad {uid()}", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        with SessionLocal() as db:
+            db.add(CampaignSchedule(campaign_id=bad["id"], definition=definition, enabled=True))
+            db.commit()
+
+        tok = token_of(client, gm_headers)
+        start = time.perf_counter()
+        feed = client.get(f"/api/campaigns/calendar/{tok}/all.ics")
+        assert time.perf_counter() - start < 1
+        assert feed.status_code == 200
+        assert scheduled_campaign["name"] in feed.text.replace("\r\n ", "")
+        assert client.get(f"/api/campaigns/calendar/{tok}/{bad['id']}.ics").status_code == 200
+        download = client.get(f"/api/campaigns/{bad['id']}/calendar.ics", headers=gm_headers)
+        assert download.status_code == 200
+        for path in ("schedule", "availability"):
+            assert client.get(f"/api/campaigns/{bad['id']}/{path}", headers=gm_headers).status_code == 200
+
+    def test_a_bad_session_time_publishes_all_day_events(
+        self, client, gm_headers, gm_campaign
+    ):
+        from backend.models import CampaignSchedule
+
+        with SessionLocal() as db:
+            db.add(
+                CampaignSchedule(
+                    campaign_id=gm_campaign["id"],
+                    definition={"frequency": "weekly", "days": [1], "time_local": "25:61"},
+                    enabled=True,
+                )
+            )
+            db.commit()
+        tok = token_of(client, gm_headers)
+        body = client.get(f"/api/campaigns/calendar/{tok}/{gm_campaign['id']}.ics").text
+        assert "DTSTART;VALUE=DATE:" in body
+
+    def test_an_event_that_cannot_be_built_is_skipped(
+        self, client, gm_headers, scheduled_campaign, monkeypatch
+    ):
+        calls = []
+        real = calendar_mod.build_event
+
+        def flaky(**kwargs):
+            calls.append(kwargs["session_date"])
+            if len(calls) == 1:
+                raise OverflowError("date value out of range")
+            return real(**kwargs)
+
+        monkeypatch.setattr(calendar_mod, "build_event", flaky)
+        tok = token_of(client, gm_headers)
+        cid = scheduled_campaign["id"]
+        body = client.get(f"/api/campaigns/calendar/{tok}/{cid}.ics").text
+        assert body.count("BEGIN:VEVENT") == len(calls) - 1
+        assert f"-{calls[0]}@grimoire" not in body.replace("\r\n ", "")
+
+    def test_a_schedule_that_cannot_be_read_is_skipped(
+        self, client, gm_headers, scheduled_campaign, monkeypatch
+    ):
+        def broken(definition, n=10):
+            raise TypeError("unsupported operand")
+
+        monkeypatch.setattr(calendar_mod, "compute_next_sessions", broken)
+        tok = token_of(client, gm_headers)
+        feed = client.get(f"/api/campaigns/calendar/{tok}/{scheduled_campaign['id']}.ics")
+        assert feed.status_code == 200
+        assert "BEGIN:VEVENT" not in feed.text
+
     def test_head_is_allowed_on_both_feeds(self, client, gm_headers, scheduled_campaign):
         """Google Calendar probes a subscription URL with HEAD before accepting it.
 

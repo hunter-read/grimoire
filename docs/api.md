@@ -1879,13 +1879,15 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 | Field | Description |
 |-------|-------------|
 | `frequency` | `weekly`, `biweekly`, `monthly`, or `custom` |
-| `days` | Local weekday indices - `0` = Monday … `6` = Sunday |
-| `time_local` | Session time (`HH:MM`) in the zone named by `timezone` |
-| `timezone` | IANA zone the days and time are expressed in (e.g. `America/Los_Angeles`) |
+| `days` | Local weekday indices - `0` = Monday … `6` = Sunday. Duplicates are dropped, keeping the first; a monthly schedule uses the first day |
+| `time_local` | Session time (`HH:MM`, `00:00`–`23:59`) in the zone named by `timezone`. Stored as `HH:MM`; seconds are dropped |
+| `timezone` | IANA zone the days and time are expressed in (e.g. `America/Los_Angeles`). Must name a zone in the server's tz database, at most 64 characters |
 | `time_utc` | **Deprecated.** A UTC clock; still accepted from older clients and converted to `time_local` on write |
 | `biweekly_reference` | Anchor date for biweekly cadence (`YYYY-MM-DD`) |
-| `monthly_week` | Week of month: `1`–`4`, or `-1` for last |
-| `custom_dates` | Array of explicit dates (`YYYY-MM-DD`) for `custom` frequency |
+| `monthly_week` | Week of month: `1`–`4`, or `-1` for last. Any other value is `400` |
+| `custom_dates` | Array of explicit dates (`YYYY-MM-DD`) for `custom` frequency, each within ten years of today, at most 600 after duplicates are dropped. Stored sorted |
+
+A value outside these rules is `400`, naming the field. A schedule stored before these checks that breaks them still reads: dates it cannot use are left out, a bad time publishes all-day events, and a calendar feed leaves out a campaign whose schedule it cannot read rather than failing.
 
 #### Availability
 
