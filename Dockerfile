@@ -6,7 +6,7 @@
 # Every base image is pinned by digest as well as tag, so a re-pushed tag can't
 # change what a build pulls. Dependabot's docker ecosystem keeps the digests
 # current (.github/dependabot.yml).
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0e1754758c2df4cfa3e68d59e2e1b7374bb7fd9ea6328eaaacf15cc934af8202 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
