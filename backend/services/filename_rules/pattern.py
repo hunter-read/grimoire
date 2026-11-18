@@ -73,7 +73,9 @@ MAX_NAME_BYTES = 255
 _ILLEGAL = re.compile(r'[\\/*?"<>|\x00-\x1f]')
 
 # Splits an author list as people write one on a cover or in a filename.
-_AUTHOR_SPLIT = re.compile(r"\s*(?:,|&|\band\b)\s*")
+# A match may start only at the first space of a run, so a long run of spaces
+# is scanned once (see `_AUTHOR_SPLIT` in backend/metadata/embedded.py).
+_AUTHOR_SPLIT = re.compile(r"(?:(?!\s)|(?<!\s))\s*(?:,|&|\band\b)\s*")
 
 _PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
 

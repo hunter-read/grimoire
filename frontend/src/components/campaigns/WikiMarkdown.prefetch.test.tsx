@@ -31,6 +31,20 @@ describe('prefetchedBookEmbeds', () => {
     expect([...prefetchedBookEmbeds(body)]).toEqual(['book:b3:7'])
   })
 
+  // The link pattern mirrors backend/text/wikilinks.py: a second `[[` starts a
+  // new link, and a long run of unclosed openers is matched in linear time.
+  it('reads a link after an unclosed opener as its own link', () => {
+    expect([...prefetchedBookEmbeds('[[draft [[book:b1:4]]')]).toEqual(['book:b1:4'])
+    expect([...prefetchedBookEmbeds('[[book:b1:4|see [this]]')]).toEqual(['book:b1:4'])
+  })
+
+  it('scans a long run of unclosed openers quickly', () => {
+    const start = performance.now()
+    expect(prefetchedBookEmbeds('[['.repeat(50_000) + ' [[book:b1:4]]').size).toBe(1)
+    expect(prefetchedBookEmbeds('[[a|'.repeat(50_000)).size).toBe(0)
+    expect(performance.now() - start).toBeLessThan(500)
+  })
+
   it('counts a page linked twice once', () => {
     expect([...prefetchedBookEmbeds('[[book:b1:4]] and again [[book:b1:4]]')]).toEqual([
       'book:b1:4',

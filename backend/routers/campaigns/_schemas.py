@@ -3,6 +3,7 @@
 import re
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
+from pydantic.json_schema import JsonDict
 
 from .._link_urls import require_http_url
 from .._names import Name, OptionalId
@@ -182,9 +183,32 @@ class AvailabilityUpdate(BaseModel):
     user_id: Optional[str] = None  # GM/admin only — set another member's availability
 
 
+# The longest wiki page body accepted, in characters. Far beyond any real note
+# (a long session log runs to tens of thousands), but it keeps each save, and
+# the link and heading parsing done on it, a bounded amount of work.
+WIKI_BODY_MAX_LENGTH = 1_000_000
+
+
+def check_wiki_body_length(v: Optional[str]) -> Optional[str]:
+    """Refuse a page or template body over ``WIKI_BODY_MAX_LENGTH`` characters.
+
+    A validator rather than ``max_length`` so the editor, which shows the
+    message as it is, can say what was too long.
+    """
+    if v is not None and len(v) > WIKI_BODY_MAX_LENGTH:
+        raise ValueError(
+            f"Too long: a page holds at most {WIKI_BODY_MAX_LENGTH:,} characters"
+        )
+    return v
+
+
+# Documents the cap in the OpenAPI schema, where the validator above is not seen.
+_BODY_SCHEMA: JsonDict = {"maxLength": WIKI_BODY_MAX_LENGTH}
+
+
 class WikiPageCreate(BaseModel):
     title: str = ""
-    body: str = ""
+    body: str = Field("", json_schema_extra=_BODY_SCHEMA)
     # gm = author only ("GM only" / "Self only" depending who wrote it),
     # group = public, members = private to an explicit share list.
     visibility: str = "gm"
@@ -203,11 +227,12 @@ class WikiPageCreate(BaseModel):
     icon_color: Optional[str] = None  # preset token or "#rrggbb"
 
     _check_icon_color = field_validator("icon_color")(clean_icon_color)
+    _check_body = field_validator("body")(check_wiki_body_length)
 
 
 class WikiPageUpdate(BaseModel):
     title: Optional[str] = None
-    body: Optional[str] = None
+    body: Optional[str] = Field(None, json_schema_extra=_BODY_SCHEMA)
     visibility: Optional[str] = None
     page_type: Optional[str] = None
     session_date: Optional[str] = None
@@ -222,6 +247,7 @@ class WikiPageUpdate(BaseModel):
     map_file_id: Optional[str] = None
 
     _check_icon_color = field_validator("icon_color")(clean_icon_color)
+    _check_body = field_validator("body")(check_wiki_body_length)
 
 
 class WikiReorder(BaseModel):
@@ -283,8 +309,10 @@ class WikiTemplateInput(BaseModel):
     # server marks it as authored rather than taking one from the client.
     category: str = ""
     description: str = ""
-    body: str = ""
+    body: str = Field("", json_schema_extra=_BODY_SCHEMA)
     defaults: Optional[WikiTemplateDefaults] = None
+
+    _check_body = field_validator("body")(check_wiki_body_length)
 
     @field_validator("name")
     @classmethod
@@ -298,8 +326,10 @@ class WikiTemplateUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
     description: Optional[str] = None
-    body: Optional[str] = None
+    body: Optional[str] = Field(None, json_schema_extra=_BODY_SCHEMA)
     defaults: Optional[WikiTemplateDefaults] = None
+
+    _check_body = field_validator("body")(check_wiki_body_length)
 
 
 

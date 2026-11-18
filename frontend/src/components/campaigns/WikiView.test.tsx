@@ -539,6 +539,15 @@ describe('WikiView audio "play all"', () => {
     expect(playQueue.mock.calls[0][0].map((t: { id: string }) => t.id)).toEqual(['a1', 'a2'])
   })
 
+  it('reads an audio embed after an unclosed opener as its own embed', async () => {
+    const body = '[[audio:draft [[audio:a3]] and [[audio:a4|see [this]]'
+    campaignsMock.listWikiPages.mockResolvedValue([{ ...page, body }])
+    campaignsMock.getWikiPage.mockResolvedValue({ ...page, body })
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: /play all/i }))
+    expect(playQueue.mock.calls[0][0].map((t: { id: string }) => t.id)).toEqual(['a3', 'a4'])
+  })
+
   it('does not show a Play all button when the note has no audio embeds', async () => {
     campaignsMock.listWikiPages.mockResolvedValue([page])
     campaignsMock.getWikiPage.mockResolvedValue(page)
