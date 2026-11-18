@@ -12,6 +12,7 @@ from ...models import Army
 from ...models.armies import SOURCE_BATTLESCRIBE, SOURCE_MANUAL
 from ...services import factions as faction_service
 from ...services.armies import battlescribe, export, links, manual, matching, storage
+from ...services.reader_paths import ReaderPaths
 from ._helpers import check_system_and_faction, detail, get_army, recount, summary
 from ._schemas import ArmyCreate, ArmyUpdate, ManualUnitIn, PublicationLinkIn, UnitProgress
 
@@ -295,8 +296,9 @@ def list_games(
     The army form's list for anyone, and the only one a league's guest gets:
     their leagues' games and those games' editions.
     """
+    paths = ReaderPaths(db, current_user)
     return [
-        {"id": s.id, "name": s.name, "parent_id": s.parent_id}
+        {"id": s.id, "name": s.name, "parent_id": paths.shown_parent_id(s)}
         for s in matching.choosable_systems(db, current_user)
     ]
 

@@ -3,7 +3,7 @@
 Centralizes the field lists so ``list_systems``, ``get_system``, and any future
 endpoint emit the same shape.
 """
-from typing import Any
+from typing import Any, Optional
 
 from ...indexer import reocr_applies
 from ...indexer.categories import holds_shared_library
@@ -11,6 +11,7 @@ from ...models import Book, GameSystem
 from ...models.base import utc_iso
 from ...models.game_types import GAME_TYPE_TTRPG
 from ...services.books import covers as book_covers
+from ...services.reader_paths import ReaderPaths
 from .covers import has_cover_file
 
 
@@ -20,6 +21,7 @@ def serialize_book(
     variant_count: int = 0,
     factions: list[dict[str, Any]] | None = None,
     linked_from: dict[str, Any] | None = None,
+    paths: Optional[ReaderPaths] = None,
 ) -> dict[str, Any]:
     """Serialize a Book to the API shape used by the system detail view.
 
@@ -37,6 +39,9 @@ def serialize_book(
     ``linked_from`` is set for a book standing on this shelf through a link
     rather than its folder (issue #446) - ``book_links.homes_for`` - and names
     the system it lives in, when the reader may see that system.
+
+    ``paths`` is the reader's view of the system tree: the book's path then
+    leaves out the folders of containers hidden from them.
     """
     out = {
         "id": book.id,
@@ -85,7 +90,9 @@ def serialize_book(
         "access_level": book.access_level,
         "codex_id": book.codex_id,
         "is_missing": bool(book.is_missing),
-        "relative_path": book.relative_path,
+        "relative_path": (
+            paths.cut(book.relative_path, book.game_system_id) if paths else book.relative_path
+        ),
         "variant_count": variant_count,
         # When the book first appeared in the library (issue #199); null for a
         # legacy row added before this was tracked.
@@ -110,13 +117,25 @@ def serialize_system_summary(
     cover_book_id: str | None,
     tags: list[str] | None = None,
     child_count: int = 0,
+    paths: Optional[ReaderPaths] = None,
 ) -> dict[str, Any]:
     """Serialize a GameSystem for the systems list (no book payload).
 
     ``tags`` are the system's shared tags (display strings) from a batch lookup.
     ``child_count`` is the number of systems nested inside this one when it is a
     container folder (issues #261/#262); zero for ordinary systems.
+
+    ``paths`` is the reader's view of the system tree. A container's access
+    level does not apply to its children, so a system can be visible inside a
+    container that is not: its parent fields are then left empty, and its
+    category depth counts only the containers the reader may see, matching the
+    book paths ``paths`` cuts.
     """
+    parent_id = system.parent_id
+    if parent_id and paths is not None and not paths.parent_shown(system):
+        parent_id = None
+    parent = system.parent if parent_id and system.parent else None
+    depth = _category_depth(system)
     return {
         "id": system.id,
         "name": system.name,
@@ -151,22 +170,20 @@ def serialize_system_summary(
         "is_one_page": bool(system.is_one_page),
         # System containers (issues #261, #262).
         "container_kind": system.container_kind or "",
-        "parent_id": system.parent_id,
+        "parent_id": parent_id,
         # The container's name and one-page flag, so a child can offer "back to
         # <container>" without a second request to resolve the id. The flag is
         # needed because one-page collections are stored under a raw folder slug
         # and the client prettifies those for display.
-        "parent_name": system.parent.name if system.parent_id and system.parent else "",
-        "parent_is_one_page": bool(
-            system.parent.is_one_page if system.parent_id and system.parent else False
-        ),
+        "parent_name": parent.name if parent is not None else "",
+        "parent_is_one_page": bool(parent.is_one_page if parent is not None else False),
         "name_is_custom": bool(system.name_is_custom),
         "child_count": child_count,
         # Index of the category dir in this system's book paths: 2 normally, one
         # deeper per enclosing container. Containers nest, so the client can't
         # derive this from ``parent_id`` alone (issue #357) — it has only the
         # immediate parent, not the chain.
-        "category_depth": _category_depth(system),
+        "category_depth": paths.category_depth(system.id, depth) if paths else depth,
     }
 
 

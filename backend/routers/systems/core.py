@@ -14,6 +14,7 @@ from ...sql_paths import path_under
 from .._bulk_schemas import BulkAddTags
 from ...services.books.access import enforce_campaign_visibility, pop_access_level
 from ...services.factions import factions_for_books
+from ...services.reader_paths import ReaderPaths
 from ...services.systems import (
     get_visible_system,
     load_browsable_system,
@@ -21,7 +22,7 @@ from ...services.systems import (
     visible_cover_id,
 )
 from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
-from ._serializers import serialize_book, serialize_system_summary
+from ._serializers import _category_depth, serialize_book, serialize_system_summary
 
 # Sort keys accepted by list_systems. Value is the summary dict key to sort on.
 _SYSTEM_SORT_KEYS = {"name", "book_count", "page_count", "year"}
@@ -105,15 +106,19 @@ def list_systems(
         .all()
     }
     system_tags = tag_service.display_tags_for_resources(db, "system", [s.id for s in systems])
+    paths = ReaderPaths(db, current_user)
     result = []
     for s in systems:
         # Container children are browsed through their container, so they stay
         # out of the top-level listing unless explicitly asked for (issues
-        # #261/#262). ``parent_id`` selects one container's children.
+        # #261/#262). ``parent_id`` selects one container's children. A child
+        # whose container is hidden from this user has no container for them:
+        # it lists at the top level, and a hidden container lists no children.
+        shown_parent = paths.shown_parent_id(s)
         if parent_id:
-            if s.parent_id != parent_id:
+            if shown_parent != parent_id:
                 continue
-        elif s.parent_id and not include_children:
+        elif shown_parent and not include_children:
             continue
         if s.is_explicit and not can_see_explicit:
             continue
@@ -139,6 +144,7 @@ def list_systems(
                 cover_book_id,
                 tags=system_tags.get(s.id, []),
                 child_count=child_counts.get(s.id, 0),
+                paths=paths,
             )
         )
 
@@ -216,7 +222,8 @@ def get_system(
 
     # Container folders hold systems rather than (only) books — return those
     # children so the detail view can render them as systems (issues #261/#262).
-    children = _serialize_children(db, system, can_see_explicit, user)
+    paths = ReaderPaths(db, current_user)
+    children = _serialize_children(db, system, can_see_explicit, user, paths)
     system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
 
     if not include_books:
@@ -242,10 +249,11 @@ def get_system(
             cover_book_id=cover_book_id,
             tags=system_tags,
             child_count=len(children),
+            paths=paths,
         )
         summary["books"] = []
         summary["children"] = children
-        summary["scope_path"] = _scope_path(db, system, summary["category_depth"])
+        summary["scope_path"] = _scope_path(db, system, paths)
         return summary
 
     books = book_q.all()
@@ -282,6 +290,7 @@ def get_system(
         cover_book_id=cover_book_id,
         tags=system_tags,
         child_count=len(children),
+        paths=paths,
     )
     book_factions = factions_for_books(db, [b.id for b in books])
     homes = book_links.homes_for(db, books, system.id, current_user)
@@ -292,21 +301,24 @@ def get_system(
             variant_count=vcounts.get(b.id, 0),
             factions=book_factions.get(b.id, []),
             linked_from=homes.get(b.id),
+            paths=paths,
         )
         for b in books
     ]
     summary["children"] = children
-    summary["scope_path"] = _scope_path(db, system, summary["category_depth"])
+    summary["scope_path"] = _scope_path(db, system, paths)
     return summary
 
 
-def _scope_path(db: Session, system: GameSystem, depth: int) -> Optional[str]:
+def _scope_path(db: Session, system: GameSystem, paths: ReaderPaths) -> Optional[str]:
     """The system's own folder, library-relative (``books/{System}``), for rescans.
 
     Read off any one of its books' paths - the first ``depth`` segments - since
     the system row does not store it. ``None`` for a system with no books, or
-    whose books sit shallower than its own folder.
+    whose books sit shallower than its own folder. Containers hidden from the
+    reader are cut from it, as from the books' paths.
     """
+    depth = _category_depth(system)
     row = (
         db.query(Book.folder_path)
         .filter(Book.game_system_id == system.id, Book.folder_path.isnot(None))
@@ -315,11 +327,14 @@ def _scope_path(db: Session, system: GameSystem, depth: int) -> Optional[str]:
     if not row or not row[0]:
         return None
     parts = row[0].rstrip("/").split("/")
-    return "/".join(parts[:depth]) if len(parts) >= depth else None
+    if len(parts) < depth:
+        return None
+    # A trailing segment so the cut never mistakes the system folder for a filename.
+    return paths.cut("/".join(parts[:depth]) + "/", system.id).rstrip("/")
 
 
 def _serialize_children(
-    db: Session, system: GameSystem, can_see_explicit: bool, user: Any
+    db: Session, system: GameSystem, can_see_explicit: bool, user: Any, paths: ReaderPaths
 ) -> list[dict]:
     """Serialize a container's child systems, newest-style summary rows.
 
@@ -368,6 +383,7 @@ def _serialize_children(
                 int(total_pages or 0),
                 resolve_cover_book_id(db, c, user),
                 tags=child_tags.get(c.id, []),
+                paths=paths,
             )
         )
     return sorted(rows, key=lambda r: r["name"].lower())

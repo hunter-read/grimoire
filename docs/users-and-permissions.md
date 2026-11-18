@@ -49,7 +49,10 @@ book  →  system  →  category default  →  everyone
   explicitly to *Everyone* stays visible even inside a restricted system, which is
   how a free player's guide can sit in an otherwise admin-only adventure line.
 - **A whole system** - in the system editor. Restricting a system hides the system
-  itself along with every book in it that has no setting of its own.
+  itself along with every book in it that has no setting of its own. A container's
+  level does not apply to the systems inside it: restrict each one you want hidden.
+  Someone who can see a system but not its container sees it at the top level of the
+  library, with the container's name left out of it and its books' paths.
 - **A whole category** - in **Settings → Access & sharing → Category Restrictions**.
   This is the library-wide default for that category. Core rulebooks and character
   sheets cannot be restricted: everyone at the table needs those by definition.
