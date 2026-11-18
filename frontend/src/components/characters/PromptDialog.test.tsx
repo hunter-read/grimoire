@@ -130,6 +130,62 @@ describe('PromptDialog', () => {
     })
   })
 
+  it('searches a long list by name', async () => {
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+    }
+    const names = [
+      'Alert',
+      'Archery',
+      'Athlete',
+      'Brawler',
+      'Crafter',
+      'Defense',
+      'Healer',
+      'Lucky',
+      'Musician',
+    ]
+    const browse = async () => ({
+      entries: names.map((name) => ({ entry_id: name.toLowerCase(), name, data: {} })),
+      total: names.length,
+    })
+    render(
+      <PromptDialog prompt={prompt} document={DOCUMENT} data={{}} context={SHEET} browse={browse} />
+    )
+    await userEvent.type(await screen.findByLabelText('Search'), 'ar')
+    expect(screen.getByLabelText('Archery')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Alert')).not.toBeInTheDocument()
+  })
+
+  it('shows why the catalog could not be read', async () => {
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={SHEET}
+        browse={async () => {
+          throw new Error('Catalog offline')
+        }}
+      />
+    )
+    expect(await screen.findByText('Catalog offline')).toBeInTheDocument()
+  })
+
+  it('offers nothing without a catalog to read', async () => {
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+    }
+    render(<PromptDialog prompt={prompt} document={DOCUMENT} data={{}} context={SHEET} />)
+    expect(await screen.findByText('Nothing to choose from')).toBeInTheDocument()
+  })
+
   it('says so when nothing passes', async () => {
     const prompt: SheetPrompt = {
       ...LEVEL_UP,
