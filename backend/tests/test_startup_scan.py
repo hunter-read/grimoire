@@ -62,7 +62,11 @@ class TestStartupScanSetting:
         monkeypatch.setenv("STARTUP_SCAN", " False ")
         assert config._read_startup_scan() is False
 
+    def test_no_turns_it_off(self, monkeypatch):
+        monkeypatch.setenv("STARTUP_SCAN", "no")
+        assert config._read_startup_scan() is False
+
     def test_anything_else_leaves_it_on(self, monkeypatch):
         # A typo must not silently stop new files from being found.
-        monkeypatch.setenv("STARTUP_SCAN", "no")
+        monkeypatch.setenv("STARTUP_SCAN", "flase")
         assert config._read_startup_scan() is True

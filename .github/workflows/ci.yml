@@ -151,9 +151,10 @@ jobs:
         if: github.event_name == 'pull_request'
         working-directory: frontend
         env:
+          BASE: ${{ github.event.pull_request.base.ref }}
           BASE_REF: origin/${{ github.event.pull_request.base.ref }}
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags --depth=1 origin "$BASE"
           npm run coverage:check
 
       # The badge is published by the coverage-badges job, which holds the
@@ -417,9 +418,10 @@ jobs:
       - name: Check per-changed-file coverage
         if: github.event_name == 'pull_request'
         env:
+          BASE: ${{ github.event.pull_request.base.ref }}
           BASE_REF: origin/${{ github.event.pull_request.base.ref }}
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags --depth=1 origin "$BASE"
           python backend/scripts/check_coverage.py
 
       # See the frontend job: the coverage-badges job publishes the badge.

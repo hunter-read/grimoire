@@ -65,6 +65,10 @@ RUN grep -v '^pymupdf==' requirements.txt > requirements-rest.txt \
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
 # *encoder* needs it, and without it the build silently produces a binary that
 # demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
+#
+# Unlike the tools stage below, this one builds on plain Debian rather than the
+# runtime's python:3.12-slim base. Those three libraries are all the binary
+# needs, and a glibc no newer than the runtime's is enough for it to run there.
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS ffmpeg-builder
 
 # Bumping the version means bumping the checksum with it. Take it from a tarball
@@ -133,10 +137,10 @@ RUN ./configure \
 # plus perl and binutils; tesseract-ocr ships its training tools, and with them
 # cairo, pango and a set of fonts. An `apt-get install` of the three unpacks
 # some 260 MB; `ldd` says the two programs load under 90 MB of libraries, part
-# of that already in the base image. So they are installed here, on the same
-# base as the runtime so every library matches, and bundle_tool.sh copies out
-# each program, its data and the libraries it loads that the base does not
-# already have. The runtime stages copy those bundles in.
+# of that already in the base image. So they are installed in this stage, which
+# (unlike the ffmpeg stage) uses the runtime's own python:3.12-slim base so every
+# library matches, and bundle_tool.sh copies out each program, its data and the
+# libraries it loads that the base does not already have. The runtime stages copy those bundles in.
 #
 # One of those libraries is ICU's data, 30 MB of mostly locale data that unar
 # never asks for; trim_icu_data.sh rebuilds it without (see the script).

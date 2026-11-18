@@ -49,7 +49,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import NoReturn
 
 DEFAULT_UID = 1000
@@ -140,7 +140,8 @@ def app_backup_dir(data_path: str) -> str | None:
     """A backup directory an admin chose in the app, which lives in the database.
 
     Read read-only, and only to check it is writable; any failure (no database
-    yet, an older schema) just means there is no custom directory.
+    yet, an older schema) just means there is no custom directory. The
+    entrypoint calls it through :func:`app_backup_dir_as`, never as root.
     """
     db_path = os.path.join(data_path, "grimoire.db")
     if not os.path.isfile(db_path):
@@ -158,6 +159,17 @@ def app_backup_dir(data_path: str) -> str | None:
     if row and row[0] and str(row[0]).strip():
         return os.path.abspath(str(row[0]).strip())
     return None
+
+
+def app_backup_dir_as(uid: int, gid: int, data_path: str) -> str | None:
+    """:func:`app_backup_dir`, read by a forked child running as ``uid:gid``.
+
+    By the time it is asked, ``DATA_PATH`` belongs to that user, so the child
+    can open the database; root never does. None when the child can't switch
+    user or read it.
+    """
+    output = _as_user(uid, gid, lambda: os.fsencode(app_backup_dir(data_path) or ""))
+    return os.fsdecode(output) if output else None
 
 
 def _is_within(path: str, parent: str) -> bool:
@@ -230,6 +242,33 @@ def _allowed(path: str, mode: int, real_writes: bool) -> bool:
     return os.access(path, mode)
 
 
+def _as_user(uid: int, gid: int, work: Callable[[], bytes]) -> bytes | None:
+    """What ``work`` returns when run in a forked child that has switched to ``uid:gid``.
+
+    None when the child can't switch user or ``work`` raises.
+    """
+    read_fd, write_fd = os.pipe()
+    pid = os.fork()
+    if pid == 0:  # pragma: no cover - the child's coverage isn't collected
+        os.close(read_fd)
+        try:
+            if (os.getuid(), os.getgid()) != (uid, gid):
+                os.setgroups([])
+                os.setgid(gid)
+                os.setuid(uid)
+            os.write(write_fd, work())
+            os._exit(0)
+        except BaseException:
+            os._exit(1)
+    os.close(write_fd)
+    with os.fdopen(read_fd, "rb") as fh:
+        output = fh.read()
+    _, status = os.waitpid(pid, 0)
+    if os.waitstatus_to_exitcode(status) != 0:
+        return None
+    return output
+
+
 def probe(uid: int, gid: int, checks: list[Check], real_writes: bool = False) -> list[Check]:
     """The ``checks`` (path, access mode) that would fail for ``uid:gid``.
 
@@ -241,32 +280,17 @@ def probe(uid: int, gid: int, checks: list[Check], real_writes: bool = False) ->
     """
     if not checks:
         return []
-    read_fd, write_fd = os.pipe()
-    pid = os.fork()
-    if pid == 0:  # pragma: no cover - the child's coverage isn't collected
-        os.close(read_fd)
-        try:
-            if (os.getuid(), os.getgid()) != (uid, gid):
-                os.setgroups([])
-                os.setgid(gid)
-                os.setuid(uid)
-            # Indices, not paths: a file name may contain a newline.
-            failing = [
-                str(i)
-                for i, (path, mode) in enumerate(checks)
-                if not _allowed(path, mode, real_writes)
-            ]
-            os.write(write_fd, " ".join(failing).encode())
-            os._exit(0)
-        except BaseException:
-            os._exit(1)
-    os.close(write_fd)
-    with os.fdopen(read_fd, "rb") as fh:
-        output = fh.read().decode()
-    _, status = os.waitpid(pid, 0)
-    if os.waitstatus_to_exitcode(status) != 0:
+
+    def failing() -> bytes:  # pragma: no cover - runs in the child
+        # Indices, not paths: a file name may contain a newline.
+        return " ".join(
+            str(i) for i, (path, mode) in enumerate(checks) if not _allowed(path, mode, real_writes)
+        ).encode()
+
+    output = _as_user(uid, gid, failing)
+    if output is None:
         return list(checks)
-    return [checks[int(i)] for i in output.split()]
+    return [checks[int(i)] for i in output.decode().split()]
 
 
 def describe(checks: list[Check]) -> str:
@@ -446,8 +470,9 @@ def prepare(
 
     # On PostgreSQL the setting is in a database this stdlib-only script cannot
     # read (a grimoire.db left in DATA_PATH from before a migration is stale).
+    # Read only now, after the chown, and only for the hint below.
     on_postgres = bool(env.get("DATABASE_URL", "").strip())
-    chosen = None if backups or on_postgres else app_backup_dir(data)
+    chosen = None if backups or on_postgres else app_backup_dir_as(uid, gid, data)
     if chosen and os.path.isdir(chosen) and not _is_within(chosen, data):
         if probe(uid, gid, [(chosen, _access_mode(chosen, write=True))], real_writes=True):
             log(

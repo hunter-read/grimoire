@@ -61,7 +61,7 @@ The same row lists every link that user has made, so an admin can revoke any of 
 
 - **Your server has to be reachable.** Whoever opens the link fetches the file from your Grimoire server. For a player on your home network that is fine. For a VTT or OTFBM, which fetch from their own servers, Grimoire must be reachable from the internet at the address set in `BASE_URL`. If an authentication proxy sits in front of Grimoire (Authelia, Authentik's proxy, Cloudflare Access), let `/share/` and `/api/share/` through without it, or links will hit the proxy's login page instead.
 - **Links are capabilities.** Anyone who has the URL can use it, and URLs get forwarded. Use an expiry for anything you would not want passed around, and a password for anything a person (not a tool) will open.
-- **Tokens are kept**, not hashed, so you can copy a link again from your list later. Revoke a link you think has leaked.
+- **You can copy a link again later** from your list. The database never holds the token itself: it keeps a hash to match requests on and an encrypted copy for your list, both keyed by `SECRET_KEY` (see [Feed and share tokens at rest](security.md#feed-and-share-tokens-at-rest)). Changing `SECRET_KEY` therefore ends every link. Revoke a link you think has leaked.
 - **Repeated guessing is throttled.** Requests for links that do not exist count against the same rate limit as logins, per address. A link that was revoked or expired does not count, so a tool that keeps fetching a dead link cannot lock out the working ones.
 
 For the endpoints behind all of this, see [Share links in the API reference](api.md#share-links-1).

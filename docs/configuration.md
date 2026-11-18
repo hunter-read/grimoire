@@ -7,6 +7,10 @@ generates its own `SECRET_KEY` on first run. Set the variables you need in your
 Many of these pin a setting that is otherwise editable in the app. When an environment
 variable is set, its value wins and the matching field is shown read-only in Settings.
 
+On/off settings take `true`, `1`, `yes` or `on` for on and `false`, `0`, `no` or `off` for
+off, in any case. Any other value is logged as a warning at startup and ignored: the
+setting keeps its default, or, for one that pins an in-app setting, stays unpinned.
+
 ---
 
 ## Environment variables
