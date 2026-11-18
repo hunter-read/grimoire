@@ -161,6 +161,18 @@ def test_backup_dir_without_a_database(tmp_path):
     assert ep.app_backup_dir(str(tmp_path)) is None
 
 
+def test_backup_dir_is_read_by_the_switched_user(tmp_path):
+    _settings_db(tmp_path, "/backups")
+    assert ep.app_backup_dir_as(os.getuid(), os.getgid(), str(tmp_path)) == "/backups"
+    # The parent could open the file, but the read happens in a child that has
+    # to become the user first; one that can't (no root here) reads nothing.
+    assert ep.app_backup_dir_as(4242, 4242, str(tmp_path)) is None
+
+
+def test_backup_dir_as_user_without_a_setting(tmp_path):
+    assert ep.app_backup_dir_as(os.getuid(), os.getgid(), str(tmp_path)) is None
+
+
 # --- fix_ownership ----------------------------------------------------------
 
 
@@ -497,9 +509,28 @@ def test_prepare_only_checks_a_backup_folder_set_in_the_app(volumes, tmp_path, m
     data.mkdir()
     _settings_db(data, str(backups))
     _probe_failing(monkeypatch, {str(backups)})
-    assert ep.prepare({}, str(library), str(data), 1000, 1000, False) is True
+    # The test's own user, so the child that reads the database can become it.
+    assert ep.prepare({}, str(library), str(data), os.getuid(), os.getgid(), False) is True
     assert str(backups) not in [root for root, _ in chowned]
     assert "backup folder set in the app" in capsys.readouterr().err
+
+
+def test_prepare_reads_the_app_backup_folder_as_the_user(volumes, monkeypatch):
+    """The database is opened by the dropped user, after the chown, never by root."""
+    library, data, chowned = volumes
+    _probe_failing(monkeypatch, set())
+    asked = []
+
+    def fake_read(uid, gid, data_path):
+        asked.append((uid, gid, data_path, [root for root, _ in chowned]))
+        return None
+
+    monkeypatch.setattr(ep, "app_backup_dir_as", fake_read)
+    monkeypatch.setattr(
+        ep, "app_backup_dir", lambda data_path: pytest.fail("read in the root process")
+    )
+    assert ep.prepare({}, str(library), str(data), 1000, 1000, False) is True
+    assert asked == [(1000, 1000, str(data), [str(data)])]
 
 
 def test_prepare_ignores_a_stale_sqlite_file_on_postgres(volumes, tmp_path, monkeypatch, capsys):
