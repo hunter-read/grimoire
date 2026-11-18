@@ -19,7 +19,7 @@ class OAuthClient(Base):
     ``info`` is the registered metadata as the client sent it (redirect
     addresses, grant types, name), minus the secret: only the secret's SHA-256
     hash is kept. Registering grants nothing - a user still has to sign in and
-    approve - and a client left without a grant is deleted after a day (see
+    approve - and a client left without a grant is deleted after a while (see
     ``mcp_oauth/clients.py``).
     """
 
@@ -30,6 +30,9 @@ class OAuthClient(Base):
     info: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     client_secret_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, index=True)
+    # When a user last approved it; null until then. Decides how long it is
+    # kept once it has no grant.
+    granted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class OAuthCode(Base):

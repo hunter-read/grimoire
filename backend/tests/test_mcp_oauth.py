@@ -336,6 +336,23 @@ class TestCodes:
         resp = flow.exchange(code)
         assert resp.status_code == 401 and resp.json()["error"] == "invalid_client"
 
+    def test_a_missing_client_secret_is_refused(self, oauth_client, admin_headers):
+        # Pins the SDK behaviour clients.get relies on: a client registered with
+        # a secret, given none back, must be refused rather than waved through.
+        flow = Flow(oauth_client, admin_headers)
+        code = flow.approve()
+        resp = oauth_client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": REDIRECT,
+                "client_id": flow.client_id,
+                "code_verifier": flow.verifier,
+            },
+        )
+        assert resp.status_code == 401 and resp.json()["error"] == "invalid_client"
+
     def test_only_the_secrets_hash_is_stored(self, oauth_client, admin_headers):
         flow = Flow(oauth_client, admin_headers)
         db = SessionLocal()
@@ -425,6 +442,30 @@ class TestRevocation:
         )
         assert resp.status_code == 200
         assert mcp(oauth_client, tokens["access_token"]).status_code == 401
+
+    def test_revoke_works_while_the_grant_cannot_be_used(
+        self, client, oauth_client, admin_headers, player_headers, player_id
+    ):
+        """A grant whose owner has lost keys is still revocable, and stays revoked."""
+        allow_keys(client, admin_headers, player_id)
+        flow = Flow(oauth_client, player_headers)
+        tokens = flow.tokens()
+        allow_keys(client, admin_headers, player_id, allowed=False)
+        try:
+            resp = oauth_client.post(
+                "/revoke",
+                data={
+                    "token": tokens["refresh_token"],
+                    "token_type_hint": "refresh_token",
+                    "client_id": flow.client_id,
+                    "client_secret": flow.client["client_secret"],
+                },
+            )
+            assert resp.status_code == 200
+            assert grant_row(client_id=flow.client_id) is None
+        finally:
+            allow_keys(client, admin_headers, player_id)
+        assert flow.refresh(tokens["refresh_token"]).status_code == 400
 
 
 class TestOwnerChecks:
@@ -522,20 +563,58 @@ class TestRegistration:
     def test_loopback_http_is_allowed_for_local_clients(self, oauth_client):
         assert register(oauth_client, redirect="http://127.0.0.1:33418/callback").status_code == 201
 
-    def test_clients_without_a_grant_are_cleaned_up(self, oauth_client, admin_headers):
-        idle = Flow(oauth_client, admin_headers)
-        used = Flow(oauth_client, admin_headers)
-        used.tokens()
-        for flow in (idle, used):
-            set_columns(OAuthClient, {"client_id": flow.client_id}, created_at=PAST)
-        assert register(oauth_client).status_code == 201
+    @staticmethod
+    def _remaining():
         db = SessionLocal()
         try:
-            remaining = {c for (c,) in db.query(OAuthClient.client_id).all()}
+            return {c for (c,) in db.query(OAuthClient.client_id).all()}
         finally:
             db.close()
+
+    def test_clients_without_a_grant_are_cleaned_up(self, client, oauth_client, admin_headers):
+        two_hours_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)
+        idle = Flow(oauth_client, admin_headers)  # never started a sign-in
+        started = Flow(oauth_client, admin_headers)
+        started.request_id()  # started, not approved yet
+        used = Flow(oauth_client, admin_headers)
+        used.tokens()  # holds a grant
+        lapsed = Flow(oauth_client, admin_headers)
+        lapsed.tokens()
+        grant = grant_row(client_id=lapsed.client_id)
+        assert client.delete(f"/api/api-keys/{grant.id}", headers=admin_headers).status_code == 204
+        for flow in (idle, started, used, lapsed):
+            set_columns(OAuthClient, {"client_id": flow.client_id}, created_at=two_hours_ago)
+        assert register(oauth_client).status_code == 201
+        remaining = self._remaining()
         assert idle.client_id not in remaining
+        # A sign-in under way gets a day, and a client that was approved keeps
+        # its registration for 30 days, to be approved again under it.
+        assert {started.client_id, used.client_id, lapsed.client_id} <= remaining
+        set_columns(OAuthClient, {"client_id": started.client_id}, created_at=PAST)
+        set_columns(OAuthClient, {"client_id": lapsed.client_id}, granted_at=PAST)
+        assert register(oauth_client).status_code == 201
+        remaining = self._remaining()
+        assert started.client_id not in remaining and lapsed.client_id not in remaining
         assert used.client_id in remaining
+
+    def test_a_flood_of_registrations_never_pushes_out_a_sign_in(
+        self, oauth_client, admin_headers, monkeypatch
+    ):
+        from backend.mcp_oauth import clients
+
+        signing_in = Flow(oauth_client, admin_headers)
+        rid = signing_in.request_id()
+        db = SessionLocal()
+        try:
+            waiting = clients._without_grant(db).count()
+        finally:
+            db.close()
+        monkeypatch.setattr(clients, "MAX_UNUSED_CLIENTS", waiting + 2)
+        for _ in range(5):
+            assert register(oauth_client).status_code == 201
+        assert signing_in.client_id in self._remaining()
+        # ... and that sign-in still completes.
+        assert signing_in.exchange(signing_in.approve(rid)).status_code == 200
 
 
 class TestThrottling:
@@ -551,6 +630,24 @@ class TestThrottling:
                 break
         assert saw_429
         assert healthy.refresh("grim_rt_nope").status_code == 400
+
+    def test_knowing_a_client_id_does_not_let_anyone_lock_it_out(
+        self, oauth_client, admin_headers, rate_limited
+    ):
+        victim = Flow(oauth_client, admin_headers)
+        tokens = victim.tokens()
+        for _ in range(30):
+            oauth_client.post(
+                "/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": "grim_rt_nope",
+                    "client_id": victim.client_id,
+                    "client_secret": "wrong",
+                },
+                headers={"X-Forwarded-For": "203.0.113.66"},
+            )
+        assert victim.refresh(tokens["refresh_token"]).status_code == 200
 
     def test_an_oversized_request_is_refused_before_it_is_read_whole(self, oauth_client):
         resp = oauth_client.post(

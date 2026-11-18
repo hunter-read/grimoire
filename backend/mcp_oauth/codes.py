@@ -134,26 +134,23 @@ def by_code(db: Any, client_id: str, code: str) -> Optional[Any]:
     return row
 
 
-def mark_used(db: Any, row_id: str) -> bool:
-    """Mark a code exchanged; False if another request got there first."""
+def claim(db: Any, row: Any, grant_id: str) -> bool:
+    """Mark a code exchanged for ``grant_id``; False if another request got there first.
+
+    Doesn't commit: the caller creates the grant in the same transaction, so a
+    replay can never find the code used without the grant it produced.
+    """
     from ..models import OAuthCode
 
     updated = (
         db.query(OAuthCode)
-        .filter(OAuthCode.id == row_id, OAuthCode.used_at.is_(None))
-        .update({"used_at": now()}, synchronize_session=False)
+        .filter(OAuthCode.id == row.id, OAuthCode.used_at.is_(None))
+        .update(
+            {"used_at": now(), "params": {**(row.params or {}), "grant_id": grant_id}},
+            synchronize_session=False,
+        )
     )
-    db.commit()
     return updated == 1
-
-
-def record_grant(db: Any, row_id: str, grant_id: str) -> None:
-    from ..models import OAuthCode
-
-    row = db.query(OAuthCode).filter_by(id=row_id).first()
-    if row is not None:
-        row.params = {**(row.params or {}), "grant_id": grant_id}
-        db.commit()
 
 
 def scopes(params: dict[str, Any]) -> list[str]:

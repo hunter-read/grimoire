@@ -289,9 +289,9 @@ def record_share_failure(request: Request, scope: str, key: str = "") -> None:
 
 
 # MCP OAuth endpoints (issue #906), on the auth limit. The key is chosen by the
-# caller (backend/mcp_oauth/routes.py): a client_id for /token and /revoke,
-# which hosted clients call from addresses shared by all their users, and the
-# client address for /register and /authorize.
+# caller (backend/mcp_oauth/routes.py): a client_id with the address for
+# /token and /revoke, which hosted clients call from addresses shared by all
+# their users, and the address alone for /register and /authorize.
 _OAUTH_LIMIT = parse_limit(AUTH_RATE_LIMIT)
 
 

@@ -59,6 +59,7 @@ def upgrade() -> None:
             sa.Column("info", sa.JSON(), nullable=False),
             sa.Column("client_secret_hash", sa.String(length=64), nullable=True),
             sa.Column("created_at", sa.DateTime(), nullable=True),
+            sa.Column("granted_at", sa.DateTime(), nullable=True),
             sa.PrimaryKeyConstraint("client_id"),
         )
         op.create_index("ix_oauth_clients_created_at", "oauth_clients", ["created_at"])

@@ -7,6 +7,7 @@ the event loop. The modules underneath hold the rules - see ``clients``,
 """
 from __future__ import annotations
 
+import uuid
 from typing import Any, Callable, Optional, TypeVar
 
 import anyio
@@ -61,7 +62,10 @@ def _token(tokens: grants.Tokens) -> OAuthToken:
 
 class GrimoireOAuthProvider:
     async def get_client(self, client_id: str) -> Optional[OAuthClientInformationFull]:
-        found = await _db(lambda db: clients.get(db, client_id))
+        # Read here, on the request's own context, rather than in the worker
+        # thread: the route wrapper set it for this request (routes.Throttled).
+        presented = clients.presented_secret.get()
+        found = await _db(lambda db: clients.get(db, client_id, presented))
         if found is None:
             return None
         info, secret = found
@@ -76,9 +80,7 @@ class GrimoireOAuthProvider:
         info = client_info.model_dump(mode="json", exclude={"client_secret"})
 
         def store(db: Any) -> bool:
-            clients.delete_unused(db)
-            db.commit()
-            if clients.unused_count(db) >= clients.MAX_UNUSED_CLIENTS:
+            if not clients.make_room(db):
                 return False
             clients.register(db, info, client_info.client_secret)
             return True
@@ -134,36 +136,44 @@ class GrimoireOAuthProvider:
     async def exchange_authorization_code(
         self, client: OAuthClientInformationFull, authorization_code: AuthorizationCode
     ) -> OAuthToken:
-        def exchange(db: Any) -> Optional[grants.Tokens]:
-            row = codes.by_code(db, client.client_id, authorization_code.code)
-            if row is None or not codes.mark_used(db, row.id):
-                return None
+        def exchange(db: Any) -> Optional[tuple[str, grants.Tokens]]:
             from .. import api_keys
 
+            row = codes.by_code(db, client.client_id, authorization_code.code)
+            if row is None:
+                return None
             # The user approved minutes ago, but may have lost keys since.
             try:
                 api_keys.check_owner(db, row.user_id)
             except api_keys.OwnerRefused:
                 return None
-            grant_id, tokens = grants.create(
+            # Marking the code used, linking it to its grant and creating the
+            # grant all commit together (grants.create commits).
+            grant_id = str(uuid.uuid4())
+            if not codes.claim(db, row, grant_id):
+                db.rollback()
+                return None
+            clients.mark_granted(db, client.client_id)
+            return grants.create(
                 db,
+                grant_id=grant_id,
                 user_id=row.user_id,
                 client_id=client.client_id,
                 name=client.client_name,
                 permissions=dict(row.permissions or {}),
             )
-            codes.record_grant(db, row.id, grant_id)
-            return tokens
 
         tokens = await _db(exchange)
         if tokens is None:
             raise TokenError(error="invalid_grant", error_description="authorization code does not exist")
-        return _token(tokens)
+        return _token(tokens[1])
 
     async def load_refresh_token(
         self, client: OAuthClientInformationFull, refresh_token: str
     ) -> Optional[RefreshToken]:
-        row = await _db(lambda db: grants.load_refresh(db, client.client_id, refresh_token))
+        # Found whether or not it may renew now, so /revoke can always revoke
+        # it; exchange_refresh_token refuses one that may not (grants.renewable).
+        row = await _db(lambda db: grants.find_refresh(db, client.client_id, refresh_token))
         if row is None:
             return None
         return RefreshToken(
@@ -205,7 +215,7 @@ class GrimoireOAuthProvider:
             if isinstance(token, AccessToken):
                 row = grants.by_access_token(db, token.token)
             else:
-                row = grants.load_refresh(db, token.client_id, token.token)
+                row = grants.find_refresh(db, token.client_id, token.token)
             if row is not None:
                 grants.revoke(db, row.id)
 

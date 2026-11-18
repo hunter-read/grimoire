@@ -95,10 +95,9 @@ def serialize(
 
 
 def _redirect_host(client: Any) -> Optional[str]:
-    from urllib.parse import urlsplit
+    from ...mcp_oauth.clients import redirect_host
 
-    uris = (client.info or {}).get("redirect_uris") or []
-    return (urlsplit(str(uris[0])).hostname or None) if uris else None
+    return redirect_host(client.info or {}) or None
 
 
 def oauth_clients(db: Session, rows: list[ApiKey]) -> dict[str, Any]:

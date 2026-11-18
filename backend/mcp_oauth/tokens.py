@@ -21,7 +21,7 @@ import hashlib
 import hmac
 import secrets
 
-from ..api_keys import hash_key
+from ..api_keys import as_utc, hash_key
 
 ACCESS_PREFIX = "grim_at_"
 REFRESH_PREFIX = "grim_rt_"
@@ -78,6 +78,5 @@ def aware(value: datetime.datetime | None) -> datetime.datetime:
     For columns this package always fills; a missing one reads as long past,
     so whatever it guards counts as expired.
     """
-    if value is None:
-        return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-    return value if value.tzinfo else value.replace(tzinfo=datetime.timezone.utc)
+    utc = as_utc(value)
+    return utc if utc is not None else datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)

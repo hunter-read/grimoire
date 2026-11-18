@@ -7,8 +7,8 @@ through the same owner check (``api_keys.check_owner``) on every use.
 **Every refusal covers the refresh token too.** A client that gets
 ``invalid_token`` on /mcp refreshes and retries straight away (claude.ai does
 it within a second), so a check made only on the access token would be undone
-by the next refresh. :func:`load_refresh` runs the same owner check as
-:func:`authenticate`.
+by the next refresh. :func:`refresh` runs the same owner check as
+:func:`authenticate` (:func:`renewable`).
 
 **Refresh rotation.** Each refresh replaces both tokens. The new pair is
 derived from the refresh token presented (``tokens.derive``), so:
@@ -18,7 +18,8 @@ derived from the refresh token presented (``tokens.derive``), so:
 - the token just replaced is accepted for ``REFRESH_GRACE`` and answered with
   that same pair, so a client that sent it twice is not signed out;
 - presented after that, it means the token was copied: the grant is revoked
-  (reuse detection, RFC 9700 section 4.14.2).
+  (reuse detection, RFC 9700 section 4.14.2). Only the token just replaced is
+  remembered; one replaced earlier than that is simply unknown, and refused.
 
 Revoking a grant (from the key list, by an admin, or through ``/revoke``)
 deletes the row. The client then shows its user a Connect button, and the user
@@ -67,13 +68,25 @@ def _ttl_seconds(expires_at: Any) -> int:
     return max(0, int((aware(expires_at) - now()).total_seconds()))
 
 
-def create(db: Any, *, user_id: str, client_id: str, name: Optional[str], permissions: dict) -> tuple[str, Tokens]:
-    """A new grant for ``user_id`` and its first tokens; returns (grant id, tokens)."""
+def create(
+    db: Any,
+    *,
+    grant_id: str,
+    user_id: str,
+    client_id: str,
+    name: Optional[str],
+    permissions: dict,
+) -> tuple[str, Tokens]:
+    """A new grant for ``user_id`` and its first tokens; returns (grant id, tokens).
+
+    Commits, together with whatever the caller wrote before it.
+    """
     from ..models import ApiKey
 
     access, refresh = new_token(ACCESS_PREFIX), new_token(REFRESH_PREFIX)
     stamp = now()
     row = ApiKey(
+        id=grant_id,
         user_id=user_id,
         name=(name or DEFAULT_NAME)[:100],
         prefix=GRANT_PREFIX,
@@ -131,12 +144,14 @@ def authenticate(token: str) -> api_keys.KeyPrincipal:
         db.close()
 
 
-def load_refresh(db: Any, client_id: str, token: str) -> Optional[Any]:
-    """The grant a refresh token renews, if it may still be renewed.
+def find_refresh(db: Any, client_id: str, token: str) -> Optional[Any]:
+    """The grant a refresh token belongs to, whether or not it may renew now.
 
-    None for an unknown or expired token, for a grant whose owner may no
-    longer use keys, and for a replaced token past the grace window - which
-    also revokes the grant.
+    Matches the current refresh token, or the one just replaced while its
+    grace window lasts. The replaced one presented after the window revokes the
+    grant and finds nothing. Deliberately no owner or expiry checks: revoking
+    must find the grant even while it can't be used (:func:`renewable` is for
+    renewing).
     """
     from ..models import ApiKey
 
@@ -160,29 +175,37 @@ def load_refresh(db: Any, client_id: str, token: str) -> Optional[Any]:
             db.delete(row)
             db.commit()
             return None
-    # A grant has no expiry of its own unless its owner sets one in the key
-    # list, as for a key; past it, nothing renews.
+    return row
+
+
+def renewable(db: Any, row: Any) -> bool:
+    """Whether a grant may be renewed: the same owner check as every /mcp call.
+
+    A grant has no expiry of its own unless its owner sets one in the key list,
+    as for a key; past it, or past the refresh token's 30 days, nothing renews.
+    """
+    stamp = now()
     if api_keys.is_expired(row.refresh_expires_at, stamp) or api_keys.is_expired(
         row.expires_at, stamp
     ):
-        return None
+        return False
     try:
         api_keys.check_owner(db, row.user_id)
     except api_keys.OwnerRefused:
-        return None
-    return row
+        return False
+    return True
 
 
 def refresh(db: Any, client_id: str, token: str) -> Tokens:
     """Rotate a grant's tokens for the refresh token presented.
 
-    Raises :class:`GrantRefused` when the token no longer renews anything
-    (:func:`load_refresh` should have been asked first).
+    Raises :class:`GrantRefused` when the token renews nothing: unknown, past
+    its window, or its grant not :func:`renewable`.
     """
     from ..models import ApiKey
 
-    row = load_refresh(db, client_id, token)
-    if row is None:
+    row = find_refresh(db, client_id, token)
+    if row is None or not renewable(db, row):
         raise GrantRefused()
     presented = digest(token)
     access, refresh_token = derive("at", token), derive("rt", token)

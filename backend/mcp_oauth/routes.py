@@ -5,8 +5,9 @@ clients call from many addresses shared by all their users, so what is counted
 depends on who is calling:
 
 - ``/token`` and ``/revoke`` are called by the client's servers: failed
-  requests count per ``client_id``, so one client's broken refresh never
-  throttles another's.
+  requests count per ``client_id`` and address together, so one client's
+  broken refresh never throttles another's, and someone who learns a
+  ``client_id`` can't lock that client out from their own address.
 - ``/register`` and ``/authorize`` are where new clients and requests are
   made: every request counts, per address (``/authorize`` is the user's own
   browser). Both are also capped in the database (see ``clients`` and
@@ -123,7 +124,12 @@ class Throttled:
         if per_client:
             form = _form(body)
             basic_id, basic_secret = _basic(dict(scope["headers"]))
-            key = f"client:{form.get('client_id') or basic_id or ''}"
+            # The client *and* the address: a client_id isn't secret (it's in
+            # the /authorize URL), so counting it alone would let anyone who
+            # saw one lock that client out. One client's failures still never
+            # count against another's, even from a shared address.
+            client_id = form.get("client_id") or basic_id or ""
+            key = f"client:{client_id}:{security.rate_limit_key(request)}"
         else:
             key = security.rate_limit_key(request)
         if security.oauth_attempts_blocked(scope_name, key):

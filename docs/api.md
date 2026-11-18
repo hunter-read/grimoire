@@ -271,7 +271,7 @@ The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/
 
 Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, further failed attempts get `429` until the window passes. A working key is never refused and never counts, so a dashboard can poll as often as it likes, even from an address it shares with others.
 
-The MCP OAuth endpoints (`MCP_OAUTH_ENABLED`) use the same limit, keyed for who calls them: failed `/token` and `/revoke` requests count per `client_id`, since a hosted client calls from addresses all its users share, and every `/register` and `/authorize` request counts per address. OAuth access tokens refused on `/mcp` are not counted per address, for the same reason; they are 32 random bytes, so there is nothing to guess. These counts, like the others, are per worker unless `VALKEY_URL` is set.
+The MCP OAuth endpoints (`MCP_OAUTH_ENABLED`) use the same limit, keyed for who calls them: failed `/token` and `/revoke` requests count per `client_id` and address together - so one client's failures never throttle another's on the addresses a hosted client shares among all its users, and someone who learns a `client_id` can't lock it out - and every `/register` and `/authorize` request counts per address. OAuth access tokens refused on `/mcp` are not counted per address, for the same reason; they are 32 random bytes, so there is nothing to guess. These counts, like the others, are per worker unless `VALKEY_URL` is set.
 
 ### Calling the API from a browser (CORS)
 
