@@ -204,8 +204,8 @@ def update_session(
     db: Session = Depends(get_db),
 ):
     c = get_campaign_or_404(db, campaign_id)
-    if not can_view(c, current_user, db):
-        raise HTTPException(403, "Not a member of this campaign")
+    # Renaming a session is the owner's, like deleting it; members only add notes.
+    assert_can_manage(c, current_user, db)
     assert_not_archived(c)
     session = db.query(SessionNote).filter_by(id=session_id, campaign_id=campaign_id).first()
     if not session:

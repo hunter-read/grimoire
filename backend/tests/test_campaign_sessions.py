@@ -79,6 +79,46 @@ class TestSessionCrud:
         assert r.status_code == 200
         assert r.json()["title"] == "Renamed"
 
+    def test_member_cannot_rename(
+        self, client, gm_headers, player_headers, member_player, gm_campaign
+    ):
+        cid = gm_campaign["id"]
+        s = _make_session(client, gm_headers, cid)
+        r = client.patch(
+            f"/api/campaigns/{cid}/sessions/{s['id']}",
+            json={"title": "Renamed by player"},
+            headers=player_headers,
+        )
+        assert r.status_code == 403
+        got = client.get(f"/api/campaigns/{cid}/sessions/{s['id']}", headers=gm_headers)
+        assert got.json()["title"] == "Session One"
+
+    def test_guest_cannot_rename(self, client, gm_headers, admin_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        client.patch("/api/settings", json={"guest_access_enabled": True}, headers=admin_headers)
+        created = client.post(
+            f"/api/campaigns/{cid}/guests", json={"nickname": "G"}, headers=gm_headers
+        )
+        assert created.status_code == 201, created.text
+        login = client.post("/api/auth/guest-login", json={"code": created.json()["guest_code"]})
+        assert login.status_code == 200, login.text
+        client.cookies.clear()
+        guest_headers = {"Authorization": f"Bearer {login.json()['token']}"}
+        s = _make_session(client, gm_headers, cid)
+        r = client.patch(
+            f"/api/campaigns/{cid}/sessions/{s['id']}",
+            json={"title": "Renamed by guest"},
+            headers=guest_headers,
+        )
+        assert r.status_code == 403
+        # Guests may still create sessions, as members can.
+        created_session = client.post(
+            f"/api/campaigns/{cid}/sessions",
+            json={"session_date": "2026-06-01"},
+            headers=guest_headers,
+        )
+        assert created_session.status_code == 201
+
     def test_update_missing_session_404(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         r = client.patch(

@@ -55,8 +55,11 @@ _PLACEHOLDER_TITLES = frozenset({"untitled", "untitled document", "document", "t
 _PLACEHOLDER_AUTHORS = frozenset(
     {"unknown", "administrator", "admin", "user", "owner", "author", "default"}
 )
-_AUTHOR_SPLIT = re.compile(r"\s*(?:;|,|&|\band\b)\s*")
-_KEYWORD_SPLIT = re.compile(r"\s*[,;]\s*")
+# `(?:(?!\s)|(?<!\s))` lets a match start only at the first space of a run (or
+# with no space at all). The split is unchanged - the leftmost match already
+# starts there - but a long run of spaces is no longer rescanned from each one.
+_AUTHOR_SPLIT = re.compile(r"(?:(?!\s)|(?<!\s))\s*(?:;|,|&|\band\b)\s*")
+_KEYWORD_SPLIT = re.compile(r"(?:(?!\s)|(?<!\s))\s*[,;]\s*")
 _MAX_TAGS = 25
 _MAX_TAG_LENGTH = 50
 # "D:20190501..." in a PDF, "2019-05-01" / "2019-05" / "2019" in an OPF.

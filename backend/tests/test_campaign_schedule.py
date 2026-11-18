@@ -183,6 +183,79 @@ class TestSchedule:
         )
         assert bad_days.status_code == 400
 
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"time_local": "25:61"},
+            {"time_local": "24:00"},
+            {"time_local": "evening"},
+            {"time_utc": "18:99"},
+            {"timezone": "Europe"},
+            {"timezone": "A" * 3000},
+            {"timezone": ""},
+            {"frequency": "monthly", "monthly_week": 2147483648},
+            {"frequency": "monthly", "monthly_week": 0},
+            {"frequency": "monthly", "monthly_week": 5},
+            {"frequency": "biweekly", "biweekly_reference": "2027-01-02T10:00"},
+            {"frequency": "custom", "custom_dates": ["x"]},
+            {"frequency": "custom", "custom_dates": ["2027-01-02T10:00:00"]},
+            {"frequency": "custom", "custom_dates": ["20270102"]},
+            {"frequency": "custom", "custom_dates": ["9999-12-31"]},
+            {"frequency": "custom", "custom_dates": ["2027-01-02", "9998-12-30"]},
+            {"frequency": "custom", "custom_dates": ["1900-01-01"]},
+            {"days": [1, 2, 3, 4, 5, 6, 0, 7]},
+        ],
+    )
+    def test_upsert_rejects_out_of_range_values(self, client, gm_headers, gm_campaign, change):
+        cid = gm_campaign["id"]
+        body = {"frequency": "weekly", "days": [5], "time_local": "18:00", "enabled": True}
+        body.update(change)
+        r = client.put(f"/api/campaigns/{cid}/schedule", json=body, headers=gm_headers)
+        assert r.status_code == 400, r.text
+        assert client.get(f"/api/campaigns/{cid}/schedule", headers=gm_headers).json()[
+            "definition"
+        ] is None
+
+    def test_upsert_rejects_too_many_custom_dates(self, client, gm_headers, gm_campaign):
+        import datetime
+
+        from backend.services.campaigns.schedule import MAX_CUSTOM_DATES
+
+        start = datetime.date.today()
+        dates = [
+            (start + datetime.timedelta(days=i)).isoformat() for i in range(MAX_CUSTOM_DATES + 1)
+        ]
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={"frequency": "custom", "custom_dates": dates},
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={"frequency": "custom", "custom_dates": dates[:-1]},
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+
+    def test_upsert_normalises_values(self, client, gm_headers, gm_campaign):
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "monthly",
+                "days": [5, 2, 5],
+                "monthly_week": -1,
+                "time_local": "9:30:00",
+                "timezone": "Europe/Berlin",
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        definition = r.json()["definition"]
+        assert definition["days"] == [5, 2]
+        assert definition["time_local"] == "09:30"
+        assert definition["monthly_week"] == -1
+
     def test_upsert_rejects_non_gm_campaign(self, client, gm_headers, plain_campaign):
         r = client.put(
             f"/api/campaigns/{plain_campaign['id']}/schedule",
@@ -335,6 +408,43 @@ class TestAvailability:
         )
         assert r.status_code == 403
 
+    def test_gm_cannot_set_availability_for_someone_outside_the_campaign(
+        self, client, gm_headers, player_id, gm_campaign
+    ):
+        from backend.config import SessionLocal
+        from backend.models import SessionAvailability
+
+        cid = gm_campaign["id"]
+        # A user id that names nobody, and a real user who never joined.
+        for user_id in ("no-such-user", player_id):
+            r = client.put(
+                f"/api/campaigns/{cid}/availability/2026-01-01",
+                json={"status": "available", "user_id": user_id},
+                headers=gm_headers,
+            )
+            assert r.status_code == 404, r.text
+        with SessionLocal() as db:
+            assert db.query(SessionAvailability).filter_by(campaign_id=cid).count() == 0
+
+    def test_gm_can_set_availability_for_an_invited_member_only_once_accepted(
+        self, client, gm_headers, player_headers, player_id, gm_campaign
+    ):
+        cid = gm_campaign["id"]
+        client.post(
+            f"/api/campaigns/{cid}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        body = {"status": "available", "user_id": player_id}
+        url = f"/api/campaigns/{cid}/availability/2026-01-01"
+        assert client.put(url, json=body, headers=gm_headers).status_code == 404
+        client.patch(
+            f"/api/campaigns/{cid}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        assert client.put(url, json=body, headers=gm_headers).status_code == 200
+        own = {"status": "tentative", "user_id": gm_campaign["owner_id"]}
+        assert client.put(url, json=own, headers=gm_headers).status_code == 200
+
     def test_cancel_session_date_toggles(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         r = client.put(
@@ -360,6 +470,18 @@ class TestAvailability:
             f"/api/campaigns/{cid}/availability/nope/cancel", headers=gm_headers
         )
         assert bad_date.status_code == 400
+
+    def test_admin_outside_the_campaign_cannot_cancel(self, client, admin_headers, gm_campaign):
+        from backend.config import SessionLocal
+        from backend.models import SessionAvailability
+
+        cid = gm_campaign["id"]
+        # Consistent with reading it, which a non-member admin cannot do either.
+        assert client.get(f"/api/campaigns/{cid}/schedule", headers=admin_headers).status_code == 403
+        r = client.put(f"/api/campaigns/{cid}/availability/2026-03-03/cancel", headers=admin_headers)
+        assert r.status_code == 403
+        with SessionLocal() as db:
+            assert db.query(SessionAvailability).filter_by(campaign_id=cid).count() == 0
 
 
 @pytest.mark.usefixtures("summer_today")

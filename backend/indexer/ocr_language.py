@@ -85,7 +85,9 @@ _NAMES = {
 # Script and region subtags that mean a Chinese text is in traditional characters.
 _TRADITIONAL = frozenset({"hant", "tw", "hk", "mo"})
 # "English, German" or "eng+deu" in one field: each part is a language.
-_LIST_SPLIT = re.compile(r"\s*[,;/+&]\s*")
+# A match may start only at the first space of a run, so a long run of spaces
+# is scanned once (see `_KEYWORD_SPLIT` in backend/metadata/embedded.py).
+_LIST_SPLIT = re.compile(r"(?:(?!\s)|(?<!\s))\s*[,;/+&]\s*")
 
 
 def tesseract_codes(value: str) -> list[str]:

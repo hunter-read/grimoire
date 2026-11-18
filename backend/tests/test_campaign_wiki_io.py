@@ -1192,3 +1192,44 @@ class TestMermaidFences:
             f"/api/campaigns/{c['id']}/wiki/{pages['Map']['id']}", headers=gm_headers
         ).json()
         assert page["body"] == body
+
+
+class TestBodyLengthCap:
+    """Every way a page body is written refuses one over the cap with 422."""
+
+    @pytest.fixture(autouse=True)
+    def small_cap(self, monkeypatch):
+        from backend.routers.campaigns import _schemas, wiki_io
+
+        monkeypatch.setattr(_schemas, "WIKI_BODY_MAX_LENGTH", 50)
+        monkeypatch.setattr(wiki_io, "WIKI_BODY_MAX_LENGTH", 50)
+
+    def test_create_and_update(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        too_long = _create(client, gm_headers, c["id"], title="Big", body="x" * 51)
+        assert too_long.status_code == 422
+        assert "at most 50 characters" in too_long.text
+        page = _create(client, gm_headers, c["id"], title="Fits", body="x" * 50)
+        assert page.status_code == 201, page.text
+        resp = client.patch(
+            f"/api/campaigns/{c['id']}/wiki/{page.json()['id']}",
+            json={"body": "y" * 51},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 422
+
+    def test_template(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/templates",
+            json={"name": "T", "body": "x" * 51},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 422
+
+    def test_import(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        resp = _import(client, gm_headers, c["id"], "Big.md", "x" * 51, "text/markdown")
+        assert resp.status_code == 422
+        assert "Big" in resp.json()["detail"]
+        assert _by_title(client, gm_headers, c["id"]) == {}
