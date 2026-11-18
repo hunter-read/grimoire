@@ -462,6 +462,7 @@ def _validate_write_steps(
     *,
     prompts: set[str],
     prompt_verbs: bool = False,
+    content_types: dict | None = None,
 ) -> None:
     """Check a list of writes, as an action's `steps` or a prompt's `apply`.
 
@@ -480,7 +481,15 @@ def _validate_write_steps(
     - `{"pick": content field, "entry": formula, "values": {field: formula}}`
       put the entry a formula names (an `entry` step's answer) in a content_ref
       or a new row of a content_list, with its per-entry fields, and follow
-      its `on_pick` as a pick by hand.
+      its `on_pick` as a pick by hand;
+    - `{"grant": field, "from": formula, "names": formula, "carry": {key:
+      formula}, "source": field}` grant as an `on_pick` rule does, its
+      properties worked out by formulas - a level's class features. `from`
+      lists ids (or a multiselect's values); `names`, in the same order, are
+      what each falls back to when the catalog has no such id; `carry` sets
+      values on those freeform entries. What it adds is recorded under
+      `source` (a content_ref with `on_pick`, so picking another class there
+      takes it back), or else under the pick that opened the prompt.
     """
     if not isinstance(steps, list) or not steps:
         raise SchemaError(f"{what} must be a non-empty list of steps")
@@ -511,7 +520,9 @@ def _validate_write_steps(
                 raise SchemaError(f"{where} writes {key!r}, which {target!r} does not have")
             _validate_formula(source, f"{where} {key!r}", names_known, images)
 
-    verbs_allowed = ["each", "append", "prompt"] + (["add", "pick"] if prompt_verbs else [])
+    verbs_allowed = ["each", "append", "prompt"] + (
+        ["add", "pick", "grant"] if prompt_verbs else []
+    )
     for step_index, step in enumerate(steps):
         step = _require_dict(step, f"{what} step {step_index}")
         where = f"{what} step {step_index}"
@@ -550,6 +561,10 @@ def _validate_write_steps(
             if field_type != "multiselect":
                 raise SchemaError(f"{where} adds to {target!r}, which is not a multiselect")
             _validate_formula(step.get("values"), f"{where} 'values'", known, images)
+        elif verb == "grant":
+            _validate_prompt_grant(
+                step, target, field_type, where, fields, known, images, content_types or {}
+            )
         else:
             if field_type not in _CONTENT_TYPES_FIELDS:
                 raise SchemaError(
@@ -559,6 +574,58 @@ def _validate_write_steps(
             if "values" in step:
                 keys = set((fields[target] or {}).get("per_entry_fields") or {})
                 _cells(step["values"], keys, target, f"{where} 'values'", known)
+
+
+def _validate_prompt_grant(
+    step: dict,
+    target: str,
+    field_type: str,
+    where: str,
+    fields: dict,
+    known: set[str],
+    images: frozenset,
+    content_types: dict,
+) -> None:
+    """Check a prompt's `grant` step: an `on_pick` grant whose properties are formulas."""
+    if field_type not in _GRANT_TARGETS:
+        raise SchemaError(
+            f"{where} grants into {target!r}, a {field_type}; it must be a multiselect "
+            "or a content_list"
+        )
+    _validate_formula(step.get("from"), f"{where} 'from'", known, images)
+    for key in ("names", "carry"):
+        if key in step and field_type != "content_list":
+            raise SchemaError(f"{where} {key!r} needs a content_list target")
+    if "names" in step:
+        _validate_formula(step["names"], f"{where} 'names'", known, images)
+    if "carry" in step:
+        carry = step["carry"]
+        if not isinstance(carry, dict) or not carry:
+            raise SchemaError(f"{where} 'carry' must be an object of field: formula")
+        # A freeform entry has the fields of the list's content type.
+        target_fields = set(
+            (content_types.get((fields[target] or {}).get("content_type")) or {}).get("fields")
+            or {}
+        )
+        for key, formula in carry.items():
+            if key not in target_fields:
+                raise SchemaError(
+                    f"{where} carries into {key!r}, which the target's content type "
+                    "does not declare"
+                )
+            _validate_formula(formula, f"{where} 'carry' {key!r}", known, images)
+    if "source" in step:
+        source = step["source"]
+        definition = fields.get(source) if isinstance(source, str) else None
+        if (
+            not isinstance(definition, dict)
+            or definition.get("type") != "content_ref"
+            or not definition.get("on_pick")
+        ):
+            raise SchemaError(
+                f"{where} 'source' must name a content_ref field with on_pick, "
+                f"not {source!r}"
+            )
 
 
 def _validate_actions(
@@ -748,6 +815,7 @@ def _validate_prompts(
             images,
             prompts=names,
             prompt_verbs=True,
+            content_types=content_types,
         )
 
 

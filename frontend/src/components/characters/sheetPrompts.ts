@@ -1,7 +1,8 @@
 import { createContext } from 'react'
 import { buildContext, computeValues, evaluate, toNumber } from './expressions'
 import type { ExprContext, ExpressionDocument } from './expressions'
-import { GRANTED_KEY } from './onPick'
+import { GRANTED_KEY, asList as listOf, grantInto } from './onPick'
+import type { ResolvedRefs } from './onPick'
 import { planAction } from './sheetActions'
 import type { ActionStep } from './sheetActions'
 import type { FieldDefinition } from './FieldRenderer'
@@ -57,6 +58,13 @@ export interface PromptApplyStep extends Omit<ActionStep, 'values'> {
   add?: string
   pick?: string
   entry?: string
+  // grant: formulas for the ids, the names they fall back to, and the values
+  // carried onto a freeform entry; `source` is the pick it is recorded under.
+  grant?: string
+  from?: string
+  names?: string
+  carry?: Record<string, string>
+  source?: string
   // An `append`'s or a `pick`'s per-entry formulas; an `add`'s one formula.
   values?: string | Record<string, string>
 }
@@ -416,6 +424,17 @@ export async function loadEntryOptions(
 export type PromptPick = { field: string; value: unknown; entry: Values }
 
 /**
+ * A `grant` a prompt makes, its formulas worked out: what `planGrants` adds
+ * once the catalog has said which ids it really has.
+ */
+export type PromptGrant = {
+  target: string
+  pairs: [string, string][]
+  carried: Values
+  source?: string
+}
+
+/**
  * What confirming a prompt does: the patch of plain writes, the picks to make
  * through the sheet's own pick path, and the prompts its `apply` opens next.
  *
@@ -440,7 +459,7 @@ export function planPrompt(
     row?: Values | null
     source?: string
   }
-): { patch: Values; picks: PromptPick[]; prompts: string[] } {
+): { patch: Values; picks: PromptPick[]; prompts: string[]; grants: PromptGrant[] } {
   const fields = document?.fields || {}
   const ctx = promptContext(context, visibleAnswers(prompt, context, answers, row), row)
   const steps = Array.isArray(prompt.apply) ? prompt.apply : []
@@ -452,6 +471,7 @@ export function planPrompt(
         typeof step.set === 'string') &&
       typeof step.add !== 'string' &&
       typeof step.pick !== 'string' &&
+      typeof step.grant !== 'string' &&
       typeof step.prompt !== 'string'
   )
   const patch: Values = writes.length
@@ -462,6 +482,7 @@ export function planPrompt(
     : {}
   const picks: PromptPick[] = []
   const prompts: string[] = []
+  const grants: PromptGrant[] = []
   const granted: Record<string, string[]> = {}
   const current = (name: string): unknown => (name in patch ? patch[name] : data?.[name])
 
@@ -469,6 +490,30 @@ export function planPrompt(
     if (!step || typeof step !== 'object') continue
     if (typeof step.prompt === 'string') {
       prompts.push(step.prompt)
+      continue
+    }
+    if (typeof step.grant === 'string') {
+      // Worked out now, against the sheet as the prompt read it; made by
+      // `planGrants`, which asks the catalog first.
+      const ids = listOf(evaluate<symbol>(step.from, ctx, FAILED))
+      const names = step.names ? listOf(evaluate<symbol>(step.names, ctx, FAILED)) : []
+      const carried: Values = {}
+      for (const [key, formula] of Object.entries(isObject(step.carry) ? step.carry : {})) {
+        const value = evaluate<symbol>(formula, ctx, FAILED)
+        if (value !== FAILED && value !== '' && value !== null && value !== undefined) {
+          carried[key] = value
+        }
+      }
+      const pairs = ids.map((id, i): [string, string] => [id, names[i] || ''])
+      if (pairs.length) {
+        const recordedUnder = step.source || source
+        grants.push({
+          target: step.grant,
+          pairs,
+          carried,
+          ...(recordedUnder ? { source: recordedUnder } : {}),
+        })
+      }
       continue
     }
     if (typeof step.add === 'string') {
@@ -533,7 +578,70 @@ export function planPrompt(
     all[source] = fromSource
     patch[GRANTED_KEY] = all
   }
-  return { patch, picks, prompts }
+  return { patch, picks, prompts, grants }
+}
+
+/**
+ * Make a prompt's grants, as a pick's `grant` rules make theirs: each id the
+ * catalog has as the target's content type becomes a reference, any other a
+ * freeform entry by its name. What is added is recorded under the grant's
+ * source, so picking something else there takes it back.
+ *
+ * @param data  the character's data with the prompt's own patch laid over it
+ */
+export async function planGrants(
+  grants: PromptGrant[],
+  {
+    document,
+    data,
+    lookup,
+  }: {
+    document: PromptDocument | null | undefined
+    data: Values | null | undefined
+    lookup?: (ids: string[]) => Promise<ResolvedRefs | null | undefined>
+  }
+): Promise<Values> {
+  const fields = document?.fields || {}
+  const wanted = grants
+    .filter((grant) => fields[grant.target]?.type === 'content_list')
+    .flatMap((grant) => grant.pairs.map(([id]) => id))
+    .filter(Boolean)
+  let resolved: ResolvedRefs = {}
+  if (wanted.length && lookup) {
+    try {
+      resolved = (await lookup([...new Set(wanted)])) || {}
+    } catch {
+      // No catalog to ask is the catalog not having it: named entries instead.
+      resolved = {}
+    }
+  }
+  const patch: Values = {}
+  const all = { ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>) }
+  let recordedAny = false
+  for (const grant of grants) {
+    const definition = fields[grant.target]
+    if (!definition) continue
+    const held = grant.target in patch ? patch[grant.target] : data?.[grant.target]
+    const added: string[] = []
+    const list = grantInto({
+      definition,
+      list: Array.isArray(held) ? [...held] : [],
+      pairs: grant.pairs,
+      carried: grant.carried,
+      resolved,
+      record: (key) => added.push(key),
+    })
+    if (!list) continue
+    patch[grant.target] = list
+    if (grant.source && added.length) {
+      const fromSource = { ...(all[grant.source] || {}) }
+      fromSource[grant.target] = [...(fromSource[grant.target] || []), ...added]
+      all[grant.source] = fromSource
+      recordedAny = true
+    }
+  }
+  if (recordedAny) patch[GRANTED_KEY] = all
+  return patch
 }
 
 function samePrompt(a: PromptRequest, b: PromptRequest): boolean {

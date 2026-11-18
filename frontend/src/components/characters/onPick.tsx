@@ -62,7 +62,7 @@ export type PickChoice = {
 }
 
 /** How the catalog resolves entry ids, keyed by id. */
-type ResolvedRefs = Record<
+export type ResolvedRefs = Record<
   string,
   Pick<Schema<'ResolvedEntry'>, 'content_type' | 'source' | 'missing'>
 >
@@ -77,7 +77,7 @@ interface PlanPickArgs {
 
 // A property read off an entry as a list: a real list, or comma-separated text
 // for content written before lists were declared.
-function asList(value: unknown): string[] {
+export function asList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item))
   if (typeof value === 'string') {
     return value
@@ -108,6 +108,63 @@ function matchesKey(value: unknown, key: string): boolean {
 function currentList(data: Values | null | undefined, patch: Values, target: string): unknown[] {
   const value = target in patch ? patch[target] : data?.[target]
   return Array.isArray(value) ? [...value] : []
+}
+
+/**
+ * Add granted values to a multiselect or granted entries to a content list,
+ * skipping any it already holds; `record` hears each one added. Shared by a
+ * pick's `grant` rules and a prompt's `grant` step.
+ *
+ * `pairs` are `[id, name]`: a multiselect takes the ids among its options; a
+ * content list takes a reference when the catalog really has the id as its
+ * content type, otherwise a freeform entry named `name` (or the id) with the
+ * `carried` values. Returns the new list, or null for any other field.
+ */
+export function grantInto({
+  definition,
+  list,
+  pairs,
+  carried = {},
+  resolved = {},
+  record,
+}: {
+  definition: PickField
+  list: unknown[]
+  pairs: [string, string][]
+  carried?: Values
+  resolved?: ResolvedRefs
+  record: (key: string) => void
+}): unknown[] | null {
+  if (definition.type === 'multiselect') {
+    const allowed = new Set(optionValues(definition))
+    for (const [value] of pairs) {
+      if (!allowed.has(value) || list.includes(value)) continue
+      list.push(value)
+      record(value)
+    }
+    return list
+  }
+  if (definition.type !== 'content_list') return null
+  for (const [id, name] of pairs) {
+    const found = id ? resolved[id] : null
+    // A reference only when the catalog really has this id *as this type* -
+    // resolve does not filter by type, and a feat and a spell may share an
+    // id. Otherwise the name, so the player still sees what they were given
+    // even without the content installed.
+    if (found && !found.missing && found.content_type === definition.content_type) {
+      if (!list.some((item) => matchesKey(item, id))) {
+        list.push(found.source ? { _ref: id, _source: found.source } : { _ref: id })
+        record(id)
+      }
+    } else if (name || id) {
+      const label = name || id
+      if (!list.some((item) => matchesKey(item, label))) {
+        list.push({ _inline: true, ...carried, name: label })
+        record(label)
+      }
+    }
+  }
+  return list
 }
 
 /**
@@ -195,57 +252,30 @@ export async function planPick({
         const definition = fields[target]
         if (!definition) continue
 
-        if (definition.type === 'multiselect') {
-          const allowed = new Set(optionValues(definition))
-          const list = currentList(data, patch, target)
-          for (const value of asList(entry[rule.from!])) {
-            if (!allowed.has(value) || list.includes(value)) continue
-            list.push(value)
-            record(target, value)
-          }
-          patch[target] = list
-          continue
+        const carried: Values = {}
+        for (const [toKey, fromKey] of Object.entries(rule.carry || {})) {
+          if (entry[fromKey] !== undefined) carried[toKey] = entry[fromKey]
         }
-
-        if (definition.type === 'content_list') {
-          const list = currentList(data, patch, target)
-          // Values carried from the pick onto a freeform entry - the species'
-          // name as each of its traits' source.
-          const carried: Values = {}
-          for (const [toKey, fromKey] of Object.entries(rule.carry || {})) {
-            if (entry[fromKey] !== undefined) carried[toKey] = entry[fromKey]
-          }
-          // One entry (`ref`/`name`) or several (`from`, with `names` in the
-          // same order to fall back to).
-          const pairs: [string, string][] = rule.from
-            ? asList(entry[rule.from]).map((id, i) => [id, asList(entry[rule.names!])[i] || ''])
+        // One entry (`ref`/`name`) or several (`from`, with `names` in the
+        // same order to fall back to).
+        const pairs: [string, string][] =
+          rule.from || definition.type === 'multiselect'
+            ? asList(entry[rule.from!]).map((id, i) => [id, asList(entry[rule.names!])[i] || ''])
             : [
                 [
                   rule.ref ? String(entry[rule.ref] ?? '') : '',
                   rule.name ? String(entry[rule.name] ?? '') : '',
                 ],
               ]
-          for (const [id, name] of pairs) {
-            const found = id ? resolved[id] : null
-            // A reference only when the catalog really has this id *as this
-            // type* - resolve does not filter by type, and a feat and a spell
-            // may share an id. Otherwise the name, so the player still sees
-            // what they were given even without the content installed.
-            if (found && !found.missing && found.content_type === definition.content_type) {
-              if (!list.some((item) => matchesKey(item, id))) {
-                list.push(found.source ? { _ref: id, _source: found.source } : { _ref: id })
-                record(target, id)
-              }
-            } else if (name || id) {
-              const label = name || id
-              if (!list.some((item) => matchesKey(item, label))) {
-                list.push({ _inline: true, ...carried, name: label })
-                record(target, label)
-              }
-            }
-          }
-          patch[target] = list
-        }
+        const list = grantInto({
+          definition,
+          list: currentList(data, patch, target),
+          pairs,
+          carried,
+          resolved,
+          record: (key) => record(target, key),
+        })
+        if (list) patch[target] = list
         continue
       }
 

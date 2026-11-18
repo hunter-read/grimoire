@@ -47,6 +47,7 @@ function StubSheet({
     <div>
       <button onClick={() => onChange('species', { _ref: 'elf' }, { entry: ELF })}>pick elf</button>
       <button onClick={() => open?.({ prompt: 'feat_up' })}>gain a feat</button>
+      <button onClick={() => open?.({ prompt: 'level_gain' })}>gain a level</button>
     </div>
   )
 }
@@ -75,6 +76,7 @@ const DOCUMENT = {
     },
     skills: { type: 'multiselect', options: ['Perception', 'Stealth'] },
     level: { type: 'number', default: 4 },
+    features: { type: 'content_list', content_type: 'feature' },
   },
   prompts: {
     lineage: {
@@ -88,6 +90,18 @@ const DOCUMENT = {
       apply: [
         { pick: 'feats', entry: 'answer.feat', values: { from_level: 'level' } },
         { pick: 'origin_feat', entry: 'answer.feat' },
+      ],
+    },
+    level_gain: {
+      label: 'Level gained',
+      steps: [{ key: 'sure', type: 'select', options: ['yes'] }],
+      apply: [
+        {
+          grant: 'features',
+          from: "'action-surge, tactical-mind'",
+          names: "'Action Surge, Tactical Mind'",
+          source: 'origin_feat',
+        },
       ],
     },
   },
@@ -188,5 +202,27 @@ describe('CharacterDetailView — prompts', () => {
       page: 1,
       page_size: 200,
     })
+  })
+
+  it('grants what a prompt names, as references the catalog has, under the source given', async () => {
+    mockResolve.mockImplementation(async (schema, ids) => ({
+      entries: {
+        'action-surge': { entry_id: 'action-surge', content_type: 'feature', source: 'xphb' },
+      },
+    }))
+    await renderView()
+    await userEvent.click(screen.getByText('gain a level'))
+    await userEvent.click(await screen.findByLabelText('yes'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data.features).toHaveLength(2))
+    const saved = lastSaved().data
+    expect(saved.features).toEqual([
+      { _ref: 'action-surge', _source: 'xphb' },
+      { _inline: true, name: 'Tactical Mind' },
+    ])
+    expect(saved._granted).toEqual({
+      origin_feat: { features: ['action-surge', 'Tactical Mind'] },
+    })
+    expect(mockResolve).toHaveBeenCalledWith('demo', ['action-surge', 'tactical-mind'])
   })
 })

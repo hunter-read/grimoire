@@ -22,6 +22,7 @@ import {
   findPrompt,
   pendingPrompts,
   planPrompt,
+  planGrants,
   PromptLauncher,
   sheetContext,
   visibleSteps,
@@ -386,7 +387,15 @@ export default function CharacterDetailView() {
       row: request.row,
       source: request.source,
     })
-    applyPatch({ ...plan.patch, ...withoutPending(dataRef.current, request) })
+    // Grants ask the catalog which ids it has, as a pick's grants do.
+    const granted = plan.grants.length
+      ? await planGrants(plan.grants, {
+          document,
+          data: { ...dataRef.current, ...plan.patch },
+          lookup,
+        })
+      : {}
+    applyPatch({ ...plan.patch, ...granted, ...withoutPending(dataRef.current, request) })
     // Each pick goes the way a pick by hand goes, so its own on_pick runs -
     // a feat's prompt joining the queue after this one.
     for (const pick of plan.picks) await onChange(pick.field, pick.value, { entry: pick.entry })

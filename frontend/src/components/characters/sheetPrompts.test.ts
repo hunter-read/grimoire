@@ -7,6 +7,7 @@ import {
   numberAverage,
   numberDefault,
   pendingPrompts,
+  planGrants,
   planPrompt,
   stepOptions,
   stepPatterns,
@@ -336,6 +337,136 @@ describe('planPrompt', () => {
       answers: { s: ['History'] },
     })
     expect(plan.patch).toEqual({ skills: ['History'] })
+  })
+})
+
+describe('grant', () => {
+  const document = {
+    fields: {
+      level: { type: 'number' },
+      skills: { type: 'multiselect', options: ['Arcana', 'History'] },
+      features: { type: 'content_list', content_type: 'feature' },
+      klass: { type: 'content_ref', content_type: 'class', on_pick: [] },
+    },
+  }
+  const fighter = {
+    name: 'Fighter',
+    feature_ids_2: ['action-surge', 'tactical-mind'],
+    feature_names_2: 'Action Surge, Tactical Mind',
+  }
+  const prompt: SheetPrompt = {
+    label: 'Level up',
+    steps: [{ key: 'hp', type: 'number' }],
+    apply: [
+      {
+        grant: 'features',
+        from: "ref(klass, concat('feature_ids_', level + 1))",
+        names: "ref(klass, concat('feature_names_', level + 1))",
+        carry: { class: "ref(klass, 'name')" },
+        source: 'klass',
+      },
+      { grant: 'skills', from: "'History, Stealth'" },
+      { grant: 'features', from: 'row.feature_ids_9' },
+    ],
+  }
+
+  it('works out its formulas into grants, recorded under their source or the prompt one', () => {
+    const plan = planPrompt(prompt, {
+      document,
+      data: {},
+      context: { level: 1, klass: { _ref: 'fighter' }, _entries: { fighter } },
+      answers: { hp: 5 },
+      row: fighter,
+      source: 'background',
+    })
+    expect(plan.patch).toEqual({})
+    expect(plan.grants).toEqual([
+      {
+        target: 'features',
+        pairs: [
+          ['action-surge', 'Action Surge'],
+          ['tactical-mind', 'Tactical Mind'],
+        ],
+        carried: { class: 'Fighter' },
+        source: 'klass',
+      },
+      {
+        target: 'skills',
+        pairs: [
+          ['History', ''],
+          ['Stealth', ''],
+        ],
+        carried: {},
+        source: 'background',
+      },
+    ])
+  })
+
+  it('grants a reference the catalog has as the list type, a named entry otherwise', async () => {
+    const asked: string[][] = []
+    const patch = await planGrants(
+      [
+        {
+          target: 'features',
+          pairs: [
+            ['action-surge', 'Action Surge'],
+            ['tactical-mind', 'Tactical Mind'],
+            ['second-wind', 'Second Wind'],
+          ],
+          carried: { class: 'Fighter' },
+          source: 'klass',
+        },
+        {
+          target: 'skills',
+          pairs: [
+            ['History', ''],
+            ['Stealth', ''],
+          ],
+          carried: {},
+        },
+      ],
+      {
+        document,
+        data: {
+          features: [{ _ref: 'second-wind' }],
+          skills: ['Arcana'],
+          _granted: { klass: { features: ['second-wind'] } },
+        },
+        lookup: async (ids) => {
+          asked.push(ids)
+          return {
+            'action-surge': { content_type: 'feature', source: 'xphb' },
+            'tactical-mind': { content_type: 'spell' },
+            'second-wind': { content_type: 'feature' },
+          }
+        },
+      }
+    )
+    expect(asked).toEqual([['action-surge', 'tactical-mind', 'second-wind']])
+    expect(patch).toEqual({
+      features: [
+        { _ref: 'second-wind' },
+        { _ref: 'action-surge', _source: 'xphb' },
+        { _inline: true, class: 'Fighter', name: 'Tactical Mind' },
+      ],
+      // Stealth is not one of the multiselect's options.
+      skills: ['Arcana', 'History'],
+      _granted: { klass: { features: ['second-wind', 'action-surge', 'Tactical Mind'] } },
+    })
+  })
+
+  it('falls back to named entries when the catalog cannot be asked', async () => {
+    const patch = await planGrants(
+      [{ target: 'features', pairs: [['action-surge', 'Action Surge']], carried: {} }],
+      {
+        document,
+        data: {},
+        lookup: async () => {
+          throw new Error('offline')
+        },
+      }
+    )
+    expect(patch).toEqual({ features: [{ _inline: true, name: 'Action Surge' }] })
   })
 })
 

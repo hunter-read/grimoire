@@ -144,12 +144,42 @@ def _with_apply(apply_step):
             "does not have",
         ),
         (_with_apply({"prompt": "nowhere"}), "unknown prompt"),
+        (_with_apply({"grant": "level", "from": "'a'"}), "multiselect or a content_list"),
+        (_with_apply({"grant": "feats"}), "'from'"),
+        (_with_apply({"grant": "feats", "from": "nowhere"}), "unknown name"),
+        (_with_apply({"grant": "skills", "from": "'a'", "names": "'a'"}), "content_list target"),
+        (_with_apply({"grant": "feats", "from": "'a'", "carry": {"nope": "1"}}), "does not declare"),
+        (_with_apply({"grant": "feats", "from": "'a'", "carry": []}), "'carry'"),
+        (_with_apply({"grant": "feats", "from": "'a'", "source": "origin"}), "'source'"),
+        (_with_apply({"grant": "feats", "from": "'a'", "source": "nowhere"}), "'source'"),
         (_with_apply({"set": "level", "to": "missing + 1"}), "unknown name"),
     ],
 )
 def test_a_broken_prompt_is_refused(prompts, message):
     with pytest.raises(svc.SchemaError, match=message):
         _validate(_document(prompts))
+
+
+def test_a_grant_step_reads_formulas_and_records_under_a_pick():
+    prompts = _with_apply(
+        {
+            "grant": "feats",
+            "from": "row.feature_ids",
+            "names": "row.feature_names",
+            "carry": {"name": "'x'"},
+            "source": "species",
+        }
+    )
+    _validate(_document(prompts))
+    _validate(_document(_with_apply({"grant": "skills", "from": "answer.skills"})))
+
+
+def test_grant_belongs_to_prompts_only():
+    document = _document(
+        actions=[{"name": "a", "label": "A", "steps": [{"grant": "skills", "from": "'a'"}]}]
+    )
+    with pytest.raises(svc.SchemaError, match="exactly one of"):
+        _validate(document)
 
 
 def test_two_steps_may_not_share_a_key():
