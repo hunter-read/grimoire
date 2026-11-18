@@ -484,6 +484,48 @@ class TestOwnerChecks:
         finally:
             allow_keys(client, admin_headers, player_id)
 
+    @staticmethod
+    def _user(client, admin_headers, role, keys):
+        username = f"oauth-{role}-{secrets.token_hex(3)}"
+        created = client.post(
+            "/api/users",
+            json={"username": username, "password": "oauthpass1234", "role": role, "api_keys_enabled": keys},
+            headers=admin_headers,
+        )
+        assert created.status_code == 201, created.text
+        token = client.post(
+            "/api/auth/login", json={"username": username, "password": "oauthpass1234"}
+        ).json()["token"]
+        client.cookies.clear()
+        return created.json()["id"], {"Authorization": f"Bearer {token}"}
+
+    def test_a_demoted_owners_grant_loses_the_role(self, client, oauth_client, admin_headers):
+        user_id, headers = self._user(client, admin_headers, "gm", keys=True)
+        flow = Flow(oauth_client, headers)
+        tokens = flow.exchange(flow.approve(permissions={"*": "write"})).json()
+
+        def tools():
+            resp = mcp(oauth_client, tokens["access_token"])
+            assert resp.status_code == 200, resp.text
+            return {t["name"] for t in resp.json()["result"]["tools"]}
+
+        assert "tag_books" in tools()
+        client.patch(f"/api/users/{user_id}", json={"role": "player"}, headers=admin_headers)
+        # Still connected, but with only what a player may do.
+        assert "tag_books" not in tools()
+
+    def test_an_admin_demoted_without_keys_is_refused_on_both_paths(
+        self, client, oauth_client, admin_headers
+    ):
+        # Admins hold keys regardless of the per-user switch; a player needs it.
+        user_id, headers = self._user(client, admin_headers, "admin", keys=False)
+        flow = Flow(oauth_client, headers)
+        tokens = flow.tokens()
+        client.patch(f"/api/users/{user_id}", json={"role": "player"}, headers=admin_headers)
+        assert mcp(oauth_client, tokens["access_token"]).status_code == 403
+        resp = flow.refresh(tokens["refresh_token"])
+        assert resp.status_code == 400 and resp.json()["error"] == "invalid_grant"
+
     def test_api_keys_off_for_the_instance(self, oauth_client, admin_headers, monkeypatch):
         flow = Flow(oauth_client, admin_headers)
         tokens = flow.tokens()
