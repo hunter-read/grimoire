@@ -930,8 +930,9 @@ let the scan silently revert the edit. The book is moved into the sibling folder
 whose *inferred category* matches the new one - an existing `Rulebooks` shelf is
 reused rather than a second `Core` being created beside it - and the folder is
 created with its canonical name when nothing covers that category yet. Since the
-category becomes a folder name, it can't contain `/`, `\`, `..` or a control
-character (a line break, a tab), start with a dot, be blank, or run past 100
+category becomes a folder name, it can't contain `/`, `\`, `..`, a control
+character (a line break, a tab), a Unicode line or paragraph separator or an
+invisible format character (a zero-width space or joiner, a direction mark), start with a dot, be blank, or run past 100
 characters or 255 bytes: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422
 for one that does. Spaces around it are trimmed first, so `"core "` is stored as `core`.
 
