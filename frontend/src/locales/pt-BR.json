@@ -2952,6 +2952,7 @@
     "editHint": "Clique no mapa para adicionar um marcador. Arraste um marcador para movê-lo, ou foque nele e use as setas (Shift para passos maiores).",
     "missing": "Este mapa não está mais na biblioteca.",
     "noMap": "Ainda não foi escolhido um mapa para esta página.",
+    "hidden": "O GM não compartilhou este mapa com você.",
     "pinsKept": "Seu {{count}} marcador é mantido e volta no novo mapa.",
     "pinsKept_other": "Seus {{count}} marcadores são mantidos e voltam no novo mapa.",
     "locations": "Locais",
