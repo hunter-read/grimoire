@@ -105,6 +105,22 @@ describe('ContentBrowser', () => {
     )
   })
 
+  it('shows a newly available facet after choosing another filter', async () => {
+    mockBrowse.mockImplementation(async (_schema, _type, { filters }) => ({
+      ...RESULT,
+      filters_available: filters.level
+        ? { ...RESULT.filters_available, school: [{ value: 'evocation', count: 1 }] }
+        : RESULT.filters_available,
+    }))
+    renderBrowser()
+    await screen.findByText('Fireball')
+    expect(screen.queryByLabelText('School')).not.toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '3')
+    expect(await screen.findByLabelText('School')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '')
+    await waitFor(() => expect(screen.queryByLabelText('School')).not.toBeInTheDocument())
+  })
+
   it('reports a choice as a reference, not a copy', async () => {
     const onChoose = vi.fn()
     renderBrowser({ onChoose })

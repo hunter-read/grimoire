@@ -79,10 +79,7 @@ export default function ContentBrowser({
       })
       setEntries(result.entries || [])
       setTotal(result.total || 0)
-      // Facets describe the whole catalog, so they are only refreshed when the
-      // filters are not narrowing it — otherwise picking one value would empty
-      // every other facet and leave no way back.
-      if (!Object.keys(filters).length) setFacets(result.filters_available || {})
+      setFacets(result.filters_available || {})
       setError('')
     } catch (e) {
       setError((e as Error).message || t('characters.catalogFailed'))

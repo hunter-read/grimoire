@@ -204,16 +204,21 @@ def browse_content(
         db, current_user.id, schema_id, content_type, include_rulesets=include_rulesets
     )
 
-    # Facets describe the whole catalog, not the current page, so they are built
-    # before filtering — otherwise choosing one value would empty every other
-    # facet and leave no way back.
-    facets = helpers.build_facets(entries, definition.get("filter_fields", []))
-
     filters = {
         key[7:-1]: value
         for key, value in request.query_params.items()
         if key.startswith("filter[") and key.endswith("]") and value
     }
+    # Each facet is narrowed by the other filters, but never by itself. This
+    # keeps the current choice reversible and lets large facets appear once a
+    # related filter (such as class) narrows their values sufficiently.
+    facets = {}
+    for field in definition.get("filter_fields", []):
+        other_filters = {key: value for key, value in filters.items() if key != field}
+        candidates = [row for row in entries if helpers.matches_filters(row.data or {}, other_filters)]
+        facets.update(helpers.build_facets(candidates, [field]))
+        if field in filters and field not in facets:
+            facets[field] = [{"value": filters[field], "count": 0}]
     if filters:
         entries = [
             entry
