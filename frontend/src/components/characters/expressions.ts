@@ -382,8 +382,9 @@ export const ROW_NAME = 'row'
 export const MAX_EACH_ROWS = 1000
 
 /**
- * Work the per-row forms may do in one pass of a sheet computation, shared by
- * every form in it - every computed value, condition and rule. A row costs
+ * Work the per-row forms may do in one sheet computation, shared by every form
+ * in it - every computed value (across all of computeValues' passes),
+ * condition and rule. A row costs
  * the size of the formulas run on it, and inside a form reading a value costs
  * its size (a list's length, a string's length / 100), whether a name reads it
  * or a call is handed it. Past it the formula yields its fallback. Mirrors
@@ -391,7 +392,7 @@ export const MAX_EACH_ROWS = 1000
  */
 export const MAX_EACH_WORK = 1_000_000
 
-type EachWork = { left: number; rows: ExprValue[] }
+type EachWork = { left: number; refused: number; rows: ExprValue[] }
 
 /**
  * The budget in progress, and the rows of the forms open in it; null outside
@@ -403,13 +404,13 @@ let eachWork: EachWork | null = null
 
 /**
  * Run `fn` on one per-row budget, joining the one already open unless `fresh`
- * asks for a new one - each pass of computeValues does, or a later pass would
- * find the budget spent and overwrite what the first one worked out.
+ * asks for a new one - computeValues does, so the validators evaluated after
+ * it still have a budget of their own.
  */
 function withEachBudget<T>(fn: () => T, fresh = false): T {
   if (eachWork && !fresh) return fn()
   const previous = eachWork
-  eachWork = { left: MAX_EACH_WORK, rows: [] }
+  eachWork = { left: MAX_EACH_WORK, refused: 0, rows: [] }
   try {
     return fn()
   } finally {
@@ -419,7 +420,15 @@ function withEachBudget<T>(fn: () => T, fresh = false): T {
 
 function spend(budget: EachWork, amount: number): void {
   budget.left -= amount
-  if (budget.left < 0) throw new ExpressionError('Per-row forms did too much work')
+  if (budget.left < 0) {
+    budget.refused += 1
+    throw new ExpressionError('Per-row forms did too much work')
+  }
+}
+
+/** How many times the open per-row budget has refused work; 0 outside one. */
+function eachWorkRefusals(): number {
+  return eachWork ? eachWork.refused : 0
 }
 
 /** What reading `value` inside a per-row form costs. */
@@ -1018,24 +1027,27 @@ function computeValuesWithin(
 
   const results: ExprContext = { ...overrides }
   Object.assign(context, overrides)
-  for (let pass = 0; pass < MAX_PASSES; pass += 1) {
-    let changed = false
-    // A pass of its own budget: the same inputs then cost the same on every
-    // pass, so a formula that fit the first time still fits.
-    withEachBudget(() => {
+  // One budget for every pass, so a schema that never settles costs no more
+  // than one that does. A formula the budget refuses on a later pass keeps the
+  // value an earlier pass worked out rather than falling to its fallback.
+  withEachBudget(() => {
+    for (let pass = 0; pass < MAX_PASSES; pass += 1) {
+      let changed = false
       for (const [name, definition] of Object.entries(computed)) {
         if (name in overrides) continue
         const formula = typeof definition === 'string' ? definition : definition?.formula
+        const refused = eachWorkRefusals()
         const value = evaluate(formula, context)
+        if (eachWorkRefusals() > refused && name in results) continue
         if (results[name] !== value) {
           results[name] = value
           context[name] = value
           changed = true
         }
       }
-    }, true)
-    if (!changed) break
-  }
+      if (!changed) break
+    }
+  }, true)
   return results
 }
 

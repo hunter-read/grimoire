@@ -42,6 +42,7 @@ __all__ = [
     "EVALUATION_ERRORS",
     "ExpressionError",
     "each_work_budget",
+    "each_work_refusals",
     "evaluate",
     "parse",
     "referenced_names",
@@ -475,8 +476,9 @@ ROW_NAME = "row"
 #: list field is far shorter in practice, and nested forms multiply.
 MAX_EACH_ROWS = 1000
 
-#: Work the per-row forms may do in one pass of a sheet computation, shared by
-#: every form in it - every computed value, condition and rule. A row
+#: Work the per-row forms may do in one sheet computation, shared by every
+#: form in it - every computed value (across all of `compute_values`' passes),
+#: condition and rule. A row
 #: costs the size of the formulas run on it, and inside a form reading a value
 #: costs its size (a list's length, a string's length / 100), whether a name
 #: reads it or a call is handed it. Without one budget across the sheet, nested
@@ -498,16 +500,18 @@ class _EachWork:
     cannot collide with a field.
     """
 
-    __slots__ = ("left", "rows")
+    __slots__ = ("left", "refused", "rows")
 
     def __init__(self) -> None:
         self.left = MAX_EACH_WORK
+        self.refused = 0
         self.rows: list[Any] = []
 
     def spend(self, amount: int) -> None:
         """Take ``amount`` from the budget, refusing once it runs out."""
         self.left -= amount
         if self.left < 0:
+            self.refused += 1
             raise ExpressionError("Per-row forms did too much work")
 
 
@@ -521,8 +525,8 @@ def each_work_budget(fresh: bool = False) -> Iterator[None]:
     A sheet computation wraps itself in this so all its formulas draw on the
     same budget; `evaluate` does too, so a formula on its own still has one.
     Nested uses join the budget already open, unless ``fresh`` asks for a new
-    one - each pass of `compute_values` does, or a later pass would find the
-    budget spent and overwrite the values the first one worked out.
+    one - `compute_values` does, so the validators evaluated after it still
+    have a budget of their own.
     """
     if not fresh and _each_work.get() is not None:
         yield
@@ -532,6 +536,12 @@ def each_work_budget(fresh: bool = False) -> Iterator[None]:
         yield
     finally:
         _each_work.reset(token)
+
+
+def each_work_refusals() -> int:
+    """How many times the open per-row budget has refused work; 0 outside one."""
+    work = _each_work.get()
+    return work.refused if work is not None else 0
 
 
 def _value_cost(value: Any) -> int:

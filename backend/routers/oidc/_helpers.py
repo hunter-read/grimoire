@@ -15,7 +15,7 @@ from joserfc.jws import JWSRegistry
 from sqlalchemy import or_
 
 from ...models import User
-from ...usernames import match_username, username_taken
+from ...usernames import USERNAME_MAX_LENGTH, clean_username, match_username, username_taken
 from ...services.app_settings import VALID_SIGNING_ALGS
 from ._state import _jwks_cache, _state_store  # noqa: F401  (re-exported)
 
@@ -83,6 +83,15 @@ class OIDCProviderError(_OIDCError):
     """
 
 
+#: What a request to the provider can raise for a URL it cannot use, beyond
+#: ``httpx.HTTPError``: ``InvalidURL`` (``http://[::1``, a bad port) is not one,
+#: and a host name with a label over 63 characters fails IDNA encoding with a
+#: ``UnicodeError``.
+FETCH_ERRORS = (httpx.HTTPError, httpx.InvalidURL, UnicodeError)
+#: The same, or an answer that is not a JSON object.
+PROVIDER_ERRORS = (httpx.HTTPError, httpx.InvalidURL, UnicodeError, OIDCProviderError)
+
+
 def _provider_json(resp: httpx.Response, what: str) -> dict:
     """``resp``'s body as a JSON object, or ``OIDCProviderError``.
 
@@ -130,7 +139,7 @@ def _discovery_doc(issuer: str) -> dict:
             if doc:
                 _discovery_cache[url] = (time.monotonic(), doc)
             return doc
-    except (httpx.HTTPError, OIDCProviderError) as e:
+    except PROVIDER_ERRORS as e:
         # Discovery is best-effort (caller falls back to configured endpoints),
         # but log so a misconfigured/unreachable issuer is diagnosable.
         logger.warning("OIDC discovery fetch failed for %s: %s", url, e)
@@ -139,7 +148,8 @@ def _discovery_doc(issuer: str) -> dict:
 
 def _try_endpoint(issuer: str, key: str) -> str:
     """Best-effort discovery fallback for a missing endpoint."""
-    return _discovery_doc(issuer).get(key, "") or ""
+    value = _discovery_doc(issuer).get(key, "")
+    return value if isinstance(value, str) else ""
 
 
 def _discover_issuer(issuer_url: str) -> str:
@@ -164,7 +174,7 @@ def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
         # A body that isn't a JSON object raises OIDCProviderError, an
         # _OIDCError, and is not cached.
         keys = _provider_json(resp, "jwks")
-    except httpx.HTTPError as e:
+    except FETCH_ERRORS as e:
         raise _OIDCError(f"jwks fetch failed: {e}") from e
     _jwks_cache.set(jwks_uri, keys)
     return keys
@@ -289,7 +299,7 @@ def _fetch_userinfo(userinfo_url: Optional[str], access_token: Optional[str]) ->
         )
         resp.raise_for_status()
         return _provider_json(resp, "userinfo")
-    except (httpx.HTTPError, OIDCProviderError) as e:
+    except PROVIDER_ERRORS as e:
         # Best-effort, as before: the ID token has already proved who this is,
         # and userinfo only adds claims some providers leave out of it.
         logger.warning("OIDC userinfo fetch failed: %s", e)
@@ -391,6 +401,29 @@ def _email_verified(claims: dict) -> bool:
     return value is True
 
 
+def _claim_text(claims: dict, key: str) -> Optional[str]:
+    """A text claim, trimmed, or None when it is missing, blank or not text."""
+    value = claims.get(key)
+    if isinstance(value, str):
+        return value.strip() or None
+    return None
+
+
+def _new_username(candidates: list[Optional[str]], sub: str) -> str:
+    """The first candidate that makes a valid username, else one from ``sub``."""
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            return clean_username(candidate)
+        except ValueError:
+            continue
+    try:
+        return clean_username(f"oidc-{sub[:8]}")
+    except ValueError:
+        return f"oidc-{hashlib.sha256(sub.encode('utf-8', 'surrogatepass')).hexdigest()[:8]}"
+
+
 def _resolve_user(db, claims: dict, eff: dict) -> User:
     """Find or create the local user from the validated OIDC claims.
 
@@ -400,16 +433,22 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
     if not sub:
         raise _OIDCError("id_token missing sub claim")
 
-    email = (claims.get("email") or "").strip().lower() or None
+    # A claim that is not text (a list, a number, an object) is ignored.
+    email = (_claim_text(claims, "email") or "").lower() or None
     # Only the provider's login name is used to find an existing account; the
     # looser display fields below are just for naming a newly registered one.
-    login_name = str(claims.get("preferred_username") or "").strip() or None
-    preferred_username = (
-        login_name
-        or claims.get("nickname")
-        or claims.get("name")
-        or (email.split("@")[0] if email else None)
+    preferred = claims.get("preferred_username")
+    login_name = (
+        str(preferred).strip() or None
+        if isinstance(preferred, (str, int)) and not isinstance(preferred, bool)
+        else None
     )
+    name_candidates = [
+        login_name,
+        _claim_text(claims, "nickname"),
+        _claim_text(claims, "name"),
+        email.split("@")[0] if email else None,
+    ]
 
     # 1. Identity match: subject is the most stable identifier.
     user = db.query(User).filter_by(oidc_subject=sub).first()
@@ -450,9 +489,10 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         if not eff["oidc_auto_register"]:
             raise _OIDCError("no matching user and auto-register is disabled")
         # Username collision avoidance
-        username = preferred_username or f"oidc-{sub[:8]}"
+        username = _new_username(name_candidates, sub)
         if username_taken(db, username):
-            username = f"{username}-{sub[:6]}"
+            suffix = f"-{sub[:6]}"
+            username = f"{username[: USERNAME_MAX_LENGTH - len(suffix)]}{suffix}"
         # Email collision avoidance: drop the email rather than fail registration
         if email and db.query(User).filter_by(email=email).first():
             email = None
