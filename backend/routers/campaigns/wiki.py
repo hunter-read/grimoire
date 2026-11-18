@@ -603,7 +603,9 @@ def unhide_page(
     refusing here would strand them: the page would stay hidden with nothing in
     the UI or API able to bring it back. Clearing state is always safe.
     """
-    get_campaign_or_404(db, campaign_id)
+    c = get_campaign_or_404(db, campaign_id)
+    if not can_view(c, current_user, db):
+        raise HTTPException(403, "Not a member of this campaign")
     db.query(WikiPageHidden).filter_by(page_id=page_id, user_id=current_user.id).delete()
     db.commit()
     return {"ok": True, "hidden": False}

@@ -471,6 +471,18 @@ class TestAvailability:
         )
         assert bad_date.status_code == 400
 
+    def test_admin_outside_the_campaign_cannot_cancel(self, client, admin_headers, gm_campaign):
+        from backend.config import SessionLocal
+        from backend.models import SessionAvailability
+
+        cid = gm_campaign["id"]
+        # Consistent with reading it, which a non-member admin cannot do either.
+        assert client.get(f"/api/campaigns/{cid}/schedule", headers=admin_headers).status_code == 403
+        r = client.put(f"/api/campaigns/{cid}/availability/2026-03-03/cancel", headers=admin_headers)
+        assert r.status_code == 403
+        with SessionLocal() as db:
+            assert db.query(SessionAvailability).filter_by(campaign_id=cid).count() == 0
+
 
 @pytest.mark.usefixtures("summer_today")
 class TestLocalTimeModel:

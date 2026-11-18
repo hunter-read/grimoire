@@ -1839,7 +1839,7 @@ Because a player edits this stripped body, a player saving an edit would otherwi
 | `/api/campaigns/:id/wiki/:page_id/pins/:pin_id` | PATCH | anyone who can edit the page and see the pin | Move or edit a pin; every field optional. `target_page_id: ""` unlinks it; `target_title` relinks by title. `404` for a pin the caller cannot see. Returns the pin |
 | `/api/campaigns/:id/wiki/:page_id/pins/:pin_id` | DELETE | anyone who can edit the page and see the pin | Remove a pin |
 | `/api/campaigns/:id/wiki/:page_id/hide` | POST | per visibility | [Hide](#hidden-pages) the page from the caller's own view. Available on any page they can see, including ones they cannot edit or delete, and permitted on an archived campaign. `409` in a personal campaign, which has no hidden pages |
-| `/api/campaigns/:id/wiki/:page_id/hide` | DELETE | any member | Un-hide a page the caller had hidden. Clears only their own row; a page hidden because an ancestor is hidden has no row of its own, so this is a no-op for it. Allowed in a personal campaign even though hiding is not - clearing state is always safe, and refusing would strand a row written before that guard existed |
+| `/api/campaigns/:id/wiki/:page_id/hide` | DELETE | any member | Un-hide a page the caller had hidden; `403` for a non-member. Clears only their own row; a page hidden because an ancestor is hidden has no row of its own, so this is a no-op for it. Allowed in a personal campaign even though hiding is not - clearing state is always safe, and refusing would strand a row written before that guard existed |
 
 #### Sessions (legacy)
 
@@ -1849,8 +1849,9 @@ Superseded by the wiki. On startup, any non-empty legacy session notes are rolle
 |----------|--------|------|-------------|
 | `/api/campaigns/:id/sessions` | GET | member or owner | List sessions sorted by date |
 | `/api/campaigns/:id/sessions` | POST | member or owner | Create session. Body: `{session_date, title?}` (date: `YYYY-MM-DD`) |
+| `/api/campaigns/:id/sessions/search` | GET | member or owner | Search session notes. Query: `q` (1-200 characters, case-insensitive substring). Returns `{results: [{session_id, session_date, session_title, note_type, author_id, author_username, author_display_name, snippet}], query}` sorted by session date. `note_type` is `player`, `gm_external`, or `gm_internal`; GM internal notes are searched only for the owner (and an admin) |
 | `/api/campaigns/:id/sessions/:sid` | GET | member or owner | Session detail. GM sees `internal_content`; members see only `external_content`. |
-| `/api/campaigns/:id/sessions/:sid` | PATCH | owner | Update `title` |
+| `/api/campaigns/:id/sessions/:sid` | PATCH | owner | Update `title`. Members, guests included, get `403` |
 | `/api/campaigns/:id/sessions/:sid` | DELETE | owner | Delete session and all notes |
 | `/api/campaigns/:id/sessions/:sid/notes/player` | PUT | member or owner | Save own player note. Body: `{content}` |
 | `/api/campaigns/:id/sessions/:sid/notes/gm` | PUT | owner | Save GM notes. Body: `{internal_content?, external_content?}` |
@@ -1895,7 +1896,7 @@ A value outside these rules is `400`, naming the field. A schedule stored before
 |----------|--------|------|-------------|
 | `/api/campaigns/:id/availability` | GET | member or owner | Availability chart for next 10 scheduled sessions |
 | `/api/campaigns/:id/availability/:date` | PUT | member or owner | Set availability. Body: `{status, is_cancelled?, user_id?}` - `status` is `available`/`tentative`/`unavailable`. `user_id` (a user id string) and `is_cancelled` are GM/admin only: `user_id` sets that member's availability instead of the caller's, and must name the campaign's owner or an accepted member (`404` otherwise) |
-| `/api/campaigns/:id/availability/:date/cancel` | PUT | owner | Toggle session cancellation for a date |
+| `/api/campaigns/:id/availability/:date/cancel` | PUT | owner | Toggle session cancellation for a date. Anyone else, an admin included, gets `403` |
 
 Availability statuses: `available`, `tentative`, `unavailable`
 

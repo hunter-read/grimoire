@@ -358,8 +358,9 @@ def cancel_session_date(
     db: Session = Depends(get_db),
 ):
     c = get_campaign_or_404(db, campaign_id)
-    if c.owner_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(403, "Only the GM can cancel sessions")
+    # The owner's, like the schedule itself; an admin outside the campaign
+    # cannot even read it.
+    assert_can_manage(c, current_user, db)
     assert_not_archived(c)
     try:
         datetime.date.fromisoformat(session_date)
