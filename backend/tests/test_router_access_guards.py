@@ -107,6 +107,89 @@ def test_the_scanner_sees_a_query():
     assert found >= 20
 
 
+# A book can be open inside a system its reader may not see, so a guard on the
+# books says nothing about naming their systems. A function that queries
+# GameSystem has to apply a system-level rule itself.
+SYSTEM_GUARDS = {
+    "visible_systems",
+    "visible_systems_by_id",
+    "visible_book_system",
+    "can_access_system",
+    "accessible_system_ids",
+    "browsable_system_ids",
+    "system_browsable",
+    "load_browsable_system",
+    "get_visible_system",
+}
+
+# "module:function" (relative to backend/routers) -> why it may query GameSystem
+# without a system-level rule. Modules in ALLOWED_UNGUARDED are skipped as well.
+SYSTEM_QUERY_ALLOWED = {
+    "campaigns/resource_search.py:_system_id_filter": "ids of a subtree, used to scope a guarded book query",
+    "systems/core.py:_apply_rename": "name-clash check on an edit; returns nothing",
+    "users/access_grants.py:_scope_name": "admin-only grant list",
+    "users/access_grants.py:create_access_grant": "admin-only grant target check",
+}
+
+
+def _system_queries_unguarded(path: pathlib.Path) -> list[str]:
+    """Functions in ``path`` that query GameSystem without a system-level rule."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    out = []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        queries = any(
+            isinstance(n, ast.Call) and _queried_model(n) == "GameSystem" for n in ast.walk(fn)
+        )
+        guarded = any(
+            (isinstance(n, ast.Name) and n.id in SYSTEM_GUARDS)
+            or (isinstance(n, ast.Attribute) and n.attr in SYSTEM_GUARDS)
+            for n in ast.walk(fn)
+        )
+        if queries and not guarded:
+            out.append(fn.name)
+    return out
+
+
+def test_system_queries_apply_a_system_rule():
+    unguarded = []
+    for name, path in _modules():
+        if name in ALLOWED_UNGUARDED:
+            continue
+        for fn in _system_queries_unguarded(path):
+            if f"{name}:{fn}" not in SYSTEM_QUERY_ALLOWED:
+                unguarded.append(f"{name}:{fn}")
+    assert not unguarded, (
+        "These functions query GameSystem without a system-level access rule "
+        "(visible_systems / visible_systems_by_id / can_access_system ...). Apply one, "
+        f"or add the function to SYSTEM_QUERY_ALLOWED with the reason: {unguarded}"
+    )
+
+
+def test_system_query_allowlist_has_no_stale_entries():
+    scanned = dict(_modules())
+    stale = []
+    for entry in SYSTEM_QUERY_ALLOWED:
+        name, fn = entry.split(":")
+        path = scanned.get(name)
+        if path is None or fn not in _system_queries_unguarded(path):
+            stale.append(entry)
+    assert not stale, stale
+
+
+def test_the_system_scanner_flags_a_name_lookup(tmp_path):
+    """Guards the check itself, on the shape that once slipped through: a
+    book-guarded function naming the books' systems from a plain query."""
+    module = tmp_path / "m.py"
+    module.write_text(
+        "def search(db, user, q):\n"
+        "    rows = access_control.visible_books(db, q, user).all()\n"
+        "    return {s.id: s.name for s in db.query(GameSystem)}\n"
+    )
+    assert _system_queries_unguarded(module) == ["search"]
+
+
 # ---------------------------------------------------------------------------
 # Every reference to users.id is handled on deletion
 # ---------------------------------------------------------------------------
