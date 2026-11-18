@@ -217,14 +217,20 @@ export default function WikiMapView({
         <div style={placeholder}>
           <LuMap size={28} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
           <p style={{ margin: 0, fontSize: 14 }}>
-            {map?.source === 'missing' ? t('wikiMap.missing') : t('wikiMap.noMap')}
+            {map?.source === 'missing'
+              ? t('wikiMap.missing')
+              : map?.source === 'hidden'
+                ? t('wikiMap.hidden')
+                : t('wikiMap.noMap')}
           </p>
           {map?.source === 'missing' && pins.length > 0 && (
             <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
               {t('wikiMap.pinsKept', { count: pins.length })}
             </p>
           )}
-          {canEdit && (
+          {/* A picture this reader may not see is still the page's map, so it
+              is not theirs to replace. */}
+          {canEdit && map?.source !== 'hidden' && (
             <button type="button" onClick={() => setPicking(true)} style={ghostBtn}>
               <LuReplace size={13} aria-hidden="true" />{' '}
               {map?.source === 'missing' ? t('wikiMap.replaceMap') : t('wikiMap.chooseMap')}

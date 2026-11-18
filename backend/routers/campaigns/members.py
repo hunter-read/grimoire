@@ -19,6 +19,11 @@ from ._helpers import (
     get_campaign_or_404,
     user_has_campaign_access,
 )
+from ...services.campaigns.upload_files import (
+    member_upload_paths,
+    remove_after_commit,
+    sheet_upload_paths,
+)
 from ...services.campaigns.user_data import release_guest_membership
 from ._schemas import InvitePayload, MemberStatusUpdate
 from ._writable import ACCESS_DISABLED, ARCHIVED, writable_while
@@ -113,6 +118,7 @@ def update_member_status(
         member.character_sheet_url = url or None
         if url:
             # A link replaces any uploaded sheet file.
+            remove_after_commit(db, sheet_upload_paths(member))
             member.character_sheet_path = None
             member.character_sheet_filename = None
 
@@ -151,6 +157,8 @@ def remove_member(
     if member:
         was_guest = bool(member.is_guest)
         guest_code = member.guest_code
+        # Their character art, token and sheet go with the membership.
+        remove_after_commit(db, member_upload_paths([member]))
         db.delete(member)
         # A guest with no other campaign has nothing left once removed, so its
         # account goes too; a merged guest keeps its other campaigns.

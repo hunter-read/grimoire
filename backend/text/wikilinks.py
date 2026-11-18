@@ -129,7 +129,7 @@ def _outside_fences(body: str) -> Iterator[tuple[bool, str]]:
 
 def iter_links(body: str) -> Iterator[re.Match]:
     """Every `[[...]]` match in a body, skipping any inside a fenced code block."""
-    for fenced, text in _outside_fences(body or ""):
+    for fenced, text in _outside_fences(body if isinstance(body, str) else ""):
         if not fenced:
             yield from LINK_RE.finditer(text)
 

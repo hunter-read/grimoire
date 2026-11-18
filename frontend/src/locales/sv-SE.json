@@ -2952,6 +2952,7 @@
     "editHint": "Klicka på kartan för att lägga till en nål. Dra en nål för att flytta den, eller fokusera den och använd piltangenterna (Skift för större steg).",
     "missing": "Den här kartan finns inte längre i biblioteket.",
     "noMap": "Ingen karta har valts för den här sidan än.",
+    "hidden": "Spelledaren har inte delat den här kartan med dig.",
     "pinsKept": "Dess {{count}} nål behålls och kommer tillbaka på den nya kartan.",
     "pinsKept_other": "Dess {{count}} nålar behålls och kommer tillbaka på den nya kartan.",
     "locations": "Platser",

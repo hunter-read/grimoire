@@ -58,6 +58,21 @@ def test_a_missing_server_path_is_a_json_404(client, frontend, path):
     assert_json_404(client.get(path))
 
 
+@pytest.mark.parametrize(
+    "path", ["/API/x", "/Api", "//api/x", "///api/books", "/MCP", "//mcp", "/.Well-Known/x", "/TOKEN"]
+)
+def test_a_server_path_in_another_case_or_with_extra_slashes_is_a_json_404(client, frontend, path):
+    # The full URL, so the client cannot read "//api" as a host name.
+    assert_json_404(client.get(f"http://testserver{path}"))
+
+
+def test_an_app_route_that_only_starts_like_a_server_path_is_the_app(client, frontend):
+    for path in ("/apiary", "/Library", "//library"):
+        resp = client.get(f"http://testserver{path}")
+        assert resp.status_code == 200, path
+        assert resp.text.startswith("<!doctype html>")
+
+
 @pytest.mark.parametrize("path", RESERVED_PATHS)
 def test_head_on_a_missing_server_path_is_a_404(client, frontend, path):
     resp = client.head(path)

@@ -28,7 +28,7 @@ from ...models.wiki_maps import WikiMapPin
 from ...text.wikilinks import clean_title, slugify
 from ._helpers import can_see_resource
 from ._wiki_helpers import _ensure_unique_slug, can_edit_page, can_view_page
-from .uploads import can_read_campaign_file
+from ._file_access import can_read_campaign_file
 
 MAP_PAGE_TYPE = "map"
 PIN_VISIBILITIES = ("page", "gm")
@@ -119,13 +119,40 @@ def apply_map_choice(
             page.map_file_id = None
 
 
-def resolve_page_map(db: Session, page: WikiPage) -> Optional[dict]:
-    """What a map page shows, or None for any other page type.
+_HIDDEN = {"source": "hidden", "id": None, "name": None, "has_thumbnail": False}
+
+
+def _can_see_library_map(db: Session, campaign: Any, user: CurrentUser, map_id: str) -> bool:
+    """Whether a map page's library map is shown to ``user``.
+
+    A map linked to the campaign is seen by whoever its link is visible to, so
+    a GM-only map stays the GM's on a public map page - the same rule its copy
+    follows once the map has left the library. A map no longer linked is open
+    to anyone who could open it in the library, which a guest cannot.
+    """
+    if campaign.owner_id == user.id:
+        return True
+    linked = (
+        db.query(CampaignResource.id)
+        .filter_by(campaign_id=campaign.id, resource_type="map", resource_id=map_id)
+        .first()
+    )
+    if linked is not None:
+        return _visible_map_resource(db, campaign, user, map_id) is not None
+    return user.role != "guest"
+
+
+def resolve_page_map(
+    db: Session, page: WikiPage, campaign: Any, user: CurrentUser
+) -> Optional[dict]:
+    """What a map page shows ``user``, or None for any other page type.
 
     A library map that is gone, or flagged missing by a scan, falls through to
     the campaign copy if there is one, then to ``missing``: the page shows a
     placeholder with *Replace map*, and its pins wait for the new picture.
-    ``none`` is a map page that has not been given a picture yet.
+    ``none`` is a map page that has not been given a picture yet, and
+    ``hidden`` one whose picture ``user`` may not see - with neither its id nor
+    its name.
     """
     if page.page_type != MAP_PAGE_TYPE:
         return None
@@ -136,6 +163,8 @@ def resolve_page_map(db: Session, page: WikiPage) -> Optional[dict]:
     if page.map_id:
         m = db.query(GenericMap).filter_by(id=page.map_id).first()
         if m is not None and not m.is_missing:
+            if not _can_see_library_map(db, campaign, user, m.id):
+                return dict(_HIDDEN)
             return {
                 "source": "library",
                 "id": m.id,
@@ -149,6 +178,8 @@ def resolve_page_map(db: Session, page: WikiPage) -> Optional[dict]:
             .first()
         )
         if cf is not None:
+            if not can_read_campaign_file(db, campaign, user.id, cf.id):
+                return dict(_HIDDEN)
             return {"source": "file", "id": cf.id, "name": cf.filename, "has_thumbnail": True}
     return {"source": "missing", "id": None, "name": None, "has_thumbnail": False}
 

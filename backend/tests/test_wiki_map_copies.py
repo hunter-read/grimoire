@@ -140,9 +140,10 @@ class TestDeleteKeepsACopy:
         db = SessionLocal()
         copy = db.query(CampaignFile).filter_by(campaign_id=cid).one()
         db.close()
-        assert body == f"Route: [[image:{copy.id}]] and [[map:{other.id}]]."
-        # Never linked as a resource, so the copy is the GM's, like an upload.
+        assert body == f"Route: [[image:{copy.id}|the coast]] and [[map:{other.id}]]."
+        # Never linked as a resource, so the copy is listed as the GM's.
         assert _resources(cid) == [("file", copy.id, "gm")]
+        assert copy.map_copy == "unlinked"
 
     def test_every_campaign_gets_its_own_copy(self, client, gm_headers, map_dir):
         first, second = _campaign(client, gm_headers), _campaign(client, gm_headers)
@@ -366,6 +367,183 @@ def _link_map_record(client, gm_headers, cid, m):
         headers=gm_headers,
     )
     assert resp.status_code in (200, 201), resp.text
+
+
+def _with_player(client, gm_headers, player_headers, player_id):
+    cid = _campaign(client, gm_headers)
+    client.post(f"/api/campaigns/{cid}/invite", json={"user_id": player_id}, headers=gm_headers)
+    client.patch(
+        f"/api/campaigns/{cid}/members/{player_id}",
+        json={"status": "accepted"},
+        headers=player_headers,
+    )
+    return cid
+
+
+@pytest.fixture()
+def guests_on(client, admin_headers):
+    client.patch("/api/settings", json={"guest_access_enabled": True}, headers=admin_headers)
+    yield
+    client.patch("/api/settings", json={"guest_access_enabled": False}, headers=admin_headers)
+
+
+def _guest(client, gm_headers, cid):
+    created = client.post(
+        f"/api/campaigns/{cid}/guests", json={"nickname": "Guest"}, headers=gm_headers
+    )
+    assert created.status_code == 201, created.text
+    login = client.post("/api/auth/guest-login", json={"code": created.json()["guest_code"]})
+    assert login.status_code == 200, login.text
+    client.cookies.clear()
+    return {"Authorization": f"Bearer {login.json()['token']}"}
+
+
+def _delete_through_the_file_manager(client, admin_headers, map_dir, name="coast.png"):
+    rel, _path = map_dir
+    resp = client.post(
+        "/api/files/delete",
+        json={"path": f"{rel}/{name}", "delete_files": True},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def _copy_of(cid):
+    db = SessionLocal()
+    try:
+        return db.query(CampaignFile).filter_by(campaign_id=cid).one()
+    finally:
+        db.close()
+
+
+class TestWhoReadsTheCopy:
+    """The copy is read by the people who could see the map in the campaign."""
+
+    def test_an_embed_in_a_group_note_still_shows_after_the_delete(
+        self, client, admin_headers, gm_headers, player_headers, player_id, map_dir
+    ):
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        m = _library_map(map_dir)
+        note = _page(
+            client, player_headers, cid, title="Travel", visibility="group",
+            body=f"Route: [[map:{m.id}|the coast]]",
+        )
+
+        _delete_through_the_file_manager(client, admin_headers, map_dir)
+
+        copy = _copy_of(cid)
+        for headers in (player_headers, gm_headers):
+            assert _get(client, headers, cid, note["id"])["body"] == (
+                f"Route: [[image:{copy.id}|the coast]]"
+            )
+            served = client.get(f"/api/campaigns/{cid}/files/{copy.id}", headers=headers)
+            assert served.status_code == 200 and served.content == png_bytes()
+
+    def test_an_embed_only_the_gm_can_see_shares_nothing(
+        self, client, admin_headers, gm_headers, player_headers, player_id, map_dir
+    ):
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        m = _library_map(map_dir)
+        _page(
+            client, gm_headers, cid, title="Plans", visibility="group",
+            body=f"Open text. ||The lair: [[map:{m.id}]]||",
+        )
+        _page(
+            client, gm_headers, cid, title="Prep", visibility="gm",
+            body=f"[[map:{m.id}]]",
+        )
+
+        _delete_through_the_file_manager(client, admin_headers, map_dir)
+
+        url = f"/api/campaigns/{cid}/files/{_copy_of(cid).id}"
+        assert client.get(url, headers=gm_headers).status_code == 200
+        assert client.get(url, headers=player_headers).status_code == 403
+
+    def test_a_gm_only_map_on_a_public_map_page_stays_the_gms(
+        self, client, admin_headers, gm_headers, player_headers, player_id, map_dir, guests_on
+    ):
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        guest_headers = _guest(client, gm_headers, cid)
+        m = _library_map(map_dir)
+        _link(client, gm_headers, cid, m, visibility="gm")
+        page = _map_page(client, gm_headers, cid, m.id, visibility="group")
+        # Also embedded in a public note: the link still decides.
+        _page(client, gm_headers, cid, title="Coast", visibility="group", body=f"[[map:{m.id}]]")
+
+        hidden = {"source": "hidden", "id": None, "name": None, "has_thumbnail": False}
+        for headers in (player_headers, guest_headers):
+            assert _get(client, headers, cid, page["id"])["map"] == hidden
+        assert client.get(f"/api/maps/{m.id}/page/1", headers=guest_headers).status_code == 403
+        assert _get(client, gm_headers, cid, page["id"])["map"]["source"] == "library"
+
+        _delete_through_the_file_manager(client, admin_headers, map_dir)
+
+        copy = _copy_of(cid)
+        assert copy.map_copy == "linked"
+        url = f"/api/campaigns/{cid}/files/{copy.id}"
+        for headers in (player_headers, guest_headers):
+            assert _get(client, headers, cid, page["id"])["map"] == hidden
+            assert client.get(url, headers=headers).status_code == 403
+        got = _get(client, gm_headers, cid, page["id"])["map"]
+        assert (got["source"], got["id"]) == ("file", copy.id)
+        assert client.get(url, headers=gm_headers).status_code == 200
+
+    def test_a_player_export_leaves_out_a_map_they_cannot_see(
+        self, client, gm_headers, player_headers, player_id, map_dir
+    ):
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        m = _library_map(map_dir)
+        _link(client, gm_headers, cid, m, visibility="gm")
+        _map_page(client, gm_headers, cid, m.id, title="Coast", visibility="group")
+
+        def exported(headers):
+            resp = client.get(
+                f"/api/campaigns/{cid}/wiki/export", params={"format": "json"}, headers=headers
+            )
+            assert resp.status_code == 200
+            return next(p for p in resp.json()["pages"] if p["title"] == "Coast")
+
+        assert exported(gm_headers)["map_id"] == m.id
+        assert exported(player_headers)["map_id"] is None
+        md = client.get(
+            f"/api/campaigns/{cid}/wiki/export", params={"format": "md"}, headers=player_headers
+        )
+        assert m.id.encode() not in md.content
+
+    def test_a_shared_map_on_a_map_page_is_shown_before_and_after(
+        self, client, admin_headers, gm_headers, player_headers, player_id, map_dir, guests_on
+    ):
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        guest_headers = _guest(client, gm_headers, cid)
+        m = _library_map(map_dir)
+        _link(client, gm_headers, cid, m, visibility="public")
+        page = _map_page(client, gm_headers, cid, m.id, visibility="group")
+        assert _get(client, guest_headers, cid, page["id"])["map"]["name"] == "coast.png"
+
+        _delete_through_the_file_manager(client, admin_headers, map_dir)
+
+        got = _get(client, guest_headers, cid, page["id"])["map"]
+        assert (got["source"], got["name"]) == ("file", "coast.png")
+        served = client.get(f"/api/campaigns/{cid}/files/{got['id']}", headers=guest_headers)
+        assert served.status_code == 200
+
+    def test_an_unlinked_map_page_map_is_hidden_from_a_guest_only(
+        self, client, gm_headers, player_headers, player_id, guests_on
+    ):
+        from backend.models import CampaignResource as Res
+
+        cid = _with_player(client, gm_headers, player_headers, player_id)
+        guest_headers = _guest(client, gm_headers, cid)
+        m = make_map(filename=f"coast-{uid()}.png")
+        _link(client, gm_headers, cid, m, visibility="public")
+        page = _map_page(client, gm_headers, cid, m.id, visibility="group")
+        db = SessionLocal()
+        db.query(Res).filter_by(campaign_id=cid, resource_type="map", resource_id=m.id).delete()
+        db.commit()
+        db.close()
+
+        assert _get(client, player_headers, cid, page["id"])["map"]["source"] == "library"
+        assert _get(client, guest_headers, cid, page["id"])["map"]["source"] == "hidden"
 
 
 # Re-exported for the page tests, which share this module's PNG.

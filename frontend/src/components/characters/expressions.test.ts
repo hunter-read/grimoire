@@ -576,6 +576,17 @@ describe('per-row work budget', () => {
     expect(many.c99).toBe(0) // the sheet's budget ran out before it got here
   })
 
+  it('covers every pass of a sheet with one budget', () => {
+    const formula = nested(4) // 25 of these fit in one budget once, not twice
+    const fields = { g: { type: 'list', columns: [{ key: 'x', type: 'number' }] } }
+    const computed: Record<string, string> = { a: 'b + 1', b: 'a + 1' }
+    for (let i = 0; i < 25; i += 1) computed[`c${i}`] = formula
+    const values = computeValues({ fields, computed }, { g: rows(10) })
+    expect(values.a).toBe(23) // the pair never settles, so every pass ran
+    // Refused on the second pass, each keeps what the first worked out.
+    for (let i = 0; i < 25; i += 1) expect(values[`c${i}`]).toBe(10_000)
+  })
+
   it('never finds a list equal to text', () => {
     const context = { L: [{ tags: [] }, { tags: ['x'] }] }
     expect(evaluate("count_each(L, row.tags == '')", context)).toBe(0)

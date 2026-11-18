@@ -70,7 +70,8 @@ from ._wiki_map_io import (
     pins_markdown,
 )
 from ._wiki_helpers import SlugAllocator
-from ._wiki_maps import MAP_PAGE_TYPE
+from ._wiki_import_models import Bundle, LkPage, LkResource, validate_import
+from ._wiki_maps import MAP_PAGE_TYPE, resolve_page_map
 from .wiki import (
     _page_summary,
     can_view_page,
@@ -119,7 +120,9 @@ def _safe_icon_color(value) -> str | None:
 # --------------------------------------------------------------------------- #
 
 
-def _frontmatter(page: WikiPage, parent_slug, pins: Optional[list] = None) -> str:
+def _frontmatter(
+    page: WikiPage, parent_slug, pins: Optional[list] = None, show_map: bool = True
+) -> str:
     """A minimal YAML frontmatter block for a markdown export of a page."""
     lines = ["---", f"title: {_yaml_scalar(page.title)}", f"visibility: {page.visibility}"]
     if parent_slug:
@@ -133,9 +136,9 @@ def _frontmatter(page: WikiPage, parent_slug, pins: Optional[list] = None) -> st
     if page.session_date:
         lines.append(f"session_date: {page.session_date}")
     if page.page_type == MAP_PAGE_TYPE:
-        if page.map_id:
+        if page.map_id and show_map:
             lines.append(f"map: {page.map_id}")
-        if page.map_file_id:
+        if page.map_file_id and show_map:
             lines.append(f"map_file: {page.map_file_id}")
         if pins:
             lines.append(f"pins: {pins_frontmatter(pins)}")
@@ -274,6 +277,13 @@ def export_wiki(
         for p in pages
         if p.page_type == MAP_PAGE_TYPE
     }
+    # A map page's picture only if this reader may see it, as in the reader.
+    map_hidden = {
+        p.id
+        for p in pages
+        if p.page_type == MAP_PAGE_TYPE
+        and (resolve_page_map(db, p, c, current_user) or {}).get("source") == "hidden"
+    }
 
     if format == "json":
         bundle = {
@@ -292,8 +302,8 @@ def export_wiki(
                     "parent": parent_slug[p.id],
                     **(
                         {
-                            "map_id": p.map_id,
-                            "map_file_id": p.map_file_id,
+                            "map_id": None if p.id in map_hidden else p.map_id,
+                            "map_file_id": None if p.id in map_hidden else p.map_file_id,
                             "pins": pins_of.get(p.id, []),
                         }
                         if p.page_type == MAP_PAGE_TYPE
@@ -339,7 +349,9 @@ def export_wiki(
                 fname = f"{name}-{n}.md"
                 n += 1
             used.add(fname)
-            fm = _frontmatter(p, parent_slug[p.id], pins_of.get(p.id))
+            fm = _frontmatter(
+                p, parent_slug[p.id], pins_of.get(p.id), show_map=p.id not in map_hidden
+            )
             zf.writestr(fname, f"{fm}\n\n{body_of(p)}\n")
     return Response(
         content=buf.getvalue(),
@@ -372,7 +384,7 @@ def _record(title, body, *, visibility="gm", icon=None, icon_color=None, page_ty
         "title": clean_title(title) or "Untitled",
         "body": body or "",
         "visibility": visibility,
-        "icon": (icon or None),
+        "icon": icon if isinstance(icon, str) and icon else None,
         # Imported files are untrusted: drop a tint we wouldn't accept over the
         # API rather than letting it reach the DB (and then a style attribute).
         "icon_color": _safe_icon_color(icon_color),
@@ -454,22 +466,23 @@ def parse_markdown_file(
 
 
 def parse_grimoire_bundle(obj: dict) -> list:
+    bundle = validate_import(Bundle, obj, "wiki export")
     records = []
-    for p in obj.get("pages", []):
+    for p in bundle.pages:
         records.append(
             _record(
-                p.get("title"),
-                p.get("body"),
-                visibility=p.get("visibility", "gm"),
-                parent_key=p.get("parent"),
-                icon=p.get("icon"),
-                icon_color=p.get("icon_color"),
-                page_type=p.get("page_type", "note"),
-                session_date=p.get("session_date"),
-                source_key=p.get("slug") or p.get("title"),
-                map_id=p.get("map_id"),
-                map_file_id=p.get("map_file_id"),
-                pins=p.get("pins"),
+                p.title,
+                p.body,
+                visibility=p.visibility or "gm",
+                parent_key=p.parent,
+                icon=p.icon,
+                icon_color=p.icon_color,
+                page_type=p.page_type or "note",
+                session_date=p.session_date,
+                source_key=p.slug or p.title,
+                map_id=p.map_id,
+                map_file_id=p.map_file_id,
+                pins=p.pins,
             )
         )
     return records
@@ -488,7 +501,7 @@ def lk_to_markdown(html: str, id_to_title: dict) -> str:
     """
     from markdownify import markdownify
 
-    content = html or ""
+    content = _text_of(html)
     wrap = _LK_WRAP_RE.search(content.strip())
     if wrap:
         content = wrap.group(1)
@@ -512,16 +525,31 @@ def lk_to_markdown(html: str, id_to_title: dict) -> str:
     return re.sub(r"\n{3,}", "\n\n", md).strip()
 
 
+# A ProseMirror document is a free-form tree from an untrusted file: a value of
+# the wrong type is read as empty rather than trusted.
+def _list_of(value) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _dict_of(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _text_of(value) -> str:
+    return value if isinstance(value, str) else ""
+
+
 def _pm_inline(nodes, id_to_title: dict) -> str:
     """Render an array of ProseMirror inline nodes (text / mention) to markdown."""
     out = []
-    for n in nodes or []:
+    for n in _list_of(nodes):
         if not isinstance(n, dict):
             continue
         ntype = n.get("type")
         if ntype == "text":
-            text = n.get("text", "")
-            marks = {m.get("type") for m in n.get("marks", []) if isinstance(m, dict)}
+            text = _text_of(n.get("text"))
+            node_marks = [m for m in _list_of(n.get("marks")) if isinstance(m, dict)]
+            marks = {_text_of(m.get("type")) for m in node_marks}
             # Order matters so wrappers nest predictably: code first, then emphasis.
             if "code" in marks:
                 text = f"`{text}`"
@@ -529,19 +557,16 @@ def _pm_inline(nodes, id_to_title: dict) -> str:
                 text = f"**{text}**"
             if "em" in marks:
                 text = f"*{text}*"
-            link = next(
-                (m for m in n.get("marks", []) if isinstance(m, dict) and m.get("type") == "link"),
-                None,
-            )
+            link = next((m for m in node_marks if m.get("type") == "link"), None)
             if link:
-                href = (link.get("attrs") or {}).get("href", "")
+                href = _text_of(_dict_of(link.get("attrs")).get("href"))
                 text = f"[{text}]({href})"
             out.append(text)
         elif ntype == "mention":
             # LK cross-reference to another resource — render as a [[wiki link]].
-            attrs = n.get("attrs") or {}
-            label = (attrs.get("text") or "").strip()
-            target_id = attrs.get("documentId") or attrs.get("id")
+            attrs = _dict_of(n.get("attrs"))
+            label = _text_of(attrs.get("text")).strip()
+            target_id = _text_of(attrs.get("documentId")) or _text_of(attrs.get("id"))
             title = id_to_title.get(target_id) or label
             if title:
                 out.append(f"[[{title}]]" if title == label or not label else f"[[{title}|{label}]]")
@@ -559,17 +584,17 @@ def _pm_table(node, id_to_title: dict) -> str:
     structure); the first row is treated as the header.
     """
     rows = []
-    for row in node.get("content", []) or []:
+    for row in _list_of(node.get("content")):
         if not isinstance(row, dict) or row.get("type") != "tableRow":
             continue
         cells = []
-        for cell in row.get("content", []) or []:
+        for cell in _list_of(row.get("content")):
             if not isinstance(cell, dict):
                 continue
             # Flatten each cell's block children into one inline string.
             parts = [
-                _pm_inline(block.get("content", []), id_to_title)
-                for block in cell.get("content", []) or []
+                _pm_inline(block.get("content"), id_to_title)
+                for block in _list_of(cell.get("content"))
                 if isinstance(block, dict)
             ]
             cells.append(" ".join(p for p in parts if p).replace("|", "\\|").strip())
@@ -590,17 +615,20 @@ def _pm_block(node, id_to_title: dict, depth: int = 0) -> str:
     if not isinstance(node, dict):
         return ""
     ntype = node.get("type")
-    content = node.get("content", []) or []
+    content = _list_of(node.get("content"))
+    attrs = _dict_of(node.get("attrs"))
     if ntype == "paragraph":
         return _pm_inline(content, id_to_title)
     if ntype == "heading":
-        level = (node.get("attrs") or {}).get("level", 1)
+        level = attrs.get("level", 1)
+        if isinstance(level, bool) or not isinstance(level, int):
+            level = 1
         return f"{'#' * max(1, min(6, level))} {_pm_inline(content, id_to_title)}"
     if ntype == "blockquote":
         inner = "\n".join(_pm_block(c, id_to_title, depth) for c in content)
         return "\n".join(f"> {line}" for line in inner.splitlines())
     if ntype == "codeBlock":
-        lang = (node.get("attrs") or {}).get("language") or ""
+        lang = _text_of(attrs.get("language"))
         return f"```{lang}\n{_pm_inline(content, id_to_title)}\n```"
     if ntype in ("bulletList", "orderedList"):
         ordered = ntype == "orderedList"
@@ -609,7 +637,7 @@ def _pm_block(node, id_to_title: dict, depth: int = 0) -> str:
             marker = f"{i}." if ordered else "-"
             body = "\n".join(
                 _pm_block(c, id_to_title, depth + 1)
-                for c in (item.get("content", []) or [])
+                for c in _list_of(_dict_of(item).get("content"))
                 if isinstance(c, dict)
             )
             indent = "  " * depth
@@ -632,25 +660,23 @@ def pm_to_markdown(doc, id_to_title: dict) -> str:
         return ""
     blocks = [
         _pm_block(b, id_to_title)
-        for b in doc.get("content", []) or []
+        for b in _list_of(doc.get("content"))
         if isinstance(b, dict)
     ]
     md = "\n\n".join(b for b in blocks if b.strip())
     return re.sub(r"\n{3,}", "\n\n", md).strip()
 
 
-def _lk_bundle_id_to_title(resources: list) -> dict:
-    """Map a bundle resource id (and its first document id) to the resource title."""
+def _lk_bundle_id_to_title(resources: list[LkResource]) -> dict:
+    """Map a bundle resource id (and its document ids) to the resource title."""
     mapping = {}
     for r in resources:
-        if not isinstance(r, dict):
-            continue
-        title = (r.get("name") or "").strip()
-        if r.get("id"):
-            mapping[r["id"]] = title
-        for doc in r.get("documents", []) or []:
-            if isinstance(doc, dict) and doc.get("id"):
-                mapping[doc["id"]] = title
+        title = (r.name or "").strip()
+        if r.id:
+            mapping[r.id] = title
+        for doc in r.documents:
+            if doc.id:
+                mapping[doc.id] = title
     return mapping
 
 
@@ -672,23 +698,26 @@ def parse_lk_bundle(obj: dict) -> list:
     Each resource's first document holds a ProseMirror body; `parentId` links a
     resource to its container, which we carry as the record's `parent_key`.
     """
-    resources = [r for r in obj.get("resources", []) if _looks_like_lk_resource(r)]
+    resources = [
+        validate_import(LkResource, r, "LegendKeeper export")
+        for r in obj.get("resources", [])
+        if _looks_like_lk_resource(r)
+    ]
     id_to_title = _lk_bundle_id_to_title(resources)
     records = []
     for r in resources:
-        if r.get("isHidden"):
+        if r.isHidden:
             # LK-hidden resources aren't shown to players; skip rather than import.
             continue
-        docs = r.get("documents") or []
-        doc_content = docs[0].get("content") if docs and isinstance(docs[0], dict) else None
+        doc_content = r.documents[0].content if r.documents else None
         body = pm_to_markdown(doc_content, id_to_title) if isinstance(doc_content, dict) else ""
         records.append(
             _record(
-                r.get("name"),
+                r.name,
                 body,
                 icon=None,
-                source_key=r.get("id") or r.get("name"),
-                parent_key=r.get("parentId"),
+                source_key=r.id or r.name,
+                parent_key=r.parentId,
             )
         )
     return records
@@ -696,22 +725,18 @@ def parse_lk_bundle(obj: dict) -> list:
 
 def parse_lk_pages(objs: list) -> list:
     """LegendKeeper page JSON objects → records (flat; LK hierarchy ignored)."""
-    id_to_title = {
-        o.get("id"): (o.get("name") or "").strip()
-        for o in objs
-        if isinstance(o, dict) and o.get("id")
-    }
+    pages = [
+        validate_import(LkPage, o, "LegendKeeper export") for o in objs if _looks_like_lk_page(o)
+    ]
+    id_to_title = {p.id: (p.name or "").strip() for p in pages if p.id}
     records = []
-    for o in objs:
-        if not _looks_like_lk_page(o):
-            continue
-        docs = o.get("documents") or []
-        html = docs[0].get("content", "") if docs and isinstance(docs[0], dict) else ""
+    for p in pages:
+        html = p.documents[0].content if p.documents else ""
         records.append(
             _record(
-                o.get("name"),
+                p.name,
                 lk_to_markdown(html, id_to_title),
-                source_key=o.get("id") or o.get("name"),
+                source_key=p.id or p.name,
             )
         )
     return records

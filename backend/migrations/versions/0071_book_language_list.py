@@ -5,7 +5,10 @@ A book's language was free text, so one language turned up as ``English``,
 backend/models/languages.py, stored lowercase (``english``) and shown with a
 capital. Each distinct stored value is rewritten to the listed language it
 names - any case, an ISO 639 code or the language's own name - and a value
-that names none is cleared.
+that names none is cleared. Only an exact name or code counts: a spelling the
+list does not hold is not read as the nearest listed language, since that
+would turn a real unlisted language into a different one (Bulgarian into
+Hungarian).
 
 The list is the one frozen in backend/migrations/_frozen/book_languages.py.
 

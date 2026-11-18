@@ -533,6 +533,13 @@ class CampaignFile(Base):
     # (e.g. embedded in a wiki note) and show a thumbnail instead of a file card.
     is_image: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     uploaded_by_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    # Set on the copy a campaign keeps of a library map deleted through the app
+    # (services/campaigns/map_copies.py), so the copy is read by the same people
+    # the map was: "linked" when the map was linked as a resource - only that
+    # link's visibility counts - and "unlinked" when it was only embedded in
+    # pages or shown on map pages, which then share it with their readers.
+    # Null for an upload.
+    map_copy: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 

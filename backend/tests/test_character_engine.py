@@ -1577,6 +1577,43 @@ class TestEachWorkBudget:
             assert svc.evaluate(costly, big, default=None) == 150 * 20 * 150
             assert svc.evaluate(costly, big, default=None) is None
 
+    def test_one_budget_covers_every_pass(self):
+        from backend.services.characters.schema import compute_values
+
+        formula = self._nested(4)  # 25 of these fit in one budget once, not twice
+        fields = {"g": {"type": "list", "columns": [{"key": "x", "type": "number"}]}}
+        computed = {"a": "b + 1", "b": "a + 1", **{f"c{i}": formula for i in range(25)}}
+        values = compute_values({"fields": fields, "computed": computed}, {"g": [{"x": 1}] * 10})
+        assert values["a"] == 23  # the pair never settles, so every pass ran
+        # Refused on the second pass, each keeps what the first worked out.
+        assert all(values[f"c{i}"] == 10_000 for i in range(25))
+
+    def test_a_schema_that_never_settles_costs_one_budget(self, monkeypatch):
+        import json
+
+        from backend.services.characters import expressions
+        from backend.services.characters.schema import compute_values
+
+        # Counted rather than timed, so the bound holds on a slow or traced run:
+        # about 0.3 s of work here, where a budget per pass was 12 times that.
+        spent = []
+        spend = expressions._EachWork.spend
+
+        def counting(self, amount):
+            spend(self, amount)
+            spent.append(amount)  # work the budget let through
+
+        monkeypatch.setattr(expressions._EachWork, "spend", counting)
+        fields = {"g": {"type": "list", "columns": [{"key": "x", "type": "number"}]}}
+        computed = {"a": "b + 1", "b": "a + 1"}
+        computed.update({f"c{i}": self._nested(5) for i in range(20)})
+        document = {"fields": fields, "computed": computed}
+        assert len(json.dumps(document)) < 4000
+        values = compute_values(document, {"g": [{"x": 1}] * 10})
+        assert values["c0"] == 100_000
+        assert values["a"] == 23  # every pass ran
+        assert sum(spent) <= expressions.MAX_EACH_WORK
+
     def test_a_list_is_never_equal_to_text(self):
         context = {"L": [{"tags": []}, {"tags": ["x"]}]}
         assert svc.evaluate("count_each(L, row.tags == '')", context) == 0

@@ -91,6 +91,10 @@ def validate_upload_name(filename: str, destination: Path) -> str:
         raise LibraryFSError("That file has no usable name", code="invalid")
     if "\x00" in name:
         raise LibraryFSError("File name contains an invalid character", code="invalid")
+    if len(os.fsencode(name)) > MAX_SEGMENT_BYTES:
+        raise LibraryFSError(
+            f"A file or folder name can be at most {MAX_SEGMENT_BYTES} bytes long", code="invalid"
+        )
     # Dotfiles are how folders declare their container kind and NSFW state;
     # letting an upload write one would reclassify a shelf without saying so.
     if name.startswith("."):

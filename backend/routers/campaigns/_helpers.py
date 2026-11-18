@@ -185,18 +185,26 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
                 return b.b + (old_off - b.a)
         return None
 
-    # Insert secrets from last to first so earlier insertions don't shift the
-    # offsets of later ones. Ties (adjacent secrets at one boundary) are broken by
-    # document index so their original order is preserved after insertion.
-    indexed = [(off, i, secret) for i, (secret, off) in enumerate(positioned)]
-    result = new
+    placed = []
     orphans = []
-    for old_off, i, secret in sorted(indexed, reverse=True):
+    for i, (secret, old_off) in enumerate(positioned):
         pos = map_offset(old_off)
         if pos is None:
             orphans.append((i, secret))
-        else:
-            result = result[:pos] + secret + result[pos:]
+            continue
+        # A backslash right before a secret's opening marker would make it a
+        # literal pipe, so the secret goes in before any the player left there.
+        # The player's text reads the same either side of it.
+        while pos > 0 and new[pos - 1] == "\\":
+            pos -= 1
+        placed.append((pos, i, secret))
+
+    # Insert secrets from last to first so earlier insertions don't shift the
+    # offsets of later ones. Ties (adjacent secrets at one boundary) are broken by
+    # document index so their original order is preserved after insertion.
+    result = new
+    for pos, _, secret in sorted(placed, reverse=True):
+        result = result[:pos] + secret + result[pos:]
 
     if orphans:
         # Restore document order for the appended, position-lost secrets.

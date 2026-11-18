@@ -2952,6 +2952,7 @@
     "editHint": "Klicke auf die Karte, um eine Markierung zu setzen. Ziehe eine Markierung, um sie zu verschieben, oder fokussiere sie und nutze die Pfeiltasten (mit Umschalt in größeren Schritten).",
     "missing": "Diese Karte ist nicht mehr in der Bibliothek.",
     "noMap": "Für diese Seite wurde noch keine Karte gewählt.",
+    "hidden": "Der GM hat diese Karte nicht mit dir geteilt.",
     "pinsKept": "Ihre {{count}} Markierung bleibt erhalten und erscheint auf der neuen Karte wieder.",
     "pinsKept_other": "Ihre {{count}} Markierungen bleiben erhalten und erscheinen auf der neuen Karte wieder.",
     "locations": "Orte",

@@ -347,7 +347,7 @@ path-keyed feature.
 | `campaign_resources` | A book/map/token/file linked to a campaign. | FK `campaign_id`, `category_id`. Polymorphic `(resource_type, resource_id)`. **Unique** `(campaign_id, resource_type, resource_id)`. `visibility` ∈ `public`/`private`/`gm`. |
 | `campaign_resource_shares` | A user a `private` resource is shared with. | FKs `resource_id`, `user_id`. **Unique** `(resource_id, user_id)`. |
 | `campaign_categories` | GM-defined grouping for notes or resources. | FK `campaign_id`. `kind` ∈ `note`/`resource`. |
-| `campaign_files` | A GM-uploaded file attached to a campaign. | FKs `campaign_id`, `uploaded_by_id`. Surfaced via `campaign_resources(resource_type='file')`. |
+| `campaign_files` | A GM-uploaded file attached to a campaign. | FKs `campaign_id`, `uploaded_by_id`. Surfaced via `campaign_resources(resource_type='file')`. `map_copy` marks the copy kept of a deleted library map: `linked` (it was a campaign resource, and only that link decides who reads the copy) or `unlinked` (only embedded or on map pages, which share it with their readers); null for an upload. |
 | `campaign_schedules` | Session recurrence definition. | FK `campaign_id` **unique** (one-to-one). |
 | `session_notes` | Notes for one session of a campaign. | FK `campaign_id`. |
 | `player_session_notes` | Per-player scratch pad for a session. | FKs `session_id`, `user_id`. **Unique** `(session_id, user_id)`. |
