@@ -2892,6 +2892,8 @@
     "imported": "{{count}} pagina geïmporteerd",
     "imported_other": "{{count}} pagina's geïmporteerd",
     "embed_file": "Bestand",
+    "embed_image": "Afbeelding",
+    "embed_imageOpen": "Afbeelding schermvullend openen",
     "uploadImage": "Afbeelding uploaden",
     "uploadAndEmbed": "Uploaden en insluiten",
     "noLinkedResources": "Nog geen gekoppelde bronnen. Koppel eerst boeken, kaarten of tokens in het paneel Bronnen.",

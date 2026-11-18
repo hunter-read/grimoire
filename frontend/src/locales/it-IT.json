@@ -2892,6 +2892,8 @@
     "imported": "Importata {{count}} pagina",
     "imported_other": "Importate {{count}} pagine",
     "embed_file": "File",
+    "embed_image": "Immagine",
+    "embed_imageOpen": "Apri l'immagine a tutto schermo",
     "uploadImage": "Carica immagine",
     "uploadAndEmbed": "Carica e incorpora",
     "noLinkedResources": "Nessuna risorsa collegata per ora. Collega prima libri, mappe o token nel pannello Risorse.",

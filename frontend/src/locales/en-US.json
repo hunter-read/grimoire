@@ -2892,6 +2892,8 @@
     "imported": "Imported {{count}} page",
     "imported_other": "Imported {{count}} pages",
     "embed_file": "File",
+    "embed_image": "Image",
+    "embed_imageOpen": "Open the image full screen",
     "uploadImage": "Upload image",
     "uploadAndEmbed": "Upload & embed",
     "noLinkedResources": "No linked resources yet. Link books, maps, or tokens in the Resources panel first.",
