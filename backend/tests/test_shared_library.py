@@ -263,6 +263,56 @@ class TestScan:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def test_a_folded_explicit_system_keeps_its_books_explicit(
+        self, client, admin_headers, player_headers
+    ):
+        name = f"Shared Mature {_stamp()}"
+        tmp, lib, root = _library(name)
+        _touch(root / "shared-library" / "core" / "realms.pdf")
+        # Files of their own, so the scan cannot take this library for another
+        # test's container whose folder has gone and re-use that row.
+        for pdf in root.rglob("*.pdf"):
+            pdf.write_bytes(f"%PDF-1.4 {name} {pdf.name}".encode())
+        user = self._user("player")
+        client.patch(f"/api/users/{user.id}", json={"allow_explicit": False}, headers=admin_headers)
+        password = "mature-pass-123-long"
+        db = SessionLocal()
+        try:
+            from backend.password_hash import hash_password
+
+            db.query(User).filter_by(id=user.id).update(
+                {"hashed_password": hash_password(password)}
+            )
+            db.commit()
+        finally:
+            db.close()
+        token = client.post(
+            "/api/auth/login", json={"username": user.username, "password": password}
+        ).json()["token"]
+        no_explicit = {"Authorization": f"Bearer {token}"}
+        try:
+            container_id, _ = self._old_shared_system(lib, tmp, name, is_explicit=True)
+            book_id = _books_in(lib)["realms.pdf"].id
+            _scan(lib, tmp)
+            assert _row(f"{_slug(name)}--shared-library") is None
+            assert _books_in(lib)["realms.pdf"].game_system_id == container_id
+            assert _books_in(lib)["realms.pdf"].is_explicit is True
+            # The edition beside the shelf is not marked.
+            assert not _books_in(lib)["phb.pdf"].is_explicit
+
+            detail = client.get(
+                f"/api/systems/{container_id}?include_books=false", headers=no_explicit
+            ).json()
+            assert detail["book_count"] == 0
+            assert client.get(f"/api/books/{book_id}", headers=no_explicit).status_code == 404
+            # Someone who allows explicit content still sees it on the shelf.
+            shown = client.get(
+                f"/api/systems/{container_id}?include_books=false", headers=player_headers
+            ).json()
+            assert shown["book_count"] == 1
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_a_stricter_rule_already_on_the_shelf_is_kept(self):
         name = f"Shared Ruled {_stamp()}"
         tmp, lib, root = _library(name)
