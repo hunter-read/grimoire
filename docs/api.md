@@ -22,6 +22,8 @@ that omits its `response_model=` fails the suite.
 An `/api` address that no endpoint takes returns a JSON `404` (`{"detail": "Not Found"}`),
 and one called with a method it doesn't take returns a `405` with an `Allow` header. Neither
 returns the web app's page. The same goes for `/mcp` and `/opds` when they are turned off.
+These prefixes are matched ignoring case and extra leading slashes, so `/API/x` and `//api/x`
+get the same JSON `404`.
 
 ---
 
