@@ -210,11 +210,15 @@ def browse_content(
         if key.startswith("filter[") and key.endswith("]") and value
     }
     # Each facet is narrowed by the other filters, but never by itself. This
-    # keeps the current choice reversible and lets large facets appear once a
-    # related filter (such as class) narrows their values sufficiently.
+    # keeps the current choice reversible while related filters (such as class)
+    # narrow the available values.
     facets = {}
     for field in definition.get("filter_fields", []):
         other_filters = {key: value for key, value in filters.items() if key != field}
+        # In the 2014 feature catalog, origin depends on class: choosing an
+        # origin must not hide the other classes from the parent dropdown.
+        if schema_id == "dnd-5e-2014" and content_type == "feature" and field == "class":
+            other_filters.pop("origin", None)
         candidates = [row for row in entries if helpers.matches_filters(row.data or {}, other_filters)]
         facets.update(helpers.build_facets(candidates, [field]))
         if field in filters and field not in facets:

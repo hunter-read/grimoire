@@ -227,6 +227,26 @@ def catalog(client, admin_headers, pack_root):
 
 
 class TestCatalogApi:
+    def test_dnd_feature_class_facet_is_not_narrowed_by_origin(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from backend.routers.content import core
+
+        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"]}}}
+        rows = [
+            SimpleNamespace(id="1", entry_id="1", source="test", name="Rage", content_type="feature",
+                            data={"class": "Barbarian", "origin": "Berserker"}, ruleset=False),
+            SimpleNamespace(id="2", entry_id="2", source="test", name="Runes", content_type="feature",
+                            data={"class": "Fighter", "origin": "Rune Knight"}, ruleset=False),
+        ]
+        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
+        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
+        request = SimpleNamespace(query_params={"filter[class]": "Barbarian", "filter[origin]": "Berserker"})
+        result = core.browse_content(request, "dnd-5e-2014", "feature", current_user=SimpleNamespace(id="u"), db=None)
+        assert {option["value"] for option in result["filters_available"]["class"]} == {"Barbarian", "Fighter"}
+        assert {option["value"] for option in result["filters_available"]["origin"]} == {"Berserker"}
+        assert [entry["name"] for entry in result["entries"]] == ["Rage"]
+
     def test_lists_packs_with_their_credit(self, client, admin_headers, catalog):
         packs_seen = client.get("/api/content/packs", headers=admin_headers).json()["packs"]
         mine = [pack for pack in packs_seen if pack["pack_id"] == "api-demo"]
