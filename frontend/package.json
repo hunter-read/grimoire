@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.26",
-    "i18next": "^27.1.1",
+    "i18next": "^27.1.2",
     "mermaid": "^12.3.0",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
@@ -44,7 +44,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "@vitest/coverage-istanbul": "^5.1.0",
     "@vitest/coverage-v8": "^5.0.5",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
