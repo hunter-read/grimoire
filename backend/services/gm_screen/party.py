@@ -3,8 +3,9 @@
 One request rather than a sheet fetch per character, so a party of six costs one
 round trip when the GM screen opens. Each character's values are its stored
 fields plus its computed ones, worked out against the viewer's copy of the sheet
-(the way reading a sheet works), falling back to the player's copy so a GM who
-has not installed the sheet still sees Evasion and thresholds.
+(the way reading a sheet works). A GM who has not installed the sheet still sees
+the stored fields, read through the player's copy; the computed values need the
+GM's own copy, since only a sheet the viewer installed runs its formulas for them.
 
 Only scalar values travel - numbers, short text, ticks - since that is all a
 stat on the overview can show. Reading them is no wider than what a campaign's
@@ -136,7 +137,8 @@ def party_overview(db: Session, campaign_id: str, viewer_id: str) -> dict:
                 value = None
             if value is not None:
                 values[name] = value
-        if document.get("computed"):
+        # Formulas run only from the viewer's own copy, as on a sheet read.
+        if document.get("computed") and schema is not None and schema.user_id == viewer_id:
             entries = resolved_entries(db, document, data, row.user_id)
             for name, value in compute_values(document, data, entries).items():
                 fields.setdefault(

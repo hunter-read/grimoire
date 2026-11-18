@@ -24,6 +24,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A reverse proxy on a Podman network is now trusted without setting anything, like one on a Docker network: `TRUSTED_PROXIES` now defaults to `127.0.0.0/8,::1,172.16.0.0/12,10.88.0.0/16,10.89.0.0/16`, adding the ranges Podman gives its default network and the networks `podman network create` and podman-compose make. If your LAN itself uses those ranges, set `TRUSTED_PROXIES` to just your proxy's address
 - **A book's language is now picked from a list**, so each language appears once instead of as "English", "english" and "en". Existing books are switched over on upgrade, including codes such as `en` or `de-DE` and small typos such as "Italan". A language that isn't on the list is cleared rather than kept. Metadata you fetch, import or type in still saves even when its language doesn't match, and that language is left unset. A book's language field now holds one language; OCR can still read several from an `.opf` sidecar or the PDF
 
+- The GM screen's party overview shows a character's computed values, such as Evasion, only when the GM has installed that character's sheet. Without it the overview still shows the sheet's stored fields
+- A character sheet whose formulas never settle on one answer now takes no longer to work out than one that does
+
 ### Fixed
 
 - An image added to a campaign's resources now opens in the browser tab when you click it, instead of downloading. PDFs, SVGs and other files still download

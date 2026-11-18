@@ -6,6 +6,7 @@ and the admin are refused everything, reading included.
 """
 import hashlib
 import json
+import time
 
 import pytest
 
@@ -357,10 +358,50 @@ class TestParty:
         try:
             self._character(client, player_headers, table, "Hero", hp_max=4)
             character = client.get(_url(table, "/party"), headers=gm_headers).json()["characters"][0]
-            assert character["values"]["evasion"] == 14
+            assert character["values"]["hp_max"] == 4
+            # The player's formulas run only from the GM's own copy of the sheet.
+            assert "evasion" not in character["values"]
             assert character["schema_name"] == "Party Demo"
         finally:
             client.delete(f"/api/characters/schemas/{SCHEMA['id']}", headers=player_headers)
+
+    def test_a_players_costly_sheet_does_not_run_in_the_gms_request(
+        self, client, gm_headers, player_headers, table
+    ):
+        formula = "row.x"
+        for _ in range(5):
+            formula = f"sum_each(g, {formula})"
+        document = {
+            "id": "gm-screen-costly",
+            "name": "Costly",
+            "fields": {
+                "hp": {"type": "number", "label": "HP"},
+                "g": {"type": "list", "columns": [{"key": "x", "type": "number"}]},
+            },
+            "computed": {"a": "b + 1", "b": "a + 1", **{f"c{i}": formula for i in range(20)}},
+        }
+        assert client.post(
+            "/api/characters/schemas", json={"document": document}, headers=player_headers
+        ).status_code == 200
+        try:
+            resp = client.post(
+                "/api/characters",
+                json={
+                    "schema_ref": document["id"],
+                    "name": "Hero",
+                    "campaign_id": table,
+                    "data": {"hp": 7, "g": [{"x": 1}] * 10},
+                },
+                headers=player_headers,
+            )
+            assert resp.status_code == 200, resp.text
+            started = time.perf_counter()
+            resp = client.get(_url(table, "/party"), headers=gm_headers)
+            assert time.perf_counter() - started < 1
+            assert resp.status_code == 200, resp.text
+            assert resp.json()["characters"][0]["values"] == {"hp": 7}
+        finally:
+            client.delete(f"/api/characters/schemas/{document['id']}", headers=player_headers)
 
 
 PRESET = {
