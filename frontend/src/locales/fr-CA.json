@@ -3998,6 +3998,7 @@
     "emptyBrowseFirst": "Aucune fiche installée. Parcourez le catalogue ou importez-en une.",
     "sourceProblems": "Problèmes de catalogue",
     "sourceUnreachable": "Impossible de lire {{url}} — ses fiches manquent dans cette liste.",
+    "sourceUnreadable": "Impossible de lire l'un des catalogues — certaines entrées manquent dans cette liste.",
     "catalogueSources": "Depuis {{count}} catalogues",
     "manageSheets": "Gérer les feuilles",
     "manageSheetsTab": "Feuilles",

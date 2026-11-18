@@ -3,8 +3,8 @@
 Before ``shared-library/`` was reserved as a container's own shelf (issue #446)
 the folder scanned as a child system like any other. The scan now re-homes its
 books onto the container row and the emptied row is pruned. What an admin set on
-that old row has to follow the books: its access level, and the grants that
-opened it to particular users.
+that old row has to follow the books: its access level, the grants that opened
+it to particular users, and its explicit-content flag.
 """
 import logging
 import os
@@ -55,6 +55,23 @@ def _keep_level(ctx: _ScanContext, old: GameSystem, shared_dir: Path) -> None:
     )
 
 
+def _keep_explicit(ctx: _ScanContext, old: GameSystem) -> None:
+    """Mark ``old``'s books explicit when it was, so they stay hidden on the shelf.
+
+    The flag hid them through their system. The container need not carry it, so
+    each book carries it itself; the scan never clears a book's own flag.
+    """
+    if not old.is_explicit:
+        return
+    moved = (
+        ctx.session.query(Book)
+        .filter(Book.game_system_id == old.id, Book.is_explicit.isnot(True))
+        .update({"is_explicit": True}, synchronize_session=False)
+    )
+    if moved:
+        logger.info(f"Marked {moved} book(s) from '{old.name}' as explicit")
+
+
 def _move_grants(ctx: _ScanContext, old: GameSystem, container: GameSystem) -> None:
     """Re-point ``old``'s system grants at ``container``, which now holds its books."""
     session = ctx.session
@@ -95,5 +112,6 @@ def carry_old_system_access(
     if old is None:
         return
     _keep_level(ctx, old, shared_dir)
+    _keep_explicit(ctx, old)
     _move_grants(ctx, old, container)
     ctx.session.flush()

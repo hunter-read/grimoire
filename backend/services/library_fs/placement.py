@@ -284,13 +284,20 @@ def system_root_for(db: Session, book_path: Path) -> Optional[Path]:
 # The longest file name most filesystems allow (ext4, APFS, NTFS), in bytes.
 _MAX_FOLDER_NAME_BYTES = 255
 
+# Unicode categories a folder name may not hold: control characters, line and
+# paragraph separators, and invisible format characters.
+_NOT_IN_A_NAME = frozenset({"Cc", "Cf", "Zl", "Zp"})
+
 
 def is_category_name(category: str) -> bool:
     """Whether ``category`` can name a single folder inside a system folder.
 
     A category becomes a folder name when a book is moved into it, so it may not
     hold a path separator, ``..``, a control character (a NUL, or a line break
-    that would split the folder name in every listing) or a leading dot (hidden
+    that would split the folder name in every listing), a Unicode line or
+    paragraph separator, an invisible format character (zero-width spaces and
+    joiners, direction marks, a byte-order mark - a folder that reads the same
+    as another but isn't) or a leading dot (hidden
     folders are skipped by the scanner, so a book there would vanish from the
     library). Nor may it be blank or start or end with whitespace - a folder
     named " " or "core " looks like no folder or like "core" - or run past what
@@ -299,7 +306,7 @@ def is_category_name(category: str) -> bool:
     """
     return bool(category.strip()) and not (
         any(c in category for c in ("/", "\\"))
-        or any(unicodedata.category(c) == "Cc" for c in category)
+        or any(unicodedata.category(c) in _NOT_IN_A_NAME for c in category)
         or ".." in category
         or category.startswith(".")
         or category != category.strip()

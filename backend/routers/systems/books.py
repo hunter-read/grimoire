@@ -41,6 +41,7 @@ from ...services.search_query import parse_query
 from .._browse import MAX_OFFSET, parse_tags_param
 from ...services.book_search import apply_field_filters, free_text_clause
 from ...services.factions import factions_for_books, system_factions
+from ...services.reader_paths import ReaderPaths
 from ...services.systems import load_browsable_system
 from ._serializers import _category_depth, serialize_book
 
@@ -441,6 +442,7 @@ def list_system_books(
     vcounts = variants.variant_counts(db, Book, ids, current_user)
     book_factions = factions_for_books(db, ids)
     homes = book_links.homes_for(db, books, system.id, current_user)
+    paths = ReaderPaths(db, current_user)
     return {
         "total": total,
         "books": [
@@ -450,6 +452,7 @@ def list_system_books(
                 variant_count=vcounts.get(b.id, 0),
                 factions=book_factions.get(b.id, []),
                 linked_from=homes.get(b.id),
+                paths=paths,
             )
             for b in books
         ],

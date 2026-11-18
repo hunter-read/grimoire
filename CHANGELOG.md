@@ -30,6 +30,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- **A game inside a collection you can't open now shows at the top level of the library.** A collection's access level does not apply to the games inside it, so you could see such a game, but the grouped library view left it out because its collection had no card for you. It now lists with the other top-level games, and its page and book paths no longer mention the collection
 - A calendar feed no longer fails with a server error when one campaign's schedule holds a time, date or time zone it can't read. That campaign's unusable dates are left out, a bad time publishes all-day events, and every other campaign in an all-campaigns feed is still published. Saving a schedule now checks the time, time zone, week of the month and custom dates (each within ten years of today) and says which one is wrong
 - A player's edit to a wiki page that leaves a backslash right where a GM secret sits now saves. It used to be refused with "This edit leaves a code block open"
 - An image added to a campaign's resources now opens in the browser tab when you click it, instead of downloading. PDFs, SVGs and other files still download

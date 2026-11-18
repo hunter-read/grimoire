@@ -34,8 +34,8 @@ from ...services import (
 )
 from ...services.content_cache import content_token
 from ...services.factions import factions_for_books
+from ...services.reader_paths import ReaderPaths
 from ...services.systems import (
-    book_relative_path,
     visible_book_system,
     visible_systems_by_id,
 )
@@ -217,12 +217,13 @@ def get_book(
     sibling_systems = visible_systems_by_id(
         db, [s.game_system_id for s in siblings], current_user
     )
+    paths = ReaderPaths(db, current_user)
     return {
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
-        # Its folders would name a system hidden from this reader.
-        "relative_path": book_relative_path(db, book, system),
+        # Without the folders of a system or container hidden from this reader.
+        "relative_path": paths.book_path(book, system),
         "category": book.category,
         "game_type": book.game_type or GAME_TYPE_TTRPG,
         "factions": factions_for_books(db, [book.id]).get(book.id, []),
@@ -273,8 +274,8 @@ def get_book(
         "variants": [
             {
                 **variants.serialize_variant(v),
-                "relative_path": book_relative_path(
-                    db, v, sibling_systems.get(v.game_system_id or "")
+                "relative_path": paths.book_path(
+                    v, sibling_systems.get(v.game_system_id or "")
                 ),
             }
             for v in siblings

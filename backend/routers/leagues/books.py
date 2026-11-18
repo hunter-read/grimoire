@@ -30,6 +30,7 @@ from ...models.leagues import (
 )
 from ...services import access_control
 from ...services.books.access import can_read_book
+from ...services.systems import visible_systems_by_id
 from ._helpers import get_league, manages
 from ._schemas import BookAdd, BookReorder, BookUpdate
 
@@ -103,6 +104,11 @@ def _get_book(db: Session, league: League, resource_id: str) -> LeagueResource:
     return res
 
 
+def _system_name(systems: dict[str, GameSystem], book: Book) -> str:
+    system = systems.get(book.game_system_id or "")
+    return system.name if system is not None else ""
+
+
 def _readable(db: Session, book_id: str, user: CurrentUser) -> Optional[Book]:
     book = db.query(Book).filter_by(id=book_id).first()
     return book if book is not None and can_read_book(db, book, user) else None
@@ -164,19 +170,18 @@ def search_books(
     )
     rows = [b for b in rows if can_read_book(db, b, current_user)]
     rows.sort(key=lambda b: (b.game_system_id != league.game_system_id, (b.title or "").lower()))
-    system_ids = {b.game_system_id for b in rows if b.game_system_id}
-    names = {
-        s.id: s.name
-        for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids or {""}))
-    }
+    rows = rows[:_SEARCH_LIMIT]
+    # A book can be open inside a system the organiser may not see; that
+    # system's name is left blank, as every other book listing leaves it.
+    systems = visible_systems_by_id(db, (b.game_system_id for b in rows), current_user)
     return [
         {
             "book_id": b.id,
             "title": b.title or "",
             "has_thumbnail": bool(b.has_thumbnail),
-            "game_system_name": names.get(b.game_system_id or "", ""),
+            "game_system_name": _system_name(systems, b),
         }
-        for b in rows[:_SEARCH_LIMIT]
+        for b in rows
     ]
 
 

@@ -3998,6 +3998,7 @@
     "emptyBrowseFirst": "Nenhuma ficha instalada. Explore o catálogo ou importe uma.",
     "sourceProblems": "Problemas do catálogo",
     "sourceUnreachable": "Não foi possível ler {{url}} — as suas fichas faltam nesta lista.",
+    "sourceUnreadable": "Não foi possível ler um dos catálogos — algumas entradas faltam nesta lista.",
     "catalogueSources": "De {{count}} catálogos",
     "manageSheets": "Gerir fichas",
     "manageSheetsTab": "Fichas",

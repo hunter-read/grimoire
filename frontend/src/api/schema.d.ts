@@ -3127,9 +3127,10 @@ export interface paths {
          * Browse the community note-template catalogue
          * @description The community catalogue, as a folder tree.
          *
-         *     A dead or unreachable catalogue is reported as a 502 with the underlying
-         *     message, so the browser can say "couldn't reach it" rather than failing
-         *     opaquely — the rest of the wiki is unaffected.
+         *     A dead or unreachable catalogue is reported as a 502, so the browser can
+         *     say "couldn't reach it" rather than failing opaquely — the rest of the wiki
+         *     is unaffected. An admin gets the underlying message; anyone else a plain
+         *     one, since it can name the configured source.
          */
         get: operations["browse_wiki_templates_api_campaigns__campaign_id__wiki_templates_browse_get"];
         put?: never;

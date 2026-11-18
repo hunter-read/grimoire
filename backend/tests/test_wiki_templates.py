@@ -662,22 +662,36 @@ class TestBrowse:
         )
         assert resp.json()["downloaded_ids"] == ["5e-spell"]
 
-    def test_reports_the_default_source(self, client, gm_headers, remote):
-        c = _campaign(client, gm_headers)
+    def test_reports_the_default_source(self, client, admin_headers, remote):
+        c = _campaign(client, admin_headers)
         body = client.get(
-            f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=gm_headers
+            f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=admin_headers
         ).json()
         assert body["is_custom_url"] is False
         assert body["index_url"] == config.DEFAULT_WIKI_TEMPLATE_INDEX_URL
 
-    def test_an_unreachable_catalogue_is_a_502(self, client, gm_headers, remote):
+    def test_a_gm_is_not_told_the_source(self, client, gm_headers, remote):
+        c = _campaign(client, gm_headers)
+        body = client.get(
+            f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=gm_headers
+        ).json()
+        assert body["index_url"] == ""
+
+    def test_an_unreachable_catalogue_is_a_502(self, client, gm_headers, admin_headers, remote):
         remote["catalogue"] = catalogue.TemplateCatalogueError("source timed out")
+        c = _campaign(client, admin_headers)
+        resp = client.get(
+            f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=admin_headers
+        )
+        assert resp.status_code == 502
+        assert "timed out" in resp.json()["detail"]
+        # Anyone else gets a plain message: the reason can name the source.
         c = _campaign(client, gm_headers)
         resp = client.get(
             f"/api/campaigns/{c['id']}/wiki/templates/browse", headers=gm_headers
         )
         assert resp.status_code == 502
-        assert "timed out" in resp.json()["detail"]
+        assert "timed out" not in resp.json()["detail"]
 
     def test_browsing_is_refused_when_downloads_are_disabled(
         self, client, gm_headers, monkeypatch

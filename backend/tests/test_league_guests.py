@@ -280,6 +280,19 @@ def test_only_a_book_the_organiser_can_open_is_shared(client, player_headers, gm
     assert found == []
 
 
+def test_search_leaves_a_hidden_system_unnamed(client, gm_headers, admin_headers, league):
+    hidden = make_game_system(name=f"Admin Shelf {uid()}", access_level="admin")
+    book = make_book(hidden.id, title=f"Open Book {uid()}", access_level="open")
+    path = f"/api/leagues/{league['id']}/books/search"
+    found = client.get(path, params={"q": book.title}, headers=gm_headers).json()
+    assert [(b["book_id"], b["game_system_name"]) for b in found] == [(book.id, "")]
+    assert hidden.name not in str(found)
+    # A system the organiser can see is still named.
+    shown = make_book(league["game_system_id"], title=f"Shown Book {uid()}")
+    found = client.get(path, params={"q": shown.title}, headers=gm_headers).json()
+    assert found[0]["game_system_name"].startswith("Grimdark")
+
+
 def test_organiser_manages_books(client, gm_headers, guest, league):
     headers, _ = guest
     lid = league["id"]

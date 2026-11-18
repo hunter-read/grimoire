@@ -19,6 +19,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import User, UserTheme
 from ...services import themes as svc
+from ...services.catalogue_sources import shows_sources
 from ._schemas import ThemeImport, ThemeSelection
 
 logger = logging.getLogger("grimoire.themes")
@@ -127,7 +128,8 @@ def list_themes(
         "built_in": svc.built_in_themes(active),
         **selection,
         "downloads_enabled": svc.downloads_enabled(),
-        "index_url": svc.get_index_url(db),
+        # The configured source is the admin's to see (services.catalogue_sources).
+        "index_url": svc.get_index_url(db) if shows_sources(current_user) else "",
         "default_index_url": config.DEFAULT_THEME_INDEX_URL,
         "is_custom_url": svc.is_custom_url(db),
     }
@@ -158,7 +160,7 @@ def browse_themes(
     return {
         "themes": entries,
         "generated": str(doc.get("generated") or ""),
-        "index_url": svc.get_index_url(db),
+        "index_url": svc.get_index_url(db) if shows_sources(current_user) else "",
         "default_index_url": config.DEFAULT_THEME_INDEX_URL,
         "is_custom_url": svc.is_custom_url(db),
     }

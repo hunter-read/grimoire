@@ -52,7 +52,10 @@ def _filepath(book_id):
         db.close()
 
 
-@pytest.mark.parametrize("category", ["core", "adventure", "Setting Books", "player-options"])
+@pytest.mark.parametrize(
+    "category",
+    ["core", "adventure", "Setting Books", "player-options", "Règles", "ルールブック", "Ядро"],
+)
 def test_folder_names_are_categories(category):
     assert fs.is_category_name(category)
 
@@ -61,7 +64,12 @@ def test_folder_names_are_categories(category):
 # reads as "core" but isn't), holding a control character, or longer than a
 # filesystem takes as a single name (255 bytes - so 128 two-byte letters fail).
 _NOT_FOLDER_NAMES = [" ", "\t", "core ", " core", "a\r\nb", "a\nb", "tab\tbed", "bell\x07",
-                     "del\x7f", "x" * 256, "é" * 128]
+                     "del\x7f", "x" * 256, "é" * 128,
+                     # Line and paragraph separators, and invisible format characters:
+                     # zero-width space and joiner, a direction mark, a byte-order
+                     # mark, a soft hyphen.
+                     "a\u2028b", "a\u2029b", "co\u200bre", "co\u200dre", "core\u200e",
+                     "\ufeffcore", "co\u00adre"]
 
 
 @pytest.mark.parametrize(
@@ -90,7 +98,8 @@ def test_patch_refuses_a_category_that_is_not_a_folder_name(
 @pytest.mark.parametrize(
     "category",
     # The last is inside the column's 100 characters but past 255 bytes.
-    [" ", "", "a\r\nb", "tab\tbed", "x" * 101, "x" * 300, "\U0001F600" * 64],
+    [" ", "", "a\r\nb", "tab\tbed", "x" * 101, "x" * 300, "\U0001F600" * 64, "a\u2028b",
+     "co\u200bre"],
 )
 def test_patch_refuses_a_blank_control_character_or_over_long_category(
     client, gm_headers, system_book, category
