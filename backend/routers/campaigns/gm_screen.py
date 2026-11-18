@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Campaign, GmScreenPanel, WikiPage
+from ...services.catalogue_sources import shows_sources
 from ...services.gm_screen import boards, panels as p, presets
 from ...services.gm_screen.party import party_overview
 from ._gm_screen_schemas import (
@@ -395,7 +396,7 @@ def browse_gm_screen_presets(
     _gm_campaign(db, campaign_id, current_user)
     if not presets.downloads_enabled():
         raise HTTPException(403, "Downloading GM screen presets is disabled on this server")
-    return presets.fetch_catalogue(db, show_sources=current_user.role == "admin")
+    return presets.fetch_catalogue(db, show_sources=shows_sources(current_user))
 
 
 def apply_gm_screen_preset(

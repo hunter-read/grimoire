@@ -33,6 +33,7 @@ from .catalogue import (
     verify_digest,
 )
 from . import packs as pack_store
+from ..catalogue_sources import source_failures
 
 logger = logging.getLogger("grimoire.characters.pack_catalogue")
 
@@ -121,7 +122,7 @@ def get_index_urls(db: Session) -> list[str]:
 
 
 def fetch_pack_catalogue(
-    db: Session, installed: Optional[dict[str, str]] = None
+    db: Session, installed: Optional[dict[str, str]] = None, show_sources: bool = True
 ) -> dict[str, Any]:
     """Every content pack the configured catalogues offer.
 
@@ -130,6 +131,8 @@ def fetch_pack_catalogue(
 
     A source that cannot be read, or holds no packs, is reported rather than
     silently dropped — an empty dialog is a poor way to learn a URL is wrong.
+    With ``show_sources`` off it names no source URL and gives no reason for a
+    failure (``services.catalogue_sources``).
     """
     _assert_downloads_enabled()
     installed = installed or {}
@@ -168,8 +171,8 @@ def fetch_pack_catalogue(
 
     return {
         "packs": sorted(packs, key=lambda pack: pack["name"].lower()),
-        "sources": resolved,
-        "errors": errors,
+        "sources": resolved if show_sources else [],
+        "errors": source_failures(errors, show_sources),
         "downloads_enabled": True,
     }
 

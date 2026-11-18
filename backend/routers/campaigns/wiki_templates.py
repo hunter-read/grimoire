@@ -43,6 +43,7 @@ from ...config import get_db
 from ...models import WikiPage, WikiTemplate
 from ...services import untrusted_yaml
 from ...services import wiki_template_catalogue as catalogue
+from ...services.catalogue_sources import UNREADABLE, shows_sources
 from ...unicode_guard import holds_lone_surrogate
 from ._frontmatter import (
     clean_page_type,
@@ -545,9 +546,10 @@ def browse_wiki_templates(
 ):
     """The community catalogue, as a folder tree.
 
-    A dead or unreachable catalogue is reported as a 502 with the underlying
-    message, so the browser can say "couldn't reach it" rather than failing
-    opaquely — the rest of the wiki is unaffected.
+    A dead or unreachable catalogue is reported as a 502, so the browser can
+    say "couldn't reach it" rather than failing opaquely — the rest of the wiki
+    is unaffected. An admin gets the underlying message; anyone else a plain
+    one, since it can name the configured source.
     """
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
@@ -558,7 +560,7 @@ def browse_wiki_templates(
     try:
         doc = catalogue.fetch_catalogue(db, force=refresh)
     except catalogue.TemplateCatalogueError as exc:
-        raise HTTPException(502, str(exc)) from exc
+        raise HTTPException(502, str(exc) if shows_sources(current_user) else UNREADABLE) from exc
 
     # Which community templates this campaign already has, so the browser can
     # mark them rather than silently creating a duplicate.
@@ -571,7 +573,7 @@ def browse_wiki_templates(
         "folders": catalogue.build_tree(doc),
         "downloaded_ids": sorted(owned),
         "campaign_system": _campaign_system(db, c, current_user),
-        "index_url": catalogue.get_index_url(db),
+        "index_url": catalogue.get_index_url(db) if shows_sources(current_user) else "",
         "default_index_url": config.DEFAULT_WIKI_TEMPLATE_INDEX_URL,
         "is_custom_url": catalogue.is_custom_url(db),
         "generated": doc.get("generated", ""),

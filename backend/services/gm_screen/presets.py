@@ -27,6 +27,7 @@ from ...addons.authors import parse_author
 from ...addons.constants import DEFAULT_INDEX_URL, external_installs_enabled
 from ...addons.credentials import SourceCredentials
 from ...addons.fetch import AddonFetchError, download_file, fetch_document, is_not_found
+from ..catalogue_sources import source_failures
 from ..characters import catalogue as sheets
 from . import boards
 from .panels import PanelError
@@ -142,9 +143,7 @@ def fetch_catalogue(db: Session, show_sources: bool = True) -> dict:
         index_url, entries, error = _read_source(source, credentials)
         if index_url is None:
             if error:
-                errors.append(
-                    {"url": source, "error": error} if show_sources else {"url": "", "error": ""}
-                )
+                errors.append({"url": source, "error": error})
             continue
         for entry in entries:
             summary = _summarise(entry, index_url)
@@ -155,7 +154,7 @@ def fetch_catalogue(db: Session, show_sources: bool = True) -> dict:
     # presets - an add-on index from before GM screens existed, say.
     return {
         "presets": sorted(presets, key=lambda item: (item["system"].lower(), item["name"].lower())),
-        "errors": errors,
+        "errors": source_failures(errors, show_sources),
     }
 
 

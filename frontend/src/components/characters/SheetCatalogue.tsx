@@ -165,9 +165,9 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
               aria-label={t('characters.sourceProblems')}
               style={{ listStyle: 'none', padding: 0, margin: '0 0 12px', display: 'grid', gap: 6 }}
             >
-              {sourceErrors.map((problem) => (
+              {sourceErrors.map((problem, i) => (
                 <li
-                  key={problem.url}
+                  key={`${problem.url}-${i}`}
                   style={{
                     padding: '8px 12px',
                     borderRadius: 8,
@@ -178,7 +178,10 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                   }}
                 >
                   <span role="status">
-                    {t('characters.sourceUnreachable', { url: problem.url })}
+                    {/* Which source failed is shown to an admin only. */}
+                    {problem.url
+                      ? t('characters.sourceUnreachable', { url: problem.url })
+                      : t('characters.sourceUnreadable')}
                   </span>
                 </li>
               ))}

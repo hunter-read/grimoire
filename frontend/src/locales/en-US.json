@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "No sheets installed yet. Open Manage sheets to browse the catalog or paste one.",
     "sourceProblems": "Catalog problems",
     "sourceUnreachable": "Could not read {{url}} — its sheets are missing from this list.",
+    "sourceUnreadable": "One of the catalogs couldn't be read — some entries are missing from this list.",
     "catalogueSources": "From {{count}} catalogs",
     "manageSheets": "Manage sheets",
     "manageSheetsTab": "Sheets",

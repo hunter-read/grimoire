@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "Nessuna scheda installata. Sfoglia il catalogo o importane una.",
     "sourceProblems": "Problemi del catalogo",
     "sourceUnreachable": "Impossibile leggere {{url}}: le sue schede mancano da questo elenco.",
+    "sourceUnreadable": "Impossibile leggere uno dei cataloghi: alcune voci mancano da questo elenco.",
     "catalogueSources": "Da {{count}} cataloghi",
     "manageSheets": "Gestisci schede",
     "manageSheetsTab": "Schede",

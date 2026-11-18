@@ -30,6 +30,7 @@ from ...addons.constants import (
 from ...addons.credentials import SourceCredentials
 from ...addons.fetch import AddonFetchError, download_file, fetch_document
 from ...addons.registry import is_newer
+from ..catalogue_sources import source_failures
 from .schema import SchemaError, validate_schema
 
 logger = logging.getLogger("grimoire.characters.catalogue")
@@ -228,12 +229,15 @@ def _candidate_urls(configured: str, index_path: str = _SHEET_INDEX_PATH) -> lis
     return list(dict.fromkeys(candidates))
 
 
-def fetch_catalogue(db: Session, installed: Optional[Installed] = None) -> dict[str, Any]:
+def fetch_catalogue(
+    db: Session, installed: Optional[Installed] = None, show_sources: bool = True
+) -> dict[str, Any]:
     """Every sheet the configured catalogues offer.
 
     A source that cannot be read is skipped and logged rather than failing the
     whole browse: one unreachable branch should not hide the sheets that are
-    fine.
+    fine. With ``show_sources`` off the listing names no source URL and gives
+    no reason for a failure (``services.catalogue_sources``).
     """
     _assert_downloads_enabled()
     installed = installed or {}
@@ -283,11 +287,12 @@ def fetch_catalogue(db: Session, installed: Optional[Installed] = None) -> dict[
     if not sheets and not errors:
         errors = empty
 
+    sources = resolved or [_default_index_url()]
     return {
         "sheets": sorted(sheets, key=lambda sheet: sheet["name"].lower()),
-        "index_url": resolved[0] if resolved else _default_index_url(),
-        "sources": resolved or [_default_index_url()],
-        "errors": errors,
+        "index_url": sources[0] if show_sources else "",
+        "sources": sources if show_sources else [],
+        "errors": source_failures(errors, show_sources),
         "downloads_enabled": True,
     }
 

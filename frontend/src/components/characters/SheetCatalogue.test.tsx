@@ -231,6 +231,25 @@ describe('SheetCatalogue', () => {
       expect(screen.getByText(/down\.test/).closest('[role="status"]')).toBeInTheDocument()
     })
 
+    it('says a source failed without naming it when the listing leaves it out', async () => {
+      mockBrowse.mockResolvedValue({
+        sheets: [FROM_A],
+        index_url: '',
+        sources: [],
+        errors: [
+          { url: '', error: '' },
+          { url: '', error: '' },
+        ],
+      })
+      renderCatalogue()
+      expect(await screen.findByText('Cairn')).toBeInTheDocument()
+      const notes = screen.getAllByText(/One of the catalog(ue)?s couldn't be read/i)
+      expect(notes).toHaveLength(2)
+      expect(screen.queryByText(/Could not read/i)).not.toBeInTheDocument()
+      // No footer naming a source.
+      expect(screen.queryByText(/^From /)).not.toBeInTheDocument()
+    })
+
     it('summarises the footer when several catalogues were read', async () => {
       mockBrowse.mockResolvedValue({
         sheets: [FROM_A, FROM_B],

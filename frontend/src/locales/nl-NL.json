@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "Geen bladen geïnstalleerd. Doorblader de catalogus of importeer er een.",
     "sourceProblems": "Catalogusproblemen",
     "sourceUnreachable": "Kon {{url}} niet lezen — de bladen ervan ontbreken in deze lijst.",
+    "sourceUnreadable": "Een van de catalogi kon niet worden gelezen — sommige items ontbreken in deze lijst.",
     "catalogueSources": "Van {{count}} catalogi",
     "manageSheets": "Bladen beheren",
     "manageSheetsTab": "Bladen",

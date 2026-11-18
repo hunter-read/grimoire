@@ -22,6 +22,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CHARACTER_PORTRAIT_DIR, get_db
 from ...models import Character, CharacterSchema
 from ...services import characters as svc
+from ...services.catalogue_sources import shows_sources
 from ...services.characters import catalogue
 from ...services.characters import images as char_images
 from ...services.characters import importing
@@ -759,7 +760,11 @@ def browse_sheets(
     # catalogue copy of that id as installed — which is right, since
     # installing any of them would replace it.
     try:
-        return catalogue.fetch_catalogue(db, installed=_installed_sheets(db, current_user.id))
+        return catalogue.fetch_catalogue(
+            db,
+            installed=_installed_sheets(db, current_user.id),
+            show_sources=shows_sources(current_user),
+        )
     except catalogue.CatalogueError as exc:
         # Downloads switched off is a policy answer, not a failure.
         if not catalogue.downloads_enabled():

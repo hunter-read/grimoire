@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "Inga formulär installerade. Bläddra i katalogen eller importera ett för att börja.",
     "sourceProblems": "Problem med katalogen",
     "sourceUnreachable": "Kunde inte läsa {{url}} — dess formulär saknas i den här listan.",
+    "sourceUnreadable": "En av katalogerna kunde inte läsas — vissa poster saknas i den här listan.",
     "catalogueSources": "Från {{count}} kataloger",
     "manageSheets": "Hantera formulär",
     "manageSheetsTab": "Formulär",

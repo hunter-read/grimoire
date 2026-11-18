@@ -114,6 +114,20 @@ describe('PackCatalogue', () => {
     expect(await screen.findByLabelText(/Catalog(ue)? problems/i)).toBeInTheDocument()
   })
 
+  it('says a source failed without naming it when the listing leaves it out', async () => {
+    mockBrowse.mockResolvedValue({
+      packs: [],
+      can_install: false,
+      sources: [],
+      errors: [{ url: '', error: '' }],
+    })
+    renderCatalogue()
+    expect(
+      await screen.findByText(/One of the catalog(ue)?s couldn't be read/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Could not read/i)).not.toBeInTheDocument()
+  })
+
   it('surfaces an install failure', async () => {
     mockInstall.mockRejectedValue(new Error('That pack failed its integrity check'))
     renderCatalogue()

@@ -19,6 +19,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Campaign, ContentEntry, ContentPack, Ruleset, RulesetEntry
 from ...services import characters as svc
+from ...services.catalogue_sources import shows_sources
 from ...services.characters import pack_catalogue, packs as pack_service
 from ...services.characters import rulesets as rs
 from ...services.characters.user_schemas import user_schema_document
@@ -534,7 +535,9 @@ def browse_packs(
         row.pack_id: row.version or "" for row in db.query(ContentPack.pack_id, ContentPack.version)
     }
     try:
-        listing = pack_catalogue.fetch_pack_catalogue(db, installed=installed)
+        listing = pack_catalogue.fetch_pack_catalogue(
+            db, installed=installed, show_sources=shows_sources(current_user)
+        )
     except pack_catalogue.PackCatalogueError as exc:
         if not external_installs_enabled():
             raise HTTPException(status_code=403, detail=str(exc)) from exc

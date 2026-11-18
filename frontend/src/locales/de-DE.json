@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "Keine Bögen installiert. Durchsuche den Katalog oder importiere einen.",
     "sourceProblems": "Katalogprobleme",
     "sourceUnreachable": "{{url}} konnte nicht gelesen werden — die Bögen fehlen in dieser Liste.",
+    "sourceUnreadable": "Ein Katalog konnte nicht gelesen werden — einige Einträge fehlen in dieser Liste.",
     "catalogueSources": "Aus {{count}} Katalogen",
     "manageSheets": "Bögen verwalten",
     "manageSheetsTab": "Bögen",

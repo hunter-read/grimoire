@@ -3997,6 +3997,7 @@
     "emptyBrowseFirst": "No hay hojas instaladas. Explora el catálogo o importa una.",
     "sourceProblems": "Problemas del catálogo",
     "sourceUnreachable": "No se pudo leer {{url}}: sus hojas faltan en esta lista.",
+    "sourceUnreadable": "No se pudo leer uno de los catálogos: faltan algunas entradas en esta lista.",
     "catalogueSources": "De {{count}} catálogos",
     "manageSheets": "Gestionar hojas",
     "manageSheetsTab": "Hojas",
