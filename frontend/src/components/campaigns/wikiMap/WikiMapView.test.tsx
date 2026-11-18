@@ -155,6 +155,14 @@ describe('WikiMapView', () => {
     expect(screen.getByRole('button', { name: 'Choose map' })).toBeInTheDocument()
   })
 
+  it('says so, and offers no replacement, for a map the reader may not see', () => {
+    mount(mapPage({ map: { source: 'hidden', has_thumbnail: false } }), { isGm: false })
+    expect(screen.getByText("The GM hasn't shared this map with you.")).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose map' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Replace map' })).not.toBeInTheDocument()
+  })
+
   it('offers no editing to a reader', () => {
     mount(mapPage({ can_edit: false }))
     expect(screen.queryByRole('button', { name: 'Edit pins' })).not.toBeInTheDocument()

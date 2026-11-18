@@ -8,7 +8,7 @@ import string
 from typing import List, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ... import token_vault
@@ -25,6 +25,7 @@ from ...models import (
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..armies import storage as roster_storage
 from ..characters.images import remove_files_after_commit
+from .upload_files import campaign_upload_paths, member_upload_paths, remove_after_commit
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
 # constant (never user input) so the f-string interpolation below is injection-safe.
@@ -126,6 +127,22 @@ def reassign_user_data(db: Session, source_id: str, target_id: str) -> int:
 
     Returns the number of campaign memberships moved. Does not commit.
     """
+    # A membership dropped for one the target already holds takes its art,
+    # token and sheet with it; the rest move with their rows.
+    target_campaigns = select(CampaignMember.campaign_id).where(
+        CampaignMember.user_id == target_id
+    )
+    remove_after_commit(
+        db,
+        member_upload_paths(
+            db.query(CampaignMember)
+            .filter(
+                CampaignMember.user_id == source_id,
+                CampaignMember.campaign_id.in_(target_campaigns),
+            )
+            .all()
+        ),
+    )
     for table, scope in _USER_SCOPED_UNIQUE:
         # Drop the source rows that would collide with an existing target row.
         db.execute(
@@ -306,6 +323,13 @@ def purge_user_data(db: Session, user_id: str) -> None:
     )
     _purge_leagues(db, user_id)
     owned = db.query(Campaign).filter_by(owner_id=user_id).all()
+    # Their campaigns' banners, files and member uploads, and their own art,
+    # tokens and sheets in other people's campaigns, once the caller commits.
+    remove_after_commit(
+        db,
+        campaign_upload_paths(db, [c.id for c in owned])
+        + member_upload_paths(db.query(CampaignMember).filter_by(user_id=user_id).all()),
+    )
     # Guests merged into one of these campaigns and others keep the others; one
     # whose working code lived here gets a fresh one rather than keeping a code
     # this campaign's owner knew. A guest left with no campaign is kept, as

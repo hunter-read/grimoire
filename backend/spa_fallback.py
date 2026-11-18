@@ -29,8 +29,13 @@ SPA_METHODS = ("GET", "HEAD")
 
 
 def is_reserved(full_path: str) -> bool:
-    """Whether ``full_path`` (no leading slash) is under a reserved prefix."""
-    return full_path.split("/", 1)[0] in RESERVED_SEGMENTS
+    """Whether ``full_path`` is under a reserved prefix.
+
+    Read the way a browser or proxy may hand the path over: extra leading
+    slashes (``//api/x``) are dropped and case is ignored (``/API/x``), so
+    neither one turns a server path into an app route.
+    """
+    return full_path.lstrip("/").split("/", 1)[0].casefold() in RESERVED_SEGMENTS
 
 
 def not_found() -> JSONResponse:

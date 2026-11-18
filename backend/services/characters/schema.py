@@ -21,6 +21,7 @@ from typing import Any, Optional
 from .expressions import (
     EVALUATION_ERRORS,
     each_work_budget,
+    each_work_refusals,
     evaluate,
     parse,
     referenced_names,
@@ -155,7 +156,7 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
 
     what = f"Field {field_name!r} column {key!r}"
     column_type = column.get("type", "text")
-    if column_type not in COLUMN_TYPES:
+    if not isinstance(column_type, str) or column_type not in COLUMN_TYPES:
         allowed = ", ".join(sorted(COLUMN_TYPES))
         raise SchemaError(
             f"{what} has unknown type {column_type!r} (expected one of: {allowed})"
@@ -216,7 +217,7 @@ def _validate_definition(
     definition = _require_dict(definition, what)
 
     field_type = definition.get("type", "text")
-    if field_type not in FIELD_TYPES:
+    if not isinstance(field_type, str) or field_type not in FIELD_TYPES:
         allowed = ", ".join(sorted(FIELD_TYPES))
         raise SchemaError(
             f"{what} has unknown type {field_type!r} (expected one of: {allowed})"
@@ -572,7 +573,7 @@ def _validate_content_type(name: str, definition: Any) -> None:
 
     # The entry's "name" — what a reference shows and what the catalog sorts by.
     identity = definition.get("identity_field", "name")
-    if identity not in fields:
+    if not isinstance(identity, str) or identity not in fields:
         raise SchemaError(
             f"{what} identity_field {identity!r} is not one of its fields"
         )
@@ -585,7 +586,7 @@ def _validate_content_type(name: str, definition: Any) -> None:
             continue
         if not isinstance(names, list):
             raise SchemaError(f"{what} {key!r} must be a list of field names")
-        unknown = [n for n in names if n not in fields]
+        unknown = [n for n in names if not isinstance(n, str) or n not in fields]
         if unknown:
             raise SchemaError(
                 f"{what} {key!r} names unknown "
@@ -1179,24 +1180,28 @@ def compute_values(document: dict, data: dict, entries: Optional[dict] = None) -
 
     results: dict[str, Any] = dict(overrides)
     context.update(overrides)
-    for _ in range(MAX_COMPUTE_PASSES):
-        changed = False
-        # A pass of its own budget: the same inputs then cost the same on every
-        # pass, so a formula that fit the first time still fits.
-        with each_work_budget(fresh=True):
+    # One budget for every pass, so a schema that never settles costs no more
+    # than one that does. A formula the budget refuses on a later pass keeps
+    # the value an earlier pass worked out rather than falling to its default.
+    with each_work_budget(fresh=True):
+        for _ in range(MAX_COMPUTE_PASSES):
+            changed = False
             for computed_name, definition in computed.items():
                 if computed_name in overrides:
                     continue
                 formula = (
                     definition.get("formula") if isinstance(definition, dict) else definition
                 )
+                refused = each_work_refusals()
                 value = evaluate(formula, context)
+                if each_work_refusals() > refused and computed_name in results:
+                    continue
                 if results.get(computed_name) != value:
                     results[computed_name] = value
                     context[computed_name] = value
                     changed = True
-        if not changed:
-            break
+            if not changed:
+                break
 
     return results
 

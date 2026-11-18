@@ -2952,6 +2952,7 @@
     "editHint": "Cliquez sur la carte pour ajouter un repère. Faites glisser un repère pour le déplacer, ou sélectionnez-le et utilisez les flèches (Maj pour de plus grands pas).",
     "missing": "Cette carte n'est plus dans la bibliothèque.",
     "noMap": "Aucune carte n'a encore été choisie pour cette page.",
+    "hidden": "Le MJ n'a pas partagé cette carte avec vous.",
     "pinsKept": "Son {{count}} repère est conservé et revient sur la nouvelle carte.",
     "pinsKept_other": "Ses {{count}} repères sont conservés et reviennent sur la nouvelle carte.",
     "locations": "Lieux",

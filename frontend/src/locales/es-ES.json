@@ -2952,6 +2952,7 @@
     "editHint": "Haz clic en el mapa para añadir un marcador. Arrastra un marcador para moverlo, o enfócalo y usa las flechas (Mayús para pasos más grandes).",
     "missing": "Este mapa ya no está en la biblioteca.",
     "noMap": "Todavía no se ha elegido un mapa para esta página.",
+    "hidden": "El DJ no ha compartido este mapa contigo.",
     "pinsKept": "Su {{count}} marcador se conserva y vuelve en el nuevo mapa.",
     "pinsKept_other": "Sus {{count}} marcadores se conservan y vuelven en el nuevo mapa.",
     "locations": "Lugares",
