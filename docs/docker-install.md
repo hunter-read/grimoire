@@ -283,6 +283,21 @@ Docker Desktop must be running before you can start the app. On Windows and macO
 
 ---
 
+## Container health
+
+The image ships a `HEALTHCHECK` that probes the unauthenticated `GET /api/health`
+endpoint. It checks that the app is serving on port 9481 and can reach the database
+(and Valkey, when configured), so `docker ps` shows `(healthy)` or `(unhealthy)` rather
+than just "running". Another service in the same compose file can wait for it:
+
+```yaml
+depends_on:
+  grimoire:
+    condition: service_healthy
+```
+
+---
+
 ## Updating Grimoire
 
 To pull the latest version:

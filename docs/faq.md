@@ -324,7 +324,7 @@ Zoom stays when you turn the page, so a small-print book can be read zoomed in. 
 
 Past about 200% the page sharpens in patches a moment after you stop zooming or panning: Grimoire renders just the part you are looking at in full detail and lays it over the page, so text stays crisp at 800% without the server rendering an enormous image of the whole page.
 
-**PDF** mode is the browser's own PDF viewer, so use its built-in zoom there instead.
+**PDF** mode is the browser's own PDF viewer on a computer, so use its built-in zoom there instead. On a phone or tablet, whose browsers can't show a PDF inside a page, PDF mode opens Grimoire's own viewer: the whole book scrolls as one column, and you pinch to zoom.
 
 > Past 150%, Grimoire re-requests the page at a higher render resolution so text stays sharp rather than being scaled up. The 200% ceiling is where the source render stops being able to keep up.
 

@@ -8,6 +8,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-11-19
+
 ### Added
 
 - **The library stats split role-playing from wargaming, count variants, and you choose which ones the sidebar shows.** `/api/stats` adds systems, books, pages and book sizes for role-playing and wargame books apart, the size of the maps, tokens, 3D models and audio, and how many variants each collection holds beside its items. Every field it had before is still there, and each total is its two halves added up, so a Homepage widget can show, say, RPG books and wargame books side by side. The sidebar shows up to 10 stats in the order you drag them into: an admin sets everyone's default under **Settings → Sidebar**, and anyone can choose their own under **Settings → Preferences**. **All stats** at the foot of the sidebar, or in the **More** drawer on a phone, opens every stat, with systems, books and pages in a table by game type and a total row, every collection's size, and each collection's items and variants. Settings that hid or showed a stat keep working. See [Stats response](docs/api.md#stats-response)
@@ -931,7 +933,8 @@ Initial release. A self-hosted library manager for your TTRPG PDFs, battlemaps, 
 - Explicit content controls with per-user opt-in
 - Docker-first deployment
 
-[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/hunter-read/grimoire/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/hunter-read/grimoire/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/hunter-read/grimoire/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/hunter-read/grimoire/compare/v1.10.0...v1.10.1

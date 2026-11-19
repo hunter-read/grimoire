@@ -38,10 +38,12 @@ never writes to it.
 - **Metadata editor** - Rich metadata for systems and books, drawn from curated lists you manage in **Settings → Metadata**. Parent systems group related lines ("Cyberpunk" + "Red" → "Cyberpunk Red").
 - **Bulk actions** - Multi-select books, maps, tokens, audio, and models, then bulk tag, add to a campaign, or edit metadata via a carousel.
 - **Duplicate detection** - An admin scan finds byte-identical files, near-identical titles, overlapping page text, and gridded/gridless map pairs. Nothing is ever deleted automatically; you review each group side by side and merge copies without losing bookmarks, favourites or campaign links.
+- **Library stats** - Counts and sizes for role-playing and wargame books, maps, tokens, audio, and models, at the foot of the sidebar in the order you choose, all of them a click away, and on a [Homepage](https://gethomepage.dev) dashboard through the stats API.
 
 ### Reading
 
 - **Page-by-page viewer** - PDFs rendered server-side as images for fast mobile viewing, with pinch-to-zoom, swipe navigation, and spread mode.
+- **PDF view** - The PDF itself, with selectable text and working links, on a phone or tablet too. Highlight, add text, and draw on the pages, then save a copy with those annotations in it.
 - **Bookmarks** - Per-user page and text-selection bookmarks with inline highlights.
 - **Favorites** - Star systems, books, maps, tokens, audio, and models from a card, a list row, or the item's own page.
 - **OPDS catalog** - A personal feed URL per user, to connect e-reader apps directly to your library.
@@ -69,6 +71,7 @@ never writes to it.
 - **Wiki** - A markdown notes wiki with deep linking, map pages with pins that link to other pages, Mermaid diagrams, and Markdown/JSON/LegendKeeper import and export.
 - **GM screen** - A GM-only board of tools for each campaign: party stats, counters, clocks, an initiative tracker, a rules reference and random tables, with community presets. See [GM screen](docs/gm-screen.md).
 - **Wiki note templates** - Start a page from a community template, write your own, or upload a Markdown file or `.zip`. Templates belong to the campaign, so downloaded ones are yours to edit. See [Wiki note templates](docs/wiki-templates.md).
+- **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. Import characters from Forge Steel, Pathbuilder and other tools through community importers. See [Character sheets](docs/characters.md).
 
 ### Wargames
 
@@ -81,7 +84,10 @@ never writes to it.
 - **Book restrictions** - Restrict a book, folder, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
 - **Grimoire Codex DB** - Look books and systems up in the built-in community catalogue, link them, and send corrections back. Turned on with a Grimoire Codex DB API token. See [Grimoire Codex DB](docs/codex.md).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
-- **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. Import characters from Forge Steel, Pathbuilder and other tools through community importers. See [Character sheets](docs/characters.md).
+- **MCP server** - Let an AI assistant such as Claude search and read your library, with an API key whose permissions you choose. Off unless you turn it on. See [MCP server](docs/mcp.md).
+
+### Everywhere
+
 - **Themes and light mode** - Light, dark, or system, the steel-on-gunmetal **Codex** palette beside Grimoire's own gold (with a crimson Codex Red among the community themes), and installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
 - **Docker ready** - One command to run, mount your library directory, done. Works on desktop, tablet, and phone.
 
@@ -238,7 +244,7 @@ docker pull hunterreadca/grimoire:latest
 Or pin to a specific release:
 
 ```bash
-docker pull hunterreadca/grimoire:1.11.0
+docker pull hunterreadca/grimoire:1.11.1
 ```
 
 Release and `nightly` tags are mirrored to the GitHub Container Registry, if you'd rather pull from there:
@@ -247,7 +253,7 @@ Release and `nightly` tags are mirrored to the GitHub Container Registry, if you
 docker pull ghcr.io/hunter-read/grimoire:latest
 ```
 
-**Image variants:** the default tags (`latest`, `1.11.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](docs/performance.md#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.11.0-slim`), which omits Tesseract.
+**Image variants:** the default tags (`latest`, `1.11.1`, …) include the Tesseract OCR engine, so image-only PDFs are searchable (see [OCR](docs/performance.md#ocr)). If you don't need OCR and want a smaller image, use the `-slim` tag that matches - `:slim` for `:latest`, or `:1.11.1-slim` for a pinned release. See [Docker image tags](docs/dockerhub.md).
 
 ### 4. Minimal `docker-compose.yml`
 
@@ -256,10 +262,10 @@ services:
   grimoire:
     image: hunterreadca/grimoire:latest
     ports:
- - "9481:9481"
+      - "9481:9481"
     volumes:
- - /path/to/your/library:/app/library   # add ":ro" to keep it read-only (see Volumes)
- - /path/to/grimoire/data:/app/data
+      - /path/to/your/library:/app/library   # add ":ro" to keep it read-only
+      - /path/to/grimoire/data:/app/data
 ```
 
 ### 5. Example compose files
@@ -282,18 +288,8 @@ cp docs/docker/docker-compose.valkey.yml docker-compose.yml
 docker compose up -d
 ```
 
-### 6. Container health
-
-The image ships a `HEALTHCHECK` that probes the unauthenticated `GET /api/health`
-endpoint. It verifies the app is serving on port 9481 and can reach the database
-(and Valkey, when configured), so `docker ps` shows `(healthy)` / `(unhealthy)`
-rather than just "running". Orchestrators can gate startup on it:
-
-```yaml
-depends_on:
-  grimoire:
-    condition: service_healthy
-```
+The image reports its own health, so `docker ps` shows `(healthy)` once Grimoire is
+serving - see [Container health](docs/docker-install.md#container-health).
 
 ---
 
@@ -303,7 +299,7 @@ The database, search index, and rendered thumbnails are all stored under `DATA_P
 
 ## Upgrading
 
-Pull the new image and restart (`docker compose pull && docker compose up -d`). Database schema changes are applied automatically on startup via [Alembic](https://alembic.sqlalchemy.org/) - **no manual action is required** when upgrading, including from versions that predate Alembic. On first run under the new system, an existing database is detected and stamped at the correct baseline, so only genuinely new migrations run thereafter. Back up `DATA_PATH` before upgrading, as always.
+Back up `DATA_PATH`, then pull the new image and restart (`docker compose pull && docker compose up -d`). Database changes are applied automatically on startup, from any earlier version - there is nothing to run by hand.
 
 ## Running from source
 
@@ -371,7 +367,7 @@ kept in the repo so it versions with the release you are running:
 | [Performance and indexing](docs/performance.md)        | OCR tuning, page rendering, caching, and large galleries        |
 | [Backups](docs/backups.md)                             | Scheduling, retention, and what is _not_ included               |
 | [Restoring from a backup](docs/restore-from-backup.md) | The by-hand restore procedure                                   |
-| [Grimoire Codex DB](docs/codex.md)                        | The built-in community catalogue: lookup, linking, sending      |
+| [Grimoire Codex DB](docs/codex.md)                     | The built-in community catalogue: lookup, linking, sending      |
 | [Community add-ons](docs/addons.md)                    | Installable metadata scrapers                                   |
 | [OPDS catalog](docs/opds.md)                           | Connecting e-reader apps to your library                        |
 | [MCP server](docs/mcp.md)                              | Letting AI assistants like Claude Code use your library         |
@@ -385,7 +381,7 @@ kept in the repo so it versions with the release you are running:
 | [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors                                                         |
 | [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                                                                                |
 | [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist                                                                |
-| [TypeScript](docs/typescript.md)     | The frontend's TypeScript setup, API types generated from the backend, and house conventions                         |
+| [TypeScript](docs/typescript.md)     | The frontend's TypeScript setup, API types generated from the backend, and house conventions                        |
 
 The live API is also self-documenting while the server is running:
 [`/api/docs`](http://localhost:9481/api/docs) (Swagger UI),

@@ -67,7 +67,7 @@ Edited a PDF in place (embedded encounter notes, added errata)? Its search index
 
 ## Page rendering
 
-PDFs are rendered page-by-page server-side as WebP images rather than streamed as raw files. This keeps the viewer fast on mobile and avoids loading large files into the browser. Switch to the native PDF viewer anytime via the toolbar.
+PDFs are rendered page-by-page server-side as WebP images rather than streamed as raw files. This keeps the viewer fast on mobile and avoids loading large files into the browser. Switch to PDF view anytime from the toolbar - the browser's own viewer on a computer, and Grimoire's own on a phone or tablet, whose browsers can't show a PDF inside a page.
 
 Pages are rendered in separate render worker processes, not in Grimoire itself, as are tables of contents and exports. If a damaged PDF crashes the PDF library, only that page (or export) fails: the worker is replaced and Grimoire keeps running. A worker starts when someone opens a page and stops once nobody has read anything for `PAGE_IDLE_RELEASE` seconds.
 

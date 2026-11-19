@@ -14,7 +14,9 @@ same dialog, and it offers three ways to set one:
   file onto the dialog.
 - **Browse** what Grimoire already has: your maps, tokens, book covers, and audio artwork.
   For a campaign banner, the campaign's own uploaded images come first, since that is
-  usually where the art you want already lives.
+  usually where the art you want already lives. For a game system or collection cover, it
+  opens on the book covers of that system and the ones filed under it; untick **Only …
+  and its sub-folders** to browse the whole library.
 
 Picking an existing image **copies** it into place rather than pointing at the original, so
 the banner or cover keeps working if you later delete the source or reorganise your library.
