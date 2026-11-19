@@ -695,6 +695,21 @@ def _validate_prompt_options(options: Any, where: str, known: set[str], images: 
             raise SchemaError(f"{where} options must be text or {{value, label}} objects")
 
 
+def _validate_start_prompt(
+    start: Any, prompt_names: set[str], known: set[str], images: frozenset
+) -> None:
+    """Check a sheet's `start_prompt`: `{"prompt": name, "when": condition}`.
+
+    The prompt the sheet opens by itself when a character is opened and
+    `when` holds - a new character's first level - unless the player put it
+    off, which lists it with the other prompts put off instead.
+    """
+    start = _require_dict(start, "'start_prompt'")
+    if start.get("prompt") not in prompt_names:
+        raise SchemaError(f"'start_prompt' opens unknown prompt {start.get('prompt')!r}")
+    _validate_condition(start.get("when"), "'start_prompt' when", known, images)
+
+
 def _validate_prompts(
     prompts: Any, fields: dict, known: set[str], images: frozenset, content_types: dict
 ) -> None:
@@ -718,6 +733,9 @@ def _validate_prompts(
       `filters` and a `filter` formula reading the candidate as `entry`.
     - `number`: a number, starting from `default`, with a button for `average`.
     - `select`: one of `options`.
+
+    A step's `label_formula`, when it works out to some text, is shown in
+    place of its `label` - the kind of option a class replaces.
     """
     prompts = _require_dict(prompts, "'prompts'")
     if len(prompts) > MAX_PROMPTS:
@@ -753,6 +771,8 @@ def _validate_prompts(
                 allowed = ", ".join(sorted(_PROMPT_STEP_TYPES))
                 raise SchemaError(f"{where} needs a 'type': one of {allowed}")
             _validate_label(step.get("label"), where, MAX_PROMPT_LABEL, required=False)
+            if "label_formula" in step:
+                _validate_formula(step["label_formula"], f"{where} 'label_formula'", base, images)
             _validate_condition(step.get("visible_if"), f"{where} visible_if", base, images)
 
             if kind == "choose":
@@ -1250,6 +1270,8 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 
     if "prompts" in document:
         _validate_prompts(prompts, fields, known, images, content_types)
+    if "start_prompt" in document:
+        _validate_start_prompt(document["start_prompt"], prompt_names, known, images)
     if "actions" in document:
         _validate_actions(document["actions"], fields, known, images, prompt_names)
 

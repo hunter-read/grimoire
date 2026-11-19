@@ -35,6 +35,9 @@ export interface PromptStep {
   key: string
   type: PromptStepType
   label?: string
+  // Text worked out from the sheet and the answers before it, shown in place
+  // of `label` when it is not empty.
+  label_formula?: string
   visible_if?: string
   // choose
   target?: string
@@ -683,6 +686,38 @@ function samePrompt(a: PromptRequest, b: PromptRequest): boolean {
     (a.source || '') === (b.source || '') &&
     (a.ref || '') === (b.ref || '')
   )
+}
+
+/** A step's heading: its `label_formula` worked out, or else its `label`. */
+export function stepLabel(step: PromptStep, context: ExprContext): string {
+  if (step.label_formula) {
+    const value = evaluate<symbol>(step.label_formula, context, FAILED)
+    if (value !== FAILED && value !== null && value !== undefined && String(value).trim()) {
+      return String(value)
+    }
+  }
+  return step.label || ''
+}
+
+/**
+ * The prompt a sheet opens by itself when a character is opened: its
+ * `start_prompt`, when its `when` holds and the player has not put it off.
+ */
+export function startPrompt(
+  document: PromptDocument | null | undefined,
+  context: Values,
+  data: Values | null | undefined
+): string | undefined {
+  const start = document?.start_prompt
+  if (!isObject(start) || typeof start.prompt !== 'string') return undefined
+  const prompt = findPrompt(document, start.prompt)
+  if (!prompt) return undefined
+  if (pendingPrompts(data).some((item) => item.prompt === start.prompt)) return undefined
+  if (typeof start.when === 'string' && start.when.trim()) {
+    const value = evaluate<symbol>(start.when, context, FAILED)
+    if (value === FAILED || !value) return undefined
+  }
+  return start.prompt
 }
 
 /** The prompts the player put off, as stored. */

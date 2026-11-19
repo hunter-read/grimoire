@@ -147,6 +147,23 @@ const renderView = async () => {
 const lastSaved = () => mockUpdate.mock.calls.at(-1)![1]
 
 describe('CharacterDetailView — prompts', () => {
+  it("opens the sheet's start prompt by itself while its condition holds", async () => {
+    mockGetSchema.mockResolvedValue({
+      document: { ...DOCUMENT, start_prompt: { prompt: 'level_gain', when: 'len(feats) == 0' } },
+    })
+    await renderView()
+    expect(await screen.findByRole('dialog', { name: 'Level gained' })).toBeInTheDocument()
+  })
+
+  it('leaves the start prompt shut once its condition fails', async () => {
+    mockGetSchema.mockResolvedValue({
+      document: { ...DOCUMENT, start_prompt: { prompt: 'level_gain', when: 'len(feats) == 0' } },
+    })
+    stored = { feats: [{ _ref: 'alert' }] }
+    await renderView()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('opens the prompt a pick names, reading the picked entry', async () => {
     await renderView()
     await userEvent.click(screen.getByText('pick elf'))

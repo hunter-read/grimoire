@@ -25,6 +25,7 @@ import {
   planGrants,
   PromptLauncher,
   sheetContext,
+  startPrompt,
   visibleSteps,
   withPending,
   withoutPending,
@@ -352,6 +353,21 @@ export default function CharacterDetailView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentPrompt, document]
   )
+  // A sheet's start prompt - a new character's first level - opens by itself,
+  // once each time the character is opened.
+  const startedRef = useRef('')
+  useEffect(() => {
+    if (loading || readOnly || !document || !character) return
+    if (startedRef.current === character.id) return
+    startedRef.current = character.id
+    const name = startPrompt(
+      document,
+      sheetContext(document, dataRef.current, character.entries || {}),
+      dataRef.current
+    )
+    if (name) openPrompt({ prompt: name })
+  }, [loading, readOnly, document, character, openPrompt])
+
   // A prompt the sheet no longer has, or with no question for this character,
   // is passed over rather than shown empty.
   useEffect(() => {
