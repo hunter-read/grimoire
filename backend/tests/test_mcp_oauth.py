@@ -636,6 +636,17 @@ class TestRegistration:
         assert resp.status_code == 400
         assert resp.json()["error"] == "invalid_redirect_uri"
 
+    def test_a_host_dropped_from_the_allow_list_can_no_longer_sign_in(
+        self, oauth_client, monkeypatch
+    ):
+        evil = "https://evil.example/cb"
+        client_id = register(oauth_client, redirect=evil).json()["client_id"]
+        monkeypatch.setattr(config, "MCP_OAUTH_REDIRECT_HOSTS", ["claude.ai"])
+        _, challenge = _pkce()
+        resp = authorize(oauth_client, client_id, challenge, redirect=evil)
+        assert resp.status_code == 400 and "location" not in resp.headers
+        assert resp.json()["error"] == "invalid_request"
+
     @pytest.mark.parametrize(
         "redirect", ["http://evil.example/cb", "ftp://claude.ai/cb", "https://claude.ai/cb#frag"]
     )

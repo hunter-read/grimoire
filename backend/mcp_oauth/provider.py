@@ -92,6 +92,13 @@ class GrimoireOAuthProvider:
             )
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
+        # The allow-list again, not only at registration: an admin who sets or
+        # narrows it (say, after spotting a lookalike client) stops clients
+        # registered earlier from signing in through a host it no longer has.
+        try:
+            clients.check_redirect_uri(str(params.redirect_uri), config.MCP_OAUTH_REDIRECT_HOSTS)
+        except clients.RedirectRefused as e:
+            raise AuthorizeError(error="invalid_request", error_description=str(e))
         # Tokens are only ever issued for this server's /mcp (RFC 8707).
         if params.resource is not None and params.resource.rstrip("/") != resource_url():
             raise AuthorizeError(
