@@ -2821,12 +2821,25 @@ browses the content types their copy declares.
 | `/api/content/:schema_id/:content_type/:entry_id` | GET | user | One entry in full |
 | `/api/content/:schema_id/resolve?ids=a,b,c` | GET | user | Resolve many references at once, for rendering a sheet |
 
-**Browse response:** `entries[]`, `total`, `page`, `page_size`, and
-`filters_available` - facets built from the content type's `filter_fields`, each
-value with the number of entries carrying it. Facets describe the **whole**
-catalog rather than the current page, so choosing one value does not empty every
-other facet and leave no way back. Numeric facet values sort numerically, so a
-spell-level filter reads 1, 2, 3, 10 rather than 1, 10, 2, 3.
+**Browse response:** `entries[]`, `total`, `page`, `page_size`,
+`filters_available` and `filters_without_parent`.
+
+`filters_available` holds the facets built from the content type's
+`filter_fields`, each value with the number of entries carrying it. Each facet is
+narrowed by every **other** active filter but never by itself, so choosing level 1
+narrows the school facet to the schools level-1 spells have, while the level
+facet still lists every level and the choice stays reversible. A chosen value the
+other filters have narrowed out stays in its facet with a count of 0, in the
+stored casing (filters match case-insensitively), so it can still be shown and
+cleared. Numeric facet values sort numerically, so a spell-level filter reads
+1, 2, 3, 10 rather than 1, 10, 2, 3. A facet with more than 500 distinct values is
+left out - a field nearly every entry gives its own value is a search term, not a
+filter.
+
+`filters_without_parent` names each `filter_depends` child (see below) and
+whether some entry carries it without its parent - a feature with an origin but
+no class. The browser keeps that child filter usable before a parent is chosen
+when this is `true`, and disables it otherwise.
 
 Search is full-text (FTS5 on SQLite, a `tsvector` on PostgreSQL) over each type's
 `search_fields`, prefix-matched per term. A
@@ -2863,6 +2876,14 @@ through the same `FieldRenderer`:
 catalog sorts by. The three field-name lists and every `{token}` in
 `compact_display` are checked against the type's own fields at install, so a
 typo fails loudly rather than producing an empty filter sidebar.
+
+`filter_depends` (optional) maps a filter field to the filter it narrows within,
+as `{"origin": "class"}` does for features: the parent's facet is not narrowed by
+the child, so choosing a subclass leaves every class listed; changing or
+clearing the parent clears the child; and the child is disabled until a parent is
+chosen, unless some entry has the child without the parent. Both names must be in
+`filter_fields`, and it is one level deep - a chain (`a` → `b` → `c`) or a cycle
+is refused at install. The types list returns it beside `filter_fields`.
 
 #### `content_ref` and `content_list`
 
