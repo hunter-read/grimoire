@@ -690,6 +690,27 @@ class TestRegistration:
         assert started.client_id not in remaining and lapsed.client_id not in remaining
         assert used.client_id in remaining
 
+    def test_an_expired_sign_in_request_no_longer_keeps_its_client(
+        self, oauth_client, admin_headers
+    ):
+        two_hours_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)
+        abandoned = Flow(oauth_client, admin_headers)
+        abandoned.request_id()
+        set_columns(OAuthCode, {"client_id": abandoned.client_id}, expires_at=PAST)
+        set_columns(OAuthClient, {"client_id": abandoned.client_id}, created_at=two_hours_ago)
+        assert register(oauth_client).status_code == 201
+        # Gone after an hour like one that never started, not kept for a day.
+        assert abandoned.client_id not in self._remaining()
+
+    def test_a_lapsed_grant_is_deleted_and_a_live_one_kept(self, oauth_client, admin_headers):
+        lapsed, live = Flow(oauth_client, admin_headers), Flow(oauth_client, admin_headers)
+        lapsed.tokens()
+        live.tokens()
+        set_columns(ApiKey, {"client_id": lapsed.client_id}, refresh_expires_at=PAST)
+        assert register(oauth_client).status_code == 201
+        assert grant_row(client_id=lapsed.client_id) is None
+        assert grant_row(client_id=live.client_id) is not None
+
     def test_a_flood_of_registrations_never_pushes_out_a_sign_in(
         self, oauth_client, admin_headers, monkeypatch
     ):

@@ -246,6 +246,19 @@ def by_access_token(db: Any, token: str) -> Optional[Any]:
     )
 
 
+def delete_lapsed(db: Any) -> None:
+    """Delete grants whose refresh token has expired. Doesn't commit.
+
+    Such a grant can never renew, so nothing is lost; left alone it would sit in
+    the key list for good and keep its client from being cleaned up.
+    """
+    from ..models import ApiKey
+
+    db.query(ApiKey).filter(
+        ApiKey.client_id.isnot(None), ApiKey.refresh_expires_at < now()
+    ).delete(synchronize_session=False)
+
+
 def revoke(db: Any, grant_id: str) -> None:
     from ..models import ApiKey
 

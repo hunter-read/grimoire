@@ -19,7 +19,8 @@ next registration (:func:`make_room`):
 The number without a grant is capped too. At the cap, the oldest that never
 started a sign-in make way; only if none can is a registration refused. So a
 flood of registrations can push out other unused ones, but never a client
-whose user is signing in.
+whose user is signing in. Expired sign-in requests and lapsed grants (whose
+refresh token has expired) are deleted first, so neither keeps a client.
 
 Only a SHA-256 hash of a client secret is stored. The SDK checks the secret by
 comparing it with the one :func:`get` returns, so the route wrapper hands the
@@ -124,7 +125,14 @@ def make_room(db: Any) -> bool:
     grant has a sign-in under way.
     """
     from ..models import OAuthClient
+    from . import codes, grants
 
+    # First what can never be used again, so it doesn't count: an expired
+    # sign-in request would otherwise keep its client "started" (and out of
+    # reach of the cap) for a day, and a lapsed grant would keep its client
+    # forever.
+    codes.delete_expired(db)
+    grants.delete_lapsed(db)
     stamp = now()
     stale = _never_started(db).filter(OAuthClient.created_at < stamp - NEVER_STARTED_TTL)
     unapproved = _without_grant(db).filter(
