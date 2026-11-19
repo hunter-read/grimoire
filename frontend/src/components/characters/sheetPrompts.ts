@@ -57,6 +57,8 @@ export interface PromptStep {
 export interface PromptApplyStep extends Omit<ActionStep, 'values'> {
   add?: string
   pick?: string
+  // unpick: the content_list a row is taken out of, the row of `entry`.
+  unpick?: string
   entry?: string
   // grant: formulas for the ids, the names they fall back to, and the values
   // carried onto a freeform entry; `source` is the pick it is recorded under.
@@ -421,7 +423,8 @@ export async function loadEntryOptions(
 }
 
 /** A pick a prompt makes, followed up as a pick by hand: its `on_pick` runs. */
-export type PromptPick = { field: string; value: unknown; entry: Values }
+// `entry` is the entry picked; a row taken out (`unpick`) has none.
+export type PromptPick = { field: string; value: unknown; entry?: Values }
 
 /**
  * A `grant` a prompt makes, its formulas worked out: what `planGrants` adds
@@ -471,6 +474,7 @@ export function planPrompt(
         typeof step.set === 'string') &&
       typeof step.add !== 'string' &&
       typeof step.pick !== 'string' &&
+      typeof step.unpick !== 'string' &&
       typeof step.grant !== 'string' &&
       typeof step.prompt !== 'string'
   )
@@ -536,6 +540,35 @@ export function planPrompt(
         granted[target] = [...(granted[target] || []), value]
       }
       patch[target] = list
+      continue
+    }
+    if (typeof step.unpick === 'string') {
+      // The list less the entry's row, made as a change by hand, so the row's
+      // own grants are taken back; the picks after it see the list without it.
+      const field = step.unpick
+      if (fields[field]?.type !== 'content_list') continue
+      const entry = evaluate<symbol>(step.entry, ctx, FAILED)
+      if (!isObject(entry) || typeof entry._ref !== 'string' || !entry._ref) continue
+      const wanted = entry._ref.trim().toLowerCase()
+      const before = picks.filter((pick) => pick.field === field).pop()
+      const rows = before
+        ? (before.value as unknown[])
+        : Array.isArray(current(field))
+          ? (current(field) as unknown[])
+          : []
+      const index = rows.findIndex(
+        (item) =>
+          isObject(item) &&
+          String(item._ref ?? '')
+            .trim()
+            .toLowerCase() === wanted
+      )
+      if (index < 0) continue
+      picks.push({ field, value: rows.filter((_, i) => i !== index) })
+      // A row this prompt picked and took out again is not recorded either.
+      const held = granted[field] || []
+      const at = held.indexOf(entry._ref)
+      if (at >= 0) granted[field] = held.filter((_, i) => i !== at)
       continue
     }
     if (typeof step.pick === 'string') {

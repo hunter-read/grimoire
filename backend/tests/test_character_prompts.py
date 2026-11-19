@@ -174,6 +174,19 @@ def test_a_grant_step_reads_formulas_and_records_under_a_pick():
     _validate(_document(_with_apply({"grant": "skills", "from": "answer.skills"})))
 
 
+def test_an_unpick_step_takes_a_row_out_of_a_content_list():
+    _validate(_document(_with_apply({"unpick": "feats", "entry": "answer.feat"})))
+    with pytest.raises(svc.SchemaError, match="not a content_list"):
+        _validate(_document(_with_apply({"unpick": "skills", "entry": "answer.feat"})))
+    with pytest.raises(svc.SchemaError, match="'entry'"):
+        _validate(_document(_with_apply({"unpick": "feats"})))
+    document = _document(
+        actions=[{"name": "a", "label": "A", "steps": [{"unpick": "feats", "entry": "'x'"}]}]
+    )
+    with pytest.raises(svc.SchemaError, match="exactly one of"):
+        _validate(document)
+
+
 def test_grant_belongs_to_prompts_only():
     document = _document(
         actions=[{"name": "a", "label": "A", "steps": [{"grant": "skills", "from": "'a'"}]}]
