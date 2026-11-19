@@ -18,7 +18,8 @@ Like the rest of Grimoire's limits, the counts are per worker unless
 
 The wrapper also reads the client secret a ``/token`` or ``/revoke`` request
 carries and hands it to ``clients.presented_secret``, so the stored hash can be
-checked (see ``clients.py``).
+checked (see ``clients.py``), and keeps ``/authorize`` from redirecting
+anywhere but the consent page (:func:`_consent_only`).
 """
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .. import config, security
 from .clients import presented_secret
-from .provider import GrimoireOAuthProvider, resource_url
+from .provider import CONSENT_PATH, GrimoireOAuthProvider, resource_url
 from .tokens import SCOPE
 
 logger = logging.getLogger("grimoire.mcp")
@@ -78,6 +79,45 @@ async def _send_json(send: Send, status: int, body: dict[str, Any]) -> None:
         }
     )
     await send({"type": "http.response.body", "body": data})
+
+
+def _consent_only(send: Send) -> Send:
+    """``send`` for ``/authorize``: redirect only to this server's consent page.
+
+    When ``/authorize`` fails after the client and redirect address check out
+    (a bad scope, a ``resource`` that isn't this server's, a host the allow-list
+    no longer has, too many waiting sign-ins), the SDK redirects the browser to
+    the client's redirect address with the error. Registration is open, so that
+    address is anyone's: an ``/authorize`` link would bounce a visitor straight
+    to any site, before they sign in or see anything (RFC 9700 4.11.2). Such a
+    redirect is answered here with the same error as a plain 400 instead.
+    """
+    consent = f"{config.BASE_URL}{CONSENT_PATH}?"
+    refused = False
+
+    async def contained(message: Message) -> None:
+        nonlocal refused
+        if message["type"] == "http.response.start" and 300 <= message["status"] < 400:
+            location = dict(message.get("headers", [])).get(b"location", b"").decode("latin-1")
+            if not location.startswith(consent):
+                refused = True
+                query = parse_qs(urlsplit(location).query)
+                await _send_json(
+                    send,
+                    400,
+                    {
+                        "error": query.get("error", ["invalid_request"])[0],
+                        "error_description": query.get(
+                            "error_description", ["This sign-in request can't be completed"]
+                        )[0],
+                    },
+                )
+                return
+        if refused:  # the SDK's own (empty) redirect body
+            return
+        await send(message)
+
+    return contained
 
 
 class Throttled:
@@ -141,7 +181,7 @@ class Throttled:
             return
         if not per_client:
             security.record_oauth_attempt(scope_name, key)
-            await app(scope, replay, send)
+            await app(scope, replay, _consent_only(send) if scope_name == AUTHORIZE_SCOPE else send)
             return
 
         status: dict[str, int] = {}

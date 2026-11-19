@@ -289,9 +289,8 @@ class TestCodes:
     def test_the_plain_pkce_method_is_refused(self, oauth_client, admin_headers):
         flow = Flow(oauth_client, admin_headers)
         resp = authorize(oauth_client, flow.client_id, flow.verifier, code_challenge_method="plain")
-        assert resp.status_code == 302
-        assert "error=invalid_request" in resp.headers["location"]
-        assert urlsplit(resp.headers["location"]).hostname == "claude.ai"
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "invalid_request"
 
     def test_a_reused_code_is_refused_and_revokes_its_grant(self, oauth_client, admin_headers):
         flow = Flow(oauth_client, admin_headers)
@@ -326,8 +325,49 @@ class TestCodes:
         resp = authorize(
             oauth_client, flow.client_id, flow.challenge, resource="https://elsewhere.example/mcp"
         )
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "invalid_target"
+
+
+class TestAuthorizeNeverBouncesAway:
+    """Registration is open, so a client's redirect address is anyone's: a
+    refused /authorize answers here instead of sending the browser there."""
+
+    EVIL = "https://evil.example/phish"
+
+    @pytest.mark.parametrize(
+        "extra, error",
+        [
+            ({"scope": "bogus"}, "invalid_scope"),
+            ({"resource": "https://x.example/"}, "invalid_target"),
+            ({"code_challenge_method": "plain"}, "invalid_request"),
+        ],
+    )
+    def test_a_refused_request_is_a_400_not_a_redirect(self, oauth_client, extra, error):
+        client_id = register(oauth_client, redirect=self.EVIL).json()["client_id"]
+        _, challenge = _pkce()
+        resp = authorize(oauth_client, client_id, challenge, redirect=self.EVIL, **extra)
+        assert resp.status_code == 400, resp.headers.get("location")
+        assert "location" not in resp.headers
+        assert resp.json()["error"] == error
+
+    def test_too_many_waiting_sign_ins_is_a_400_too(self, oauth_client, monkeypatch):
+        from backend.mcp_oauth import codes
+
+        monkeypatch.setattr(codes, "MAX_PENDING_PER_CLIENT", 1)
+        client_id = register(oauth_client, redirect=self.EVIL).json()["client_id"]
+        _, challenge = _pkce()
+        assert authorize(oauth_client, client_id, challenge, redirect=self.EVIL).status_code == 302
+        resp = authorize(oauth_client, client_id, challenge, redirect=self.EVIL)
+        assert resp.status_code == 400 and "location" not in resp.headers
+        assert resp.json()["error"] == "temporarily_unavailable"
+
+    def test_a_good_request_still_goes_to_the_consent_page(self, oauth_client):
+        client_id = register(oauth_client, redirect=self.EVIL).json()["client_id"]
+        _, challenge = _pkce()
+        resp = authorize(oauth_client, client_id, challenge, redirect=self.EVIL)
         assert resp.status_code == 302
-        assert "error=invalid_target" in resp.headers["location"]
+        assert urlsplit(resp.headers["location"]).path == "/oauth/consent"
 
     def test_a_wrong_client_secret_is_refused(self, oauth_client, admin_headers):
         flow = Flow(oauth_client, admin_headers)

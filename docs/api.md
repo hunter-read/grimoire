@@ -249,7 +249,7 @@ session. The OAuth endpoints live at the site root:
 | `/.well-known/oauth-protected-resource/mcp` | GET | Protected resource metadata (RFC 9728): the resource (`<BASE_URL>/mcp`) and its authorization server. A `401` from `/mcp` points here in `WWW-Authenticate`. |
 | `/.well-known/oauth-authorization-server` | GET | Authorization server metadata (RFC 8414). |
 | `/register` | POST | Dynamic client registration (RFC 7591). Open while the flag is on; grants nothing by itself. A redirect address must be `https` (or `http` on loopback) and, with `MCP_OAUTH_REDIRECT_HOSTS` set, on one of those hosts. Returns `201` with a `client_id` and, unless the client asked for none, a `client_secret` - only its hash is kept. |
-| `/authorize` | GET, POST | Starts a sign-in (PKCE `S256` required). Redirects the browser to the consent page, `/oauth/consent?request=<id>`. |
+| `/authorize` | GET, POST | Starts a sign-in (PKCE `S256` required). Redirects the browser to the consent page, `/oauth/consent?request=<id>`, and nowhere else: a request refused after the client and redirect address check out (a bad scope, a `resource` other than this server's `/mcp`, a redirect host no longer in `MCP_OAUTH_REDIRECT_HOSTS`, too many sign-ins waiting) gets a `400` with `{error, error_description}` instead of a redirect to the client, since anyone can register a client. |
 | `/token` | POST | Exchanges a code (`authorization_code`) or renews tokens (`refresh_token`). Access tokens last an hour, refresh tokens 30 days from their last use; each renewal replaces both. |
 | `/revoke` | POST | Revokes a grant by either of its tokens (RFC 7009). |
 
