@@ -5,8 +5,8 @@ sidebar shows. Null follows the admin's default (the ``sidebar_stats`` app
 setting), which is what every existing user gets, so there is nothing to
 backfill. Idempotent.
 
-Revision ID: 4f8c1d6e2a95
-Revises: 9b4e2f7a1c63
+Revision ID: 796428a7f3eb
+Revises: e3a91c7f5d20
 Create Date: 2026-11-19 00:00:00.000000+00:00
 
 """
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 
-revision: str = "4f8c1d6e2a95"
-down_revision: Union[str, None] = "9b4e2f7a1c63"
+revision: str = "796428a7f3eb"
+down_revision: Union[str, None] = "e3a91c7f5d20"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
