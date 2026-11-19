@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ... import api_keys, config
 from ...config import get_db
 from ...auth import require_admin, get_current_user, CurrentUser
+from ...services import sidebar_stats
 from ...services.library_fs import library_writable
 from ...services.app_settings import (
     get_raw,
@@ -100,15 +101,9 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "hide_campaigns": raw["hide_campaigns"] == "true",
         "hide_armies": raw["hide_armies"] == "true",
         "hide_leagues": raw["hide_leagues"] == "true",
-        "show_stat_systems": raw["show_stat_systems"] == "true",
-        "show_stat_books": raw["show_stat_books"] == "true",
-        "show_stat_pages": raw["show_stat_pages"] == "true",
-        "show_stat_maps": raw["show_stat_maps"] == "true",
-        "show_stat_tokens": raw["show_stat_tokens"] == "true",
-        "show_stat_audio": raw["show_stat_audio"] == "true",
-        "show_stat_models": raw["show_stat_models"] == "true",
-        "show_stat_size": raw["show_stat_size"] == "true",
-        "show_stat_library_size": raw["show_stat_library_size"] == "true",
+        **sidebar_stats.legacy_flags(sidebar_stats.default_layout(raw)),
+        # The default layout; a user's own, if any, is on /auth/me.
+        "sidebar_stats": sidebar_stats.default_layout(raw),
         "campaign_uploads_disabled": raw["campaign_uploads_disabled"] == "true",
         "campaign_upload_max_file_mb": int(raw.get("campaign_upload_max_file_mb") or 0),
         "campaign_upload_max_total_mb": int(raw.get("campaign_upload_max_total_mb") or 0),

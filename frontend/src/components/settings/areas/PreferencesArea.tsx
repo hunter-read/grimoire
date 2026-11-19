@@ -4,6 +4,7 @@ import SettingsSection from '../SettingsSection'
 import { LanguageSection, LibrarySection, ReaderSection } from '../UserPreferenceSections'
 import AppearanceSection from '../AppearanceSection'
 import ExplicitContentSection from '../ExplicitContentSection'
+import MySidebarStatsSection from '../MySidebarStatsSection'
 
 /** How Grimoire looks and reads for you. */
 export default function PreferencesArea() {
@@ -22,6 +23,9 @@ export default function PreferencesArea() {
           </SettingsSection>
           <SettingsSection id="theme">
             <AppearanceSection />
+          </SettingsSection>
+          <SettingsSection id="my-sidebar-stats">
+            <MySidebarStatsSection />
           </SettingsSection>
         </div>
       </CollapsibleSection>

@@ -39,7 +39,49 @@
     "librarySize": "Bibliotekets storlek",
     "version": "Version",
     "audio": "Ljud",
-    "models": "Modeller"
+    "models": "Modeller",
+    "ttrpgSystems": "Rollspelssystem",
+    "wargameSystems": "Krigsspelssystem",
+    "ttrpgBooks": "Rollspelsböcker",
+    "wargameBooks": "Krigsspelsböcker",
+    "ttrpgPages": "Rollspelssidor",
+    "wargamePages": "Krigsspelssidor",
+    "indexedBooks": "Indexerade böcker",
+    "ttrpgSize": "Rollspelsböckernas storlek",
+    "wargameSize": "Krigsspelsböckernas storlek",
+    "mapsSize": "Kartornas storlek",
+    "tokensSize": "Tokens storlek",
+    "modelsSize": "Modellernas storlek",
+    "audioSize": "Ljudets storlek",
+    "showAll": "All statistik",
+    "allTitle": "Bibliotekets statistik",
+    "byGameType": "System, böcker och sidor",
+    "ttrpg": "Rollspel",
+    "wargaming": "Krigsspel",
+    "total": "Totalt",
+    "sizeTitle": "Diskutrymme",
+    "collectionsTitle": "Objekt och varianter",
+    "yourSidebarOwn": "Du har valt den här statistiken. Använd standard för att gå tillbaka till administratörens val.",
+    "yourSidebarDefault": "Det här är standardstatistiken som administratören valde. Ändra den för att göra sidofältet till ditt eget.",
+    "chosenCount": "{{count}} av {{max}} valda",
+    "noneChosen": "Ingen statistik vald - sidofältet visar ingen.",
+    "chosenList": "Statistik i sidofältet",
+    "save": "Spara",
+    "useDefault": "Använd standard",
+    "saved": "Sparat",
+    "reorder": "Flytta {{name}}",
+    "reorderHint": "Markera statistiken som ska visas. Dra markerad statistik i handtaget för att flytta den, eller fokusera handtaget och använd piltangenterna upp och ner.",
+    "moved": "Flyttad till plats {{position}} av {{total}}",
+    "fullHint": "avmarkera en för att välja en annan",
+    "items": "Objekt",
+    "variants": "Varianter",
+    "bookVariants": "Bokvarianter",
+    "mapVariants": "Kartvarianter",
+    "tokenVariants": "Tokenvarianter",
+    "modelVariants": "Modellvarianter",
+    "audioVariants": "Ljudvarianter",
+    "groupCollections": "Samlingar",
+    "groupSizes": "Storlekar"
   },
   "about": {
     "title": "Om Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Alla länkar du har skapat. Kopiera en igen, eller återkalla den så slutar den fungera.",
       "noPermission": "Du kan inte skapa delningslänkar just nu. Länkar du skapat tidigare är pausade, inte borttagna, och fungerar igen om en administratör ger tillbaka behörigheten.",
       "none": "Du har inte skapat några delningslänkar."
+    },
+    "sidebarStats": {
+      "title": "Statistik i sidofältet",
+      "description": "Statistiken längst ner i ditt sidofält, upp till 10, i den ordning du väljer."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Sidofältsstatistik",
-      "description": "Välj vilken statistik som visas i sidofältets sidfot."
+      "description": "Välj upp till 10 statistikvärden för sidofältets sidfot, i ordning. Det är standard för alla; var och en kan välja sina egna under Preferenser i sina inställningar."
     },
     "apiKeys": {
       "title": "API-nycklar",

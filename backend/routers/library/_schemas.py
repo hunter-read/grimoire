@@ -77,18 +77,42 @@ class StatusResponse(BaseModel):
 class StatsResponse(BaseModel):
     """Library counts for the dashboard and external integrations."""
 
+    # Every system; ``ttrpg_systems`` + ``wargame_systems``.
     game_systems: int
+    ttrpg_systems: int = 0
+    wargame_systems: int = 0
+    # Every book; ``ttrpg_books`` + ``wargame_books``.
     books: int
-    # Wargame books (the armory/ folder); counted in ``books`` too.
+    ttrpg_books: int = 0
+    wargame_books: int = 0
+    # Wargame books (the armory/ folder) under their older name; always equal to
+    # ``wargame_books``, and counted in ``books`` too.
     armory_books: int = 0
+    # The item counts leave out variants (a printer-friendly cut, a gridless
+    # map); the *_variants fields count them, so items + variants = files.
     maps: int
     tokens: int
     audio: int
     models: int
+    book_variants: int = 0
+    map_variants: int = 0
+    token_variants: int = 0
+    model_variants: int = 0
+    audio_variants: int = 0
     indexed_books: int
+    # Every book's pages; ``ttrpg_pages`` + ``wargame_pages``.
     total_pages: int
-    # Books only; ``library_size_mb`` covers maps, tokens, audio and models too.
+    ttrpg_pages: int = 0
+    wargame_pages: int = 0
+    # Books only; ``ttrpg_size_mb`` + ``wargame_size_mb``.
     total_size_mb: float
+    ttrpg_size_mb: float = 0
+    wargame_size_mb: float = 0
+    maps_size_mb: float = 0
+    tokens_size_mb: float = 0
+    models_size_mb: float = 0
+    audio_size_mb: float = 0
+    # Books plus maps, tokens, audio and 3D models.
     library_size_mb: float
 
 

@@ -23,6 +23,8 @@ import {
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
+import SidebarStats from './SidebarStats'
+import { resolveLayout } from '../lib/sidebarStats'
 import { preloadRoute } from './routeViews'
 import NavGroupHeader from './NavGroupHeader'
 import { showArmoryNav } from '../utils/armory'
@@ -73,6 +75,8 @@ interface SidebarProps {
     | (Pick<Schema<'UserOut'>, 'username' | 'display_name' | 'role'> & {
         /** A guest's side of the app (see guestScopeOf). */
         guest_scope?: string | null
+        /** Their own sidebar stats layout; null follows the admin's default. */
+        sidebar_stats?: string[] | null
       })
     | null
   onLogout?: () => void
@@ -114,25 +118,7 @@ export default function Sidebar({
   // invited to one side and sees only that group.
   const showRoleplaying = !hide_campaigns && scope !== 'wargame'
   const showWargaming = scope !== 'ttrpg' && (!hide_armies || !hide_leagues)
-  const {
-    show_stat_systems = true,
-    show_stat_books = false,
-    show_stat_pages = true,
-    show_stat_maps = false,
-    show_stat_tokens = false,
-    show_stat_audio = false,
-    show_stat_models = false,
-    show_stat_size = true,
-    show_stat_library_size = false,
-  } = uiSettings
-
-  // Stats come back in MB; roll over to GB once the number stops reading well.
-  const formatSize = (raw?: number | null) => {
-    const mb = raw || 0
-    return mb >= 1024
-      ? t('common.sizeGB', { size: (mb / 1024).toFixed(2) })
-      : t('common.sizeMB', { size: mb })
-  }
+  const statsLayout = resolveLayout(user?.sidebar_stats, uiSettings)
 
   const [showAbout, setShowAbout] = useState(false)
   const latestVersion = useLatestRelease()
@@ -155,17 +141,6 @@ export default function Sidebar({
   }
 
   const showUpdateBanner = hasUpdate && !updateDismissed
-
-  const anyStats =
-    show_stat_systems ||
-    show_stat_books ||
-    show_stat_pages ||
-    show_stat_maps ||
-    show_stat_tokens ||
-    show_stat_audio ||
-    show_stat_models ||
-    show_stat_size ||
-    show_stat_library_size
 
   const navItem = (
     to: string,
@@ -326,82 +301,7 @@ export default function Sidebar({
         {collapsed ? <LuPanelLeftOpen size={16} /> : <LuPanelLeftClose size={16} />}
       </button>
 
-      {/* Stats footer */}
-      {!collapsed && stats && anyStats && (
-        // A description list, so each figure is read with its name ("Systems,
-        // 42") rather than as a loose run of words and numbers.
-        <dl
-          aria-label={t('a11y.libraryStats')}
-          style={{
-            padding: '16px 20px',
-            margin: 0,
-            borderTop: '1px solid var(--border)',
-            fontSize: 14,
-            color: 'var(--text-muted)',
-          }}
-        >
-          {show_stat_systems && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.systems')}</dt>
-              <dd style={statValueStyle}>{stats.game_systems}</dd>
-            </div>
-          )}
-          {show_stat_books && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.books')}</dt>
-              <dd style={statValueStyle}>{stats.books}</dd>
-            </div>
-          )}
-          {show_stat_pages && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.pages')}</dt>
-              <dd style={statValueStyle}>{stats.total_pages?.toLocaleString()}</dd>
-            </div>
-          )}
-          {show_stat_maps && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.maps')}</dt>
-              <dd style={statValueStyle}>{stats.maps}</dd>
-            </div>
-          )}
-          {show_stat_tokens && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.tokens')}</dt>
-              <dd style={statValueStyle}>{stats.tokens}</dd>
-            </div>
-          )}
-          {show_stat_audio && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.audio')}</dt>
-              <dd style={statValueStyle}>{stats.audio}</dd>
-            </div>
-          )}
-          {show_stat_models && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <dt>{t('stats.models')}</dt>
-              <dd style={statValueStyle}>{stats.models}</dd>
-            </div>
-          )}
-          {show_stat_size && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: show_stat_library_size ? 4 : 0,
-              }}
-            >
-              <dt>{t('stats.booksSize')}</dt>
-              <dd style={statValueStyle}>{formatSize(stats.total_size_mb)}</dd>
-            </div>
-          )}
-          {show_stat_library_size && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <dt>{t('stats.librarySize')}</dt>
-              <dd style={statValueStyle}>{formatSize(stats.library_size_mb)}</dd>
-            </div>
-          )}
-        </dl>
-      )}
+      {!collapsed && stats && <SidebarStats stats={stats} layout={statsLayout} />}
 
       {!collapsed && about && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
@@ -575,7 +475,6 @@ export default function Sidebar({
 const dividerStyle: CSSProperties = { margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }
 
 // A stat's figure; a <dd> carries a default indent, cleared here.
-const statValueStyle: CSSProperties = { color: 'var(--text-dim)', margin: 0 }
 
 const navLinkStyle = (active: boolean, collapsed = false): CSSProperties => ({
   display: 'flex',

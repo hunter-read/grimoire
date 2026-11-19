@@ -14,7 +14,7 @@ anyone else.
 | Area            | What's in it                                                                                   |
 | --------------- | ---------------------------------------------------------------------------------------------- |
 | **Account**     | Profile (display name, email), Password & sessions (change password, active sessions), and deleting your account |
-| **Preferences** | Language & theme, and Reading & browsing (the reader, how the library lists things, content preferences) |
+| **Preferences** | Language, theme and your sidebar stats, and Reading & browsing (the reader, how the library lists things, content preferences) |
 | **Connections** | Your OPDS feed for e-reader apps, your [API keys](api.md#api-keys), and the [share links](sharing.md) you have made |
 
 API keys and share links only show up when you are allowed to make them.
@@ -76,7 +76,18 @@ Campaigns and Characters sit under a **Role-playing** heading and
 [Armies and Leagues](armies.md) under **Wargaming**, with a rule between them. A heading goes
 when everything under it is hidden. A campaign's guest sees only the role-playing group, and a league's guest only the wargaming one.
 
-**Sidebar Stats** picks the counts shown at the foot of the sidebar.
+**Sidebar Stats** picks up to 10 counts and sizes for the foot of the sidebar, and their order:
+tick the ones to show - they are grouped in columns as Systems, Books, Pages, Collections,
+Variants and Sizes - and drag a ticked one by its handle in the numbered list above them to
+move it (or focus the handle and use the up and down arrow keys). Your choice is everyone's default. Each person can choose
+their own the same way under **Preferences → Sidebar stats**, and **Use the default** there
+goes back to yours.
+
+Clicking the stats at the foot of the sidebar, or **All stats** under them, opens every stat:
+systems, books and pages in a table split into role-playing and wargaming with a total row,
+the size of each collection ending with the whole library's, and each collection's items with
+their variants beside them. On a phone, **All stats** is in the **More** drawer. See
+[Sidebar stats layouts](api.md#sidebar-stats-layouts).
 
 ---
 

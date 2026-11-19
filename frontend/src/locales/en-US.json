@@ -39,7 +39,49 @@
     "librarySize": "Library Size",
     "version": "Version",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "ttrpgSystems": "TTRPG Systems",
+    "wargameSystems": "Wargame Systems",
+    "ttrpgBooks": "TTRPG Books",
+    "wargameBooks": "Wargame Books",
+    "ttrpgPages": "TTRPG Pages",
+    "wargamePages": "Wargame Pages",
+    "indexedBooks": "Indexed Books",
+    "ttrpgSize": "TTRPG Books Size",
+    "wargameSize": "Wargame Books Size",
+    "mapsSize": "Maps Size",
+    "tokensSize": "Tokens Size",
+    "modelsSize": "Models Size",
+    "audioSize": "Audio Size",
+    "showAll": "All stats",
+    "allTitle": "Library statistics",
+    "byGameType": "Systems, books and pages",
+    "ttrpg": "TTRPG",
+    "wargaming": "Wargaming",
+    "total": "Total",
+    "sizeTitle": "Size on disk",
+    "collectionsTitle": "Items and variants",
+    "yourSidebarOwn": "You chose these stats. Use the default to go back to the ones your admin set.",
+    "yourSidebarDefault": "These are the default stats your admin chose. Change them to make the sidebar your own.",
+    "chosenCount": "{{count}} of {{max}} chosen",
+    "noneChosen": "No stats chosen - the sidebar shows none.",
+    "chosenList": "Stats in the sidebar",
+    "save": "Save",
+    "useDefault": "Use the default",
+    "saved": "Saved",
+    "reorder": "Reorder {{name}}",
+    "reorderHint": "Tick the stats to show. Drag a ticked stat by its handle to move it, or focus the handle and use the up and down arrow keys.",
+    "moved": "Moved to position {{position}} of {{total}}",
+    "fullHint": "untick one to choose another",
+    "items": "Items",
+    "variants": "Variants",
+    "bookVariants": "Book Variants",
+    "mapVariants": "Map Variants",
+    "tokenVariants": "Token Variants",
+    "modelVariants": "Model Variants",
+    "audioVariants": "Audio Variants",
+    "groupCollections": "Collections",
+    "groupSizes": "Sizes"
   },
   "about": {
     "title": "About Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Every link you've made. Copy one again, or revoke it to stop it working.",
       "noPermission": "You can't create share links right now. Links you made before are paused, not deleted, and work again if an admin restores your permission.",
       "none": "You haven't made any share links."
+    },
+    "sidebarStats": {
+      "title": "Sidebar stats",
+      "description": "The stats at the foot of your sidebar, up to 10, in the order you choose."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Sidebar Stats",
-      "description": "Choose which stats appear in the sidebar footer."
+      "description": "Choose up to 10 stats for the sidebar footer, in order. This is the default for everyone; each person can choose their own under Preferences in their settings."
     },
     "apiKeys": {
       "title": "API Keys",

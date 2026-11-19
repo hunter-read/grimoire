@@ -19,8 +19,10 @@ import {
   LuSwords,
   LuShield,
   LuTrophy,
+  LuChartColumn,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
+import StatsModal from './StatsModal'
 import NavGroupHeader from './NavGroupHeader'
 import type { Schema } from '../api'
 import { showArmoryNav } from '../utils/armory'
@@ -31,7 +33,8 @@ export interface MobileSidebarProps {
   user: { role?: string | null; guest_scope?: string | null } | null
   onLogout?: () => void
   uiSettings?: Partial<Schema<'UISettingsResponse'>>
-  /** Library counts; whether the armory holds anything decides its entry. */
+  /** Library counts: whether the armory holds anything decides its entry, and
+   *  All stats in the drawer opens every one. */
   stats?: Schema<'StatsResponse'> | null
 }
 
@@ -43,6 +46,7 @@ export default function MobileSidebar({
 }: MobileSidebarProps) {
   const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const moreButtonRef = useRef<HTMLButtonElement>(null)
   const location = useLocation()
 
@@ -303,6 +307,27 @@ export default function MobileSidebar({
               label={t('nav.settings')}
               onClick={() => setMoreOpen(false)}
             />
+            {/* The phone has no stats footer, so every stat is one tap away here. */}
+            {stats && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreOpen(false)
+                  setStatsOpen(true)
+                }}
+                style={{
+                  ...moreItemStyle,
+                  width: '100%',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-dim)',
+                }}
+              >
+                <LuChartColumn size={18} />
+                <span>{t('stats.showAll')}</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setMoreOpen(false)
@@ -322,6 +347,7 @@ export default function MobileSidebar({
           </nav>
         </>
       )}
+      {statsOpen && stats && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
     </>
   )
 }

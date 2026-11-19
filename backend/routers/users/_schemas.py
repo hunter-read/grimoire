@@ -167,6 +167,9 @@ class PreferencesUpdate(BaseModel):
     allow_explicit: Optional[bool] = None
     display_name: Optional[str] = None
     email: Optional[str] = None  # "" clears
+    # Up to 10 /api/stats fields, in order. An explicit null clears it, so the
+    # sidebar follows the admin's default again; leaving it out changes nothing.
+    sidebar_stats: Optional[list[str]] = None
 
     @field_validator("email")
     @classmethod
@@ -258,6 +261,8 @@ class PreferencesResponse(BaseModel):
     explicit_locked: bool = False
     display_name: Optional[str] = None
     email: Optional[str] = None
+    # Null when the user follows the admin's default layout.
+    sidebar_stats: Optional[list[str]] = None
 
 
 class PasswordChangeResponse(BaseModel):

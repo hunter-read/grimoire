@@ -117,10 +117,14 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     return {"status": "stop_requested"}
 
 
-def _book_bytes(db: Session, scope) -> int:
+def _book_bytes(db: Session, scope, *criteria) -> int:
     """Total bytes of the books the caller may see, variants included."""
     # int(): PostgreSQL sums a BIGINT as NUMERIC, which arrives as a Decimal.
-    return int(scope(db.query(func.sum(Book.file_size))).scalar() or 0)
+    return int(scope(db.query(func.sum(Book.file_size)).filter(*criteria)).scalar() or 0)
+
+
+def _megabytes(size: int) -> float:
+    return round(size / 1048576, 1)
 
 
 @stats_router.get(
@@ -146,52 +150,92 @@ def get_stats(
     def _books(q):
         return access_control.visible_books(db, q, access_user)
 
-    return {
+    def _systems(*criteria) -> int:
         # Container folders are shelves, not systems, so they are excluded — but
         # the systems nested inside them do count (issues #261/#262). A one-page
         # container carries both flags; its children carry neither. Only the
         # systems this user can see are counted, like the books.
-        "game_systems": access_control.visible_systems(db, db.query(GameSystem), access_user)
-        .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
-        .filter(GameSystem.is_one_page != True)  # noqa: E712
-        .filter(func.coalesce(GameSystem.container_kind, "") == "")
-        .count(),
+        return (
+            access_control.visible_systems(db, db.query(GameSystem), access_user)
+            .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
+            .filter(GameSystem.is_one_page != True)  # noqa: E712
+            .filter(func.coalesce(GameSystem.container_kind, "") == "")
+            .filter(*criteria)
+            .count()
+        )
+
+    def _book_count(*criteria) -> int:
         # Item counts exclude variants: a printer-friendly cut is the same book,
         # and counting it twice would contradict what the library view shows.
         # Bytes are the opposite case — every variant is a real file on the
-        # disk, so total_size_mb deliberately counts them all (issues #304/#306).
-        "books": _books(variants.parents_only(db.query(Book), Book)).count(),
-        # The wargame books among them, from the armory/ folder. The sidebar
-        # shows the Armory only once there is something in it.
-        "armory_books": _books(
-            variants.parents_only(db.query(Book).filter(Book.game_type == GAME_TYPE_WARGAME), Book)
-        ).count(),
+        # disk, so the sizes deliberately count them all (issues #304/#306).
+        return _books(variants.parents_only(db.query(Book).filter(*criteria), Book)).count()
+
+    def _pages(*criteria) -> int:
+        return int(
+            _books(
+                db.query(func.sum(Book.page_count))
+                .filter(variants.parent_filter(Book))
+                .filter(*criteria)
+            ).scalar()
+            or 0
+        )
+
+    def _variant_count(model) -> int:
+        return db.query(model).filter(model.variant_parent_id.isnot(None)).count()
+
+    def _collection_bytes(model) -> int:
+        return int(db.query(func.sum(model.file_size)).scalar() or 0)
+
+    ttrpg = Book.game_type != GAME_TYPE_WARGAME
+    wargame = Book.game_type == GAME_TYPE_WARGAME
+    ttrpg_system = GameSystem.game_type != GAME_TYPE_WARGAME
+    wargame_system = GameSystem.game_type == GAME_TYPE_WARGAME
+
+    book_bytes = _book_bytes(db, _books)
+    collection_bytes = {
+        model: _collection_bytes(model) for model in (GenericMap, Token, Audio, Model3D)
+    }
+    wargame_books = _book_count(wargame)
+    return {
+        "game_systems": _systems(),
+        "ttrpg_systems": _systems(ttrpg_system),
+        "wargame_systems": _systems(wargame_system),
+        "books": _book_count(),
+        "ttrpg_books": _book_count(ttrpg),
+        "wargame_books": wargame_books,
+        # The wargame books among them, from the armory/ folder, under their
+        # older name. The sidebar shows the Armory only once there is
+        # something in it.
+        "armory_books": wargame_books,
         "maps": variants.parents_only(db.query(GenericMap), GenericMap).count(),
         "tokens": variants.parents_only(db.query(Token), Token).count(),
         "models": variants.parents_only(db.query(Model3D), Model3D).count(),
         "audio": variants.parents_only(db.query(Audio), Audio).count(),
-        "indexed_books": _books(
-            variants.parents_only(db.query(Book).filter_by(indexed=True), Book)
+        # The variants the counts above leave out - each a real file, such as
+        # a gridless cut of a map. Books are scoped like the book counts.
+        "book_variants": _books(
+            db.query(Book).filter(Book.variant_parent_id.isnot(None))
         ).count(),
-        "total_pages": _books(
-            db.query(func.sum(Book.page_count)).filter(variants.parent_filter(Book))
-        ).scalar()
-        or 0,
+        "map_variants": _variant_count(GenericMap),
+        "token_variants": _variant_count(Token),
+        "model_variants": _variant_count(Model3D),
+        "audio_variants": _variant_count(Audio),
+        "indexed_books": _book_count(Book.indexed == True),  # noqa: E712
+        "total_pages": _pages(),
+        "ttrpg_pages": _pages(ttrpg),
+        "wargame_pages": _pages(wargame),
         # ``total_size_mb`` is books only; ``library_size_mb`` adds every other
-        # collection for the whole-library figure (issue #408). Both keep the
-        # book portion access-scoped so a restricted book's bytes stay hidden.
-        "total_size_mb": round(_book_bytes(db, _books) / 1048576, 1),
-        "library_size_mb": round(
-            (
-                _book_bytes(db, _books)
-                + sum(
-                    int(db.query(func.sum(model.file_size)).scalar() or 0)
-                    for model in (GenericMap, Token, Audio, Model3D)
-                )
-            )
-            / 1048576,
-            1,
-        ),
+        # collection for the whole-library figure (issue #408). The book
+        # portions stay access-scoped so a restricted book's bytes stay hidden.
+        "total_size_mb": _megabytes(book_bytes),
+        "ttrpg_size_mb": _megabytes(_book_bytes(db, _books, ttrpg)),
+        "wargame_size_mb": _megabytes(_book_bytes(db, _books, wargame)),
+        "maps_size_mb": _megabytes(collection_bytes[GenericMap]),
+        "tokens_size_mb": _megabytes(collection_bytes[Token]),
+        "models_size_mb": _megabytes(collection_bytes[Model3D]),
+        "audio_size_mb": _megabytes(collection_bytes[Audio]),
+        "library_size_mb": _megabytes(book_bytes + sum(collection_bytes.values())),
     }
 
 

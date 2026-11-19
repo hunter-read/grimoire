@@ -33,6 +33,8 @@ class SettingsPatch(BaseModel):
     show_stat_models: Optional[bool] = None
     show_stat_size: Optional[bool] = None
     show_stat_library_size: Optional[bool] = None
+    # The default sidebar stats layout: up to 10 /api/stats fields, in order.
+    sidebar_stats: Optional[list[str]] = None
     campaign_uploads_disabled: Optional[bool] = None
     campaign_upload_max_file_mb: Optional[int] = None
     campaign_upload_max_total_mb: Optional[int] = None
@@ -128,6 +130,9 @@ class SettingsResponse(BaseModel):
     show_stat_models: bool
     show_stat_size: bool
     show_stat_library_size: bool
+    # The default sidebar stats layout. The show_stat_* flags above read as
+    # whether their stat is in it.
+    sidebar_stats: list[str] = Field(default_factory=list)
     password_auth_enabled: bool
     password_auth_env_locked: bool
     guest_access_enabled: bool
@@ -221,6 +226,9 @@ class UISettingsResponse(BaseModel):
     show_stat_models: bool
     show_stat_size: bool
     show_stat_library_size: bool
+    # The default sidebar stats layout. The show_stat_* flags above read as
+    # whether their stat is in it.
+    sidebar_stats: list[str] = Field(default_factory=list)
     campaign_uploads_disabled: bool
     campaign_upload_max_file_mb: int
     campaign_upload_max_total_mb: int

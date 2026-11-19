@@ -39,7 +39,49 @@
     "librarySize": "Größe (Bibliothek)",
     "version": "Version",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "ttrpgSystems": "Rollenspiel-Systeme",
+    "wargameSystems": "Tabletop-Systeme",
+    "ttrpgBooks": "Rollenspiel-Bücher",
+    "wargameBooks": "Tabletop-Bücher",
+    "ttrpgPages": "Rollenspiel-Seiten",
+    "wargamePages": "Tabletop-Seiten",
+    "indexedBooks": "Indizierte Bücher",
+    "ttrpgSize": "Größe (Rollenspiel-Bücher)",
+    "wargameSize": "Größe (Tabletop-Bücher)",
+    "mapsSize": "Größe (Karten)",
+    "tokensSize": "Größe (Tokens)",
+    "modelsSize": "Größe (Models)",
+    "audioSize": "Größe (Audio)",
+    "showAll": "Alle Statistiken",
+    "allTitle": "Bibliotheksstatistik",
+    "byGameType": "Systeme, Bücher und Seiten",
+    "ttrpg": "Rollenspiel",
+    "wargaming": "Tabletop",
+    "total": "Gesamt",
+    "sizeTitle": "Speicherplatz",
+    "collectionsTitle": "Einträge und Varianten",
+    "yourSidebarOwn": "Diese Statistiken hast du gewählt. Mit „Standard verwenden“ kehrst du zu denen deines Admins zurück.",
+    "yourSidebarDefault": "Das sind die Standard-Statistiken deines Admins. Ändere sie, um die Seitenleiste anzupassen.",
+    "chosenCount": "{{count}} von {{max}} gewählt",
+    "noneChosen": "Keine Statistiken gewählt - die Seitenleiste zeigt keine.",
+    "chosenList": "Statistiken in der Seitenleiste",
+    "save": "Speichern",
+    "useDefault": "Standard verwenden",
+    "saved": "Gespeichert",
+    "reorder": "{{name}} verschieben",
+    "reorderHint": "Hake die Statistiken an, die angezeigt werden sollen. Ziehe eine angehakte Statistik am Griff, um sie zu verschieben, oder fokussiere den Griff und nutze die Pfeiltasten nach oben und unten.",
+    "moved": "An Position {{position}} von {{total}} verschoben",
+    "fullHint": "entferne einen Haken, um eine andere zu wählen",
+    "items": "Einträge",
+    "variants": "Varianten",
+    "bookVariants": "Buchvarianten",
+    "mapVariants": "Kartenvarianten",
+    "tokenVariants": "Token-Varianten",
+    "modelVariants": "Model-Varianten",
+    "audioVariants": "Audio-Varianten",
+    "groupCollections": "Sammlungen",
+    "groupSizes": "Größen"
   },
   "about": {
     "title": "Über Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Alle Links, die du erstellt hast. Kopiere einen erneut oder widerrufe ihn, damit er nicht mehr funktioniert.",
       "noPermission": "Du kannst gerade keine Freigabelinks erstellen. Bestehende Links sind pausiert, nicht gelöscht, und funktionieren wieder, wenn ein Admin dir die Berechtigung zurückgibt.",
       "none": "Du hast noch keine Freigabelinks erstellt."
+    },
+    "sidebarStats": {
+      "title": "Statistiken in der Seitenleiste",
+      "description": "Die Statistiken unten in deiner Seitenleiste, bis zu 10, in der Reihenfolge deiner Wahl."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Seitenleisten-Statistiken",
-      "description": "Wähle, welche Statistiken in der Seitenleiste angezeigt werden."
+      "description": "Wähle bis zu 10 Statistiken für die Seitenleiste, in Reihenfolge. Das ist der Standard für alle; jede Person kann in ihren Einstellungen unter „Präferenzen“ eigene wählen."
     },
     "apiKeys": {
       "title": "API-Schlüssel",

@@ -153,6 +153,13 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     description: 'settings.entries.themeDesc',
   },
   {
+    id: 'my-sidebar-stats',
+    area: 'preferences',
+    group: 'look',
+    title: 'userSettings.sidebarStats.title',
+    description: 'userSettings.sidebarStats.description',
+  },
+  {
     id: 'reader',
     area: 'preferences',
     group: 'reading',

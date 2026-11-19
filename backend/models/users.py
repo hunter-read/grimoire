@@ -98,6 +98,10 @@ class User(Base):
     # will grow, and Grimoire's own choice stays in its original columns so
     # nothing has to be migrated or read two ways.
     theme_by_mode: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
+    # The library stats this user's sidebar shows, in order: a list of up to 10
+    # /api/stats fields. NULL follows the admin's default (the sidebar_stats app
+    # setting); see backend/services/sidebar_stats.py.
+    sidebar_stats: Mapped[Optional[list[str]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     # Shown on the admin users list (issue #576). `last_login_at` is set when a
     # session opens; `last_active_at` also moves on every token refresh and on

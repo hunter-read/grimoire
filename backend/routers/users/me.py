@@ -11,6 +11,7 @@ from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
 from ...security import PASSWORD_CHANGE_SCOPE, account_attempts_blocked, record_account_failure
 from ...sessions import delete_user_sessions, revoke_user_sessions
+from ...services import sidebar_stats
 from ...services.campaigns.user_data import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
 
@@ -65,12 +66,21 @@ def update_own_preferences(
             if conflict and conflict.id != user.id:
                 raise HTTPException(400, "Email already in use")
         user.email = new_email
+    if "sidebar_stats" in data.model_fields_set:
+        if data.sidebar_stats is None:
+            user.sidebar_stats = None
+        else:
+            try:
+                user.sidebar_stats = sidebar_stats.validate(data.sidebar_stats)
+            except sidebar_stats.LayoutError as exc:
+                raise HTTPException(400, str(exc)) from exc
     db.commit()
     return {
         "allow_explicit": user.allow_explicit,
         "explicit_locked": bool(user.explicit_locked),
         "display_name": user.display_name,
         "email": user.email,
+        "sidebar_stats": sidebar_stats.user_layout(user.sidebar_stats),
     }
 
 

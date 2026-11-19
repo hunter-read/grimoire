@@ -39,7 +39,49 @@
     "librarySize": "Dimensione libreria",
     "version": "Versione",
     "audio": "Audio",
-    "models": "Modelli"
+    "models": "Modelli",
+    "ttrpgSystems": "Sistemi di gioco di ruolo",
+    "wargameSystems": "Sistemi wargame",
+    "ttrpgBooks": "Libri di gioco di ruolo",
+    "wargameBooks": "Libri wargame",
+    "ttrpgPages": "Pagine di gioco di ruolo",
+    "wargamePages": "Pagine wargame",
+    "indexedBooks": "Libri indicizzati",
+    "ttrpgSize": "Dimensione libri di gioco di ruolo",
+    "wargameSize": "Dimensione libri wargame",
+    "mapsSize": "Dimensione mappe",
+    "tokensSize": "Dimensione token",
+    "modelsSize": "Dimensione modelli",
+    "audioSize": "Dimensione audio",
+    "showAll": "Tutte le statistiche",
+    "allTitle": "Statistiche della libreria",
+    "byGameType": "Sistemi, libri e pagine",
+    "ttrpg": "Gioco di ruolo",
+    "wargaming": "Wargame",
+    "total": "Totale",
+    "sizeTitle": "Spazio su disco",
+    "collectionsTitle": "Elementi e varianti",
+    "yourSidebarOwn": "Hai scelto tu queste statistiche. Usa quelle predefinite per tornare a quelle del tuo amministratore.",
+    "yourSidebarDefault": "Queste sono le statistiche predefinite scelte dal tuo amministratore. Cambiale per personalizzare la barra laterale.",
+    "chosenCount": "{{count}} di {{max}} scelte",
+    "noneChosen": "Nessuna statistica scelta: la barra laterale non ne mostra.",
+    "chosenList": "Statistiche nella barra laterale",
+    "save": "Salva",
+    "useDefault": "Usa quelle predefinite",
+    "saved": "Salvato",
+    "reorder": "Riordina {{name}}",
+    "reorderHint": "Spunta le statistiche da mostrare. Trascina una statistica spuntata dalla maniglia per spostarla, oppure porta il focus sulla maniglia e usa le frecce su e giù.",
+    "moved": "Spostata alla posizione {{position}} di {{total}}",
+    "fullHint": "togli una spunta per sceglierne un'altra",
+    "items": "Elementi",
+    "variants": "Varianti",
+    "bookVariants": "Varianti dei libri",
+    "mapVariants": "Varianti delle mappe",
+    "tokenVariants": "Varianti dei token",
+    "modelVariants": "Varianti dei modelli",
+    "audioVariants": "Varianti audio",
+    "groupCollections": "Raccolte",
+    "groupSizes": "Dimensioni"
   },
   "about": {
     "title": "Informazioni su Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Tutti i link che hai creato. Copiane uno di nuovo, o revocalo perché smetta di funzionare.",
       "noPermission": "Al momento non puoi creare link di condivisione. Quelli che hai creato sono in pausa, non eliminati, e torneranno a funzionare se un admin ti restituisce il permesso.",
       "none": "Non hai creato nessun link di condivisione."
+    },
+    "sidebarStats": {
+      "title": "Statistiche della barra laterale",
+      "description": "Le statistiche in fondo alla tua barra laterale, fino a 10, nell'ordine che scegli."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Statistiche barra laterale",
-      "description": "Scegli quali statistiche mostrare nel piè di pagina della barra laterale."
+      "description": "Scegli fino a 10 statistiche per il piè di pagina della barra laterale, in ordine. È l'impostazione predefinita per tutti; ognuno può scegliere le proprie in Preferenze, nelle sue impostazioni."
     },
     "apiKeys": {
       "title": "Chiavi API",

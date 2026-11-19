@@ -35,6 +35,7 @@ vi.mock('../UserPreferenceSections', () => ({
 }))
 vi.mock('../AppearanceSection', () => ({ default: () => null }))
 vi.mock('../ExplicitContentSection', () => ({ default: () => null }))
+vi.mock('../MySidebarStatsSection', () => ({ default: () => null }))
 vi.mock('../OPDSSection', () => ({ default: () => null }))
 vi.mock('../ApiKeySection', () => ({ default: () => null }))
 vi.mock('../ShareLinksSection', () => ({ default: () => null }))
