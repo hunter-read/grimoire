@@ -4,7 +4,7 @@ import { sanitizeLoginMessage } from '../utils/sanitizeLoginMessage'
 import { auth as authApi, type ApiError } from '../api'
 import type { AuthUser } from '../context/AuthContext'
 import OidcLoginButton from '../components/OidcLoginButton'
-import { startOidcLogin } from '../utils/oidcLogin'
+import { goToOidcProvider } from '../utils/oidcLogin'
 
 interface LoginConfig {
   password_auth_enabled: boolean
@@ -98,7 +98,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
         }
         setConfig(next)
         if (next.oidc_enabled && next.oidc_auto_launch && !suppressAutoLaunch && !err) {
-          startOidcLogin()
+          goToOidcProvider()
         }
       })
       .catch(() => {})
@@ -107,7 +107,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
 
   const handleOidcLogin = () => {
     sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
-    startOidcLogin()
+    goToOidcProvider()
   }
 
   const handleSubmit = async (e: FormEvent) => {

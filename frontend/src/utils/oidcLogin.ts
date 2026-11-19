@@ -27,6 +27,6 @@ export function oidcLoginUrl(location: Pick<Location, 'pathname' | 'search'>): s
 }
 
 /** Send the browser to the OIDC provider, coming back to the current page. */
-export function startOidcLogin(): void {
+export function goToOidcProvider(): void {
   window.location.assign(oidcLoginUrl(window.location))
 }

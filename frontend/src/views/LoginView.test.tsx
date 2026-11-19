@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LoginView from './LoginView'
-import { startOidcLogin } from '../utils/oidcLogin'
+import { goToOidcProvider } from '../utils/oidcLogin'
 
 // jsdom can't navigate, and won't let a test spy on location.assign.
-vi.mock('../utils/oidcLogin', () => ({ startOidcLogin: vi.fn() }))
+vi.mock('../utils/oidcLogin', () => ({ goToOidcProvider: vi.fn() }))
 
 describe('LoginView', () => {
   beforeEach(() => {
@@ -244,7 +244,7 @@ describe('LoginView', () => {
       })
 
     afterEach(() => {
-      vi.mocked(startOidcLogin).mockClear()
+      vi.mocked(goToOidcProvider).mockClear()
       sessionStorage.clear()
     })
 
@@ -252,13 +252,13 @@ describe('LoginView', () => {
       globalThis.fetch = oidcConfig()
       render(<LoginView onLogin={vi.fn()} />)
       fireEvent.click(await screen.findByRole('button', { name: 'Sign in with SSO' }))
-      expect(startOidcLogin).toHaveBeenCalledTimes(1)
+      expect(goToOidcProvider).toHaveBeenCalledTimes(1)
     })
 
     it('starts by itself when auto-launch is on', async () => {
       globalThis.fetch = oidcConfig({ oidc_auto_launch: true })
       render(<LoginView onLogin={vi.fn()} />)
-      await waitFor(() => expect(startOidcLogin).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(goToOidcProvider).toHaveBeenCalledTimes(1))
     })
 
     it('does not start by itself after a failed sign-in', async () => {
@@ -266,7 +266,7 @@ describe('LoginView', () => {
       globalThis.fetch = oidcConfig({ oidc_auto_launch: true })
       render(<LoginView onLogin={vi.fn()} />)
       await screen.findByRole('button', { name: 'Sign in with SSO' })
-      expect(startOidcLogin).not.toHaveBeenCalled()
+      expect(goToOidcProvider).not.toHaveBeenCalled()
       window.history.replaceState(null, '', '/')
     })
   })
