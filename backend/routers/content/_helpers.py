@@ -12,6 +12,13 @@ from ...services import pg_search
 #: `{name}` placeholders in a content type's compact_display template.
 _DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
+#: A facet lists every value present, so a filter over a few hundred subclasses
+#: stays usable. Past this many it is omitted rather than sent with every browse
+#: response: a field that nearly every entry gives its own value is a search
+#: term, not a filter. A `filter_depends` child usually comes back under the cap
+#: once its parent is chosen.
+MAX_FACET_VALUES = 500
+
 MAX_PAGE_SIZE = 200
 DEFAULT_PAGE_SIZE = 50
 
@@ -107,13 +114,73 @@ def build_facets(entries: list[ContentEntry], filter_fields: list[str]) -> dict:
 
     built = {}
     for field, counts in facets.items():
-        if not counts:
+        if not counts or len(counts) > MAX_FACET_VALUES:
             continue
         built[field] = [
             {"value": value, "count": count}
             for value, count in sorted(counts.items(), key=_facet_order)
         ]
     return built
+
+
+def narrowed_facets(
+    entries: list[ContentEntry],
+    filter_fields: list[str],
+    filters: dict[str, str],
+    depends: dict[str, str],
+) -> dict:
+    """Each field's facet, narrowed by every other active filter but not by itself.
+
+    A facet never narrows itself, so the current choice stays reversible, and a
+    parent is not narrowed by its `filter_depends` children: picking a
+    subclass must not hide the other classes. A chosen value the other filters
+    have narrowed out is kept with a count of 0, so the select still shows it
+    and it can be cleared.
+    """
+    whole = build_facets(entries, filter_fields)
+    facets: dict = {}
+    for field in filter_fields:
+        children = {child for child, parent in depends.items() if parent == field}
+        others = {
+            key: value
+            for key, value in filters.items()
+            if key != field and key not in children
+        }
+        if others:
+            candidates = [entry for entry in entries if matches_filters(entry.data or {}, others)]
+            facets.update(build_facets(candidates, [field]))
+        elif field in whole:
+            facets[field] = list(whole[field])
+
+        chosen = filters.get(field)
+        if not chosen:
+            continue
+        wanted = chosen.strip().lower()
+        if any(option["value"].lower() == wanted for option in facets.get(field, [])):
+            continue
+        # Echo the stored casing, so `filter[class]=barbarian` selects "Barbarian".
+        stored = next(
+            (option["value"] for option in whole.get(field, []) if option["value"].lower() == wanted),
+            chosen,
+        )
+        facets.setdefault(field, []).append({"value": stored, "count": 0})
+    return facets
+
+
+def unparented_values(entries: list[ContentEntry], depends: dict[str, str]) -> dict[str, bool]:
+    """Whether any entry carries a `filter_depends` child without its parent.
+
+    A feature with an origin but no class (a racial trait, a homebrew row) can
+    only be found by its origin, so the browser leaves that filter enabled
+    before a class is chosen.
+    """
+    result = {}
+    for child, parent in depends.items():
+        result[child] = any(
+            (entry.data or {}).get(child) and not (entry.data or {}).get(parent)
+            for entry in entries
+        )
+    return result
 
 
 def _facet_order(item: tuple[str, int]) -> tuple:
