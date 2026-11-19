@@ -12,11 +12,6 @@ from ...services import pg_search
 #: `{name}` placeholders in a content type's compact_display template.
 _DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-#: A filter facet lists the values actually present. Past this many distinct
-#: values a facet stops being a filter and becomes a second search box, so it is
-#: omitted rather than rendered unusable.
-MAX_FACET_VALUES = 50
-
 MAX_PAGE_SIZE = 200
 DEFAULT_PAGE_SIZE = 50
 
@@ -112,7 +107,7 @@ def build_facets(entries: list[ContentEntry], filter_fields: list[str]) -> dict:
 
     built = {}
     for field, counts in facets.items():
-        if not counts or len(counts) > MAX_FACET_VALUES:
+        if not counts:
             continue
         built[field] = [
             {"value": value, "count": count}

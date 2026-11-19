@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ContentBrowser from './ContentBrowser'
 
@@ -103,6 +103,102 @@ describe('ContentBrowser', () => {
         expect.objectContaining({ filters: { level: '3' } })
       )
     )
+  })
+
+  it('shows a newly available facet after choosing another filter', async () => {
+    mockBrowse.mockImplementation(async (_schema, _type, { filters }) => ({
+      ...RESULT,
+      filters_available: filters.level
+        ? { ...RESULT.filters_available, school: [{ value: 'evocation', count: 1 }] }
+        : RESULT.filters_available,
+    }))
+    renderBrowser()
+    await screen.findByText('Fireball')
+    expect(screen.queryByLabelText('School')).not.toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '3')
+    expect(await screen.findByLabelText('School')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '')
+    await waitFor(() => expect(screen.queryByLabelText('School')).not.toBeInTheDocument())
+  })
+
+  it('enables the 2014 feature origin filter only when a class is selected', async () => {
+    const facets = {
+      class: [
+        { value: 'Fighter', count: 1 },
+        { value: 'Wizard', count: 1 },
+      ],
+      origin: [{ value: 'Rune Knight', count: 1 }],
+    }
+    mockBrowse.mockResolvedValue({ ...RESULT, filters_available: facets })
+    renderBrowser({
+      schemaId: 'dnd-5e-2014',
+      contentType: 'feature',
+      typeDefinition: {
+        ...TYPE,
+        filter_depends: { origin: 'class' },
+        fields: { class: { label: 'Class' }, origin: { label: 'From' } },
+      },
+    })
+    const origin = await screen.findByLabelText('From')
+    expect(origin).toBeDisabled()
+    await userEvent.selectOptions(screen.getByLabelText('Class'), 'Fighter')
+    expect(origin).toBeEnabled()
+    await userEvent.selectOptions(origin, 'Rune Knight')
+    await userEvent.selectOptions(screen.getByLabelText('Class'), 'Wizard')
+    await waitFor(() =>
+      expect(mockBrowse).toHaveBeenLastCalledWith(
+        'dnd-5e-2014',
+        'feature',
+        expect.objectContaining({ filters: { class: 'Wizard' } })
+      )
+    )
+    await userEvent.selectOptions(screen.getByLabelText('Class'), '')
+    expect(origin).toBeDisabled()
+  })
+
+  it('allows a dependent filter without its parent when unparented entries exist', async () => {
+    mockBrowse.mockResolvedValue({
+      ...RESULT,
+      filters_available: {
+        class: [{ value: 'Fighter', count: 1 }],
+        origin: [{ value: 'Elf', count: 1 }],
+      },
+      filters_without_parent: { origin: true },
+    })
+    renderBrowser({
+      typeDefinition: {
+        ...TYPE,
+        filter_depends: { origin: 'class' },
+        fields: { class: { label: 'Class' }, origin: { label: 'From' } },
+      },
+    })
+    expect(await screen.findByLabelText('From')).toBeEnabled()
+  })
+
+  it('ignores a stale response that arrives after a newer filter response', async () => {
+    let resolveOld: (value: unknown) => void = () => {}
+    mockBrowse.mockImplementation((_schema, _type, { filters }) => {
+      if (filters.level === '1')
+        return new Promise((resolve) => {
+          resolveOld = resolve
+        })
+      if (filters.level === '3')
+        return Promise.resolve({
+          ...RESULT,
+          entries: [{ ...RESULT.entries[0], name: 'New result' }],
+        })
+      return Promise.resolve(RESULT)
+    })
+    renderBrowser()
+    await screen.findByText('Fireball')
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '1')
+    await userEvent.selectOptions(screen.getByLabelText('Level'), '3')
+    expect(await screen.findByText('New result')).toBeInTheDocument()
+    await act(async () => {
+      resolveOld({ ...RESULT, entries: [{ ...RESULT.entries[0], name: 'Old result' }] })
+    })
+    expect(screen.queryByText('Old result')).not.toBeInTheDocument()
+    expect(screen.getByText('New result')).toBeInTheDocument()
   })
 
   it('reports a choice as a reference, not a copy', async () => {

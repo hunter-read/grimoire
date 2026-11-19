@@ -593,6 +593,16 @@ def _validate_content_type(name: str, definition: Any) -> None:
                 f"{'fields' if len(unknown) > 1 else 'field'}: {', '.join(map(str, unknown))}"
             )
 
+    dependencies = definition.get("filter_depends", {})
+    if not isinstance(dependencies, dict):
+        raise SchemaError(f"{what} 'filter_depends' must be a mapping")
+    filter_fields = definition.get("filter_fields", [])
+    for child, parent in dependencies.items():
+        if not isinstance(child, str) or not isinstance(parent, str) or child not in filter_fields or parent not in filter_fields or child == parent:
+            raise SchemaError(f"{what} 'filter_depends' must map distinct filter fields")
+        if parent in dependencies:
+            raise SchemaError(f"{what} 'filter_depends' cannot contain chains or cycles")
+
     display = definition.get("compact_display")
     if display is not None:
         if not isinstance(display, str):

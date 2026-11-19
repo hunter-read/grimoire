@@ -61,6 +61,7 @@ export default function ContentBrowser({
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [facets, setFacets] = useState<Facets>({})
+  const [withoutParent, setWithoutParent] = useState<Record<string, boolean>>({})
   const [filters, setFilters] = useState<Record<string, string>>({})
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -68,8 +69,10 @@ export default function ContentBrowser({
   const [detail, setDetail] = useState<CatalogEntry | null>(null)
 
   const searchRef = useRef<HTMLInputElement>(null)
+  const requestId = useRef(0)
 
   const load = useCallback(async () => {
+    const current = ++requestId.current
     setLoading(true)
     try {
       const result = await contentApi.browse(schemaId, contentType, {
@@ -77,22 +80,25 @@ export default function ContentBrowser({
         page,
         filters,
       })
+      if (current !== requestId.current) return
       setEntries(result.entries || [])
       setTotal(result.total || 0)
-      // Facets describe the whole catalog, so they are only refreshed when the
-      // filters are not narrowing it — otherwise picking one value would empty
-      // every other facet and leave no way back.
-      if (!Object.keys(filters).length) setFacets(result.filters_available || {})
+      setFacets(result.filters_available || {})
+      setWithoutParent(result.filters_without_parent || {})
       setError('')
     } catch (e) {
+      if (current !== requestId.current) return
       setError((e as Error).message || t('characters.catalogFailed'))
     } finally {
-      setLoading(false)
+      if (current === requestId.current) setLoading(false)
     }
   }, [schemaId, contentType, search, page, filters, t])
 
   useEffect(() => {
     void load()
+    return () => {
+      requestId.current += 1
+    }
   }, [load])
 
   // Close on Escape, the way every other dialog in the app does.
@@ -106,6 +112,7 @@ export default function ContentBrowser({
   }, [onClose])
 
   const chosenIds = new Set(chosen.map((item) => item?._ref).filter(Boolean))
+  const dependencies = typeDefinition.filter_depends || {}
   const pageSize = 50
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -124,6 +131,11 @@ export default function ContentBrowser({
     setPage(1)
     setFilters((prev) => {
       const next = { ...prev }
+      if (value !== prev[field]) {
+        for (const [child, parent] of Object.entries(dependencies)) {
+          if (parent === field) delete next[child]
+        }
+      }
       if (!value) delete next[field]
       else next[field] = value
       return next
@@ -215,7 +227,21 @@ export default function ContentBrowser({
                   </label>
                   <select
                     id={`facet-${field}`}
-                    value={filters[field] || ''}
+                    disabled={Boolean(
+                      dependencies[field] &&
+                      facets[dependencies[field]]?.length &&
+                      !filters[dependencies[field]] &&
+                      !withoutParent[field]
+                    )}
+                    value={String(
+                      options.find(
+                        (option) =>
+                          String(option.value).trim().toLowerCase() ===
+                          (filters[field] || '').trim().toLowerCase()
+                      )?.value ??
+                        filters[field] ??
+                        ''
+                    )}
                     onChange={(event) => setFilter(field, event.target.value)}
                     style={fieldInput}
                   >

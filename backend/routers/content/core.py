@@ -162,6 +162,7 @@ def list_content_types(
                 "sort_default": definition.get("sort_default", []),
                 "search_fields": definition.get("search_fields", []),
                 "filter_fields": definition.get("filter_fields", []),
+                "filter_depends": definition.get("filter_depends", {}),
                 "compact_display": definition.get("compact_display", ""),
                 "fields": definition.get("fields", {}),
                 "entry_count": counts.get(name, 0),
@@ -204,15 +205,35 @@ def browse_content(
         db, current_user.id, schema_id, content_type, include_rulesets=include_rulesets
     )
 
-    # Facets describe the whole catalog, not the current page, so they are built
-    # before filtering — otherwise choosing one value would empty every other
-    # facet and leave no way back.
-    facets = helpers.build_facets(entries, definition.get("filter_fields", []))
-
     filters = {
         key[7:-1]: value
         for key, value in request.query_params.items()
         if key.startswith("filter[") and key.endswith("]") and value
+    }
+    # Each facet is narrowed by the other filters, but never by itself. This
+    # keeps the current choice reversible while related filters (such as class)
+    # narrow the available values.
+    fields = definition.get("filter_fields", [])
+    depends = definition.get("filter_depends", {})
+    all_facets = helpers.build_facets(entries, fields)
+    facets = {}
+    for field in fields:
+        ignored = {field} | {child for child, parent in depends.items() if parent == field}
+        other_filters = {key: value for key, value in filters.items() if key not in ignored}
+        if other_filters:
+            candidates = [row for row in entries if helpers.matches_filters(row.data or {}, other_filters)]
+            facets.update(helpers.build_facets(candidates, [field]))
+        elif field in all_facets:
+            facets[field] = list(all_facets[field])
+        chosen = filters.get(field)
+        if chosen and not any(str(option['value']).strip().lower() == chosen.strip().lower()
+                              for option in facets.get(field, [])):
+            original = next((option['value'] for option in all_facets.get(field, [])
+                             if str(option['value']).strip().lower() == chosen.strip().lower()), chosen)
+            facets.setdefault(field, []).append({"value": original, "count": 0})
+    filters_without_parent = {
+        child: any((row.data or {}).get(child) and not (row.data or {}).get(parent) for row in entries)
+        for child, parent in depends.items()
     }
     if filters:
         entries = [
@@ -255,6 +276,7 @@ def browse_content(
         "page": current,
         "page_size": size,
         "filters_available": facets,
+        "filters_without_parent": filters_without_parent,
     }
 
 
