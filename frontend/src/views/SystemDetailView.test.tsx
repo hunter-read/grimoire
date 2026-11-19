@@ -29,6 +29,15 @@ vi.mock('../api', () => ({
     setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
+  // The compendium's links (issue #835): nothing linked unless a test says so.
+  compendium: {
+    get: vi.fn(() =>
+      Promise.resolve({ system_id: 's', packs: [], sheets: [], content_types: [], can_edit: true })
+    ),
+    setLinks: vi.fn(() => Promise.resolve({})),
+  },
+  content: { packs: vi.fn(() => Promise.resolve({ packs: [] })) },
+  characters: { listSchemas: vi.fn(() => Promise.resolve({ schemas: [] })) },
   mediaUrl: (path: string) => `http://localhost${path}`,
   // The cover is set through the shared image picker (issue #286).
   imageSources: {

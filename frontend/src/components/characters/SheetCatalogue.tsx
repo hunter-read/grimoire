@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuCheck, LuDownload, LuExternalLink, LuSearch, LuRefreshCw } from 'react-icons/lu'
+import {
+  LuX,
+  LuCheck,
+  LuDownload,
+  LuExternalLink,
+  LuSearch,
+  LuRefreshCw,
+  LuUsers,
+} from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import type { Schema } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
 import AuthorByline from '../settings/AuthorByline'
 import { goldBtn, iconBtn, fieldInput, card } from './characterStyles'
@@ -14,6 +23,10 @@ import { goldBtn, iconBtn, fieldInput, card } from './characterStyles'
  * nothing for anyone else, so there is no admin step — the same rule themes
  * follow. The catalogue itself comes from whichever add-on index the admin
  * configured, so pointing the server at a branch points this at it too.
+ *
+ * An admin can also install a sheet for everyone. A sheet already installed
+ * for everyone needs no copy of one's own, so for anyone else it reads as
+ * available rather than offering an install.
  */
 type Sheet = Schema<'CatalogueSheet'>
 
@@ -24,6 +37,7 @@ export interface SheetCatalogueProps {
 
 export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueProps) {
   const { t } = useTranslation()
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const [sheets, setSheets] = useState<Sheet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,15 +80,22 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const install = async (sheet: Sheet) => {
-    setInstalling(sheet.id)
+  const install = async (sheet: Sheet, serverWide = false) => {
+    setInstalling(`${sheet.id}:${serverWide}`)
     try {
-      await charactersApi.installSheet(sheet.id)
+      await charactersApi.installSheet(sheet.id, serverWide)
       setSheets((prev) =>
         prev.map((row) =>
-          row.id === sheet.id
-            ? { ...row, installed: true, installed_version: row.version, update_available: false }
-            : row
+          row.id !== sheet.id
+            ? row
+            : serverWide
+              ? {
+                  ...row,
+                  installed_server_wide: true,
+                  server_installed_version: row.version,
+                  server_update_available: false,
+                }
+              : { ...row, installed: true, installed_version: row.version, update_available: false }
         )
       )
       onInstalled?.()
@@ -219,7 +240,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       // the user has, and every character on it follows.
                       <button
                         onClick={() => void install(sheet)}
-                        disabled={installing === sheet.id}
+                        disabled={installing === `${sheet.id}:false`}
                         title={t('characters.updateFrom', { version: sheet.installed_version })}
                         aria-label={t('a11y.characters.updateNamed', {
                           name: sheet.name,
@@ -228,7 +249,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                       >
                         <LuRefreshCw size={13} />
-                        {installing === sheet.id
+                        {installing === `${sheet.id}:false`
                           ? t('characters.updatingSheets')
                           : t('characters.updateTo', { version: sheet.version })}
                       </button>
@@ -252,19 +273,76 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                         <LuCheck size={13} />
                         {t('characters.installed')}
                       </span>
+                    ) : sheet.installed_server_wide && !isAdmin ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 12,
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        <LuUsers size={13} />
+                        {t('characters.availableToEveryone')}
+                      </span>
                     ) : (
                       <button
                         onClick={() => void install(sheet)}
-                        disabled={installing === sheet.id}
+                        disabled={installing === `${sheet.id}:false`}
                         aria-label={t('a11y.characters.installNamed', { name: sheet.name })}
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                       >
                         <LuDownload size={13} />
-                        {installing === sheet.id
+                        {installing === `${sheet.id}:false`
                           ? t('characters.installing')
                           : t('characters.install')}
                       </button>
                     )}
+                    {isAdmin ? (
+                      sheet.server_update_available ? (
+                        <button
+                          onClick={() => void install(sheet, true)}
+                          disabled={installing === `${sheet.id}:true`}
+                          title={t('characters.updateFrom', {
+                            version: sheet.server_installed_version,
+                          })}
+                          style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
+                        >
+                          <LuUsers size={13} />
+                          {installing === `${sheet.id}:true`
+                            ? t('characters.updatingSheets')
+                            : t('characters.updateForEveryone', { version: sheet.version })}
+                        </button>
+                      ) : sheet.installed_server_wide ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontSize: 12,
+                            color: 'var(--text-muted)',
+                          }}
+                        >
+                          <LuUsers size={13} />
+                          {t('characters.installedForEveryone')}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => void install(sheet, true)}
+                          disabled={installing === `${sheet.id}:true`}
+                          aria-label={t('a11y.characters.installForEveryoneNamed', {
+                            name: sheet.name,
+                          })}
+                          style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
+                        >
+                          <LuUsers size={13} />
+                          {installing === `${sheet.id}:true`
+                            ? t('characters.installing')
+                            : t('characters.installForEveryone')}
+                        </button>
+                      )
+                    ) : null}
                   </div>
 
                   {sheet.description ? (

@@ -100,7 +100,7 @@ describe('SheetCatalogue', () => {
     await screen.findByText('Cairn')
 
     await userEvent.click(screen.getByText('Install'))
-    await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn'))
+    await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn', false))
     expect(onInstalled).toHaveBeenCalled()
     // The row flips without a refetch.
     await waitFor(() => expect(screen.getAllByText('Installed')).toHaveLength(2))
@@ -127,7 +127,7 @@ describe('SheetCatalogue', () => {
     const update = await screen.findByRole('button', { name: /^Update .+ to v1\.0\.0$/ })
     expect(update).toHaveAttribute('title', 'You have v0.9.0')
     await userEvent.click(update)
-    await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn'))
+    await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn', false))
     expect(await screen.findByText('Installed')).toBeInTheDocument()
   })
 
@@ -214,7 +214,7 @@ describe('SheetCatalogue', () => {
       renderCatalogue()
       await screen.findAllByText('Cairn')
       await userEvent.click(screen.getAllByText('Install')[1])
-      await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn-bbbb2222'))
+      await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn-bbbb2222', false))
     })
 
     it('reports a source it could not read', async () => {

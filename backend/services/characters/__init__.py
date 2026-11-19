@@ -30,6 +30,7 @@ from .schema import (
     computed_overrides,
     run_validators,
     validate_schema,
+    validate_content_types,
     visible_fields,
 )
 from .styles import ALLOWED_PROPERTIES, StylesError, scope_styles
@@ -50,6 +51,7 @@ __all__ = [
     "ALLOWED_PROPERTIES",
     "SchemaError",
     "validate_schema",
+    "validate_content_types",
     "compute_values",
     "computed_overrides",
     "OVERRIDES_KEY",

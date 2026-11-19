@@ -11,6 +11,7 @@ import CoverPicker from './CoverPicker'
 import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import CodexPanel from '../codex/CodexPanel'
+import CompendiumLinksPanel from '../compendium/CompendiumLinksPanel'
 import useMetadataSources from './useMetadataSources'
 import useAsyncAction from '../../hooks/useAsyncAction'
 import GenrePicker from '../metadata/GenrePicker'
@@ -32,6 +33,8 @@ export interface SystemEditorProps {
   onSave: (updated: Partial<EditableSystem>) => void
   onCoverChange?: (cover: CoverChange) => void
   onCodexLinkChange?: (codexId: string | null) => void
+  // The compendium's packs and sheets changed (saved at once, like the cover).
+  onCompendiumChange?: (summary: Schema<'CompendiumSummary'>) => void
 }
 
 /** The editor's form state; the year is held as text while it is edited. */
@@ -65,6 +68,7 @@ export default function SystemEditor({
   onSave,
   onCoverChange,
   onCodexLinkChange,
+  onCompendiumChange,
 }: SystemEditorProps) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
@@ -514,6 +518,7 @@ export default function SystemEditor({
           onCodexLinkChange?.(id)
         }}
       />
+      <CompendiumLinksPanel systemId={system.id} onChange={onCompendiumChange} />
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button

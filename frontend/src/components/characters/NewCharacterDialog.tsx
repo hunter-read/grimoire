@@ -17,19 +17,24 @@ import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from
  */
 export interface NewCharacterDialogProps {
   schemas: Schema<'SchemaSummary'>[]
+  // The sheet to start on, when the dialog was opened for one.
+  initialSchemaRef?: string
   onCreate: (body: BodyOf<'/characters', 'post'>) => Promise<unknown>
   onClose: () => void
 }
 
 export default function NewCharacterDialog({
   schemas,
+  initialSchemaRef = '',
   onCreate,
   onClose,
 }: NewCharacterDialogProps) {
   const { t } = useTranslation()
   const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
-  const [schemaRef, setSchemaRef] = useState(schemas.length === 1 ? schemas[0].schema_id : '')
+  const [schemaRef, setSchemaRef] = useState(
+    initialSchemaRef || (schemas.length === 1 ? schemas[0].schema_id : '')
+  )
   const [campaignId, setCampaignId] = useState('')
   const campaigns = useCharacterCampaigns()
   const [saving, setSaving] = useState(false)

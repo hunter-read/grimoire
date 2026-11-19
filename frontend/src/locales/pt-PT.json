@@ -482,7 +482,8 @@
         "text": "Apenas conteúdo das páginas",
         "code": "Código de produto da editora (SKU)"
       }
-    }
+    },
+    "compendium": "Compêndio"
   },
   "favorites": {
     "title": "Favoritos",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Sistemas de jogo",
-          "description": "Sistemas de jogo, suas capas e pastas de livros"
+          "description": "Sistemas de jogo, suas capas, pastas de livros e compêndios"
         },
         "search": {
           "label": "Pesquisa",
@@ -4146,7 +4147,15 @@
     "updateFrom": "Tem a v{{version}}",
     "giveToPlayer": "Dar a um jogador…",
     "giveToPlayerHelp": "Entregue este personagem a um jogador da sua mesa. Pode continuar a editá-lo até que ele o desative.",
-    "confirmGive": "Dar {{name}} a {{player}}? Passa a ser o personagem dele. Pode continuar a editá-lo até que ele o desative."
+    "confirmGive": "Dar {{name}} a {{player}}? Passa a ser o personagem dele. Pode continuar a editá-lo até que ele o desative.",
+    "installForEveryone": "Instalar para todos",
+    "updateForEveryone": "Atualizar para todos para v{{version}}",
+    "installedForEveryone": "Instalada para todos",
+    "availableToEveryone": "Disponível para todos",
+    "forEveryone": "para todos",
+    "pasteForEveryone": "Instalar para todos neste servidor",
+    "confirmUninstallForEveryone": "Remover {{name}} para todos? As personagens criadas com ela mantêm-se, e quem tiver a sua própria cópia fica com ela.",
+    "uninstallForEveryone": "Remover {{name}} para todos"
   },
   "contentPacks": {
     "title": "Pacotes de conteúdo",
@@ -5023,5 +5032,45 @@
       "sourceError": "Não foi possível ler {{url}}: {{error}}",
       "sourceUnreadable": "Não foi possível ler um dos catálogos de modelos."
     }
+  },
+  "compendium": {
+    "tab": "Compêndio",
+    "booksTab": "Livros",
+    "systemSections": "Secções do sistema",
+    "credits": "Créditos",
+    "fromRuleset": "de {{name}}",
+    "entryFailed": "Não foi possível carregar esta entrada.",
+    "loadFailed": "Não foi possível carregar o compêndio.",
+    "backTo": "Voltar a {{label}}",
+    "entryCount": "{{count}} entrada",
+    "entryCount_other": "{{count}} entradas",
+    "resultCount": "{{count}} resultado",
+    "resultCount_other": "{{count}} resultados",
+    "searchType": "Pesquisar em {{label}}",
+    "searchAll": "Pesquisar no compêndio",
+    "searchResults": "Resultados da pesquisa no compêndio",
+    "filters": "Filtros",
+    "filterAny": "Qualquer",
+    "noEntries": "Nenhuma entrada corresponde.",
+    "pages": "Páginas",
+    "previous": "Anterior",
+    "next": "Seguinte",
+    "pageOf": "Página {{page}} de {{pages}}",
+    "types": "Tipos de conteúdo",
+    "pickType": "Escolha um tipo de conteúdo para o explorar, ou pesquise em todos de uma vez.",
+    "empty": "O compêndio deste sistema ainda está vazio.",
+    "emptyEditor": "O compêndio deste sistema ainda está vazio. Associe-lhe um pacote de conteúdo em Editar.",
+    "notInstalled": "não instalado",
+    "linksHeading": "Compêndio",
+    "linksHelp": "Os pacotes de conteúdo que preenchem o separador Compêndio deste sistema, e as fichas de personagem dos seus jogadores. Cada alteração é guardada de imediato.",
+    "packsLegend": "Pacotes de conteúdo",
+    "packsHelp": "As suas entradas, e os conjuntos de regras escritos para as mesmas fichas, aparecem no Compêndio.",
+    "noPacks": "Não há pacotes de conteúdo instalados. Um administrador instala-os a partir do catálogo de extras.",
+    "sheetsLegend": "Fichas de personagem",
+    "sheetsHelp": "Mostradas na página do sistema como atalhos para uma nova personagem.",
+    "noSheets": "Não tem fichas de personagem instaladas.",
+    "characterSheets": "Fichas de personagem",
+    "newCharacterOn": "Nova personagem com {{name}}",
+    "sheetNotInstalled": "Não tem esta ficha instalada"
   }
 }

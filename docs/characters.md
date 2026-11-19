@@ -97,6 +97,25 @@ Pasting is not a way around the safety rules: a pasted layout goes through the
 same tag allowlist as a downloaded one, and a pasted stylesheet through the same
 property filter.
 
+### Sheets for everyone (admin)
+
+An admin can install a sheet for **everyone on the server**, so a new player can
+start a character straight away and a system's [compendium](compendium.md) has
+the sheet to read its content types from. In **Browse sheets**, an admin sees
+**Install for everyone** beside each sheet's own **Install**, and **Update
+everyone** when the catalogue has a newer version. A pasted sheet goes to
+everyone when **Install for everyone on this server** is ticked.
+
+A sheet installed for everyone is listed in every account's **Manage sheets**,
+marked *for everyone*. Only an admin can update or remove it, and removing it
+keeps every character built on it, as uninstalling your own copy does. For
+anyone else the catalogue shows it as **Available to everyone** rather than
+offering an install.
+
+Your own copy of the same sheet still wins: someone who installed or pasted
+their own keeps using it, so an edit they made survives the admin installing
+the stock sheet. Removing your own copy puts you back on the one for everyone.
+
 ## Building a character
 
 **New character** opens a dialog: give the character a name, pick the sheet it
@@ -243,6 +262,13 @@ edit reaches every character that chose it. Anything a pack does not have you
 can still type in by hand: every catalog field that allows it has an **Add
 custom** button, so the catalog is there when you want it and ignorable when you
 do not.
+
+A pack's content can also be read on its own, outside any character: link the
+pack to a library system and it fills that system's [Compendium](compendium.md)
+tab, where its spells, conditions, monsters and rules can be browsed and
+searched. A pack can declare content types its sheet does not have, which is
+how the SRD packs carry conditions, rules and monsters. A GM can add entries of
+those types to a ruleset too.
 
 ## Rulesets
 

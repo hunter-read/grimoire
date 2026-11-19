@@ -482,7 +482,8 @@
         "text": "Endast sidinnehåll",
         "code": "Förlagets produktkod (SKU)"
       }
-    }
+    },
+    "compendium": "Kompendium"
   },
   "favorites": {
     "title": "Favoriter",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Spelsystem",
-          "description": "Spelsystem, deras omslag och bokmappar"
+          "description": "Spelsystem, deras omslag, bokmappar och kompendier"
         },
         "search": {
           "label": "Sök",
@@ -4146,7 +4147,15 @@
     "updateFrom": "Du har v{{version}}",
     "giveToPlayer": "Ge till spelare…",
     "giveToPlayerHelp": "Lämna över den här rollpersonen till en spelare vid ditt bord. Du kan fortsätta redigera den tills de stänger av det.",
-    "confirmGive": "Ge {{name}} till {{player}}? Rollpersonen blir deras. Du kan fortsätta redigera den tills de stänger av det."
+    "confirmGive": "Ge {{name}} till {{player}}? Rollpersonen blir deras. Du kan fortsätta redigera den tills de stänger av det.",
+    "installForEveryone": "Installera för alla",
+    "updateForEveryone": "Uppdatera för alla till v{{version}}",
+    "installedForEveryone": "Installerat för alla",
+    "availableToEveryone": "Tillgängligt för alla",
+    "forEveryone": "för alla",
+    "pasteForEveryone": "Installera för alla på den här servern",
+    "confirmUninstallForEveryone": "Ta bort {{name}} för alla? Rollpersoner byggda på det behålls, och den som har en egen kopia behåller den.",
+    "uninstallForEveryone": "Ta bort {{name}} för alla"
   },
   "rulesets": {
     "title": "Regeluppsättningar",
@@ -5023,5 +5032,45 @@
       "sourceError": "Kunde inte läsa {{url}}: {{error}}",
       "sourceUnreadable": "En av mallkatalogerna kunde inte läsas."
     }
+  },
+  "compendium": {
+    "tab": "Kompendium",
+    "booksTab": "Böcker",
+    "systemSections": "Systemets delar",
+    "credits": "Erkännanden",
+    "fromRuleset": "från {{name}}",
+    "entryFailed": "Posten kunde inte läsas in.",
+    "loadFailed": "Kompendiet kunde inte läsas in.",
+    "backTo": "Tillbaka till {{label}}",
+    "entryCount": "{{count}} post",
+    "entryCount_other": "{{count}} poster",
+    "resultCount": "{{count}} träff",
+    "resultCount_other": "{{count}} träffar",
+    "searchType": "Sök i {{label}}",
+    "searchAll": "Sök i kompendiet",
+    "searchResults": "Sökresultat i kompendiet",
+    "filters": "Filter",
+    "filterAny": "Alla",
+    "noEntries": "Inga poster matchar.",
+    "pages": "Sidor",
+    "previous": "Föregående",
+    "next": "Nästa",
+    "pageOf": "Sida {{page}} av {{pages}}",
+    "types": "Innehållstyper",
+    "pickType": "Välj en innehållstyp att bläddra i, eller sök i alla på en gång.",
+    "empty": "Systemets kompendium är tomt än så länge.",
+    "emptyEditor": "Systemets kompendium är tomt än så länge. Länka ett innehållspaket till det under Redigera.",
+    "notInstalled": "inte installerat",
+    "linksHeading": "Kompendium",
+    "linksHelp": "Innehållspaketen som fyller systemets Kompendium-flik, och spelarnas rollformulär. Varje ändring sparas direkt.",
+    "packsLegend": "Innehållspaket",
+    "packsHelp": "Deras poster, och regeluppsättningar skrivna för samma formulär, visas i Kompendiet.",
+    "noPacks": "Inga innehållspaket är installerade. En administratör installerar dem från tilläggskatalogen.",
+    "sheetsLegend": "Rollformulär",
+    "sheetsHelp": "Visas på systemets sida som genvägar till en ny rollperson.",
+    "noSheets": "Du har inga rollformulär installerade.",
+    "characterSheets": "Rollformulär",
+    "newCharacterOn": "Ny rollperson med {{name}}",
+    "sheetNotInstalled": "Du har inte det här formuläret installerat"
   }
 }

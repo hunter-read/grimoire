@@ -2,7 +2,9 @@
 
 Every route is scoped to the calling user. Schemas and characters are per-user,
 like themes: installing a sheet cannot affect anyone else's, so there is no
-admin curation step and no approval to wait on. A guest — a player invited to a
+admin curation step and no approval to wait on. The one exception is a
+**server-wide** sheet (``server_wide=true``), which an admin installs for every
+account; anyone's own copy of the same schema id still wins over it. A guest — a player invited to a
 single campaign — is exactly who most needs a character sheet, so guests are not
 excluded here.
 
@@ -14,8 +16,9 @@ import logging
 import os
 from typing import Any, Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from pydantic import ValidationError
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -26,6 +29,7 @@ from ...services.catalogue_sources import shows_sources
 from ...services.characters import catalogue
 from ...services.characters import images as char_images
 from ...services.characters import importing
+from ...services.characters.user_schemas import schema_row, server_schema_row
 from ...services.characters.sheet_values import (
     resolved_entries as _resolved_entries,
     validated_document as _validated_document,
@@ -61,29 +65,54 @@ def _serialize_schema(row: CharacterSchema, *, count: int = 0) -> dict:
         "source_url": row.source_url,
         "source_version": row.source_version,
         "is_community": bool(row.source_id),
+        "server_wide": row.user_id is None,
         "character_count": count,
     }
+
+
+def _require_admin_for(server_wide: bool, current_user: CurrentUser) -> None:
+    """A server-wide sheet reaches every account, so only an admin manages one."""
+    if server_wide and current_user.role != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only an administrator can install a sheet for everyone"
+        )
 
 
 def list_schemas(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Every schema this user has installed."""
-    rows = (
-        db.query(CharacterSchema)
-        .filter_by(user_id=current_user.id)
-        .order_by(CharacterSchema.name)
+    """Every schema this user can use: their own, then the server-wide ones.
+
+    A server-wide sheet the user also has a copy of is listed once, as their
+    copy, since that is the one their characters render with.
+    """
+    rows = _usable_schemas(db, current_user.id)
+    counts = dict(
+        db.query(Character.schema_ref, func.count(Character.id))
+        .filter(Character.user_id == current_user.id)
+        .group_by(Character.schema_ref)
         .all()
     )
-    counts: dict[str, int] = {}
-    for row in rows:
-        counts[row.schema_id] = (
-            db.query(Character)
-            .filter_by(user_id=current_user.id, schema_ref=row.schema_id)
-            .count()
-        )
-    return {"schemas": [_serialize_schema(row, count=counts[row.schema_id]) for row in rows]}
+    return {
+        "schemas": [
+            _serialize_schema(row, count=int(counts.get(row.schema_id, 0)))
+            for row in sorted(rows.values(), key=lambda row: (row.name or "").lower())
+        ]
+    }
+
+
+def _usable_schemas(db: Session, user_id: str) -> dict[str, CharacterSchema]:
+    """schema id -> the sheet this user uses for it, own copy over server-wide."""
+    rows = (
+        db.query(CharacterSchema)
+        .filter((CharacterSchema.user_id == user_id) | CharacterSchema.user_id.is_(None))
+        .all()
+    )
+    usable: dict[str, CharacterSchema] = {}
+    for row in sorted(rows, key=lambda row: row.user_id is not None):
+        usable[row.schema_id] = row
+    return usable
 
 
 def get_schema(
@@ -92,11 +121,7 @@ def get_schema(
     db: Session = Depends(get_db),
 ):
     """One schema, with the validated document needed to render its sheet."""
-    row = (
-        db.query(CharacterSchema)
-        .filter_by(user_id=current_user.id, schema_id=schema_id)
-        .first()
-    )
+    row = schema_row(db, current_user.id, schema_id)
     if not row:
         raise HTTPException(status_code=404, detail="Schema not found")
     payload = _serialize_schema(row)
@@ -106,6 +131,7 @@ def get_schema(
 
 def import_schema(
     data: SchemaImport,
+    server_wide: bool = Query(False, description="Install for every account (admin)"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -121,6 +147,7 @@ def import_schema(
     their own fields rather than escaped into the document, matching how the
     community repo keeps them in sibling files.
     """
+    _require_admin_for(server_wide, current_user)
     if data.text.strip():
         try:
             document = svc.parse_document(data.text, what="sheet")
@@ -153,7 +180,7 @@ def import_schema(
 
     return _store_schema(
         db,
-        current_user.id,
+        None if server_wide else current_user.id,
         document,
         source_id=data.source_id,
         source_url=data.source_url,
@@ -163,7 +190,7 @@ def import_schema(
 
 def _store_schema(
     db: Session,
-    user_id: str,
+    user_id: Optional[str],
     document: dict,
     *,
     source_id: Optional[str] = None,
@@ -172,8 +199,9 @@ def _store_schema(
 ) -> dict:
     """Validate and save a schema for one user, replacing their copy if any.
 
-    Shared by pasting and by installing from the catalogue so the two cannot
-    drift apart on validation or on how provenance is recorded.
+    ``user_id`` None stores the server-wide copy instead. Shared by pasting and
+    by installing from the catalogue so the two cannot drift apart on
+    validation or on how provenance is recorded.
     """
     try:
         validated = svc.validate_schema(document)
@@ -182,9 +210,9 @@ def _store_schema(
 
     schema_id = validated["id"]
     row = (
-        db.query(CharacterSchema)
-        .filter_by(user_id=user_id, schema_id=schema_id)
-        .first()
+        db.query(CharacterSchema).filter_by(user_id=user_id, schema_id=schema_id).first()
+        if user_id is not None
+        else server_schema_row(db, schema_id)
     )
     if not row:
         row = CharacterSchema(user_id=user_id, schema_id=schema_id)
@@ -206,8 +234,18 @@ def _store_schema(
     db.refresh(row)
 
     # A field that was an image and no longer is would keep its picture on
-    # disk for good; the sheet changing is the moment to let it go.
-    for character in db.query(Character).filter_by(user_id=user_id, schema_ref=schema_id).all():
+    # disk for good; the sheet changing is the moment to let it go. A
+    # server-wide sheet renders the characters of everyone without a copy of
+    # their own.
+    characters = db.query(Character).filter(Character.schema_ref == schema_id)
+    if user_id is not None:
+        characters = characters.filter(Character.user_id == user_id)
+    else:
+        own = db.query(CharacterSchema.user_id).filter(
+            CharacterSchema.schema_id == schema_id, CharacterSchema.user_id.isnot(None)
+        )
+        characters = characters.filter(Character.user_id.notin_(own))
+    for character in characters.all():
         char_images.prune_images(character, validated)
     db.commit()
 
@@ -218,6 +256,7 @@ def _store_schema(
 
 def delete_schema(
     schema_id: str,
+    server_wide: bool = Query(False, description="Remove the server-wide copy (admin)"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -226,12 +265,26 @@ def delete_schema(
     Removing a sheet definition must not delete the characters someone wrote
     with it — they open read-only from stored data until the schema is
     reinstalled, which is why ``schema_ref`` is a soft reference.
+
+    Without ``server_wide`` this removes the caller's own copy, which leaves
+    them on the server-wide one if there is one. The server-wide copy is only
+    ever removed by asking for it, so nobody takes a sheet away from everyone
+    by tidying their own list.
     """
-    row = (
-        db.query(CharacterSchema)
-        .filter_by(user_id=current_user.id, schema_id=schema_id)
-        .first()
-    )
+    _require_admin_for(server_wide, current_user)
+    if server_wide:
+        row = server_schema_row(db, schema_id)
+    else:
+        row = (
+            db.query(CharacterSchema)
+            .filter_by(user_id=current_user.id, schema_id=schema_id)
+            .first()
+        )
+        if not row and server_schema_row(db, schema_id):
+            raise HTTPException(
+                status_code=403,
+                detail="That sheet is installed for everyone; only an administrator can remove it",
+            )
     if not row:
         raise HTTPException(status_code=404, detail="Schema not found")
     db.delete(row)
@@ -243,11 +296,8 @@ def delete_schema(
 
 
 def _schema_for(db: Session, user_id: str, schema_ref: str) -> Optional[CharacterSchema]:
-    return (
-        db.query(CharacterSchema)
-        .filter_by(user_id=user_id, schema_id=schema_ref)
-        .first()
-    )
+    """The sheet ``user_id`` renders ``schema_ref`` with: their own, else the server's."""
+    return schema_row(db, user_id, schema_ref)
 
 
 def _portrait_version(portrait_path: Optional[str]) -> Optional[int]:
@@ -363,10 +413,7 @@ def list_characters(
         query = query.filter(Character.campaign_id == campaign_id)
     rows = query.order_by(Character.updated_at.desc()).all()
 
-    schemas = {
-        row.schema_id: row
-        for row in db.query(CharacterSchema).filter_by(user_id=current_user.id).all()
-    }
+    schemas = _usable_schemas(db, current_user.id)
     labels = helpers.campaign_labels(db, (row.campaign_id for row in rows))
     owners = helpers.owner_names(db, (row.user_id for row in rows))
     return {
@@ -760,11 +807,12 @@ def browse_sheets(
     # catalogue copy of that id as installed — which is right, since
     # installing any of them would replace it.
     try:
-        return catalogue.fetch_catalogue(
+        listing = catalogue.fetch_catalogue(
             db,
             installed=_installed_sheets(db, current_user.id),
             show_sources=shows_sources(current_user),
         )
+        return catalogue.mark_server_installed(listing, _installed_sheets(db, None))
     except catalogue.CatalogueError as exc:
         # Downloads switched off is a policy answer, not a failure.
         if not catalogue.downloads_enabled():
@@ -772,11 +820,12 @@ def browse_sheets(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-def _installed_sheets(db: Session, user_id: str) -> catalogue.Installed:
+def _installed_sheets(db: Session, user_id: Optional[str]) -> catalogue.Installed:
     """The user's sheets as the catalogue matches them, with their versions.
 
-    The version recorded at download wins over the document's own: it is the
-    catalogue's number, and the catalogue's number is what it is compared to.
+    ``user_id`` None is the server-wide sheets. The version recorded at
+    download wins over the document's own: it is the catalogue's number, and
+    the catalogue's number is what it is compared to.
     """
     return {
         (row.schema_id, row.source_url or ""): row.source_version or row.version or ""
@@ -786,7 +835,11 @@ def _installed_sheets(db: Session, user_id: str) -> catalogue.Installed:
             CharacterSchema.source_version,
             CharacterSchema.version,
         )
-        .filter(CharacterSchema.user_id == user_id)
+        .filter(
+            CharacterSchema.user_id == user_id
+            if user_id is not None
+            else CharacterSchema.user_id.is_(None)
+        )
         .all()
     }
 
@@ -805,15 +858,22 @@ def list_sheet_updates(
         listing = catalogue.fetch_catalogue(db, installed=_installed_sheets(db, current_user.id))
     except catalogue.CatalogueError:
         return {"updates": []}
-    return {"updates": catalogue.find_updates(listing)}
+    updates = catalogue.find_updates(listing)
+    # An admin also looks after the sheets installed for everyone.
+    if current_user.role == "admin":
+        catalogue.mark_server_installed(listing, _installed_sheets(db, None))
+        updates += catalogue.find_updates(listing, server_wide=True)
+    return {"updates": updates}
 
 
 def install_sheet(
     sheet_id: str,
+    server_wide: bool = Query(False, description="Install for every account (admin)"),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Install one sheet from the catalogue into this user's account."""
+    """Install one sheet from the catalogue into this user's account, or everyone's."""
+    _require_admin_for(server_wide, current_user)
     try:
         listing = catalogue.fetch_catalogue(db)
     except catalogue.CatalogueError as exc:
@@ -836,7 +896,7 @@ def install_sheet(
 
     return _store_schema(
         db,
-        current_user.id,
+        None if server_wide else current_user.id,
         document,
         # The sheet's own id, not the namespaced one: provenance should say
         # what the sheet is called, and the URL beside it says where it came

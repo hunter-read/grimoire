@@ -8,6 +8,17 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- **A game system can have a compendium.** Link content packs to a system from its edit form and its page gains a **Compendium** tab: every kind of content the packs hold - spells, classes, conditions, monsters, rules - with how many entries each has, a list you can search, filter and page through, and each entry on its own address so it can be bookmarked or linked from a note. A search box looks across every kind at once, and entries also turn up in a **Compendium** section of the global search, narrowed by its System filter. Rulesets written for the same sheets join in, so a table's house version of a spell sits beside the SRD's. A system can link several packs and one pack can serve several systems; the links survive the pack being uninstalled or updated. Each pack's credit is printed at the foot of every compendium page, word for word. See [Compendium](docs/compendium.md)
+- **A system can be set up with the character sheets its players use.** Sheets linked from the system's edit form are listed on its page, and choosing one opens a new character already on that sheet. `/characters?new=<sheet id>` does the same from anywhere
+- **Admins can install a character sheet for everyone.** **Install for everyone** in the sheet catalogue, or the matching box when pasting one, puts the sheet in every account: a new player can start a character straight away, and a system's compendium has the sheet to read. Only an admin updates or removes it. Anyone who installed or pasted their own copy keeps using theirs. See [Sheets for everyone](docs/characters.md#sheets-for-everyone-admin)
+- **A content pack can declare content types of its own**, in its `_meta.json`, in the same shape a sheet uses. That is how a pack carries reference material no sheet picks from, such as conditions, rules and monsters: its entries are checked and indexed against those types even without a sheet, show in the compendium, and can be added to a ruleset. A sheet's own declaration still wins when both describe the same type. See [Pack layout](docs/api.md#pack-layout)
+
+### Changed
+
+- A long description in a content entry keeps its paragraphs when the entry is opened, in the sheet's content browser as well as the compendium
+
 ## [1.11.1] - 2026-11-19
 
 ### Added

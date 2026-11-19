@@ -12,6 +12,7 @@ from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
 from .book_links import BookSystemLink
 from .characters import Character, CharacterSchema, UserImporter
+from .compendium import SystemCharacterSheet, SystemContentPack
 from .content import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from .campaigns import (
     Campaign,
@@ -78,6 +79,8 @@ __all__ = [
     "Book",
     "BookFolder",
     "BookSystemLink",
+    "SystemContentPack",
+    "SystemCharacterSheet",
     "FolderNamingRule",
     "Genre",
     "SystemFamily",

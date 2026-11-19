@@ -70,7 +70,9 @@ def _label(name: str, definition: Any) -> str:
     return name
 
 
-def _schemas(db: Session, viewer_id: str, characters: list[Character]) -> dict[tuple[str, str], CharacterSchema]:
+def _schemas(
+    db: Session, viewer_id: str, characters: list[Character]
+) -> dict[tuple[Optional[str], str], CharacterSchema]:
     """(user id, schema id) -> installed schema, for the viewer and each player."""
     users = {viewer_id} | {row.user_id for row in characters}
     refs = {row.schema_ref for row in characters}
@@ -78,10 +80,12 @@ def _schemas(db: Session, viewer_id: str, characters: list[Character]) -> dict[t
         return {}
     rows = (
         db.query(CharacterSchema)
-        .filter(CharacterSchema.user_id.in_(users))
+        .filter(CharacterSchema.user_id.in_(users) | CharacterSchema.user_id.is_(None))
         .filter(CharacterSchema.schema_id.in_(refs))
         .all()
     )
+    # A server-wide sheet is keyed under no user (`None`), the fallback for
+    # anyone without a copy of their own.
     return {(row.user_id, row.schema_id): row for row in rows}
 
 
@@ -110,10 +114,16 @@ def party_overview(db: Session, campaign_id: str, viewer_id: str) -> dict:
     names = _owner_names(db, (row.user_id for row in characters))
 
     fields: dict[str, dict] = {}
-    documents: dict[tuple[str, str], dict] = {}
+    documents: dict[tuple[Optional[str], str], dict] = {}
     out = []
     for row in characters:
-        schema = schemas.get((viewer_id, row.schema_ref)) or schemas.get((row.user_id, row.schema_ref))
+        # The viewer's own sheet, then the server-wide one they would use
+        # without it, and only then the owner's copy (shown without formulas).
+        schema = (
+            schemas.get((viewer_id, row.schema_ref))
+            or schemas.get((None, row.schema_ref))
+            or schemas.get((row.user_id, row.schema_ref))
+        )
         key = (schema.user_id, schema.schema_id) if schema else ("", "")
         if schema and key not in documents:
             documents[key] = validated_document(schema)
@@ -137,8 +147,9 @@ def party_overview(db: Session, campaign_id: str, viewer_id: str) -> dict:
                 value = None
             if value is not None:
                 values[name] = value
-        # Formulas run only from the viewer's own copy, as on a sheet read.
-        if document.get("computed") and schema is not None and schema.user_id == viewer_id:
+        # Formulas run only from the viewer's own copy, as on a sheet read -
+        # which is the server-wide one when they have none of their own.
+        if document.get("computed") and schema is not None and schema.user_id in (viewer_id, None):
             entries = resolved_entries(db, document, data, row.user_id)
             for name, value in compute_values(document, data, entries).items():
                 fields.setdefault(

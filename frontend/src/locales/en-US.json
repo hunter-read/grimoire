@@ -482,7 +482,8 @@
         "text": "Page content only",
         "code": "The publisher's product code (SKU)"
       }
-    }
+    },
+    "compendium": "Compendium"
   },
   "favorites": {
     "title": "Favorites",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Game systems",
-          "description": "Game systems, their covers and book folders"
+          "description": "Game systems, their covers, book folders and compendiums"
         },
         "search": {
           "label": "Search",
@@ -4146,7 +4147,15 @@
     "updateFrom": "You have v{{version}}",
     "giveToPlayer": "Give to player…",
     "giveToPlayerHelp": "Hand this character to a player at your table. You can keep editing it until they switch that off.",
-    "confirmGive": "Give {{name}} to {{player}}? It becomes their character. You can keep editing it until they switch that off."
+    "confirmGive": "Give {{name}} to {{player}}? It becomes their character. You can keep editing it until they switch that off.",
+    "installForEveryone": "Install for everyone",
+    "updateForEveryone": "Update everyone to v{{version}}",
+    "installedForEveryone": "Installed for everyone",
+    "availableToEveryone": "Available to everyone",
+    "forEveryone": "for everyone",
+    "pasteForEveryone": "Install for everyone on this server",
+    "confirmUninstallForEveryone": "Remove {{name}} for everyone? Characters built on it are kept, and anyone with their own copy keeps it.",
+    "uninstallForEveryone": "Remove {{name}} for everyone"
   },
   "contentPacks": {
     "title": "Content packs",
@@ -5023,5 +5032,45 @@
       "sourceError": "Couldn't read {{url}}: {{error}}",
       "sourceUnreadable": "One of the preset catalogues couldn't be read."
     }
+  },
+  "compendium": {
+    "tab": "Compendium",
+    "booksTab": "Books",
+    "systemSections": "System sections",
+    "credits": "Credits",
+    "fromRuleset": "from {{name}}",
+    "entryFailed": "This entry could not be loaded.",
+    "loadFailed": "The compendium could not be loaded.",
+    "backTo": "Back to {{label}}",
+    "entryCount": "{{count}} entry",
+    "entryCount_other": "{{count}} entries",
+    "resultCount": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "searchType": "Search {{label}}",
+    "searchAll": "Search the compendium",
+    "searchResults": "Compendium search results",
+    "filters": "Filters",
+    "filterAny": "Any",
+    "noEntries": "No entries match.",
+    "pages": "Pages",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{pages}}",
+    "types": "Content types",
+    "pickType": "Pick a content type to browse it, or search across all of them.",
+    "empty": "Nothing is in this system's compendium yet.",
+    "emptyEditor": "Nothing is in this system's compendium yet. Link a content pack to it from Edit.",
+    "notInstalled": "not installed",
+    "linksHeading": "Compendium",
+    "linksHelp": "The content packs that fill this system's Compendium tab, and the character sheets its players use. Each change is saved at once.",
+    "packsLegend": "Content packs",
+    "packsHelp": "Their entries, and any rulesets written for the same sheets, appear in the Compendium.",
+    "noPacks": "No content packs are installed. An admin installs them from the add-on catalog.",
+    "sheetsLegend": "Character sheets",
+    "sheetsHelp": "Shown on the system's page as shortcuts to a new character.",
+    "noSheets": "You have no character sheets installed.",
+    "characterSheets": "Character sheets",
+    "newCharacterOn": "New character on {{name}}",
+    "sheetNotInstalled": "You do not have this sheet installed"
   }
 }

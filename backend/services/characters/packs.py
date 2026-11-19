@@ -4,7 +4,8 @@ A pack is a directory under ``DATA_PATH/character-content/``:
 
     character-content/
     └── dnd-5e-srd/
-        ├── _meta.json     ← pack id, the schema it supplies, licence, source
+        ├── _meta.json     ← pack id, the schema it supplies, licence, source,
+    │                    and any content types the pack declares itself
         ├── spells.json    ← an array of entries
         └── classes.json
 
@@ -32,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from ... import config
 from ...models import ContentEntry, ContentPack
-from .schema import SchemaError, coerce_value
+from .schema import SchemaError, coerce_value, validate_content_types
 
 logger = logging.getLogger("grimoire.characters.packs")
 
@@ -47,6 +48,7 @@ __all__ = [
     "uninstall_pack",
     "schema_documents_for_packs",
     "sync_packs",
+    "merged_content_types",
 ]
 
 
@@ -124,6 +126,21 @@ def _entry_text(entry: dict, content_type: dict) -> str:
     return " ".join(parts)
 
 
+def merged_content_types(
+    declared: Optional[dict], schema_document: Optional[dict]
+) -> dict:
+    """A pack's content types: its own declarations under its sheet's.
+
+    The sheet wins a name clash. Its fields are what a character's references
+    are coerced against, so a pack entry has to fit the sheet's shape whenever
+    the sheet has one; the pack's own declaration fills in the types no sheet
+    declares, which is reference material like conditions and monsters.
+    """
+    merged = dict(declared or {})
+    merged.update((schema_document or {}).get("content_types") or {})
+    return merged
+
+
 def load_pack(
     db: Session, directory: str, *, schema_document: Optional[dict] = None
 ) -> ContentPack:
@@ -171,13 +188,24 @@ def load_pack(
     pack.attribution = str(meta.get("attribution") or "")
     pack.source_url = str(meta.get("source_url") or "")
     pack.directory = os.path.basename(directory)
+
+    # Content types the pack declares for itself, checked like a sheet's. A
+    # bad declaration refuses the pack, the same as a bad entry does: storing
+    # entries against a type nobody can render helps nobody.
+    declared = meta.get("content_types")
+    if declared is not None:
+        try:
+            declared = validate_content_types(declared, what=f"{META_FILE} 'content_types'")
+        except SchemaError as exc:
+            raise PackError(str(exc)) from exc
+    pack.content_types = declared or None
     db.flush()
 
     # The directory is the source of truth, so its entries are replaced whole.
     # Cheaper than reconciling, and it cannot drift from the files.
     db.query(ContentEntry).filter_by(pack_id=pack.id).delete(synchronize_session=False)
 
-    content_types = (schema_document or {}).get("content_types") or {}
+    content_types = merged_content_types(declared, schema_document)
     default_source = str(meta.get("source") or pack_id)
     total = 0
 
@@ -263,7 +291,7 @@ def reindex_entry_search(
     one of them behind. Clearing by pack also leaves other packs serving the
     same schema untouched.
     """
-    content_types = (schema_document or {}).get("content_types") or {}
+    content_types = merged_content_types(pack.content_types, schema_document)
     rows = db.query(ContentEntry).filter_by(pack_id=pack.id).all()
 
     db.execute(
@@ -330,7 +358,9 @@ def schema_documents_for_packs(db: Session) -> dict:
     canonical document to validate against. Any installed copy describes the
     content types well enough to index by — they are the same sheet — so the
     first one that validates is used, and a schema nobody has installed yields
-    nothing, which stores its pack's entries as authored.
+    nothing, which stores its pack's entries as authored. A server-wide copy is
+    tried first: an admin installed it for everyone, so it is the closest thing
+    to a canonical document there is.
     """
     from ...models import CharacterSchema
     from .schema import validate_schema
@@ -344,6 +374,7 @@ def schema_documents_for_packs(db: Session) -> dict:
     documents: dict[str, dict] = {}
     for schema_id in wanted:
         rows = db.query(CharacterSchema).filter_by(schema_id=schema_id).all()
+        rows.sort(key=lambda row: row.user_id is not None)
         for row in rows:
             try:
                 documents[schema_id] = validate_schema(row.document or {})

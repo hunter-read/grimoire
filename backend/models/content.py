@@ -72,6 +72,14 @@ class ContentPack(Base):
     directory: Mapped[Optional[str]] = mapped_column(String(255), default="")
     entry_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
+    # Content types the pack declares itself, in ``_meta.json``: the same shape
+    # as a sheet's ``content_types``, validated the same way. This is what lets
+    # a pack carry reference material no sheet picks from - conditions, rules,
+    # monsters - and still be coerced, searched and shown in a compendium. The
+    # sheet's own declaration wins on a name clash, since its references are
+    # what the entries have to fit.
+    content_types: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
+
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 

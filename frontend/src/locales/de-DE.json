@@ -482,7 +482,8 @@
         "text": "Nur Seiteninhalt",
         "code": "Produktcode des Verlags (SKU)"
       }
-    }
+    },
+    "compendium": "Kompendium"
   },
   "favorites": {
     "title": "Favoriten",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Spielsysteme",
-          "description": "Spielsysteme, ihre Cover und Buchordner"
+          "description": "Spielsysteme, ihre Cover, Buchordner und Kompendien"
         },
         "search": {
           "label": "Suche",
@@ -4146,7 +4147,15 @@
     "updateFrom": "Du hast v{{version}}",
     "giveToPlayer": "An Spieler übergeben…",
     "giveToPlayerHelp": "Übergib diesen Charakter an einen Spieler deiner Runde. Du kannst ihn weiter bearbeiten, bis er das abschaltet.",
-    "confirmGive": "{{name}} an {{player}} übergeben? Der Charakter gehört dann ihnen. Du kannst ihn weiter bearbeiten, bis sie das abschalten."
+    "confirmGive": "{{name}} an {{player}} übergeben? Der Charakter gehört dann ihnen. Du kannst ihn weiter bearbeiten, bis sie das abschalten.",
+    "installForEveryone": "Für alle installieren",
+    "updateForEveryone": "Für alle auf v{{version}} aktualisieren",
+    "installedForEveryone": "Für alle installiert",
+    "availableToEveryone": "Für alle verfügbar",
+    "forEveryone": "für alle",
+    "pasteForEveryone": "Für alle auf diesem Server installieren",
+    "confirmUninstallForEveryone": "{{name}} für alle entfernen? Charaktere damit bleiben erhalten, und wer eine eigene Kopie hat, behält sie.",
+    "uninstallForEveryone": "{{name}} für alle entfernen"
   },
   "contentPacks": {
     "title": "Inhaltspakete",
@@ -5023,5 +5032,45 @@
       "sourceError": "{{url}} konnte nicht gelesen werden: {{error}}",
       "sourceUnreadable": "Einer der Vorlagenkataloge konnte nicht gelesen werden."
     }
+  },
+  "compendium": {
+    "tab": "Kompendium",
+    "booksTab": "Bücher",
+    "systemSections": "Bereiche des Systems",
+    "credits": "Quellenangaben",
+    "fromRuleset": "aus {{name}}",
+    "entryFailed": "Dieser Eintrag konnte nicht geladen werden.",
+    "loadFailed": "Das Kompendium konnte nicht geladen werden.",
+    "backTo": "Zurück zu {{label}}",
+    "entryCount": "{{count}} Eintrag",
+    "entryCount_other": "{{count}} Einträge",
+    "resultCount": "{{count}} Ergebnis",
+    "resultCount_other": "{{count}} Ergebnisse",
+    "searchType": "{{label}} durchsuchen",
+    "searchAll": "Kompendium durchsuchen",
+    "searchResults": "Suchergebnisse im Kompendium",
+    "filters": "Filter",
+    "filterAny": "Alle",
+    "noEntries": "Keine passenden Einträge.",
+    "pages": "Seiten",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageOf": "Seite {{page}} von {{pages}}",
+    "types": "Inhaltstypen",
+    "pickType": "Wähle einen Inhaltstyp zum Durchblättern, oder durchsuche alle auf einmal.",
+    "empty": "Im Kompendium dieses Systems ist noch nichts.",
+    "emptyEditor": "Im Kompendium dieses Systems ist noch nichts. Verknüpfe unter Bearbeiten ein Inhaltspaket.",
+    "notInstalled": "nicht installiert",
+    "linksHeading": "Kompendium",
+    "linksHelp": "Die Inhaltspakete, die den Kompendium-Tab dieses Systems füllen, und die Charakterbögen seiner Spieler. Jede Änderung wird sofort gespeichert.",
+    "packsLegend": "Inhaltspakete",
+    "packsHelp": "Ihre Einträge und alle Regelwerke für dieselben Bögen erscheinen im Kompendium.",
+    "noPacks": "Es sind keine Inhaltspakete installiert. Ein Admin installiert sie aus dem Add-on-Katalog.",
+    "sheetsLegend": "Charakterbögen",
+    "sheetsHelp": "Werden auf der Seite des Systems als Abkürzung zu einem neuen Charakter angezeigt.",
+    "noSheets": "Du hast keine Charakterbögen installiert.",
+    "characterSheets": "Charakterbögen",
+    "newCharacterOn": "Neuer Charakter mit {{name}}",
+    "sheetNotInstalled": "Du hast diesen Bogen nicht installiert"
   }
 }

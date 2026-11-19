@@ -23,7 +23,16 @@ export interface ContentEntryDetailProps {
   // A catalog entry, or anything carrying an entry's values under `data`.
   entry: { data?: Record<string, unknown> }
   typeDefinition: ContentTypeDefinition
+  // Leave out fields the entry has no value for. A compendium entry is read,
+  // not filled in, and a stat block's dozen empty resistances are noise.
+  hideEmpty?: boolean
 }
+
+const isEmpty = (value: unknown) =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (Array.isArray(value) && value.length === 0)
 
 /**
  * One entry, rendered read-only through the same FieldRenderer the sheet uses.
@@ -32,7 +41,11 @@ export interface ContentEntryDetailProps {
  * to catalog entries, so the component that draws a character's fields draws an
  * entry's too.
  */
-export default function ContentEntryDetail({ entry, typeDefinition }: ContentEntryDetailProps) {
+export default function ContentEntryDetail({
+  entry,
+  typeDefinition,
+  hideEmpty = false,
+}: ContentEntryDetailProps) {
   const fields = typeDefinition.fields || {}
   const identity = typeDefinition.identity_field || 'name'
 
@@ -52,10 +65,16 @@ export default function ContentEntryDetail({ entry, typeDefinition }: ContentEnt
       {Object.entries(fields)
         // The name is already the row's heading; repeating it wastes a cell.
         .filter(([name]) => name !== identity)
+        .filter(([name]) => !hideEmpty || !isEmpty(entry.data?.[name]))
         .map(([name, definition]) => (
           <div
             key={name}
-            style={definition.type === 'textarea' ? { gridColumn: '1 / -1' } : undefined}
+            // A text area spans the row and keeps its paragraphs.
+            style={
+              definition.type === 'textarea'
+                ? { gridColumn: '1 / -1', whiteSpace: 'pre-wrap' }
+                : undefined
+            }
           >
             <FieldRenderer
               name={name}

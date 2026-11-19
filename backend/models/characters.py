@@ -25,10 +25,12 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     JSON,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,7 +38,14 @@ from .base import Base, _utcnow, _uuid
 
 
 class CharacterSchema(Base):
-    """A character sheet definition installed by one user, for that user only.
+    """A character sheet definition installed by one user, or for everyone.
+
+    ``user_id`` names the user who installed it for themselves. Null makes it a
+    **server-wide** sheet, installed by an admin so every account has it without
+    installing it: the sheet a system's compendium reads its content types from,
+    and the one a new player can start a character on straight away. A user's
+    own copy of the same ``schema_id`` wins over the server's, so someone who
+    edited a sheet keeps their edit (``services.characters.user_schemas``).
 
     ``document`` holds the whole schema JSON — ``fields``, ``computed``,
     ``layout``, and the optional ``layout_html`` / ``styles`` pair. It is stored
@@ -54,10 +63,14 @@ class CharacterSchema(Base):
     __tablename__ = "character_schemas"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    # Null for a server-wide sheet (see the class docstring).
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True, index=True
+    )
     # Stable identifier: the community id for a downloaded schema, or a slug
-    # derived from the name for an authored one. Unique per user, so installing
-    # the same schema twice updates it rather than duplicating it.
+    # derived from the name for an authored one. Unique per user, and once
+    # among the server-wide sheets, so installing the same schema twice updates
+    # it rather than duplicating it.
     schema_id: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     # The game this sheet is for, free text and display-only. Kept out of the
@@ -76,7 +89,19 @@ class CharacterSchema(Base):
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
-    __table_args__ = (UniqueConstraint("user_id", "schema_id"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "schema_id"),
+        # The constraint above cannot see server-wide rows: NULLs never compare
+        # equal, so it would let two of them share a schema id. A partial index
+        # covers them, on both databases.
+        Index(
+            "uq_character_schemas_server",
+            "schema_id",
+            unique=True,
+            sqlite_where=text("user_id IS NULL"),
+            postgresql_where=text("user_id IS NULL"),
+        ),
+    )
 
 
 class Character(Base):

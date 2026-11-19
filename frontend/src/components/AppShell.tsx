@@ -273,9 +273,18 @@ export default function AppShell() {
                   />
                   <Route path="/library" element={<LibraryView gameType="ttrpg" />} />
                   <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+                  {/* A system's Compendium tab, a type in it, and one entry. */}
+                  <Route
+                    path="/library/system/:systemId/compendium/:contentType?/:entryId?"
+                    element={<SystemDetailView />}
+                  />
                   {/* The Armory: the same views over the wargame books in armory/. */}
                   <Route path="/armory" element={<LibraryView key="armory" gameType="wargame" />} />
                   <Route path="/armory/system/:systemId" element={<SystemDetailView />} />
+                  <Route
+                    path="/armory/system/:systemId/compendium/:contentType?/:entryId?"
+                    element={<SystemDetailView />}
+                  />
                   <Route path="/library/book/:bookId" element={<BookReader />} />
                   <Route path="/maps" element={<MapsView />} />
                   <Route path="/maps/:mapId" element={<MapDetailView />} />

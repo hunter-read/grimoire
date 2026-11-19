@@ -34,6 +34,15 @@ vi.mock('./MetadataFetchDialog', () => ({
 vi.mock('../../api', () => ({
   default: { patch: vi.fn(), get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   tags: { list: () => Promise.resolve({ tags: [] }) },
+  // The compendium's links (issue #835): nothing linked unless a test says so.
+  compendium: {
+    get: vi.fn(() =>
+      Promise.resolve({ system_id: 's', packs: [], sheets: [], content_types: [], can_edit: true })
+    ),
+    setLinks: vi.fn(() => Promise.resolve({})),
+  },
+  content: { packs: vi.fn(() => Promise.resolve({ packs: [] })) },
+  characters: { listSchemas: vi.fn(() => Promise.resolve({ schemas: [] })) },
   mediaUrl: (p: string) => `http://localhost${p}`,
   bookThumbUrl: (id: string, v?: string | null) =>
     `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,

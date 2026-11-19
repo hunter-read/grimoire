@@ -3584,7 +3584,10 @@ export interface paths {
         };
         /**
          * List installed character schemas
-         * @description Every schema this user has installed.
+         * @description Every schema this user can use: their own, then the server-wide ones.
+         *
+         *     A server-wide sheet the user also has a copy of is listed once, as their
+         *     copy, since that is the one their characters render with.
          */
         get: operations["list_schemas_api_characters_schemas_get"];
         put?: never;
@@ -3644,7 +3647,7 @@ export interface paths {
         put?: never;
         /**
          * Install a sheet from the catalogue
-         * @description Install one sheet from the catalogue into this user's account.
+         * @description Install one sheet from the catalogue into this user's account, or everyone's.
          */
         post: operations["install_sheet_api_characters_schemas_install__sheet_id__post"];
         delete?: never;
@@ -3698,6 +3701,11 @@ export interface paths {
          *     Removing a sheet definition must not delete the characters someone wrote
          *     with it — they open read-only from stored data until the schema is
          *     reinstalled, which is why ``schema_ref`` is a soft reference.
+         *
+         *     Without ``server_wide`` this removes the caller's own copy, which leaves
+         *     them on the server-wide one if there is one. The server-wide copy is only
+         *     ever removed by asking for it, so nobody takes a sheet away from everyone
+         *     by tidying their own list.
          */
         delete: operations["delete_schema_api_characters_schemas__schema_id__delete"];
         options?: never;
@@ -4052,6 +4060,30 @@ export interface paths {
          * @description Admin only. Reaches Grimoire Codex DB and reports the account the API token belongs to.
          */
         post: operations["test_connection_api_codex_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compendium/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the compendium of every system you can see
+         * @description Search the compendium of every system the caller can see, for global search.
+         *
+         *     Systems with no linked pack are skipped; their compendium could still hold
+         *     ruleset entries, but a global search over every ruleset of every sheet is a
+         *     different feature from searching the shelves people set up.
+         */
+        get: operations["search_compendiums_api_compendium_search_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7231,6 +7263,106 @@ export interface paths {
          * @description Books matching the shelf filters, sorted and paged. With `category` (and optionally `folder`) it lists one folder of the grouped shelf (issue #221).
          */
         get: operations["list_system_books_api_systems__system_id__books_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/systems/{system_id}/compendium": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A system's linked packs and sheets, and the content types they hold
+         * @description The system's linked packs and sheets, and the content types they hold.
+         */
+        get: operations["get_compendium_api_systems__system_id__compendium_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/systems/{system_id}/compendium/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link content packs and character sheets to a system (GM or admin)
+         * @description Set the packs that fill the system's compendium and the sheets it uses.
+         */
+        put: operations["update_links_api_systems__system_id__compendium_links_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/systems/{system_id}/compendium/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search every content type in a system's compendium
+         * @description Search every content type in one system's compendium.
+         */
+        get: operations["search_system_compendium_api_systems__system_id__compendium_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/systems/{system_id}/compendium/{content_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse one content type in a system's compendium
+         * @description One content type: search, filter (`filter[field]=value`), sort, paginate.
+         */
+        get: operations["browse_compendium_api_systems__system_id__compendium__content_type__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/systems/{system_id}/compendium/{content_type}/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One compendium entry
+         * @description One entry in full, with the definition it renders by.
+         */
+        get: operations["get_compendium_entry_api_systems__system_id__compendium__content_type___entry_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10603,6 +10735,11 @@ export interface components {
              */
             installed?: boolean;
             /**
+             * Installed Server Wide
+             * @default false
+             */
+            installed_server_wide?: boolean;
+            /**
              * Installed Version
              * @default
              */
@@ -10659,6 +10796,16 @@ export interface components {
              * @default
              */
             raw_id?: string;
+            /**
+             * Server Installed Version
+             * @default
+             */
+            server_installed_version?: string;
+            /**
+             * Server Update Available
+             * @default false
+             */
+            server_update_available?: boolean;
             /**
              * Sha256
              * @default
@@ -11505,6 +11652,360 @@ export interface components {
             resource_type: "book" | "map" | "token" | "audio" | "model";
             /** Suggested Parent Id */
             suggested_parent_id?: string | null;
+        };
+        /** CompendiumBrowseResponse */
+        CompendiumBrowseResponse: {
+            content_type: components["schemas"]["CompendiumType"];
+            /** Entries */
+            entries: components["schemas"]["CompendiumEntry"][];
+            /** Filters Available */
+            filters_available?: {
+                [key: string]: components["schemas"]["FilterOption"][];
+            };
+            /** Filters Without Parent */
+            filters_without_parent?: {
+                [key: string]: boolean;
+            };
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * CompendiumEntry
+         * @description One compendium entry, from a pack or a ruleset.
+         */
+        CompendiumEntry: {
+            /** Content Type */
+            content_type: string;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Display
+             * @default
+             */
+            display?: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Origin
+             * @default
+             */
+            origin?: string;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
+            /** Row Id */
+            row_id?: string | null;
+            /**
+             * Ruleset
+             * @default false
+             */
+            ruleset?: boolean;
+            /** Ruleset Id */
+            ruleset_id?: string | null;
+            /**
+             * Ruleset Name
+             * @default
+             */
+            ruleset_name?: string;
+            /**
+             * Schema Id
+             * @default
+             */
+            schema_id?: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * CompendiumEntryDetail
+         * @description An entry with the definition it renders by.
+         */
+        CompendiumEntryDetail: {
+            /** Content Type */
+            content_type: string;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Display
+             * @default
+             */
+            display?: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Origin
+             * @default
+             */
+            origin?: string;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
+            /** Row Id */
+            row_id?: string | null;
+            /**
+             * Ruleset
+             * @default false
+             */
+            ruleset?: boolean;
+            /** Ruleset Id */
+            ruleset_id?: string | null;
+            /**
+             * Ruleset Name
+             * @default
+             */
+            ruleset_name?: string;
+            /**
+             * Schema Id
+             * @default
+             */
+            schema_id?: string;
+            /** Source */
+            source: string;
+            type_definition: components["schemas"]["CompendiumType"];
+        };
+        /**
+         * CompendiumLinks
+         * @description The packs and sheets to link. A list left out is left as it is.
+         */
+        CompendiumLinks: {
+            /** Pack Ids */
+            pack_ids?: string[] | null;
+            /** Sheet Ids */
+            sheet_ids?: string[] | null;
+        };
+        /**
+         * CompendiumPack
+         * @description A content pack linked to the system, with the credit it is shown under.
+         */
+        CompendiumPack: {
+            /**
+             * Attribution
+             * @default
+             */
+            attribution?: string;
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /**
+             * Entry Count
+             * @default 0
+             */
+            entry_count?: number;
+            /**
+             * Installed
+             * @default true
+             */
+            installed?: boolean;
+            /**
+             * License
+             * @default
+             */
+            license?: string;
+            /**
+             * License Url
+             * @default
+             */
+            license_url?: string;
+            /** Name */
+            name: string;
+            /** Pack Id */
+            pack_id: string;
+            /**
+             * Schema Id
+             * @default
+             */
+            schema_id?: string;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url?: string;
+            /**
+             * Version
+             * @default
+             */
+            version?: string;
+        };
+        /** CompendiumSearchResponse */
+        CompendiumSearchResponse: {
+            /** Results */
+            results?: components["schemas"]["CompendiumSearchResult"][];
+        };
+        /**
+         * CompendiumSearchResult
+         * @description A search hit, with its type's label and the systems it appears in.
+         */
+        CompendiumSearchResult: {
+            /** Content Type */
+            content_type: string;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Display
+             * @default
+             */
+            display?: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Origin
+             * @default
+             */
+            origin?: string;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
+            /** Row Id */
+            row_id?: string | null;
+            /**
+             * Ruleset
+             * @default false
+             */
+            ruleset?: boolean;
+            /** Ruleset Id */
+            ruleset_id?: string | null;
+            /**
+             * Ruleset Name
+             * @default
+             */
+            ruleset_name?: string;
+            /**
+             * Schema Id
+             * @default
+             */
+            schema_id?: string;
+            /** Source */
+            source: string;
+            /** Systems */
+            systems?: components["schemas"]["CompendiumSystemRef"][];
+            /**
+             * Type Label
+             * @default
+             */
+            type_label?: string;
+        };
+        /**
+         * CompendiumSheet
+         * @description A character sheet linked to the system.
+         */
+        CompendiumSheet: {
+            /**
+             * Available
+             * @default false
+             */
+            available?: boolean;
+            /** Name */
+            name: string;
+            /** Schema Id */
+            schema_id: string;
+            /**
+             * Server Wide
+             * @default false
+             */
+            server_wide?: boolean;
+            /**
+             * System
+             * @default
+             */
+            system?: string;
+        };
+        /** CompendiumSummary */
+        CompendiumSummary: {
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit?: boolean;
+            /** Content Types */
+            content_types?: components["schemas"]["CompendiumType"][];
+            /** Packs */
+            packs?: components["schemas"]["CompendiumPack"][];
+            /** Sheets */
+            sheets?: components["schemas"]["CompendiumSheet"][];
+            /** System Id */
+            system_id: string;
+        };
+        /** CompendiumSystemRef */
+        CompendiumSystemRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * CompendiumType
+         * @description A content type with entries in the compendium, and how it lists.
+         */
+        CompendiumType: {
+            /**
+             * Compact Display
+             * @default
+             */
+            compact_display?: string;
+            /**
+             * Entry Count
+             * @default 0
+             */
+            entry_count?: number;
+            /** Fields */
+            fields?: {
+                [key: string]: unknown;
+            };
+            /** Filter Depends */
+            filter_depends?: {
+                [key: string]: string;
+            };
+            /** Filter Fields */
+            filter_fields?: string[];
+            /**
+             * Icon
+             * @default
+             */
+            icon?: string;
+            /**
+             * Identity Field
+             * @default name
+             */
+            identity_field?: string;
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /**
+             * Label Plural
+             * @default
+             */
+            label_plural?: string;
+            /** Name */
+            name: string;
+            /** Search Fields */
+            search_fields?: string[];
+            /** Sort Default */
+            sort_default?: string[];
         };
         /** ContentTypeListResponse */
         ContentTypeListResponse: {
@@ -16546,6 +17047,11 @@ export interface components {
             name: string;
             /** Schema Id */
             schema_id: string;
+            /**
+             * Server Wide
+             * @default false
+             */
+            server_wide?: boolean;
             /** Source Id */
             source_id?: string | null;
             /** Source Url */
@@ -16651,6 +17157,11 @@ export interface components {
             name: string;
             /** Schema Id */
             schema_id: string;
+            /**
+             * Server Wide
+             * @default false
+             */
+            server_wide?: boolean;
             /** Source Id */
             source_id?: string | null;
             /** Source Url */
@@ -17506,6 +18017,11 @@ export interface components {
             name: string;
             /** Schema Id */
             schema_id: string;
+            /**
+             * Server Wide
+             * @default false
+             */
+            server_wide?: boolean;
             /** Sheet Id */
             sheet_id: string;
             /**
@@ -28458,7 +28974,10 @@ export interface operations {
     };
     import_schema_api_characters_schemas_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Install for every account (admin) */
+                server_wide?: boolean;
+            };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28530,7 +29049,10 @@ export interface operations {
     };
     install_sheet_api_characters_schemas_install__sheet_id__post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Install for every account (admin) */
+                server_wide?: boolean;
+            };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28636,7 +29158,10 @@ export interface operations {
     };
     delete_schema_api_characters_schemas__schema_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Remove the server-wide copy (admin) */
+                server_wide?: boolean;
+            };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29470,6 +29995,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodexTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_compendiums_api_compendium_search_get: {
+        parameters: {
+            query?: {
+                /** @description Search text */
+                q?: string;
+                system_id?: string | null;
+                limit?: number;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumSearchResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36659,6 +37223,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemBooksPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compendium_api_systems__system_id__compendium_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_links_api_systems__system_id__compendium_links_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompendiumLinks"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_system_compendium_api_systems__system_id__compendium_search_get: {
+        parameters: {
+            query?: {
+                /** @description Search text */
+                q?: string;
+                content_type?: string | null;
+                limit?: number;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browse_compendium_api_systems__system_id__compendium__content_type__get: {
+        parameters: {
+            query?: {
+                search?: string;
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+                content_type: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumBrowseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compendium_entry_api_systems__system_id__compendium__content_type___entry_id__get: {
+        parameters: {
+            query?: {
+                /** @description A pack id, or `ruleset:<id>`, when two entries share an id */
+                origin?: string | null;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+                content_type: string;
+                entry_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompendiumEntryDetail"];
                 };
             };
             /** @description Validation Error */
