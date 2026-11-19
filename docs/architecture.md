@@ -124,10 +124,15 @@ Key points:
   the requested file if it exists (with a path-traversal guard) or `index.html` with
   `Cache-Control: no-store` so the SPA can client-route. HEAD gets the same answer as GET,
   and other methods a 405. Paths under a server-side prefix - `/api`, `/mcp`, `/opds`,
-  `/.well-known`, and the OAuth fallbacks `/authorize`, `/token` and `/register` - are
-  never SPA routes, so a miss there gets a JSON 404 (or a 405 when another route takes the
-  path under a different method) instead: their callers parse the answer as JSON. See
+  `/.well-known`, and the OAuth endpoints `/authorize`, `/token`, `/register` and `/revoke` -
+  are never SPA routes, so a miss there gets a JSON 404 (or a 405 when another route takes
+  the path under a different method) instead: their callers parse the answer as JSON. See
   [`backend/spa_fallback.py`](../backend/spa_fallback.py).
+- **MCP OAuth** - with `MCP_OAUTH_ENABLED`, the `mcp` SDK's OAuth routes are mounted at the
+  site root (where clients look for them) ahead of the SPA catch-alls, so they sit outside
+  `/api`, its dependencies and the OpenAPI schema. The SDK speaks the protocol; Grimoire's
+  provider stores clients, requests and grants in the database, and a grant is an `api_keys`
+  row. See [`backend/mcp_oauth`](../backend/mcp_oauth/__init__.py).
 
 ### Page images and caching
 

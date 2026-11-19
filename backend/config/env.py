@@ -156,6 +156,15 @@ MCP_ENABLED = _bool_env("MCP_ENABLED", False)
 MCP_ALLOWED_HOSTS = [
     h.strip().lower() for h in _str_env("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()
 ]
+# OAuth sign-in for /mcp (issue #906), so hosted clients such as claude.ai can
+# connect each user to their own account. Off by default; needs MCP_ENABLED
+# and API_KEYS_ENABLED, since a grant is an API key row. See docs/mcp.md.
+MCP_OAUTH_ENABLED = _bool_env("MCP_OAUTH_ENABLED", False)
+# Optional allow-list (comma-separated host names) for the redirect address a
+# client may register. Empty allows any https address, and http on loopback.
+MCP_OAUTH_REDIRECT_HOSTS = [
+    h.strip().lower() for h in _str_env("MCP_OAUTH_REDIRECT_HOSTS", "").split(",") if h.strip()
+]
 # Public base URL of this instance (e.g. "https://grimoire.example.com").
 # Used to build absolute links in OPDS feeds and anywhere a fully-qualified URL is needed.
 BASE_URL = _str_env("BASE_URL", "http://localhost:9481").rstrip("/")

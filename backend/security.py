@@ -288,6 +288,32 @@ def record_share_failure(request: Request, scope: str, key: str = "") -> None:
         pass
 
 
+# MCP OAuth endpoints (issue #906), on the auth limit. The key is chosen by the
+# caller (backend/mcp_oauth/routes.py): a client_id with the address for
+# /token and /revoke, which hosted clients call from addresses shared by all
+# their users, and the address alone for /register and /authorize.
+_OAUTH_LIMIT = parse_limit(AUTH_RATE_LIMIT)
+
+
+def oauth_attempts_blocked(scope: str, key: str) -> bool:
+    """Whether ``key`` has used up its allowance in ``scope``."""
+    if not limiter.enabled:
+        return False
+    try:
+        return not limiter.limiter.test(_OAUTH_LIMIT, scope, key)
+    except Exception:
+        return False
+
+
+def record_oauth_attempt(scope: str, key: str) -> None:
+    if not limiter.enabled:
+        return
+    try:
+        limiter.limiter.hit(_OAUTH_LIMIT, scope, key)
+    except Exception:
+        pass
+
+
 # Per-account and per-link allowances. The IP limits above slow one client, but
 # attempts can arrive from many addresses, and many people can share one. These
 # count failures against what is being signed in to, whatever address they come

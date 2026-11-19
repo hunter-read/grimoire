@@ -18,10 +18,12 @@ CATCH_ALL_PATH = "/{full_path:path}"
 #     registered when MCP_ENABLED / OPDS_ENABLED are on.
 #   .well-known - discovery documents. MCP clients probe them for OAuth
 #     metadata after a 401 from /mcp.
-#   authorize, token, register - the OAuth endpoints MCP clients fall back to
-#     (2025-03-26 spec) once both metadata probes 404. Grimoire offers none.
+#   authorize, token, register, revoke - the OAuth endpoints. Served at the
+#     root when MCP_OAUTH_ENABLED is on (backend/mcp_oauth); otherwise MCP
+#     clients still fall back to them (2025-03-26 spec) once both metadata
+#     probes 404.
 RESERVED_SEGMENTS = frozenset(
-    {"api", "mcp", "opds", ".well-known", "authorize", "token", "register"}
+    {"api", "mcp", "opds", ".well-known", "authorize", "token", "register", "revoke"}
 )
 
 # What the catch-alls answer outside the reserved prefixes.

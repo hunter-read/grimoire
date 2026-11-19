@@ -236,6 +236,27 @@ the same, so each MCP tool, resource and prompt checks the permission it needs -
 `campaigns: Write` - and a key is only shown the ones it can use. See
 [What it can do](mcp.md#what-it-can-do) for the full table.
 
+**OAuth for MCP.** With `MCP_OAUTH_ENABLED=true` as well, a hosted MCP client
+such as claude.ai can sign each user in instead of being given a key (issue
+#906). What the user approves is stored as an API key row - a **grant**, listed
+with `kind: "app"` - and the client sends `Authorization: Bearer <access token>`
+to `/mcp`, where it is checked exactly as a key with the same permissions would
+be. Access tokens work on `/mcp` only: on `/api` a Bearer token is always a
+session. The OAuth endpoints live at the site root:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/.well-known/oauth-protected-resource/mcp` | GET | Protected resource metadata (RFC 9728): the resource (`<BASE_URL>/mcp`) and its authorization server. A `401` from `/mcp` points here in `WWW-Authenticate`. |
+| `/.well-known/oauth-authorization-server` | GET | Authorization server metadata (RFC 8414). |
+| `/register` | POST | Dynamic client registration (RFC 7591). Open while the flag is on; grants nothing by itself. A redirect address must be `https` (or `http` on loopback) and, with `MCP_OAUTH_REDIRECT_HOSTS` set, on one of those hosts. Returns `201` with a `client_id` and, unless the client asked for none, a `client_secret` - only its hash is kept. |
+| `/authorize` | GET, POST | Starts a sign-in (PKCE `S256` required). Redirects the browser to the consent page, `/oauth/consent?request=<id>`, and nowhere else: a request refused after the client and redirect address check out (a bad scope, a `resource` other than this server's `/mcp`, a redirect host no longer in `MCP_OAUTH_REDIRECT_HOSTS`, too many sign-ins waiting) gets a `400` with `{error, error_description}` instead of a redirect to the client, since anyone can register a client. |
+| `/token` | POST | Exchanges a code (`authorization_code`) or renews tokens (`refresh_token`). Access tokens last an hour, refresh tokens 30 days from their last use; each renewal replaces both. |
+| `/revoke` | POST | Revokes a grant by either of its tokens (RFC 7009). |
+
+A refused access token gets `401` with `WWW-Authenticate: Bearer error="invalid_token"`,
+so the client renews it rather than starting a new sign-in. Every owner check
+also applies to renewal, so a refusal can't be renewed around.
+
 ### Share links
 
 A [share link](sharing.md) is a public URL for one book, map, token, audio track
@@ -249,6 +270,8 @@ that one item. See [Share links](#share-links-1) below.
 The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` from a trusted reverse proxy. Failed logins are also counted per account (`ACCOUNT_RATE_LIMIT`, default `20/hour`); past it, `/api/auth/login` returns `429` for that account until the window passes, except from a browser that has signed in to it before. Wrong current passwords on `PATCH /api/users/me/password` have an allowance of their own, the same size, so they never block signing in. See [Security hardening](security.md).
 
 Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, further failed attempts get `429` until the window passes. A working key is never refused and never counts, so a dashboard can poll as often as it likes, even from an address it shares with others.
+
+The MCP OAuth endpoints (`MCP_OAUTH_ENABLED`) use the same limit, keyed for who calls them: failed `/token` and `/revoke` requests count per `client_id` and address together - so one client's failures never throttle another's on the addresses a hosted client shares among all its users, and someone who learns a `client_id` can't lock it out - and every `/register` and `/authorize` request counts per address. OAuth access tokens refused on `/mcp` are not counted per address, for the same reason; they are 32 random bytes, so there is nothing to guess. These counts, like the others, are per worker unless `VALKEY_URL` is set.
 
 ### Calling the API from a browser (CORS)
 
@@ -2140,20 +2163,23 @@ Settings pinned by the environment count as they are in effect. Only a change th
 
 ### API keys
 
-Manage [API keys](#api-keys). These need a **session** - an API key can never
-reach them - and refuse guests. Everyone manages only their own keys; an admin
+Manage [API keys](#api-keys), and answer MCP OAuth sign-ins (`/api/oauth`).
+These need a **session** - an API key can never reach them - and refuse guests. Everyone manages only their own keys; an admin
 can also list and revoke anyone's - including keys whose owner has since lost
 access. A user without access gets `403`, and with `API_KEYS_ENABLED=false`
 every endpoint here does.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/api-keys` | GET | any | Your keys, newest first: `[{id, user_id, username, name, prefix, permissions, created_at, last_used_at, expires_at, expired}]`. Never includes the key itself. `?all=true` (admin only) lists every user's keys. |
+| `/api/api-keys` | GET | any | Your keys, newest first: `[{id, user_id, username, name, prefix, permissions, created_at, last_used_at, expires_at, expired, kind, client_name, redirect_host}]`. Never includes the key itself. `kind` is `key`, or `app` for an MCP client you approved through OAuth, with the name it registered under and the host it signs in through. `?all=true` (admin only) lists every user's keys. |
 | `/api/api-keys/permissions` | GET | any | The permissions your role can grant a key, group by group: `[{id, tags, description, group, levels}]`. `group` is the key editor's section - `library`, `media`, `campaigns` or `admin`. |
 | `/api/api-keys` | POST | any | Create a key acting as you. Body: `{name, permissions?, expires_at?}` where `permissions` is `{permission \| "*": "none"\|"read"\|"write"}` (omitted = No access) and `expires_at` is an ISO timestamp in the future, or null/omitted for never. Returns `201` with `{api_key, key}` - `key` is the full key, returned **only here and by regenerate**. |
 | `/api/api-keys/{id}` | PATCH | owner | Rename a key or change its permissions or expiry. Body: any of `{name, permissions, expires_at}`; send `expires_at: null` to make it never expire, or omit it to leave it unchanged. |
-| `/api/api-keys/{id}/regenerate` | POST | owner | Issue a new key, keeping the name and permissions. The old key stops working immediately. Returns `{api_key, key}`. |
-| `/api/api-keys/{id}` | DELETE | owner or admin | Revoke (delete) a key. `204`. |
+| `/api/api-keys/{id}/regenerate` | POST | owner | Issue a new key, keeping the name and permissions. The old key stops working immediately. Returns `{api_key, key}`. `409` for an app (`kind: "app"`): a new secret would only break it silently, so revoke it instead. |
+| `/api/api-keys/{id}` | DELETE | owner or admin | Revoke (delete) a key or app. `204`. A revoked app shows its user a Connect button and can be approved again; to stop that, turn API keys off for the user. |
+| `/api/oauth/requests/{request_id}` | GET | session | MCP sign-in (`MCP_OAUTH_ENABLED`, else `404`): what the pending request asks - `{client_name, redirect_host, redirect_uri, may_approve, reason, default_permissions, levels}`. `404` once it has expired (10 minutes) or been answered. |
+| `/api/oauth/requests/{request_id}/approve` | POST | session | Approve it, as yourself. Body: `{permissions?}` as for a key; omitted is Read on everything your role can read. Returns `{redirect_to}`, the client's address with a code, for the page to send the browser to. `403` if you may not hold keys. |
+| `/api/oauth/requests/{request_id}/deny` | POST | session | Deny it. Returns `{redirect_to}` with `error=access_denied`. |
 
 Someone else's key is a `404` for everything but an admin's delete - nobody,
 admins included, can edit or mint a secret for a key that isn't theirs. `400`

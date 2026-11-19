@@ -1,7 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LoginView from './LoginView'
+import { goToOidcProvider } from '../utils/oidcLogin'
+
+// jsdom can't navigate, and won't let a test spy on location.assign.
+vi.mock('../utils/oidcLogin', () => ({ goToOidcProvider: vi.fn() }))
 
 describe('LoginView', () => {
   beforeEach(() => {
@@ -224,6 +228,47 @@ describe('LoginView', () => {
     expect(container.querySelector('button img')!.getAttribute('src')).toBe(
       '/api/auth/openid/button-icon?v=abc'
     )
+  })
+
+  describe('starting an OIDC sign-in', () => {
+    const oidcConfig = (extra: Record<string, unknown> = {}) =>
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            password_auth_enabled: true,
+            oidc_enabled: true,
+            oidc_button_text: 'Sign in with SSO',
+            ...extra,
+          }),
+      })
+
+    afterEach(() => {
+      vi.mocked(goToOidcProvider).mockClear()
+      sessionStorage.clear()
+    })
+
+    it('starts from the button', async () => {
+      globalThis.fetch = oidcConfig()
+      render(<LoginView onLogin={vi.fn()} />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Sign in with SSO' }))
+      expect(goToOidcProvider).toHaveBeenCalledTimes(1)
+    })
+
+    it('starts by itself when auto-launch is on', async () => {
+      globalThis.fetch = oidcConfig({ oidc_auto_launch: true })
+      render(<LoginView onLogin={vi.fn()} />)
+      await waitFor(() => expect(goToOidcProvider).toHaveBeenCalledTimes(1))
+    })
+
+    it('does not start by itself after a failed sign-in', async () => {
+      window.history.replaceState(null, '', '/login?oidc_error=denied')
+      globalThis.fetch = oidcConfig({ oidc_auto_launch: true })
+      render(<LoginView onLogin={vi.fn()} />)
+      await screen.findByRole('button', { name: 'Sign in with SSO' })
+      expect(goToOidcProvider).not.toHaveBeenCalled()
+      window.history.replaceState(null, '', '/')
+    })
   })
 
   describe('an OIDC token in the URL fragment', () => {

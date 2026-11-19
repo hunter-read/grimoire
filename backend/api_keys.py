@@ -168,7 +168,9 @@ TAG_PERMISSIONS: dict[str, str] = {
 # kind - the token in the path is the credential - so a key has nothing to add.
 # "api-docs" is the signed-in API documentation (API_DOCS=signed-in): a page
 # for a person in a browser, and API_DOCS=public serves it to anyone instead.
-EXCLUDED_TAGS = frozenset({"auth", "api-keys", "share", "api-docs"})
+# "oauth" is the consent page's API for MCP sign-in (issue #906): approving a
+# client mints a grant, which is key management by another name.
+EXCLUDED_TAGS = frozenset({"auth", "api-keys", "share", "api-docs", "oauth"})
 
 # Roles, weakest first.
 ROLE_RANK = {"guest": 0, "player": 1, "gm": 2, "admin": 3}
@@ -400,6 +402,55 @@ def _refuse(request: Request, detail: str) -> NoReturn:
     raise HTTPException(401, detail)
 
 
+class OwnerRefused(Exception):
+    """A key's or grant's owner may not use it: ``status`` 401 when the owner is
+    gone, 403 when they may no longer hold keys."""
+
+    def __init__(self, status: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status = status
+        self.detail = detail
+
+
+def check_owner(db: Any, user_id: str) -> Any:
+    """The owner (an ORM ``User``) of a key or OAuth grant, if they may still use it.
+
+    Read fresh on every use, so a demoted user's keys and grants lose what the
+    demotion took away, and turning keys off for a user (or the instance)
+    refuses every key and grant they hold at once. Raises :class:`OwnerRefused`.
+    """
+    from .models import User
+
+    owner = db.query(User).filter_by(id=user_id).first()
+    if owner is None:
+        raise OwnerRefused(401, "Invalid API key")
+    if not user_keys_allowed(owner):
+        raise OwnerRefused(403, "API keys are not enabled for your account")
+    return owner
+
+
+def touch(db: Any, row: Any, owner: Any, now: datetime.datetime) -> None:
+    """Record that ``row`` (a key or grant) was used, at most once a minute."""
+    from .services.user_activity import record_activity
+
+    last = as_utc(row.last_used_at)
+    if last is None or now - last >= LAST_USED_THROTTLE:
+        row.last_used_at = now
+        # The owner's own activity (issue #576) rides the same write.
+        record_activity(db, owner.id, now.replace(tzinfo=None))
+        db.commit()
+
+
+def principal_for(row: Any, owner: Any) -> KeyPrincipal:
+    return KeyPrincipal(
+        id=row.id,
+        user_id=owner.id,
+        username=owner.username,
+        role=owner.role or "player",
+        permissions=dict(row.permissions or {}),
+    )
+
+
 def authenticate(presented: str, request: Request, *, check_route: bool = True) -> KeyPrincipal:
     """Resolve ``presented`` to a key and check it may call the matched route.
 
@@ -416,8 +467,7 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     being allowed keys, throttling - still applies.
     """
     from .config import SessionLocal
-    from .models import ApiKey, User
-    from .services.user_activity import record_activity
+    from .models import ApiKey
 
     if not keys_enabled():
         raise HTTPException(403, "API keys are disabled on this server")
@@ -433,18 +483,23 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     db = SessionLocal()
     try:
         row = db.query(ApiKey).filter_by(key_hash=presented_hash).first()
-        if row is None or not hmac.compare_digest(row.key_hash, presented_hash):
+        # An OAuth grant's key_hash belongs to a value nobody holds; refusing
+        # the row outright keeps a grant from ever acting as a key regardless.
+        if (
+            row is None
+            or row.client_id is not None
+            or not hmac.compare_digest(row.key_hash, presented_hash)
+        ):
             _refuse(request, "Invalid API key")
         if is_expired(row.expires_at, now):
             _refuse(request, "API key has expired")
 
-        # The owner's current role, not the one they had when the key was made: a
-        # demoted user's keys lose what the demotion took away.
-        owner = db.query(User).filter_by(id=row.user_id).first()
-        if owner is None:
-            _refuse(request, "Invalid API key")
-        if not user_keys_allowed(owner):
-            raise HTTPException(403, "API keys are not enabled for your account")
+        try:
+            owner = check_owner(db, row.user_id)
+        except OwnerRefused as refused:
+            if refused.status == 401:
+                _refuse(request, refused.detail)
+            raise HTTPException(refused.status, refused.detail)
 
         if check_route:
             permission = route_permission(route)
@@ -459,18 +514,7 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
                     f"(it has {granted!r})",
                 )
 
-        last = as_utc(row.last_used_at)
-        if last is None or now - last >= LAST_USED_THROTTLE:
-            row.last_used_at = now
-            # The owner's own activity (issue #576) rides the same write.
-            record_activity(db, owner.id, now.replace(tzinfo=None))
-            db.commit()
-        return KeyPrincipal(
-            id=row.id,
-            user_id=owner.id,
-            username=owner.username,
-            role=owner.role or "player",
-            permissions=dict(row.permissions or {}),
-        )
+        touch(db, row, owner, now)
+        return principal_for(row, owner)
     finally:
         db.close()

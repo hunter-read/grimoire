@@ -16,6 +16,7 @@ from ...models import ApiKey
 from ._helpers import (
     issue_secret,
     load_user,
+    oauth_clients,
     require_key_user,
     require_session_user,
     serialize,
@@ -51,7 +52,8 @@ def list_api_keys(
         q = q.filter_by(user_id=current_user.id)
     rows = q.order_by(ApiKey.created_at.desc()).all()
     names = usernames(db, rows)
-    return [serialize(r, names.get(r.user_id)) for r in rows]
+    apps = oauth_clients(db, rows)
+    return [serialize(r, names.get(r.user_id), apps) for r in rows]
 
 
 def list_permissions(
@@ -118,7 +120,7 @@ def update_api_key(
         row.expires_at = validate_expiry(data.expires_at)
     db.commit()
     db.refresh(row)
-    return serialize(row, current_user.username)
+    return serialize(row, current_user.username, oauth_clients(db, [row]))
 
 
 def regenerate_api_key(
@@ -128,6 +130,10 @@ def regenerate_api_key(
 ):
     """New secret, same name and permissions; the old secret stops working now."""
     row = _own_or_404(db, key_id, current_user)
+    if row.client_id is not None:
+        # An OAuth grant holds tokens, not a key: a new secret would only break
+        # the app silently. Revoke it instead, and approve the app again.
+        raise HTTPException(409, "This is a connected app, not a key - revoke it instead")
     key = issue_secret(row)
     db.commit()
     db.refresh(row)
