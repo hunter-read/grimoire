@@ -169,3 +169,6 @@ class AuthMeResponse(BaseModel):
     oidc_linked: bool
     # See LoginUser.guest_scope.
     guest_scope: Optional[str] = None
+    # The user's own sidebar stats layout; null follows the admin's default
+    # (`sidebar_stats` on /settings/ui).
+    sidebar_stats: Optional[list[str]] = None

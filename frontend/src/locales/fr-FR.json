@@ -39,7 +39,49 @@
     "librarySize": "Taille (bibliothèque)",
     "version": "Version",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "ttrpgSystems": "Systèmes de jeu de rôle",
+    "wargameSystems": "Systèmes de jeux de figurines",
+    "ttrpgBooks": "Livres de jeu de rôle",
+    "wargameBooks": "Livres de jeux de figurines",
+    "ttrpgPages": "Pages de jeu de rôle",
+    "wargamePages": "Pages de jeux de figurines",
+    "indexedBooks": "Livres indexés",
+    "ttrpgSize": "Taille (livres de jeu de rôle)",
+    "wargameSize": "Taille (livres de jeux de figurines)",
+    "mapsSize": "Taille (cartes)",
+    "tokensSize": "Taille (pions)",
+    "modelsSize": "Taille (modèles)",
+    "audioSize": "Taille (audio)",
+    "showAll": "Toutes les statistiques",
+    "allTitle": "Statistiques de la bibliothèque",
+    "byGameType": "Systèmes, livres et pages",
+    "ttrpg": "Jeu de rôle",
+    "wargaming": "Jeux de figurines",
+    "total": "Total",
+    "sizeTitle": "Espace disque",
+    "collectionsTitle": "Éléments et variantes",
+    "yourSidebarOwn": "Vous avez choisi ces statistiques. Utilisez celles par défaut pour revenir à celles de votre administrateur.",
+    "yourSidebarDefault": "Ce sont les statistiques par défaut choisies par votre administrateur. Modifiez-les pour personnaliser votre barre latérale.",
+    "chosenCount": "{{count}} sur {{max}} choisies",
+    "noneChosen": "Aucune statistique choisie : la barre latérale n'en affiche aucune.",
+    "chosenList": "Statistiques de la barre latérale",
+    "save": "Enregistrer",
+    "useDefault": "Utiliser celles par défaut",
+    "saved": "Enregistré",
+    "reorder": "Réordonner {{name}}",
+    "reorderHint": "Cochez les statistiques à afficher. Faites glisser une statistique cochée par sa poignée pour la déplacer, ou placez le focus sur la poignée et utilisez les flèches haut et bas.",
+    "moved": "Déplacée en position {{position}} sur {{total}}",
+    "fullHint": "décochez-en une pour en choisir une autre",
+    "items": "Éléments",
+    "variants": "Variantes",
+    "bookVariants": "Variantes de livres",
+    "mapVariants": "Variantes de cartes",
+    "tokenVariants": "Variantes de pions",
+    "modelVariants": "Variantes de modèles",
+    "audioVariants": "Variantes audio",
+    "groupCollections": "Collections",
+    "groupSizes": "Tailles"
   },
   "about": {
     "title": "À propos de Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Tous les liens que vous avez créés. Copiez-en un à nouveau, ou révoquez-le pour qu'il cesse de fonctionner.",
       "noPermission": "Vous ne pouvez pas créer de liens de partage pour le moment. Vos liens existants sont suspendus, pas supprimés, et refonctionneront si un admin vous rend l'autorisation.",
       "none": "Vous n'avez créé aucun lien de partage."
+    },
+    "sidebarStats": {
+      "title": "Statistiques de la barre latérale",
+      "description": "Les statistiques au pied de votre barre latérale, jusqu'à 10, dans l'ordre de votre choix."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Statistiques de la barre latérale",
-      "description": "Choisissez quelles statistiques apparaissent dans le pied de page de la barre latérale."
+      "description": "Choisissez jusqu'à 10 statistiques pour le pied de la barre latérale, dans l'ordre. C'est le choix par défaut pour tous ; chacun peut choisir les siennes dans Préférences, dans ses paramètres."
     },
     "apiKeys": {
       "title": "Clés API",

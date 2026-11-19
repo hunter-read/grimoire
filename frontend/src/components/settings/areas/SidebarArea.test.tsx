@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import SidebarArea from './SidebarArea'
 
 vi.mock('../../../api', () => ({
@@ -34,39 +35,36 @@ beforeEach(() => {
 })
 
 describe('SidebarArea - stats', () => {
-  it('renders every stat toggle label', async () => {
+  const chosen = () =>
+    within(screen.getByRole('list', { name: 'Stats in the sidebar' }))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent?.replace(/^\d+\./, ''))
+
+  it('shows the default stats layout, built from the stored flags', async () => {
     render(<SidebarArea />)
-    expect(await screen.findByLabelText('Systems')).toBeInTheDocument()
-    for (const label of ['Books', 'Pages', 'Maps', 'Tokens', 'Books Size', 'Library Size']) {
-      expect(screen.getByLabelText(label)).toBeInTheDocument()
-    }
+    await screen.findByRole('list', { name: 'Stats in the sidebar' })
+    expect(chosen()).toEqual(['Systems', 'Pages', 'Books Size'])
   })
 
   // Version is no longer a configurable stat; it is always shown in the sidebar.
-  it('does not render a Version toggle', async () => {
+  it('does not offer Version as a stat', async () => {
     render(<SidebarArea />)
-    await screen.findByLabelText('Systems')
+    await screen.findByRole('list', { name: 'Stats in the sidebar' })
     expect(screen.queryByLabelText('Version')).toBeNull()
   })
 
-  it('reflects checked state from settings', async () => {
-    render(<SidebarArea />)
-    await waitFor(() => expect(screen.getByLabelText('Systems')).toBeChecked())
-    expect(screen.getByLabelText('Books')).not.toBeChecked()
-    expect(screen.getByLabelText('Pages')).toBeChecked()
-  })
-
-  it('saves the toggled value when a box is clicked', async () => {
-    render(<SidebarArea />)
-    fireEvent.click(await screen.findByLabelText('Books'))
-    await waitFor(() => expect(patch).toHaveBeenCalledWith({ show_stat_books: true }))
-  })
-
-  it('dispatches grimoire:settings-changed after a successful save', async () => {
+  it('saves the layout and tells the sidebar', async () => {
+    patch.mockImplementation(async (body) => body as never)
     const handler = vi.fn()
     window.addEventListener('grimoire:settings-changed', handler)
     render(<SidebarArea />)
-    fireEvent.click(await screen.findByLabelText('Systems'))
+    await userEvent.click(await screen.findByLabelText('Books'))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith({
+        sidebar_stats: ['game_systems', 'total_pages', 'total_size_mb', 'books'],
+      })
+    )
     await waitFor(() => expect(handler).toHaveBeenCalledOnce())
     window.removeEventListener('grimoire:settings-changed', handler)
   })

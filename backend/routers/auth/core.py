@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ... import login_devices, passwords
 from ...api_keys import user_keys_allowed
 from ...services import share_links as share_policy
+from ...services import sidebar_stats
 from ...auth import (
     AUTH_COOKIE_NAME,
     GUEST_SCOPE_WARGAME,
@@ -384,4 +385,5 @@ def auth_me(
         "share_links_allowed": share_policy.user_can_share(db, u),
         "oidc_linked": bool(u.oidc_subject),
         "guest_scope": guest_scope_of(u),
+        "sidebar_stats": sidebar_stats.user_layout(u.sidebar_stats),
     }

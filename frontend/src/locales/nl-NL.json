@@ -39,7 +39,49 @@
     "librarySize": "Grootte (bibliotheek)",
     "version": "Versie",
     "audio": "Audio",
-    "models": "Models"
+    "models": "Models",
+    "ttrpgSystems": "Rollenspelsystemen",
+    "wargameSystems": "Wargamesystemen",
+    "ttrpgBooks": "Rollenspelboeken",
+    "wargameBooks": "Wargameboeken",
+    "ttrpgPages": "Rollenspelpagina's",
+    "wargamePages": "Wargamepagina's",
+    "indexedBooks": "Geïndexeerde boeken",
+    "ttrpgSize": "Grootte (rollenspelboeken)",
+    "wargameSize": "Grootte (wargameboeken)",
+    "mapsSize": "Grootte (kaarten)",
+    "tokensSize": "Grootte (tokens)",
+    "modelsSize": "Grootte (modellen)",
+    "audioSize": "Grootte (audio)",
+    "showAll": "Alle statistieken",
+    "allTitle": "Bibliotheekstatistieken",
+    "byGameType": "Systemen, boeken en pagina's",
+    "ttrpg": "Rollenspel",
+    "wargaming": "Wargaming",
+    "total": "Totaal",
+    "sizeTitle": "Schijfruimte",
+    "collectionsTitle": "Items en varianten",
+    "yourSidebarOwn": "Je hebt deze statistieken zelf gekozen. Gebruik de standaard om terug te gaan naar die van je beheerder.",
+    "yourSidebarDefault": "Dit zijn de standaardstatistieken die je beheerder koos. Wijzig ze om de zijbalk naar je hand te zetten.",
+    "chosenCount": "{{count}} van {{max}} gekozen",
+    "noneChosen": "Geen statistieken gekozen - de zijbalk toont er geen.",
+    "chosenList": "Statistieken in de zijbalk",
+    "save": "Opslaan",
+    "useDefault": "Standaard gebruiken",
+    "saved": "Opgeslagen",
+    "reorder": "{{name}} verplaatsen",
+    "reorderHint": "Vink de statistieken aan die je wilt tonen. Sleep een aangevinkte statistiek aan de greep om hem te verplaatsen, of zet de focus op de greep en gebruik de pijltjestoetsen omhoog en omlaag.",
+    "moved": "Verplaatst naar positie {{position}} van {{total}}",
+    "fullHint": "vink er een uit om een andere te kiezen",
+    "items": "Items",
+    "variants": "Varianten",
+    "bookVariants": "Boekvarianten",
+    "mapVariants": "Kaartvarianten",
+    "tokenVariants": "Tokenvarianten",
+    "modelVariants": "Modelvarianten",
+    "audioVariants": "Audiovarianten",
+    "groupCollections": "Collecties",
+    "groupSizes": "Groottes"
   },
   "about": {
     "title": "Over Grimoire",
@@ -1521,6 +1563,10 @@
       "description": "Alle links die je hebt gemaakt. Kopieer er een opnieuw, of trek hem in zodat hij niet meer werkt.",
       "noPermission": "Je kunt nu geen deellinks maken. Links die je eerder maakte zijn gepauzeerd, niet verwijderd, en werken weer als een admin je toestemming herstelt.",
       "none": "Je hebt nog geen deellinks gemaakt."
+    },
+    "sidebarStats": {
+      "title": "Statistieken in de zijbalk",
+      "description": "De statistieken onderaan je zijbalk, tot 10, in de volgorde die je kiest."
     }
   },
   "appSettings": {
@@ -1539,7 +1585,7 @@
     },
     "sidebarStats": {
       "title": "Statistieken in zijbalk",
-      "description": "Kies welke statistieken in de voettekst van de zijbalk verschijnen."
+      "description": "Kies tot 10 statistieken voor de voettekst van de zijbalk, in volgorde. Dit is de standaard voor iedereen; ieder kan eigen statistieken kiezen onder Voorkeuren in de eigen instellingen."
     },
     "apiKeys": {
       "title": "API-sleutels",

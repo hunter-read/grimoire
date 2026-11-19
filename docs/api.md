@@ -341,7 +341,7 @@ league, an army's system or faction - means none.
 | `/api/auth/guest-login` | POST | - | Exchange a campaign or league guest's invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id, league_id}` and sets the `grimoire_session` cookie - `user.display_name` is the guest nickname its GM or organiser set, and `user.guest_scope` says which side of the app it reaches. A campaign's guest gets `campaign_id`; a league's guest `league_id` (null once they are in no league, when they still reach their own armies). Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/logout` | POST | - | Revokes the current session (identified by the `grimoire_refresh` cookie) and clears both auth cookies. Requires no auth so a client with an expired access token can still log out. The refresh token dies immediately; the current access token remains valid until it expires. |
 | `/api/auth/refresh` | POST | - | Exchanges the `grimoire_refresh` cookie for a new access token, rotating the refresh token. Returns `{token, user}` and re-sets both cookies. Returns 401 when the refresh token is missing, expired, or revoked; reusing an already-rotated token revokes the whole session. Rate-limited like the other credential endpoints. |
-| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, explicit_locked, campaign_access, api_keys_allowed, oidc_linked, guest_scope}`. `guest_scope` is `ttrpg` for a campaign's guest, `wargame` for a league's, and null for everyone else. `explicit_locked` is `true` when explicit content was turned off *for* the user (by an admin, the seed file or the OIDC `viewNSFW` permission), so their own preference can't turn it back on. `api_keys_allowed` says whether they may use [API keys](#api-keys) right now. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
+| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, explicit_locked, campaign_access, api_keys_allowed, oidc_linked, guest_scope, sidebar_stats}`. `sidebar_stats` is the user's own [sidebar stats layout](#sidebar-stats-layouts), or null when they follow the admin's default. `guest_scope` is `ttrpg` for a campaign's guest, `wargame` for a league's, and null for everyone else. `explicit_locked` is `true` when explicit content was turned off *for* the user (by an admin, the seed file or the OIDC `viewNSFW` permission), so their own preference can't turn it back on. `api_keys_allowed` says whether they may use [API keys](#api-keys) right now. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
 | `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
 | `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else - revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
@@ -364,7 +364,7 @@ league, an army's system or faction - means none.
 | `/api/users/:id/access-grants` | GET | admin | List this user's library access grants. Each: `{id, user_id, scope_type, scope_id, scope_name, level}`. `scope_name` is `""` when the granted system/book has since been deleted. |
 | `/api/users/:id/access-grants` | POST | admin | Grant access to one restricted system or book. Body: `{scope_type: "system"\|"book", scope_id, level: "gm"\|"admin"}`. Only **GMs** may hold grants (400 otherwise) - admins already see everything and players cannot be granted past a restriction. Re-granting an existing scope updates its level rather than erroring. 404 if the target system/book does not exist. See [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/access-grants/:grant_id` | DELETE | admin | Revoke a grant. `204` on success. |
-| `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear). Turning `allow_explicit` on is `403` while `explicit_locked` is set (see `/api/auth/me`); turning it off is always allowed. An admin setting `allow_explicit: false` on a user locks it, and `true` unlocks it. |
+| `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, `email` (use `""` to clear), or `sidebar_stats` - the user's own [sidebar stats layout](#sidebar-stats-layouts), up to 10 `/api/stats` fields in order (`400` for an unknown field, a repeat, or more than 10). `sidebar_stats: null` clears it, so the sidebar follows the admin's default again; `[]` is kept, and shows no stats. Leaving a field out changes nothing. Turning `allow_explicit` on is `403` while `explicit_locked` is set (see `/api/auth/me`); turning it off is always allowed. An admin setting `allow_explicit: false` on a user locks it, and `true` unlocks it. |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}`. `400` for a wrong `current_password`. Wrong ones are counted per account (`ACCOUNT_RATE_LIMIT`, default `20/hour`), separately from failed sign-ins; past the limit the route returns `429` until the window passes. Ends every other session. |
 | `/api/users/me` | DELETE | any | Delete own account (admin accounts cannot self-delete); campaigns and uploads go as for `DELETE /api/users/:id` |
 | `/api/users/me/opds` | GET | any | Own [OPDS](opds.md) feed status: `{opds_enabled, has_token, feed_url, feed_urls}`. `feed_url` is always the v1 URL, as it always has been. `feed_urls` lists every feed version, newest first: `[{version: "v2", url}, {version: "v1", url}]`. Both URLs are `null` without a token. Guests, and every user while `OPDS_ENABLED` is off, get `{opds_enabled: false}`. |
@@ -396,7 +396,7 @@ Each version's links stay inside that version, so a reader subscribed to v1 sees
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/stats` | GET | any (not guest), or an API key with `stats` | Counts, page totals, library size. `armory_books` is the wargame books among `books`. Tagged `stats` rather than `library`, so a dashboard key needs nothing else. |
+| `/api/stats` | GET | any (not guest), or an API key with `stats` | Counts, page totals and sizes, each split into role-playing and wargame where that applies - see [Stats response](#stats-response) for every field. `armory_books` is the older name for `wargame_books`. Tagged `stats` rather than `library`, so a dashboard key needs nothing else. |
 | `/api/about` | GET | any | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so a `stats`-only key can't read these details. |
 | `/api/changelog` | GET | any (JWT) | Parsed `CHANGELOG.md` for the About dialog: `{releases: [{version, date, summary, sections: [{title, entries}]}]}`, newest release first. `date` and `summary` are `null` when the release heading carries neither (an `Unreleased` section has no date). `releases` is empty when the image ships without a changelog, which the dialog renders as no changelog section rather than an error. Parsed once and cached for the process lifetime - the file cannot change under a running container. |
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
@@ -404,18 +404,46 @@ Each version's links stay inside that version, so a reader subscribed to v1 sees
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode). A scan left stuck by a dead process does not block it |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job (`stop_requested`), or clear one whose process died (`cleared_stale`). `not_running` when there was nothing to stop. Without Valkey, a startup scan running on another worker counts as running |
 
-**Stats response:**
+#### Stats response
+
+Every count and size the library has. Book counts and sizes cover only what the caller may
+see, so an admin's key reads the whole library. A count of items leaves out variants, as the
+library views do - a gridless cut is the same map - and the `*_variants` fields count them
+beside it; sizes always include them, since each variant is a real file. A total is always the sum of its role-playing
+and wargame halves: `books` = `ttrpg_books` + `wargame_books`, and likewise for systems and
+pages. Sizes are in MB, rounded to one decimal place, so the two halves of a size can differ
+from its total by 0.1.
+
 ```json
 {
-  "game_systems": 12,
-  "books": 340,
+  "game_systems": 14,
+  "ttrpg_systems": 12,
+  "wargame_systems": 2,
+  "books": 380,
+  "ttrpg_books": 340,
+  "wargame_books": 40,
+  "armory_books": 40,
   "maps": 1500,
   "tokens": 800,
   "audio": 250,
-  "indexed_books": 320,
-  "total_pages": 45000,
-  "total_size_mb": 18240.5,
-  "library_size_mb": 41890.2
+  "models": 640,
+  "book_variants": 12,
+  "map_variants": 1420,
+  "token_variants": 35,
+  "model_variants": 4,
+  "audio_variants": 0,
+  "indexed_books": 360,
+  "total_pages": 51000,
+  "ttrpg_pages": 45000,
+  "wargame_pages": 6000,
+  "total_size_mb": 20480.5,
+  "ttrpg_size_mb": 18240.5,
+  "wargame_size_mb": 2240.0,
+  "maps_size_mb": 9120.4,
+  "tokens_size_mb": 610.2,
+  "models_size_mb": 10211.7,
+  "audio_size_mb": 3467.4,
+  "library_size_mb": 43890.2
 }
 ```
 
@@ -439,16 +467,16 @@ at any time.
       headers:
         X-API-Key: your-key-here
       mappings:
- - field: books
-          label: Books
+        - field: ttrpg_books
+          label: RPG books
           format: number
- - field: maps
+        - field: wargame_books
+          label: Wargame books
+          format: number
+        - field: maps
           label: Maps
           format: number
- - field: tokens
-          label: Tokens
-          format: number
- - field: library_size_mb
+        - field: library_size_mb
           label: Size
           format: float
           scale: 0.001
@@ -461,15 +489,52 @@ change when the library does.
 
 | Field | Meaning | Suggested `format` |
 |-------|---------|--------------------|
-| `game_systems` | Number of game systems. Excludes special collections and container folders, but *includes* the systems nested inside a container | `number` |
-| `books` | Total books (PDFs) | `number` |
+| `game_systems` | Every game system - `ttrpg_systems` + `wargame_systems`. Excludes special collections and container folders, but *includes* the systems nested inside a container | `number` |
+| `ttrpg_systems` | Role-playing game systems (under `books/`) | `number` |
+| `wargame_systems` | Wargame systems (under `armory/`) | `number` |
+| `books` | Every book - `ttrpg_books` + `wargame_books`. A variant (a printer-friendly cut) is not counted again | `number` |
+| `ttrpg_books` | Role-playing books | `number` |
+| `wargame_books` | Wargame books, from the Armory | `number` |
+| `armory_books` | The older name for `wargame_books`; always the same number | `number` |
 | `maps` | Total maps | `number` |
 | `tokens` | Total tokens | `number` |
 | `audio` | Total audio tracks | `number` |
+| `models` | Total 3D models | `number` |
+| `book_variants` | Book variants (a printer-friendly cut, say), which `books` leaves out - `books` + `book_variants` is every book file | `number` |
+| `map_variants` | Map variants (a gridless or night version), which `maps` leaves out | `number` |
+| `token_variants` | Token variants, which `tokens` leaves out | `number` |
+| `model_variants` | 3D model variants, which `models` leaves out | `number` |
+| `audio_variants` | Audio variants, which `audio` leaves out | `number` |
 | `indexed_books` | Books with a searchable full-text index | `number` |
-| `total_pages` | Sum of all book page counts | `number` |
-| `total_size_mb` | Size of the books in MB (PDFs and other book formats only) | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `total_pages` | Every book's pages - `ttrpg_pages` + `wargame_pages` | `number` |
+| `ttrpg_pages` | Pages of the role-playing books | `number` |
+| `wargame_pages` | Pages of the wargame books | `number` |
+| `total_size_mb` | Size of the books in MB (PDFs and other book formats only), variants included - `ttrpg_size_mb` + `wargame_size_mb` | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+| `ttrpg_size_mb` | Size of the role-playing books in MB | `float`, as above |
+| `wargame_size_mb` | Size of the wargame books in MB | `float`, as above |
+| `maps_size_mb` | Size of the maps in MB | `float`, as above |
+| `tokens_size_mb` | Size of the tokens in MB | `float`, as above |
+| `models_size_mb` | Size of the 3D models in MB | `float`, as above |
+| `audio_size_mb` | Size of the audio in MB | `float`, as above |
 | `library_size_mb` | Size of the whole library in MB - books plus maps, tokens, audio, and 3D models | `float` - add `scale: 0.001` + `suffix: " GB"` to show GB |
+
+#### Sidebar stats layouts
+
+The sidebar's footer shows up to 10 of these fields, in an order of the user's choosing; **All
+stats** under it (in the **More** drawer on a phone) opens every one. People choose their own
+under **Settings → Preferences → Sidebar stats**, and an admin sets everyone's default under
+**Settings → Sidebar**. A layout is a list of field names, and may name any field above except
+`armory_books`. The admin's layout (`sidebar_stats` in
+[`/api/settings`](#settings-admin-only)) is everyone's default, and each user may save their own
+(`sidebar_stats` in `PATCH /api/users/me/preferences`), which `/api/auth/me` returns. A
+layout saved by a newer release that names a field this one doesn't know loses that field
+rather than failing.
+
+Older releases chose the footer's stats with nine `show_stat_*` flags. They still work: until
+an admin saves a layout, the default is built from them in their old order (systems, books,
+pages, maps, tokens, audio, models, books size, library size), and each flag reads as whether
+its stat is in the default layout. Setting one after a layout is saved adds its stat at the
+end or removes it - `400` if that would make more than 10.
 
 **Scan-status response:**
 ```json
@@ -2042,14 +2107,16 @@ than appearing and failing.
 | `hide_armies` | bool | Hide Armies in the sidebar (the pages stay reachable) |
 | `hide_leagues` | bool | Hide Leagues in the sidebar (the pages stay reachable) |
 | `restricted_categories` | object | `{category_slug: "gm"\|"admin"}` restricting whole categories library-wide (issue #258). The category-level tier of the access cascade; a book or system still overrides it in either direction. `core` and `character-sheet` are rejected with 400 - everyone at the table needs those. An entry set to `""` is dropped rather than stored, since "open" is the absence of an entry. See [Access levels](#access-levels-issue-258). |
-| `show_stat_systems` | bool | Show/hide game system count in sidebar |
-| `show_stat_books` | bool | Show/hide book count in sidebar |
-| `show_stat_pages` | bool | Show/hide page count in sidebar |
-| `show_stat_maps` | bool | Show/hide map count in sidebar |
-| `show_stat_tokens` | bool | Show/hide token count in sidebar |
-| `show_stat_audio` | bool | Show/hide audio track count in sidebar (default off) |
-| `show_stat_size` | bool | Show/hide library size in sidebar |
-| `show_stat_version` | bool | Show/hide version in sidebar |
+| `sidebar_stats` | string[] | The default [sidebar stats layout](#sidebar-stats-layouts): up to 10 `/api/stats` fields, in order. `400` for an unknown field, a repeat, or more than 10. Also on `/api/settings/ui`. A user's own layout, if any, wins |
+| `show_stat_systems` | bool | Whether `game_systems` is in the default layout (default on). See [Sidebar stats layouts](#sidebar-stats-layouts) for how these older flags and `sidebar_stats` work together |
+| `show_stat_books` | bool | Whether `books` is in the default layout |
+| `show_stat_pages` | bool | Whether `total_pages` is in the default layout (default on) |
+| `show_stat_maps` | bool | Whether `maps` is in the default layout |
+| `show_stat_tokens` | bool | Whether `tokens` is in the default layout |
+| `show_stat_audio` | bool | Whether `audio` is in the default layout |
+| `show_stat_models` | bool | Whether `models` is in the default layout |
+| `show_stat_size` | bool | Whether `total_size_mb` is in the default layout (default on) |
+| `show_stat_library_size` | bool | Whether `library_size_mb` is in the default layout |
 | `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. Turning it off returns 400 unless single sign-on is configured (`oidc_configured`, judged on the settings as the same patch leaves them) - see [Sign-in lock-out guard](#sign-in-lock-out-guard). |
 | `guest_access_enabled` | bool | Allow GMs/admins to create guest invite codes. Cannot be patched if `GUEST_ACCESS_ENABLED` is set in the environment (returns 400). The `guest_access_env_locked` field on the GET response indicates whether the env override is active. |
 | `share_links_role_gm` | bool | Whether GMs may create [share links](#share-links-1) without a per-user override. Default `true`. Admins always may. |

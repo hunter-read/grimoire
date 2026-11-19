@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ... import config
 from ...services import access_control
 from ...services import share_links as share_policy
+from ...services import sidebar_stats
 from ...services.oidc_button import MAX_RADIUS_PX, normalize_color, normalize_radius
 from ...services import app_settings as settings_store
 from ...services.app_settings import (
@@ -146,6 +147,31 @@ def _oidc_writers() -> dict[str, Writer]:
     return writers
 
 
+def _sidebar_stats(db: Session, key: str, value: Any) -> None:
+    try:
+        layout = sidebar_stats.validate(value)
+    except sidebar_stats.LayoutError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    set_raw(db, sidebar_stats.SETTING_KEY, json.dumps(layout))
+
+
+def _legacy_stat_flag(db: Session, key: str, value: Any) -> None:
+    """A show_stat_* flag: stored, and applied to the saved layout if there is one.
+
+    Until an admin saves a layout the default is built from the flags, so the
+    flag alone is enough; after that, the flag adds or removes its stat.
+    """
+    set_raw(db, key, _flag(value))
+    raw = settings_store.get_raw(db)
+    if not raw.get(sidebar_stats.SETTING_KEY):
+        return
+    try:
+        layout = sidebar_stats.with_flag(sidebar_stats.default_layout(raw), key, value)
+    except sidebar_stats.LayoutError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    set_raw(db, sidebar_stats.SETTING_KEY, json.dumps(layout))
+
+
 _FLAGS = (
     "rescan_schedule_enabled",
     "cleanup_on_rescan",
@@ -158,21 +184,14 @@ _FLAGS = (
     "hide_campaigns",
     "hide_armies",
     "hide_leagues",
-    "show_stat_systems",
-    "show_stat_books",
-    "show_stat_pages",
-    "show_stat_maps",
-    "show_stat_tokens",
-    "show_stat_audio",
-    "show_stat_models",
-    "show_stat_size",
-    "show_stat_library_size",
     "campaign_uploads_disabled",
     "custom_login_message_enabled",
 )
 
 WRITERS: dict[str, Writer] = {
     **{key: _store() for key in _FLAGS},
+    **{key: _legacy_stat_flag for key in sidebar_stats.LEGACY_FLAGS},
+    "sidebar_stats": _sidebar_stats,
     "rescan_schedule_interval": _store(_one_of("interval", VALID_INTERVALS)),
     "rescan_schedule_hour": _clamped(0, 23),
     "rescan_schedule_minute": _clamped(0, 59),

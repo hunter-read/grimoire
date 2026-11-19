@@ -354,6 +354,27 @@ describe('Sidebar stats footer', () => {
     expect(screen.getByText('Library Size')).toBeInTheDocument()
   })
 
+  it("shows the admin's default layout, in its order, over the older flags", () => {
+    renderSidebar({
+      uiSettings: { sidebar_stats: ['maps', 'game_systems'], show_stat_pages: true },
+    })
+    expect(screen.getAllByRole('term').map((term) => term.textContent)).toEqual(['Maps', 'Systems'])
+  })
+
+  it("shows the user's own layout over the default", () => {
+    renderSidebar({
+      user: { ...baseUser, sidebar_stats: ['tokens'] },
+      uiSettings: { sidebar_stats: ['maps', 'game_systems'] },
+    })
+    expect(screen.getAllByRole('term').map((term) => term.textContent)).toEqual(['Tokens'])
+    expect(screen.getByRole('button', { name: 'All stats' })).toBeInTheDocument()
+  })
+
+  it('hides the stats footer while the sidebar is collapsed', () => {
+    renderSidebar({ collapsed: true })
+    expect(screen.queryByRole('button', { name: 'All stats' })).toBeNull()
+  })
+
   it('version does not appear in the stats footer section', () => {
     // Version is now always in its own row below, not a toggled stat
     renderSidebar({

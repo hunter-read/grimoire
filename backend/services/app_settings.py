@@ -18,6 +18,7 @@ from ..config import (
 )
 from ..library_watch import settings as library_watch_settings
 from ..models import AppSetting
+from . import sidebar_stats
 from .oidc_button import current_icon, normalize_color, normalize_radius
 
 logger = logging.getLogger("grimoire.oidc")
@@ -47,7 +48,8 @@ _DEFAULTS = {
     # Category → access-level map restricting whole categories app-wide (issue
     # #258), as a JSON object. "{}" means nothing is restricted by category.
     "restricted_categories": "{}",
-    # Sidebar stats visibility (true = shown)
+    # Sidebar stats visibility (true = shown). Superseded by sidebar_stats once
+    # an admin saves a layout; until then the default layout is built from these.
     "show_stat_systems": "true",
     "show_stat_books": "false",
     "show_stat_pages": "true",
@@ -57,6 +59,9 @@ _DEFAULTS = {
     "show_stat_models": "false",
     "show_stat_size": "true",
     "show_stat_library_size": "false",
+    # The default sidebar stats layout, a JSON array of /api/stats fields in
+    # order; "" = not saved yet. See services/sidebar_stats.py.
+    "sidebar_stats": "",
     "password_auth_enabled": "true",
     # Whether GMs/admins may create guest invite codes for their campaigns.
     "guest_access_enabled": "false",
@@ -207,15 +212,8 @@ def to_typed(raw: dict) -> dict:
         "hide_armies": raw["hide_armies"] == "true",
         "hide_leagues": raw["hide_leagues"] == "true",
         "restricted_categories": _restricted_categories_to_typed(raw),
-        "show_stat_systems": raw["show_stat_systems"] == "true",
-        "show_stat_books": raw["show_stat_books"] == "true",
-        "show_stat_pages": raw["show_stat_pages"] == "true",
-        "show_stat_maps": raw["show_stat_maps"] == "true",
-        "show_stat_tokens": raw["show_stat_tokens"] == "true",
-        "show_stat_audio": raw["show_stat_audio"] == "true",
-        "show_stat_models": raw["show_stat_models"] == "true",
-        "show_stat_size": raw["show_stat_size"] == "true",
-        "show_stat_library_size": raw["show_stat_library_size"] == "true",
+        **sidebar_stats.legacy_flags(sidebar_stats.default_layout(raw)),
+        "sidebar_stats": sidebar_stats.default_layout(raw),
         "password_auth_enabled": password_auth_effective(raw),
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
         "guest_access_enabled": guest_access_effective(raw),

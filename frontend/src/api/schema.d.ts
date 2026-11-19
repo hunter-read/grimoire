@@ -8909,6 +8909,8 @@ export interface components {
              * @default false
              */
             share_links_allowed?: boolean;
+            /** Sidebar Stats */
+            sidebar_stats?: string[] | null;
             /** Username */
             username: string;
         };
@@ -15366,6 +15368,8 @@ export interface components {
              * @default false
              */
             explicit_locked?: boolean;
+            /** Sidebar Stats */
+            sidebar_stats?: string[] | null;
         };
         /** PreferencesUpdate */
         PreferencesUpdate: {
@@ -15375,6 +15379,8 @@ export interface components {
             display_name?: string | null;
             /** Email */
             email?: string | null;
+            /** Sidebar Stats */
+            sidebar_stats?: string[] | null;
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -17090,6 +17096,8 @@ export interface components {
             show_stat_systems?: boolean | null;
             /** Show Stat Tokens */
             show_stat_tokens?: boolean | null;
+            /** Sidebar Stats */
+            sidebar_stats?: string[] | null;
         };
         /**
          * SettingsResponse
@@ -17299,6 +17307,8 @@ export interface components {
             show_stat_systems: boolean;
             /** Show Stat Tokens */
             show_stat_tokens: boolean;
+            /** Sidebar Stats */
+            sidebar_stats?: string[];
         };
         /** SetupRequest */
         SetupRequest: {
@@ -17665,6 +17675,21 @@ export interface components {
             armory_books?: number;
             /** Audio */
             audio: number;
+            /**
+             * Audio Size Mb
+             * @default 0
+             */
+            audio_size_mb?: number;
+            /**
+             * Audio Variants
+             * @default 0
+             */
+            audio_variants?: number;
+            /**
+             * Book Variants
+             * @default 0
+             */
+            book_variants?: number;
             /** Books */
             books: number;
             /** Game Systems */
@@ -17673,16 +17698,86 @@ export interface components {
             indexed_books: number;
             /** Library Size Mb */
             library_size_mb: number;
+            /**
+             * Map Variants
+             * @default 0
+             */
+            map_variants?: number;
             /** Maps */
             maps: number;
+            /**
+             * Maps Size Mb
+             * @default 0
+             */
+            maps_size_mb?: number;
+            /**
+             * Model Variants
+             * @default 0
+             */
+            model_variants?: number;
             /** Models */
             models: number;
+            /**
+             * Models Size Mb
+             * @default 0
+             */
+            models_size_mb?: number;
+            /**
+             * Token Variants
+             * @default 0
+             */
+            token_variants?: number;
             /** Tokens */
             tokens: number;
+            /**
+             * Tokens Size Mb
+             * @default 0
+             */
+            tokens_size_mb?: number;
             /** Total Pages */
             total_pages: number;
             /** Total Size Mb */
             total_size_mb: number;
+            /**
+             * Ttrpg Books
+             * @default 0
+             */
+            ttrpg_books?: number;
+            /**
+             * Ttrpg Pages
+             * @default 0
+             */
+            ttrpg_pages?: number;
+            /**
+             * Ttrpg Size Mb
+             * @default 0
+             */
+            ttrpg_size_mb?: number;
+            /**
+             * Ttrpg Systems
+             * @default 0
+             */
+            ttrpg_systems?: number;
+            /**
+             * Wargame Books
+             * @default 0
+             */
+            wargame_books?: number;
+            /**
+             * Wargame Pages
+             * @default 0
+             */
+            wargame_pages?: number;
+            /**
+             * Wargame Size Mb
+             * @default 0
+             */
+            wargame_size_mb?: number;
+            /**
+             * Wargame Systems
+             * @default 0
+             */
+            wargame_systems?: number;
         };
         /**
          * SuggestedResourceOut
@@ -18531,6 +18626,8 @@ export interface components {
             show_stat_systems: boolean;
             /** Show Stat Tokens */
             show_stat_tokens: boolean;
+            /** Sidebar Stats */
+            sidebar_stats?: string[];
         };
         /**
          * UnitProgress

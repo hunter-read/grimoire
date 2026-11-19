@@ -1,32 +1,62 @@
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { settings as settingsApi } from '../../api'
+import { defaultLayout, type StatId } from '../../lib/sidebarStats'
 import Spinner from '../Spinner'
-import InstantToggle from './InstantToggle'
+import StatsPicker from '../StatsPicker'
+import { primaryButton } from '../statsButtonStyles'
 import SettingsLoadError from './SettingsLoadError'
-import { useInstantSettings } from './useInstantSettings'
-
-// The settings keys themselves are static; only their labels are translated.
-const STAT_ITEMS = [
-  { key: 'show_stat_systems', labelKey: 'stats.systems' },
-  { key: 'show_stat_books', labelKey: 'stats.books' },
-  { key: 'show_stat_pages', labelKey: 'stats.pages' },
-  { key: 'show_stat_maps', labelKey: 'stats.maps' },
-  { key: 'show_stat_tokens', labelKey: 'stats.tokens' },
-  { key: 'show_stat_audio', labelKey: 'stats.audio' },
-  { key: 'show_stat_models', labelKey: 'stats.models' },
-  { key: 'show_stat_size', labelKey: 'stats.booksSize' },
-  { key: 'show_stat_library_size', labelKey: 'stats.librarySize' },
-] as const
-const KEYS = STAT_ITEMS.map(({ key }) => key)
+import { failureMessage } from './useInstantSettings'
 
 // The sidebar re-reads its settings when told they changed.
 const announce = () => window.dispatchEvent(new CustomEvent('grimoire:settings-changed'))
 
-/** Which library counts the sidebar's footer shows. */
+/**
+ * Which library stats the sidebar's footer shows, and in what order, for
+ * everyone who has not chosen their own (each person can, from the footer).
+ */
 export default function StatsDisplaySection() {
   const { t } = useTranslation()
-  const { values, loadError, reload, saving, saved, error, toggle } = useInstantSettings(KEYS, {
-    onSaved: announce,
-  })
+  const [saved, setSaved] = useState<StatId[] | null>(null)
+  const [draft, setDraft] = useState<StatId[]>([])
+  const [loadError, setLoadError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<'saved' | null>(null)
+  const [saveError, setSaveError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoadError('')
+    try {
+      const layout = defaultLayout(await settingsApi.get())
+      setSaved(layout)
+      setDraft(layout)
+    } catch (e) {
+      setLoadError(failureMessage(e, t, 'load'))
+    }
+  }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const save = async () => {
+    setSaving(true)
+    setStatus(null)
+    setSaveError('')
+    try {
+      const layout = defaultLayout(await settingsApi.patch({ sidebar_stats: draft }))
+      setSaved(layout)
+      setDraft(layout)
+      setStatus('saved')
+      announce()
+    } catch (e) {
+      setSaveError(failureMessage(e, t))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const changed = saved !== null && draft.join(',') !== saved.join(',')
 
   return (
     <div>
@@ -34,24 +64,39 @@ export default function StatsDisplaySection() {
       <p className="settings-section-description">{t('appSettings.sidebarStats.description')}</p>
 
       {loadError ? (
-        <SettingsLoadError message={loadError} onRetry={reload} />
-      ) : !values ? (
+        <SettingsLoadError message={loadError} onRetry={() => void load()} />
+      ) : saved === null ? (
         <Spinner size={20} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {STAT_ITEMS.map(({ key, labelKey }) => (
-            <InstantToggle
-              key={key}
-              id={key}
-              label={t(labelKey)}
-              checked={values[key]}
-              onChange={() => void toggle(key)}
-              saving={saving === key}
-              saved={saved === key}
-              error={error?.key === key ? error.message : null}
-            />
-          ))}
-        </div>
+        <>
+          <StatsPicker
+            value={draft}
+            onChange={(next) => {
+              setDraft(next)
+              setStatus(null)
+              setSaveError('')
+            }}
+            disabled={saving}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <button
+              type="button"
+              disabled={saving || !changed}
+              onClick={() => void save()}
+              style={primaryButton(saving || !changed)}
+            >
+              {t('stats.save')}
+            </button>
+            <span role="status" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              {status === 'saved' && t('stats.saved')}
+            </span>
+          </div>
+          {saveError && (
+            <div role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>
+              {saveError}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

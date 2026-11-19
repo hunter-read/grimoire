@@ -11,7 +11,31 @@ const renderBar = (props = {}) =>
     </MemoryRouter>
   )
 
+vi.mock('./StatsModal', () => ({
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div role="dialog" aria-label="Library statistics">
+      <button onClick={onClose}>Close stats</button>
+    </div>
+  ),
+}))
+
 describe('MobileSidebar', () => {
+  it('opens every stat from the drawer, closing the drawer on the way', async () => {
+    renderBar({ stats: { books: 3 } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'All stats' }))
+    expect(screen.getByRole('dialog', { name: 'Library statistics' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: /more/i })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Close stats' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('offers no All stats before the stats have loaded', async () => {
+    renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByRole('button', { name: 'All stats' })).toBeNull()
+  })
+
   it('lists the Armory first in the drawer once it holds a book', async () => {
     renderBar({ user: { role: 'player' }, stats: { armory_books: 2 } })
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
