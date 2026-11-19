@@ -593,12 +593,20 @@ def _validate_content_type(name: str, definition: Any) -> None:
                 f"{'fields' if len(unknown) > 1 else 'field'}: {', '.join(map(str, unknown))}"
             )
 
+    # `{"origin": "class"}`: the origin filter narrows within a chosen class.
+    # One level only, so a chain or a cycle is refused rather than half-honoured.
     dependencies = definition.get("filter_depends", {})
     if not isinstance(dependencies, dict):
         raise SchemaError(f"{what} 'filter_depends' must be a mapping")
-    filter_fields = definition.get("filter_fields", [])
+    filter_fields = definition.get("filter_fields") or []
     for child, parent in dependencies.items():
-        if not isinstance(child, str) or not isinstance(parent, str) or child not in filter_fields or parent not in filter_fields or child == parent:
+        if (
+            not isinstance(child, str)
+            or not isinstance(parent, str)
+            or child == parent
+            or child not in filter_fields
+            or parent not in filter_fields
+        ):
             raise SchemaError(f"{what} 'filter_depends' must map distinct filter fields")
         if parent in dependencies:
             raise SchemaError(f"{what} 'filter_depends' cannot contain chains or cycles")

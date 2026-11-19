@@ -61,7 +61,39 @@ SPELLS = [
 ]
 
 
-def _write_pack(root, *, pack_id="demo-srd", schema_id="catalog-demo", spells=None, meta=None):
+FEATURE_SCHEMA = {
+    "id": "feature-demo",
+    "name": "Feature Demo",
+    "content_types": {
+        "feature": {
+            "label": "Feature",
+            "label_plural": "Features",
+            "identity_field": "name",
+            "filter_fields": ["class", "origin"],
+            "filter_depends": {"origin": "class"},
+            "fields": {
+                "name": {"type": "text"},
+                "class": {"type": "text"},
+                "origin": {"type": "text"},
+            },
+        }
+    },
+    "fields": {
+        "features": {"type": "content_list", "label": "Features", "content_type": "feature"},
+    },
+}
+
+FEATURES = [
+    {"_id": "rage", "name": "Rage", "class": "Barbarian", "origin": "Barbarian"},
+    {"_id": "frenzy", "name": "Frenzy", "class": "Barbarian", "origin": "Path of the Berserker"},
+    {"_id": "action-surge", "name": "Action Surge", "class": "Fighter", "origin": "Fighter"},
+    {"_id": "rune-carver", "name": "Rune Carver", "class": "Fighter", "origin": "Rune Knight"},
+    {"_id": "darkvision", "name": "Darkvision", "origin": "Elf"},
+]
+
+
+def _write_pack(root, *, pack_id="demo-srd", schema_id="catalog-demo", spells=None, meta=None,
+                content=None):
     directory = os.path.join(root, pack_id)
     os.makedirs(directory, exist_ok=True)
     payload = {
@@ -75,8 +107,9 @@ def _write_pack(root, *, pack_id="demo-srd", schema_id="catalog-demo", spells=No
     payload.update(meta or {})
     with open(os.path.join(directory, "_meta.json"), "w") as handle:
         json.dump(payload, handle)
-    with open(os.path.join(directory, "spell.json"), "w") as handle:
-        json.dump(SPELLS if spells is None else spells, handle)
+    for content_type, rows in (content or {"spell": SPELLS if spells is None else spells}).items():
+        with open(os.path.join(directory, f"{content_type}.json"), "w") as handle:
+            json.dump(rows, handle)
     return directory
 
 
@@ -210,79 +243,39 @@ class TestPackLoader:
             db.close()
 
 
-@pytest.fixture
-def catalog(client, admin_headers, pack_root):
-    """A loaded pack plus the schema that describes it, installed for the admin."""
-    client.post("/api/characters/schemas", json={"document": SCHEMA}, headers=admin_headers)
-    directory = _write_pack(pack_root, pack_id="api-demo")
+def _load(client, headers, pack_root, schema, pack_id, content=None):
+    client.post("/api/characters/schemas", json={"document": schema}, headers=headers)
+    directory = _write_pack(pack_root, pack_id=pack_id, schema_id=schema["id"], content=content)
     db = SessionLocal()
     try:
-        pack = packs.load_pack(db, directory, schema_document=SCHEMA)
-        packs.reindex_entry_search(db, pack, SCHEMA)
+        pack = packs.load_pack(db, directory, schema_document=schema)
+        packs.reindex_entry_search(db, pack, schema)
         db.commit()
     finally:
         db.close()
+
+
+@pytest.fixture
+def catalog(client, admin_headers, pack_root):
+    """A loaded pack plus the schema that describes it, installed for the admin."""
+    _load(client, admin_headers, pack_root, SCHEMA, "api-demo")
     yield
     client.delete("/api/characters/schemas/catalog-demo", headers=admin_headers)
 
 
+@pytest.fixture
+def feature_catalog(client, admin_headers, pack_root):
+    """Features whose origin filter depends on their class."""
+    _load(client, admin_headers, pack_root, FEATURE_SCHEMA, "feature-pack", {"feature": FEATURES})
+    yield
+    client.delete("/api/characters/schemas/feature-demo", headers=admin_headers)
+
+
+def _values(result, field):
+    return [option["value"] for option in result["filters_available"].get(field, [])]
+
+
 class TestCatalogApi:
-    @pytest.mark.parametrize("dependencies", [{"origin": "missing"}, {"origin": "origin"}, {"origin": "class", "class": "origin"}])
-    def test_invalid_filter_dependencies_are_rejected(self, dependencies):
-        from backend.services.characters.schema import SchemaError, _validate_content_type
-
-        definition = {"fields": {"name": {"type": "text"}, "class": {"type": "text"}, "origin": {"type": "text"}}, "filter_fields": ["class", "origin"], "filter_depends": dependencies}
-        with pytest.raises(SchemaError, match="filter_depends"):
-            _validate_content_type("feature", definition)
-
-    def test_dnd_feature_class_facet_is_not_narrowed_by_origin(self, monkeypatch):
-        from types import SimpleNamespace
-
-        from backend.routers.content import core
-
-        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"], "filter_depends": {"origin": "class"}}}}
-        rows = [
-            SimpleNamespace(id="1", entry_id="1", source="test", name="Rage", content_type="feature",
-                            data={"class": "Barbarian", "origin": "Berserker"}, ruleset=False),
-            SimpleNamespace(id="2", entry_id="2", source="test", name="Runes", content_type="feature",
-                            data={"class": "Fighter", "origin": "Rune Knight"}, ruleset=False),
-        ]
-        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
-        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
-        request = SimpleNamespace(query_params={"filter[class]": "Barbarian", "filter[origin]": "Berserker"})
-        result = core.browse_content(request, "dnd-5e-2014", "feature", current_user=SimpleNamespace(id="u"), db=None)
-        assert {option["value"] for option in result["filters_available"]["class"]} == {"Barbarian", "Fighter"}
-        assert {option["value"] for option in result["filters_available"]["origin"]} == {"Berserker"}
-        assert [entry["name"] for entry in result["entries"]] == ["Rage"]
-
-    def test_missing_selected_facet_is_preserved_with_original_case(self, monkeypatch):
-        from types import SimpleNamespace
-        from backend.routers.content import core
-
-        document = {"content_types": {"spell": {"filter_fields": ["level", "ritual"]}}}
-        rows = [
-            SimpleNamespace(id="1", entry_id="1", source="test", name="Ritual", content_type="spell", data={"level": 1, "ritual": "Yes"}, ruleset=False),
-            SimpleNamespace(id="2", entry_id="2", source="test", name="Wish", content_type="spell", data={"level": 9, "ritual": "No"}, ruleset=False),
-        ]
-        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
-        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
-        request = SimpleNamespace(query_params={"filter[level]": "9", "filter[ritual]": "yes"})
-        result = core.browse_content(request, "test", "spell", current_user=SimpleNamespace(id="u"), db=None)
-        assert {item['value']: item['count'] for item in result['filters_available']['ritual']} == {"No": 1, "Yes": 0}
-        assert result['total'] == 0
-
-    def test_dependency_reports_classless_features(self, monkeypatch):
-        from types import SimpleNamespace
-        from backend.routers.content import core
-
-        document = {"content_types": {"feature": {"filter_fields": ["class", "origin"], "filter_depends": {"origin": "class"}}}}
-        rows = [SimpleNamespace(id="1", entry_id="1", source="test", name="Trait", content_type="feature", data={"origin": "Elf"}, ruleset=False)]
-        monkeypatch.setattr(core, "user_schema_document", lambda *_: document)
-        monkeypatch.setattr(core, "_catalog_rows", lambda *_, **__: rows)
-        result = core.browse_content(SimpleNamespace(query_params={}), "any-sheet", "feature", current_user=SimpleNamespace(id="u"), db=None)
-        assert result["filters_without_parent"] == {"origin": True}
-        assert "class" not in result["filters_available"]
-
     def test_lists_packs_with_their_credit(self, client, admin_headers, catalog):
         packs_seen = client.get("/api/content/packs", headers=admin_headers).json()["packs"]
         mine = [pack for pack in packs_seen if pack["pack_id"] == "api-demo"]
@@ -339,6 +332,51 @@ class TestCatalogApi:
         assert {item["value"] for item in narrowed["filters_available"]["level"]} == {
             "1", "2", "3", "9"
         }
+
+    def test_a_facet_past_the_cap_is_omitted_until_narrowed(self, client, admin_headers, catalog):
+        from backend.models import ContentEntry
+        from backend.routers.content._helpers import MAX_FACET_VALUES
+
+        db = SessionLocal()
+        try:
+            pack = db.query(ContentEntry).filter_by(schema_id="catalog-demo").first().pack_id
+            for i in range(MAX_FACET_VALUES):
+                db.add(ContentEntry(pack_id=pack, schema_id="catalog-demo", content_type="spell",
+                                    entry_id=f"extra-{i}", source="srd", name=f"Extra {i}",
+                                    data={"name": f"Extra {i}", "level": 2,
+                                          "school": f"school-{i}"}))
+            db.commit()
+        finally:
+            db.close()
+
+        url = "/api/content/catalog-demo/spell"
+        whole = client.get(url, headers=admin_headers).json()
+        assert "school" not in whole["filters_available"]
+        narrowed = client.get(url, params={"filter[level]": "1"}, headers=admin_headers).json()
+        assert _values(narrowed, "school") == ["abjuration", "evocation"]
+
+    def test_a_chosen_value_narrowed_out_stays_with_its_stored_case(
+        self, client, admin_headers, catalog
+    ):
+        # Level 9 holds only conjuration, so evocation is narrowed out of the
+        # school facet - but it is still chosen, so it must stay clearable.
+        result = client.get(
+            "/api/content/catalog-demo/spell",
+            params={"filter[level]": "9", "filter[school]": "EVOCATION"},
+            headers=admin_headers,
+        ).json()
+        counts = {o["value"]: o["count"] for o in result["filters_available"]["school"]}
+        assert counts == {"conjuration": 1, "evocation": 0}
+        assert result["total"] == 0
+
+    def test_a_chosen_value_is_not_duplicated_in_another_case(self, client, admin_headers, catalog):
+        result = client.get(
+            "/api/content/catalog-demo/spell",
+            params={"filter[school]": "Evocation"},
+            headers=admin_headers,
+        ).json()
+        assert _values(result, "school") == ["abjuration", "conjuration", "evocation"]
+        assert result["total"] == 2
 
     def test_searches_by_text(self, client, admin_headers, catalog):
         result = client.get(
@@ -418,6 +456,64 @@ class TestCatalogApi:
 
     def test_requires_authentication(self, client, catalog):
         assert client.get("/api/content/catalog-demo/spell").status_code in (401, 403)
+
+
+class TestFilterDepends:
+    URL = "/api/content/feature-demo/feature"
+
+    def test_types_list_carries_the_dependency(self, client, admin_headers, feature_catalog):
+        types = client.get("/api/content/feature-demo/types", headers=admin_headers).json()
+        assert types["content_types"][0]["filter_depends"] == {"origin": "class"}
+
+    def test_choosing_the_parent_narrows_the_child(self, client, admin_headers, feature_catalog):
+        result = client.get(
+            self.URL, params={"filter[class]": "Fighter"}, headers=admin_headers
+        ).json()
+        assert _values(result, "origin") == ["Fighter", "Rune Knight"]
+        assert _values(result, "class") == ["Barbarian", "Fighter"]
+
+    def test_choosing_the_child_does_not_narrow_the_parent(
+        self, client, admin_headers, feature_catalog
+    ):
+        result = client.get(
+            self.URL,
+            params={"filter[class]": "Barbarian", "filter[origin]": "Path of the Berserker"},
+            headers=admin_headers,
+        ).json()
+        assert _values(result, "class") == ["Barbarian", "Fighter"]
+        assert [entry["name"] for entry in result["entries"]] == ["Frenzy"]
+
+    def test_reports_a_child_carried_without_its_parent(
+        self, client, admin_headers, feature_catalog
+    ):
+        result = client.get(self.URL, headers=admin_headers).json()
+        assert result["filters_without_parent"] == {"origin": True}
+
+    def test_reports_none_when_every_child_has_a_parent(self, client, admin_headers, pack_root):
+        _load(client, admin_headers, pack_root, FEATURE_SCHEMA, "classed-pack",
+              {"feature": [row for row in FEATURES if row.get("class")]})
+        try:
+            result = client.get(self.URL, headers=admin_headers).json()
+            assert result["filters_without_parent"] == {"origin": False}
+        finally:
+            client.delete("/api/characters/schemas/feature-demo", headers=admin_headers)
+
+    @pytest.mark.parametrize(
+        "depends,message",
+        [
+            ({"origin": "missing"}, "must map distinct filter fields"),
+            ({"origin": "origin"}, "must map distinct filter fields"),
+            ({"origin": "class", "class": "origin"}, "cannot contain chains or cycles"),
+            (["origin"], "must be a mapping"),
+        ],
+    )
+    def test_rejects_a_malformed_dependency(self, depends, message):
+        from backend.services.characters.schema import SchemaError, validate_schema
+
+        document = json.loads(json.dumps(FEATURE_SCHEMA))
+        document["content_types"]["feature"]["filter_depends"] = depends
+        with pytest.raises(SchemaError, match=message):
+            validate_schema(document)
 
 
 class TestCharacterReferences:

@@ -58,6 +58,8 @@ class CatalogResponse(BaseModel):
     # Facets built from the content type's `filter_fields`, each with the values
     # actually present and how many entries carry them.
     filters_available: dict[str, list[FilterOption]] = Field(default_factory=dict)
+    # For each `filter_depends` child, whether some entry carries it without its
+    # parent - the browser keeps that filter usable before a parent is chosen.
     filters_without_parent: dict[str, bool] = Field(default_factory=dict)
 
 

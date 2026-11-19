@@ -121,7 +121,7 @@ describe('ContentBrowser', () => {
     await waitFor(() => expect(screen.queryByLabelText('School')).not.toBeInTheDocument())
   })
 
-  it('enables the 2014 feature origin filter only when a class is selected', async () => {
+  it('enables a dependent filter only once its parent is chosen', async () => {
     const facets = {
       class: [
         { value: 'Fighter', count: 1 },
@@ -131,7 +131,6 @@ describe('ContentBrowser', () => {
     }
     mockBrowse.mockResolvedValue({ ...RESULT, filters_available: facets })
     renderBrowser({
-      schemaId: 'dnd-5e-2014',
       contentType: 'feature',
       typeDefinition: {
         ...TYPE,
@@ -147,7 +146,7 @@ describe('ContentBrowser', () => {
     await userEvent.selectOptions(screen.getByLabelText('Class'), 'Wizard')
     await waitFor(() =>
       expect(mockBrowse).toHaveBeenLastCalledWith(
-        'dnd-5e-2014',
+        expect.any(String),
         'feature',
         expect.objectContaining({ filters: { class: 'Wizard' } })
       )
