@@ -127,7 +127,8 @@ class TestPermissionTable:
         # "share" is the public share-link route (issue #541), which takes no
         # login at all; the management API ("share-links") stays mapped.
         # "api-docs" is the signed-in API documentation, a page for a browser.
-        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys", "share", "api-docs"}
+        # "oauth" approves MCP sign-ins, which mints a grant (issue #906).
+        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys", "share", "api-docs", "oauth"}
         assert "share-links" in api_keys.TAG_PERMISSIONS
 
     def test_every_permission_covers_a_real_route(self):

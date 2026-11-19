@@ -64,9 +64,23 @@ def validate_permissions(raw: Any, routes: Any, role: str) -> dict[str, str]:
         raise HTTPException(400, str(e))
 
 
-def serialize(row: ApiKey, username: Optional[str] = None) -> dict[str, Any]:
+def serialize(
+    row: ApiKey, username: Optional[str] = None, clients: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
+    """A key as listed. ``clients`` maps client_id to its OAuthClient, for grants."""
     now = datetime.datetime.now(datetime.timezone.utc)
+    client = (clients or {}).get(row.client_id) if row.client_id else None
+    app = (
+        {
+            "kind": "app",
+            "client_name": client.client_name if client else None,
+            "redirect_host": _redirect_host(client) if client else None,
+        }
+        if row.client_id
+        else {"kind": "key", "client_name": None, "redirect_host": None}
+    )
     return {
+        **app,
         "id": row.id,
         "user_id": row.user_id,
         "username": username,
@@ -77,6 +91,25 @@ def serialize(row: ApiKey, username: Optional[str] = None) -> dict[str, Any]:
         "last_used_at": api_keys.as_utc(row.last_used_at),
         "expires_at": api_keys.as_utc(row.expires_at),
         "expired": api_keys.is_expired(row.expires_at, now),
+    }
+
+
+def _redirect_host(client: Any) -> Optional[str]:
+    from ...mcp_oauth.clients import redirect_host
+
+    return redirect_host(client.info or {}) or None
+
+
+def oauth_clients(db: Session, rows: list[ApiKey]) -> dict[str, Any]:
+    """The OAuth clients behind any grants among ``rows``, by client_id."""
+    from ...models import OAuthClient
+
+    ids = {r.client_id for r in rows if r.client_id}
+    if not ids:
+        return {}
+    return {
+        c.client_id: c
+        for c in db.query(OAuthClient).filter(OAuthClient.client_id.in_(ids)).all()
     }
 
 

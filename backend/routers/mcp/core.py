@@ -14,7 +14,10 @@ and keeps no sessions, so both get the 405 the spec asks for.
 
 Authentication is an API key in ``X-API-Key``, as for the REST API, but checked
 per tool call rather than per route: the route is always /mcp, so it says
-nothing about what the call will touch (see mcp_server/tools).
+nothing about what the call will touch (see mcp_server/tools). With
+``MCP_OAUTH_ENABLED`` an OAuth access token in ``Authorization: Bearer`` works
+too: it belongs to a grant, which is an API key row and is checked the same
+way (see backend/mcp_oauth).
 """
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
@@ -25,6 +28,7 @@ from fastapi.responses import Response
 from starlette.types import Receive, Scope, Send
 
 from ... import api_keys
+from ...mcp_oauth import oauth_active
 
 _MANAGER_STATE = "mcp_session_manager"
 
@@ -106,15 +110,49 @@ def check_origin(request: Request) -> None:
         raise HTTPException(403, "Cross-origin MCP requests are not allowed")
 
 
+def _challenge(error: Optional[str] = None) -> dict[str, str]:
+    """The WWW-Authenticate header that sends an OAuth client to discovery.
+
+    ``invalid_token`` on a refused token tells the client to refresh, rather
+    than start a new sign-in (RFC 6750 section 3).
+    """
+    from ... import config
+
+    metadata = f"{config.BASE_URL}/.well-known/oauth-protected-resource/mcp"
+    parts = [f'resource_metadata="{metadata}"']
+    if error:
+        parts.insert(0, f'error="{error}"')
+    return {"WWW-Authenticate": "Bearer " + ", ".join(parts)}
+
+
 def require_mcp_key(
     request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(None),
 ) -> api_keys.KeyPrincipal:
-    if not x_api_key:
+    if x_api_key:
+        # Existence, expiry, the owner still holding keys, and throttling - but
+        # not the route check: each tool checks the key's permissions for itself.
+        return api_keys.authenticate(x_api_key, request, check_route=False)
+    if not oauth_active(request):
         raise HTTPException(401, "The MCP server needs an API key in the X-API-Key header")
-    # Existence, expiry, the owner still holding keys, and throttling - but not
-    # the route check: each tool checks the key's permissions for itself.
-    return api_keys.authenticate(x_api_key, request, check_route=False)
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        raise HTTPException(
+            401,
+            "The MCP server needs an API key in the X-API-Key header, or an OAuth access token",
+            headers=_challenge(),
+        )
+    from ...mcp_oauth import grants
+
+    try:
+        # Bearer here is an OAuth access token, never the web session's JWT:
+        # /mcp is outside /api, and grants.authenticate only knows grant rows.
+        return grants.authenticate(token)
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            raise HTTPException(401, exc.detail, headers=_challenge("invalid_token"))
+        raise
 
 
 def _accepting_json(scope: Scope) -> Scope:

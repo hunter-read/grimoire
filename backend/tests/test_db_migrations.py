@@ -2032,3 +2032,61 @@ class TestUnqueueNonPdfOcrMigration:
             "pdf": (1, 0, ""),
             "done": (0, 1, ""),
         }
+
+
+class TestMcpOAuthMigration:
+    """0074 adds the OAuth tables and grant columns (issue #906) without touching keys."""
+
+    def _db_with_a_key(self):
+        path = os.path.join(tempfile.mkdtemp(), "oauth.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "9b4e2f7a1c63")
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO users (id, username, role) VALUES ('u1','u','admin')"))
+            conn.execute(
+                text(
+                    "INSERT INTO api_keys (id, user_id, name, prefix, key_hash, permissions) "
+                    "VALUES ('k1', 'u1', 'key', 'grim_abc', :h, '{}')"
+                ),
+                {"h": "a" * 64},
+            )
+        return path, engine
+
+    def test_existing_keys_are_untouched_and_are_not_grants(self):
+        path, engine = self._db_with_a_key()
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        insp = inspect(engine)
+        assert insp.has_table("oauth_clients") and insp.has_table("oauth_codes")
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT key_hash, client_id, access_token_hash FROM api_keys")
+            ).one()
+        engine.dispose()
+        assert row == ("a" * 64, None, None)
+
+    def test_downgrade_drops_grants_but_keeps_keys(self):
+        path, engine = self._db_with_a_key()
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO api_keys (id, user_id, name, prefix, key_hash, client_id) "
+                    "VALUES ('g1', 'u1', 'Claude', 'oauth', :h, 'client-1')"
+                ),
+                {"h": "b" * 64},
+            )
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "9b4e2f7a1c63")
+        insp = inspect(engine)
+        assert not insp.has_table("oauth_clients") and not insp.has_table("oauth_codes")
+        assert "client_id" not in {c["name"] for c in insp.get_columns("api_keys")}
+        with engine.connect() as conn:
+            ids = [r[0] for r in conn.execute(text("SELECT id FROM api_keys")).fetchall()]
+        # Upgrading again is clean: the migration is idempotent.
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        engine.dispose()
+        assert ids == ["k1"]

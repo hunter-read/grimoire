@@ -3,7 +3,14 @@ from fastapi import APIRouter, Depends
 
 from ._helpers import require_keys_enabled
 
-from ._schemas import ApiKeyOut, ApiKeyPermissionOut, ApiKeyWithSecret
+from ._schemas import (
+    ApiKeyOut,
+    ApiKeyPermissionOut,
+    ApiKeyWithSecret,
+    OAuthRedirectOut,
+    OAuthRequestOut,
+)
+from .oauth import approve_request, deny_request, get_request, require_oauth_active
 from .core import (
     create_api_key,
     delete_api_key,
@@ -19,7 +26,7 @@ router = APIRouter(
     prefix="/api-keys", tags=["api-keys"], dependencies=[Depends(require_keys_enabled)]
 )
 
-__all__ = ["router"]
+__all__ = ["router", "oauth_router"]
 
 router.add_api_route(
     "",
@@ -65,4 +72,34 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Revoke (delete) an API key",
     status_code=204,
+)
+
+# The consent page's API for MCP OAuth sign-in (issue #906). Approving an app
+# mints a grant - an API key row - so it lives with key management. The "oauth"
+# tag is in api_keys.EXCLUDED_TAGS: no key can approve a sign-in. Every
+# endpoint answers 404 unless MCP_OAUTH_ENABLED is on and serving.
+oauth_router = APIRouter(
+    prefix="/oauth", tags=["oauth"], dependencies=[Depends(require_oauth_active)]
+)
+oauth_router.add_api_route(
+    "/requests/{request_id}",
+    get_request,
+    methods=["GET"],
+    summary="Describe a pending MCP sign-in request",
+    response_model=OAuthRequestOut,
+)
+oauth_router.add_api_route(
+    "/requests/{request_id}/approve",
+    approve_request,
+    methods=["POST"],
+    summary="Approve a pending MCP sign-in request",
+    description="Returns the client's redirect address with a code, for the page to open.",
+    response_model=OAuthRedirectOut,
+)
+oauth_router.add_api_route(
+    "/requests/{request_id}/deny",
+    deny_request,
+    methods=["POST"],
+    summary="Deny a pending MCP sign-in request",
+    response_model=OAuthRedirectOut,
 )

@@ -36,6 +36,10 @@ GUEST_REACHABLE = {
     "/api/api-keys/permissions": "GET",
     "/api/api-keys/{key_id}": "DELETE PATCH",
     "/api/api-keys/{key_id}/regenerate": "POST",
+    # MCP OAuth consent (issue #906): require_session_user refuses a guest.
+    "/api/oauth/requests/{request_id}": "GET",
+    "/api/oauth/requests/{request_id}/approve": "POST",
+    "/api/oauth/requests/{request_id}/deny": "POST",
     "/api/audio-sets": "GET POST",
     "/api/audio-sets/{set_id}": "DELETE GET PATCH",
     "/api/audio/{audio_id}": "GET",

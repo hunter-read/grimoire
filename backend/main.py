@@ -41,6 +41,7 @@ from .config import (
     API_KEYS_ENABLED,
     LIBRARY_PATH,
     MCP_ENABLED,
+    MCP_OAUTH_ENABLED,
     OPDS_ENABLED,
     SessionLocal,
     VERSION,
@@ -477,6 +478,20 @@ if MCP_ENABLED:
     if not API_KEYS_ENABLED:
         logger.warning("MCP_ENABLED is on but API_KEYS_ENABLED is off - /mcp will refuse every key.")
     app.include_router(mcp_router.router)
+    # OAuth sign-in for /mcp (issue #906). The SDK's routes - /authorize,
+    # /token, /register, /revoke and the /.well-known documents - live at the
+    # site root, where OAuth clients look for them, so they sit outside /api,
+    # its dependencies and the OpenAPI schema. They must be registered here,
+    # ahead of the SPA catch-alls below, which would otherwise answer them.
+    if MCP_OAUTH_ENABLED:
+        if not API_KEYS_ENABLED:
+            logger.warning("MCP_OAUTH_ENABLED is on but API_KEYS_ENABLED is off - OAuth sign-in is off.")
+        else:
+            from .mcp_oauth.routes import mount as mount_mcp_oauth
+
+            mount_mcp_oauth(app)
+elif MCP_OAUTH_ENABLED:
+    logger.warning("MCP_OAUTH_ENABLED is on but MCP_ENABLED is off - OAuth sign-in is off.")
 
 # --- Authenticated /api/* routes ---------------------------------------------
 api = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
@@ -504,6 +519,7 @@ api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(settings_router.router)
 api.include_router(api_keys_router.router)
+api.include_router(api_keys_router.oauth_router)
 api.include_router(share_links_router.router)
 api.include_router(addons_router.router)
 api.include_router(codex_router.router)

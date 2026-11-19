@@ -63,7 +63,9 @@ _USER_SCOPED_TABLES = (
 # opposite of what they are for. A merge deletes the source's rows instead
 # (``reassign_user_data``). Guests normally hold none of these, but an account
 # still flagged a guest may, so the merge must not rely on that.
-_USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys", "share_links")
+# oauth_codes: an MCP sign-in request a user approved (issue #906), on its way
+# to becoming a grant; the grant itself is an api_keys row.
+_USER_DELETE_ONLY_TABLES = ("user_access_grants", "api_keys", "share_links", "oauth_codes")
 
 
 # Nullable FKs that are *attribution*, not ownership: the content lives inside

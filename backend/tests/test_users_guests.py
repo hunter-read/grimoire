@@ -415,7 +415,16 @@ class TestGuestHoldingCredentials:
         import secrets
 
         from backend.config import SessionLocal
-        from backend.models import ApiKey, ShareLink, User, UserAccessGrant
+        import datetime
+
+        from backend.models import (
+            ApiKey,
+            OAuthClient,
+            OAuthCode,
+            ShareLink,
+            User,
+            UserAccessGrant,
+        )
         from backend.services.campaigns.user_data import _USER_DELETE_ONLY_TABLES
 
         keep, absorb = guest_pair
@@ -434,12 +443,25 @@ class TestGuestHoldingCredentials:
                     resource_id="book-1",
                 )
             )
+            client_id = secrets.token_hex(8)
+            db.add(OAuthClient(client_id=client_id, info={}))
+            db.flush()
+            db.add(
+                OAuthCode(
+                    client_id=client_id,
+                    request_hash=secrets.token_hex(32),
+                    user_id=src,
+                    params={},
+                    expires_at=datetime.datetime.now(datetime.timezone.utc),
+                )
+            )
             db.commit()
             # Every delete-only table is covered, so a new one needs a row here.
             tables = {
                 UserAccessGrant.__tablename__,
                 ApiKey.__tablename__,
                 ShareLink.__tablename__,
+                OAuthCode.__tablename__,
             }
             assert tables == set(_USER_DELETE_ONLY_TABLES)
         finally:
@@ -454,7 +476,7 @@ class TestGuestHoldingCredentials:
 
         db = SessionLocal()
         try:
-            for model in (UserAccessGrant, ApiKey, ShareLink):
+            for model in (UserAccessGrant, ApiKey, ShareLink, OAuthCode):
                 assert db.query(model).filter_by(user_id=src).count() == 0
                 # Credentials are not handed to the account merged into.
                 assert db.query(model).filter_by(user_id=keep["user_id"]).count() == 0
