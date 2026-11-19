@@ -159,7 +159,7 @@ MCP_ALLOWED_HOSTS = [
 # OAuth sign-in for /mcp (issue #906), so hosted clients such as claude.ai can
 # connect each user to their own account. Off by default; needs MCP_ENABLED
 # and API_KEYS_ENABLED, since a grant is an API key row. See docs/mcp.md.
-MCP_OAUTH_ENABLED = _str_env("MCP_OAUTH_ENABLED", "false").lower() == "true"
+MCP_OAUTH_ENABLED = _bool_env("MCP_OAUTH_ENABLED", False)
 # Optional allow-list (comma-separated host names) for the redirect address a
 # client may register. Empty allows any https address, and http on loopback.
 MCP_OAUTH_REDIRECT_HOSTS = [
