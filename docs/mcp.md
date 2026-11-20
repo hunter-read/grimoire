@@ -61,8 +61,9 @@ own Grimoire account instead, through OAuth 2.1:
 
 Each approval is listed under **Connected apps** in Settings → Connections → API Keys, with the
 site it signs in through and when it was made and last used. Two connections from the same app
-(a personal and an organisation claude.ai account, say) show as two rows. **Edit** changes an
-app's access or sets an expiry, and **Revoke** disconnects it; an admin can revoke anyone's under
+(a personal and an organisation claude.ai account, say) show as two rows. **Edit** renames an
+app (each starts with the name the app gave itself, so "Claude (personal)" and "Claude (work)" tell
+two of them apart), changes its access or sets an expiry, and **Revoke** disconnects it; an admin can revoke anyone's under
 Settings → Access & sharing → All API Keys. Revoking signs the app out: it shows a **Connect**
 button, and you can approve it again. To stop someone using an app for good, turn API keys off for
 them; that refuses every key and app they have at once.

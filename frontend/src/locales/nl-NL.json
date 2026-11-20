@@ -4395,7 +4395,7 @@
     "readOnly": "Alleen lezen (aanbevolen)",
     "readOnlyHint": "De app kan alles lezen wat je account kan lezen, en niets wijzigen.",
     "customise": "Aanpassen",
-    "cannotApprove": "Je kunt dit niet toestaan: {{reason}}. Je kunt het wel weigeren, zodat de app niet blijft wachten.",
+    "cannotApprove": "Je kunt dit niet toestaan, omdat API-sleutels niet zijn ingeschakeld voor je account. Je kunt het wel weigeren, zodat de app niet blijft wachten.",
     "eitherWay": "Welk antwoord je ook geeft, je gaat naar {{host}}.",
     "denyGoesTo": "Weigeren stuurt je naar {{host}}.",
     "deny": "Weigeren",

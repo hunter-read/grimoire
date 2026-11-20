@@ -46,7 +46,9 @@ export default function ApiKeyRow({
   const when = (iso: string | null | undefined) => formatWhen(iso, i18n.language)
   const granted = grantedPermissions(apiKey, permissions)
   const app = apiKey.kind === 'app'
-  const name = app ? apiKey.client_name || apiKey.name : apiKey.name
+  // An app's name starts as the client's own and can be changed in Edit, so
+  // two connections from one app can be told apart ("Claude (work)").
+  const name = apiKey.name
   const Icon = app ? LuPlug : LuKey
   // An app connected twice on one day lists two rows; the time tells them apart.
   const stamp = (iso: string | null | undefined) => formatWhen(iso, i18n.language, app)

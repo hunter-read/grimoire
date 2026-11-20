@@ -4395,7 +4395,7 @@
     "readOnly": "Sola lettura (consigliato)",
     "readOnlyHint": "Può leggere tutto ciò che il tuo account può leggere, senza modificare nulla.",
     "customise": "Personalizza",
-    "cannotApprove": "Non puoi consentirlo: {{reason}}. Puoi comunque rifiutare, così l'app smette di attendere.",
+    "cannotApprove": "Non puoi consentirlo, perché le chiavi API non sono attive per il tuo account. Puoi comunque rifiutare, così l'app smette di attendere.",
     "eitherWay": "Qualunque risposta ti manda su {{host}}.",
     "denyGoesTo": "Rifiuta ti manda su {{host}}.",
     "deny": "Rifiuta",

@@ -50,7 +50,6 @@ def _pending_or_404(db: Session, request_id: str) -> Any:
 
 def get_request(
     request_id: str,
-    request: Request,
     current_user: CurrentUser = Depends(require_session_user),
     db: Session = Depends(get_db),
 ):
@@ -60,19 +59,14 @@ def get_request(
     row = _pending_or_404(db, request_id)
     client = db.query(OAuthClient).filter_by(client_id=row.client_id).first()
     info: dict[str, Any] = dict(client.info) if client else {}
-    allowed = api_keys.user_keys_allowed(load_user(db, current_user))
     return {
         "client_name": (client.client_name if client else None) or "Unnamed app",
         # The one thing a lookalike client can't fake: where the browser goes
         # once the user approves. The page shows it prominently.
         "redirect_host": clients.redirect_host(info, row.params.get("redirect_uri")),
         "redirect_uri": row.params.get("redirect_uri"),
-        "may_approve": allowed,
-        "reason": None if allowed else "API keys are not enabled for your account",
+        "may_approve": api_keys.user_keys_allowed(load_user(db, current_user)),
         "default_permissions": DEFAULT_PERMISSIONS,
-        "levels": api_keys.available_levels(request.app.routes, current_user.role)
-        if allowed
-        else {},
     }
 
 

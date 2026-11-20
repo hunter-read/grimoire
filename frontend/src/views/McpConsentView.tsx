@@ -90,11 +90,17 @@ export default function McpConsentView({ requestId }: McpConsentViewProps) {
 
   const openCustomise = () => {
     setCustomise(true)
+    setError(null)
     if (permissions) return
     apiKeys
       .permissions()
       .then(setPermissions)
-      .catch((err: unknown) => setError(message(err) || t('mcpConsent.answerFailed')))
+      .catch((err: unknown) => {
+        // Back to Read only, with Customize there to try again, rather than
+        // a spinner that never finishes.
+        setCustomise(false)
+        setError(message(err) || t('mcpConsent.answerFailed'))
+      })
   }
 
   const answer = async (choice: 'approve' | 'deny') => {
@@ -207,7 +213,7 @@ export default function McpConsentView({ requestId }: McpConsentViewProps) {
             role="note"
             style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6, margin: '0 0 16px' }}
           >
-            {t('mcpConsent.cannotApprove', { reason: request.reason ?? '' })}
+            {t('mcpConsent.cannotApprove')}
           </p>
         )}
 

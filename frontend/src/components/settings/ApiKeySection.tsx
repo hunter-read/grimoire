@@ -216,10 +216,7 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
       {confirm && (
         <ConfirmModal
           title={t(`appSettings.apiKeys.confirm.${confirm.action}Title`, {
-            name:
-              confirm.key.kind === 'app'
-                ? confirm.key.client_name || confirm.key.name
-                : confirm.key.name,
+            name: confirm.key.name,
           })}
           message={
             confirm.key.kind === 'app'

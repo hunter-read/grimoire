@@ -4395,7 +4395,7 @@
     "readOnly": "Nur lesen (empfohlen)",
     "readOnlyHint": "Sie kann alles lesen, was dein Konto lesen kann, und nichts ändern.",
     "customise": "Anpassen",
-    "cannotApprove": "Du kannst dies nicht erlauben: {{reason}}. Du kannst es trotzdem ablehnen, damit die App nicht weiter wartet.",
+    "cannotApprove": "Du kannst dies nicht erlauben, weil API-Schlüssel für dein Konto nicht aktiviert sind. Du kannst es trotzdem ablehnen, damit die App nicht weiter wartet.",
     "eitherWay": "Beide Antworten schicken dich zu {{host}}.",
     "denyGoesTo": "Ablehnen schickt dich zu {{host}}.",
     "deny": "Ablehnen",

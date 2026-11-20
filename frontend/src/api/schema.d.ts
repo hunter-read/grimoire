@@ -15566,14 +15566,8 @@ export interface components {
             default_permissions: {
                 [key: string]: string;
             };
-            /** Levels */
-            levels: {
-                [key: string]: string[];
-            };
             /** May Approve */
             may_approve: boolean;
-            /** Reason */
-            reason?: string | null;
             /** Redirect Host */
             redirect_host: string;
             /** Redirect Uri */

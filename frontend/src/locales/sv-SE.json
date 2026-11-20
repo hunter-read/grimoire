@@ -4395,7 +4395,7 @@
     "readOnly": "Endast läsning (rekommenderas)",
     "readOnlyHint": "Den kan läsa allt ditt konto kan läsa och ändra ingenting.",
     "customise": "Anpassa",
-    "cannotApprove": "Du kan inte tillåta detta: {{reason}}. Du kan ändå neka, så att appen slutar vänta.",
+    "cannotApprove": "Du kan inte tillåta detta, eftersom API-nycklar inte är aktiverade för ditt konto. Du kan ändå neka, så att appen slutar vänta.",
     "eitherWay": "Oavsett svar skickas du till {{host}}.",
     "denyGoesTo": "Neka skickar dig till {{host}}.",
     "deny": "Neka",

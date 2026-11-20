@@ -4395,7 +4395,7 @@
     "readOnly": "Só leitura (recomendado)",
     "readOnlyHint": "Pode ler tudo o que a sua conta pode ler, sem alterar nada.",
     "customise": "Personalizar",
-    "cannotApprove": "Não pode permitir isto: {{reason}}. Pode ainda assim recusar, para que a aplicação deixe de esperar.",
+    "cannotApprove": "Não pode permitir isto, porque as chaves de API não estão ativadas para a sua conta. Pode ainda assim recusar, para que a aplicação deixe de esperar.",
     "eitherWay": "Qualquer resposta envia-o para {{host}}.",
     "denyGoesTo": "Recusar envia-o para {{host}}.",
     "deny": "Recusar",

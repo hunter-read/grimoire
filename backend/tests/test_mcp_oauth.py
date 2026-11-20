@@ -220,6 +220,13 @@ class TestSignIn:
         flow = Flow(oauth_client, admin_headers)
         rid = flow.request_id()
         info = oauth_client.get(f"/api/oauth/requests/{rid}", headers=admin_headers).json()
+        assert set(info) == {
+            "client_name",
+            "redirect_host",
+            "redirect_uri",
+            "may_approve",
+            "default_permissions",
+        }
         assert info["client_name"] == "Claude"
         assert info["redirect_host"] == "claude.ai"
         assert info["may_approve"] is True
@@ -242,6 +249,23 @@ class TestSignIn:
         assert app["redirect_host"] == "claude.ai"
         resp = client.post(f"/api/api-keys/{app['id']}/regenerate", headers=admin_headers)
         assert resp.status_code == 409
+
+    def test_a_grant_can_be_renamed_and_keeps_its_client_name(
+        self, client, oauth_client, admin_headers
+    ):
+        flow = Flow(oauth_client, admin_headers)
+        tokens = flow.tokens()
+        listed = client.get("/api/api-keys", headers=admin_headers).json()
+        app = next(k for k in listed if k["kind"] == "app" and k["name"] == "Claude")
+        resp = client.patch(
+            f"/api/api-keys/{app['id']}", json={"name": "Claude (work)"}, headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+        listed = client.get("/api/api-keys", headers=admin_headers).json()
+        renamed = next(k for k in listed if k["id"] == app["id"])
+        assert renamed["name"] == "Claude (work)"
+        assert renamed["client_name"] == "Claude"
+        assert mcp(oauth_client, tokens["access_token"]).status_code == 200
 
     def test_a_grant_never_works_as_an_api_key(self, client, oauth_client, admin_headers):
         tokens = Flow(oauth_client, admin_headers).tokens()

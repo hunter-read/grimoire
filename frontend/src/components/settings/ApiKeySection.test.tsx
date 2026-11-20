@@ -186,6 +186,19 @@ describe('ApiKeySection', () => {
       expect(await screen.findAllByText('via claude.ai')).toHaveLength(2)
     })
 
+    it('tells two connections apart by the names given to them', async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([
+        app({ name: 'Claude (personal)' }),
+        app({ id: 'g2', name: 'Claude (work)' }),
+      ])
+      render(<ApiKeySection />)
+      expect(await screen.findByText('Claude (personal)')).toBeInTheDocument()
+      expect(screen.getByText('Claude (work)')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Revoke Claude (work)' }))
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText(/Revoke .Claude \(work\).\?/)).toBeInTheDocument()
+    })
+
     it('with only apps, still says there are no keys and lists the app', async () => {
       vi.mocked(apiKeys.list).mockResolvedValue([app()])
       render(<ApiKeySection />)

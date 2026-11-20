@@ -4395,7 +4395,7 @@
     "readOnly": "Read only (recommended)",
     "readOnlyHint": "It can read everything your account can read, and change nothing.",
     "customise": "Customize",
-    "cannotApprove": "You can't allow this: {{reason}}. You can still deny it, so the app stops waiting.",
+    "cannotApprove": "You can't allow this, because API keys aren't turned on for your account. You can still deny it, so the app stops waiting.",
     "eitherWay": "Either answer sends you to {{host}}.",
     "denyGoesTo": "Deny sends you to {{host}}.",
     "deny": "Deny",

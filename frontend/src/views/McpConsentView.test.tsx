@@ -22,9 +22,7 @@ const signIn = (overrides: Partial<Schema<'OAuthRequestOut'>> = {}): Schema<'OAu
   redirect_host: 'claude.ai',
   redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
   may_approve: true,
-  reason: null,
   default_permissions: { '*': 'read' },
-  levels: { books: ['none', 'read', 'write'] },
   ...overrides,
 })
 
@@ -88,6 +86,19 @@ describe('McpConsentView', () => {
     )
   })
 
+  it('goes back to Read only when the permission list fails, so Customize can be retried', async () => {
+    vi.mocked(mcpSignIns.get).mockResolvedValue(signIn())
+    vi.mocked(apiKeys.permissions).mockRejectedValueOnce(httpError(500, 'Server error'))
+    render(<McpConsentView requestId="r1" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Customize' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server error')
+    expect(screen.getByText('Read only (recommended)')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Customize' }))
+    expect(await screen.findByRole('button', { name: /Library/ })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(apiKeys.permissions).toHaveBeenCalledTimes(2)
+  })
+
   it('denies and returns to the app', async () => {
     vi.mocked(mcpSignIns.get).mockResolvedValue(signIn())
     vi.mocked(mcpSignIns.deny).mockResolvedValue({
@@ -117,12 +128,11 @@ describe('McpConsentView', () => {
   })
 
   it('offers only Deny, with the reason, to a user who may not hold keys', async () => {
-    vi.mocked(mcpSignIns.get).mockResolvedValue(
-      signIn({ may_approve: false, reason: 'API keys are not enabled for your account' })
-    )
+    vi.mocked(mcpSignIns.get).mockResolvedValue(signIn({ may_approve: false }))
     render(<McpConsentView requestId="r1" />)
+    // The page's own translated sentence, not text from the server.
     expect(await screen.findByRole('note')).toHaveTextContent(
-      'API keys are not enabled for your account'
+      "You can't allow this, because API keys aren't turned on for your account."
     )
     expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Customize' })).toBeNull()

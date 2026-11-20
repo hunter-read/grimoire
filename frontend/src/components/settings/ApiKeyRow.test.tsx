@@ -131,9 +131,11 @@ describe('ApiKeyRow', () => {
       expect(screen.getByText(/Created/).textContent).not.toMatch(/\d:\d\d/)
     })
 
-    it('falls back to the grant name when the client gave none', () => {
-      renderRow(app({ client_name: null, name: 'Unnamed app' }))
-      expect(screen.getByText('Unnamed app')).toBeInTheDocument()
+    it('shows the name it was given in Edit, not the client name', () => {
+      renderRow(app({ name: 'Claude (work)' }))
+      expect(screen.getByText('Claude (work)')).toBeInTheDocument()
+      expect(screen.queryByText('Claude')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Edit Claude (work)' })).toBeInTheDocument()
     })
   })
 
