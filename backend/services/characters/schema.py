@@ -34,6 +34,7 @@ __all__ = [
     "FIELD_TYPES",
     "COLUMN_TYPES",
     "validate_schema",
+    "validate_content_types",
     "compute_values",
     "computed_overrides",
     "OVERRIDES_KEY",
@@ -621,6 +622,22 @@ def _validate_content_type(name: str, definition: Any) -> None:
                 f"{what} compact_display references unknown "
                 f"{'fields' if len(unknown) > 1 else 'field'}: {', '.join(unknown)}"
             )
+
+
+def validate_content_types(value: Any, *, what: str = "'content_types'") -> dict:
+    """Check a table of content types outside a sheet, and return it.
+
+    A content pack may declare types of its own in its ``_meta.json`` - the
+    reference material no sheet picks from, like conditions or monsters. They
+    are the same objects a sheet's ``content_types`` holds, so they pass the
+    same check: one renderer draws both.
+    """
+    content_types = _require_dict(value, what)
+    if len(content_types) > MAX_CONTENT_TYPES:
+        raise SchemaError(f"{what} has more than {MAX_CONTENT_TYPES} content types")
+    for type_name, type_definition in content_types.items():
+        _validate_content_type(str(type_name), type_definition)
+    return content_types
 
 
 #: The keys validate_schema works out from ``layout_html``/``styles`` and their

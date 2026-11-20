@@ -20,46 +20,19 @@ from ...config import get_db
 from ...models import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from ...services.characters import packs as pack_service
 from ...services.characters import rulesets as rs
-from ...services.characters.user_schemas import user_schema_document
-from . import _helpers as helpers
+from ...services.characters.user_schemas import catalog_document
+from ...services.characters import catalog_query as helpers
+from ...services.characters.catalog_query import CatalogRow
 
 logger = logging.getLogger("grimoire.content")
 
 
-class _CatalogRow:
-    """A pack entry or a ruleset entry, seen the same way.
-
-    Ruleset content is first-class: it is the same data, so the catalog should
-    not care which table a row came from. This wrapper gives both the handful
-    of attributes the sort, filter and serialize helpers read, plus the markers
-    the UI uses to label which ruleset a row belongs to.
-    """
-
-    __slots__ = ("id", "entry_id", "source", "name", "data", "content_type",
-                 "ruleset", "owner_name", "row_id", "ruleset_id", "ruleset_name")
-
-    def __init__(self, *, id, entry_id, source, name, data, content_type,
-                 ruleset=False, owner_name="", row_id=None,
-                 ruleset_id=None, ruleset_name=""):
-        self.id = id
-        self.entry_id = entry_id
-        self.source = source
-        self.name = name
-        self.data = data
-        self.content_type = content_type
-        self.ruleset = ruleset
-        self.owner_name = owner_name
-        self.row_id = row_id
-        self.ruleset_id = ruleset_id
-        self.ruleset_name = ruleset_name
-
-
 def _catalog_rows(
     db: Session, user_id: str, schema_id: str, content_type: str, *, include_rulesets: bool
-) -> list:
+) -> list[CatalogRow]:
     """Every entry of one type this user can see, packs and rulesets together."""
     rows = [
-        _CatalogRow(
+        CatalogRow(
             id=row.id,
             entry_id=row.entry_id,
             source=row.source,
@@ -84,7 +57,7 @@ def _catalog_rows(
     )
 
     rows.extend(
-        _CatalogRow(
+        CatalogRow(
             id=entry.id,
             entry_id=entry.entry_id,
             source="ruleset",
@@ -140,7 +113,7 @@ def list_content_types(
     db: Session = Depends(get_db),
 ):
     """The content types this user's copy of a schema declares."""
-    document = user_schema_document(db, current_user.id, schema_id)
+    document = catalog_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 
@@ -190,7 +163,7 @@ def browse_content(
     handler takes the raw request — FastAPI cannot express that bracketed shape
     as a typed parameter.
     """
-    document = user_schema_document(db, current_user.id, schema_id)
+    document = catalog_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 
@@ -268,7 +241,7 @@ def get_entry(
     db: Session = Depends(get_db),
 ):
     """One catalog entry in full."""
-    document = user_schema_document(db, current_user.id, schema_id)
+    document = catalog_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 

@@ -17,6 +17,9 @@ class SchemaSummary(BaseModel):
     source_url: Optional[str] = None
     source_version: Optional[str] = None
     is_community: bool = False
+    # Installed by an admin for every account rather than by the caller. A
+    # caller's own copy of the same schema id replaces it in their list.
+    server_wide: bool = False
     character_count: int = 0
 
 
@@ -109,6 +112,11 @@ class CatalogueSheet(BaseModel):
     # pasted, which an update must not overwrite.
     installed_version: str = ""
     update_available: bool = False
+    # The same for the server-wide copy an admin installed for everyone, so
+    # the catalogue can say a sheet is already available without installing.
+    installed_server_wide: bool = False
+    server_installed_version: str = ""
+    server_update_available: bool = False
 
 
 class SheetUpdate(BaseModel):
@@ -120,6 +128,9 @@ class SheetUpdate(BaseModel):
     version: str = ""
     # The catalogue id to install, which replaces the copy the user has.
     sheet_id: str
+    # The update is for the server-wide copy: installing it needs an admin
+    # and `server_wide=true`.
+    server_wide: bool = False
 
 
 class SheetUpdateListResponse(BaseModel):

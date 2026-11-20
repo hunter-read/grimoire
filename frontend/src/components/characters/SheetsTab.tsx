@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuTrash2, LuStore, LuClipboardPaste, LuCheck, LuRefreshCw } from 'react-icons/lu'
+import { LuTrash2, LuStore, LuClipboardPaste, LuCheck, LuRefreshCw, LuUsers } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import type { Schema } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 import {
   goldBtn,
   ghostBtn,
@@ -24,9 +25,18 @@ import {
  * be harder than installing it. The document box accepts YAML as well as JSON,
  * since a sheet is written by hand and YAML is the kinder of the two. Two more
  * optional boxes take a phone-specific layout and stylesheet the same way.
+ *
+ * An admin can also install a sheet for everyone on the server. Such a sheet
+ * is listed for every account, marked as for everyone, and only an admin can
+ * remove or update it; anyone's own copy of the same sheet replaces it in
+ * their list.
  */
 type SchemaSummary = Schema<'SchemaSummary'>
 type SheetUpdate = Schema<'SheetUpdate'>
+
+// Updates for a user's own copy and for the server-wide copy are separate.
+const updateKey = (schemaId: string, serverWide?: boolean | null) =>
+  `${schemaId}:${serverWide ? 'server' : 'own'}`
 
 interface Props {
   schemas: SchemaSummary[]
@@ -37,7 +47,9 @@ interface Props {
 
 export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Props) {
   const { t } = useTranslation()
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const [pasting, setPasting] = useState(false)
+  const [forEveryone, setForEveryone] = useState(false)
   const [text, setText] = useState('')
   const [layout, setLayout] = useState('')
   const [styles, setStyles] = useState('')
@@ -56,7 +68,11 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
       .sheetUpdates()
       .then((result) => {
         if (cancelled) return
-        setUpdates(Object.fromEntries((result.updates || []).map((u) => [u.schema_id, u])))
+        setUpdates(
+          Object.fromEntries(
+            (result.updates || []).map((u) => [updateKey(u.schema_id, u.server_wide), u])
+          )
+        )
       })
       // A hint only: a catalogue that will not answer just offers no updates.
       .catch(() => {})
@@ -66,12 +82,13 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
   }, [])
 
   const update = async (available: SheetUpdate) => {
-    setUpdating(available.schema_id)
+    const key = updateKey(available.schema_id, available.server_wide)
+    setUpdating(key)
     try {
-      await charactersApi.installSheet(available.sheet_id)
+      await charactersApi.installSheet(available.sheet_id, Boolean(available.server_wide))
       setUpdates((prev) => {
         const next = { ...prev }
-        delete next[available.schema_id]
+        delete next[key]
         return next
       })
       setInstalled(available.name)
@@ -90,13 +107,16 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
     try {
       // Parsed server-side: it already reads JSON and YAML for add-on indexes,
       // and doing it there keeps one parser rather than two that can disagree.
-      const body = await charactersApi.importSchema({
-        text,
-        layout,
-        styles,
-        mobile_layout: mobileLayout,
-        mobile_styles: mobileStyles,
-      })
+      const body = await charactersApi.importSchema(
+        {
+          text,
+          layout,
+          styles,
+          mobile_layout: mobileLayout,
+          mobile_styles: mobileStyles,
+        },
+        isAdmin && forEveryone
+      )
       setText('')
       setLayout('')
       setStyles('')
@@ -115,9 +135,13 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
 
   const remove = async (schema: SchemaSummary) => {
     const name = schema.name || schema.schema_id
-    if (!window.confirm(t('characters.confirmUninstall', { name }))) return
+    const serverWide = Boolean(schema.server_wide)
+    const question = serverWide
+      ? t('characters.confirmUninstallForEveryone', { name })
+      : t('characters.confirmUninstall', { name })
+    if (!window.confirm(question)) return
     try {
-      await charactersApi.deleteSchema(schema.schema_id)
+      await charactersApi.deleteSchema(schema.schema_id, serverWide)
       setError('')
       onChanged?.()
     } catch (err) {
@@ -240,6 +264,17 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
             <p style={helpText}>{t('characters.sheetMobileStylesHelp')}</p>
           </div>
 
+          {isAdmin ? (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <input
+                type="checkbox"
+                checked={forEveryone}
+                onChange={(event) => setForEveryone(event.target.checked)}
+              />
+              {t('characters.pasteForEveryone')}
+            </label>
+          ) : null}
+
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit" disabled={saving || !text.trim()} style={goldBtn}>
               {saving ? t('characters.installing') : t('characters.install')}
@@ -261,65 +296,84 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
           role="list"
           style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}
         >
-          {schemas.map((schema) => (
-            <li
-              key={schema.schema_id}
-              style={{
-                ...card,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '10px 14px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>
-                  {schema.name || schema.schema_id}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {[
-                    schema.system,
-                    schema.version ? `v${schema.version}` : '',
-                    // Said plainly, because it decides whether uninstalling
-                    // can be undone by browsing.
-                    schema.is_community
-                      ? t('characters.fromCatalogue')
-                      : t('characters.pastedSheet'),
-                    schema.character_count
-                      ? t('characters.usedByCount', { count: schema.character_count })
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-              </div>
-              {updates[schema.schema_id] ? (
-                <button
-                  onClick={() => void update(updates[schema.schema_id]!)}
-                  disabled={updating === schema.schema_id}
-                  aria-label={t('a11y.characters.updateNamed', {
-                    name: schema.name || schema.schema_id,
-                    version: updates[schema.schema_id]!.version,
-                  })}
-                  style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
-                >
-                  <LuRefreshCw size={13} />
-                  {updating === schema.schema_id
-                    ? t('characters.updatingSheets')
-                    : t('characters.updateTo', { version: updates[schema.schema_id]!.version })}
-                </button>
-              ) : null}
-              <button
-                onClick={() => void remove(schema)}
-                aria-label={t('characters.uninstallSheet', {
-                  name: schema.name || schema.schema_id,
-                })}
-                style={iconBtn}
+          {schemas.map((schema) => {
+            const available = updates[updateKey(schema.schema_id, schema.server_wide)]
+            // A server-wide sheet is the admin's to change; everyone else just uses it.
+            const manageable = !schema.server_wide || isAdmin
+            return (
+              <li
+                key={schema.schema_id}
+                style={{
+                  ...card,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 14px',
+                }}
               >
-                <LuTrash2 size={15} />
-              </button>
-            </li>
-          ))}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {schema.name || schema.schema_id}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {[
+                      schema.system,
+                      schema.version ? `v${schema.version}` : '',
+                      // Said plainly, because it decides whether uninstalling
+                      // can be undone by browsing.
+                      schema.is_community
+                        ? t('characters.fromCatalogue')
+                        : t('characters.pastedSheet'),
+                      schema.server_wide ? t('characters.forEveryone') : '',
+                      schema.character_count
+                        ? t('characters.usedByCount', { count: schema.character_count })
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </div>
+                {schema.server_wide ? (
+                  <LuUsers
+                    size={14}
+                    aria-hidden="true"
+                    style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+                  />
+                ) : null}
+                {available && manageable ? (
+                  <button
+                    onClick={() => void update(available)}
+                    disabled={updating === updateKey(schema.schema_id, schema.server_wide)}
+                    aria-label={t('a11y.characters.updateNamed', {
+                      name: schema.name || schema.schema_id,
+                      version: available.version,
+                    })}
+                    style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
+                  >
+                    <LuRefreshCw size={13} />
+                    {updating === updateKey(schema.schema_id, schema.server_wide)
+                      ? t('characters.updatingSheets')
+                      : t('characters.updateTo', { version: available.version })}
+                  </button>
+                ) : null}
+                {manageable ? (
+                  <button
+                    onClick={() => void remove(schema)}
+                    aria-label={
+                      schema.server_wide
+                        ? t('characters.uninstallForEveryone', {
+                            name: schema.name || schema.schema_id,
+                          })
+                        : t('characters.uninstallSheet', { name: schema.name || schema.schema_id })
+                    }
+                    style={iconBtn}
+                  >
+                    <LuTrash2 size={15} />
+                  </button>
+                ) : null}
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

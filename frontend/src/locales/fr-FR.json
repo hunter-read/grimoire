@@ -482,7 +482,8 @@
         "text": "Contenu des pages uniquement",
         "code": "Code produit de l'éditeur (SKU)"
       }
-    }
+    },
+    "compendium": "Compendium"
   },
   "favorites": {
     "title": "Favoris",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Systèmes de jeu",
-          "description": "Les systèmes de jeu, leurs couvertures et dossiers de livres"
+          "description": "Les systèmes de jeu, leurs couvertures, dossiers de livres et compendiums"
         },
         "search": {
           "label": "Recherche",
@@ -4146,7 +4147,15 @@
     "updateFrom": "Vous avez la v{{version}}",
     "giveToPlayer": "Donner à un joueur…",
     "giveToPlayerHelp": "Confiez ce personnage à un joueur de votre table. Vous pouvez continuer à le modifier jusqu'à ce qu'il le désactive.",
-    "confirmGive": "Donner {{name}} à {{player}} ? Le personnage lui appartiendra. Vous pourrez continuer à le modifier jusqu'à ce qu'il le désactive."
+    "confirmGive": "Donner {{name}} à {{player}} ? Le personnage lui appartiendra. Vous pourrez continuer à le modifier jusqu'à ce qu'il le désactive.",
+    "installForEveryone": "Installer pour tout le monde",
+    "updateForEveryone": "Mettre à jour pour tout le monde en v{{version}}",
+    "installedForEveryone": "Installée pour tout le monde",
+    "availableToEveryone": "Disponible pour tout le monde",
+    "forEveryone": "pour tout le monde",
+    "pasteForEveryone": "Installer pour tout le monde sur ce serveur",
+    "confirmUninstallForEveryone": "Retirer {{name}} pour tout le monde ? Les personnages créés avec sont conservés, et ceux qui en ont leur propre copie la gardent.",
+    "uninstallForEveryone": "Retirer {{name}} pour tout le monde"
   },
   "contentPacks": {
     "title": "Packs de contenu",
@@ -5023,5 +5032,45 @@
       "sourceError": "Impossible de lire {{url}} : {{error}}",
       "sourceUnreadable": "Impossible de lire l'un des catalogues de modèles."
     }
+  },
+  "compendium": {
+    "tab": "Compendium",
+    "booksTab": "Livres",
+    "systemSections": "Sections du système",
+    "credits": "Crédits",
+    "fromRuleset": "de {{name}}",
+    "entryFailed": "Cette entrée n'a pas pu être chargée.",
+    "loadFailed": "Le compendium n'a pas pu être chargé.",
+    "backTo": "Retour à {{label}}",
+    "entryCount": "{{count}} entrée",
+    "entryCount_other": "{{count}} entrées",
+    "resultCount": "{{count}} résultat",
+    "resultCount_other": "{{count}} résultats",
+    "searchType": "Rechercher dans {{label}}",
+    "searchAll": "Rechercher dans le compendium",
+    "searchResults": "Résultats de recherche du compendium",
+    "filters": "Filtres",
+    "filterAny": "Tous",
+    "noEntries": "Aucune entrée ne correspond.",
+    "pages": "Pages",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pageOf": "Page {{page}} sur {{pages}}",
+    "types": "Types de contenu",
+    "pickType": "Choisissez un type de contenu à parcourir, ou cherchez dans tous à la fois.",
+    "empty": "Le compendium de ce système est encore vide.",
+    "emptyEditor": "Le compendium de ce système est encore vide. Liez-lui un pack de contenu depuis Modifier.",
+    "notInstalled": "non installé",
+    "linksHeading": "Compendium",
+    "linksHelp": "Les packs de contenu qui remplissent l'onglet Compendium de ce système, et les fiches de personnage de ses joueurs. Chaque modification est enregistrée aussitôt.",
+    "packsLegend": "Packs de contenu",
+    "packsHelp": "Leurs entrées, et les ensembles de règles écrits pour les mêmes fiches, apparaissent dans le Compendium.",
+    "noPacks": "Aucun pack de contenu n'est installé. Un administrateur les installe depuis le catalogue des modules.",
+    "sheetsLegend": "Fiches de personnage",
+    "sheetsHelp": "Affichées sur la page du système comme raccourcis vers un nouveau personnage.",
+    "noSheets": "Vous n'avez aucune fiche de personnage installée.",
+    "characterSheets": "Fiches de personnage",
+    "newCharacterOn": "Nouveau personnage sur {{name}}",
+    "sheetNotInstalled": "Vous n'avez pas installé cette fiche"
   }
 }

@@ -80,13 +80,16 @@ describe('SheetsTab', () => {
     await userEvent.click(screen.getByText('Install'))
 
     await waitFor(() =>
-      expect(mockImportSchema).toHaveBeenCalledWith({
-        text: 'id: x',
-        layout: '',
-        styles: '',
-        mobile_layout: '',
-        mobile_styles: '',
-      })
+      expect(mockImportSchema).toHaveBeenCalledWith(
+        {
+          text: 'id: x',
+          layout: '',
+          styles: '',
+          mobile_layout: '',
+          mobile_styles: '',
+        },
+        false
+      )
     )
   })
 
@@ -99,13 +102,16 @@ describe('SheetsTab', () => {
     await userEvent.click(screen.getByText('Install'))
 
     await waitFor(() =>
-      expect(mockImportSchema).toHaveBeenCalledWith({
-        text: 'id: x',
-        layout: '<div></div>',
-        styles: '.sheet{}',
-        mobile_layout: '',
-        mobile_styles: '',
-      })
+      expect(mockImportSchema).toHaveBeenCalledWith(
+        {
+          text: 'id: x',
+          layout: '<div></div>',
+          styles: '.sheet{}',
+          mobile_layout: '',
+          mobile_styles: '',
+        },
+        false
+      )
     )
   })
 
@@ -119,13 +125,16 @@ describe('SheetsTab', () => {
     await userEvent.click(screen.getByText('Install'))
 
     await waitFor(() =>
-      expect(mockImportSchema).toHaveBeenCalledWith({
-        text: 'id: x',
-        layout: '<div></div>',
-        styles: '',
-        mobile_layout: '<section></section>',
-        mobile_styles: '.m{}',
-      })
+      expect(mockImportSchema).toHaveBeenCalledWith(
+        {
+          text: 'id: x',
+          layout: '<div></div>',
+          styles: '',
+          mobile_layout: '<section></section>',
+          mobile_styles: '.m{}',
+        },
+        false
+      )
     )
     // Cleared once installed, so the next paste starts empty.
     await screen.findByRole('status')
@@ -169,7 +178,7 @@ describe('SheetsTab', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderTab({ onChanged })
     await userEvent.click(screen.getByLabelText(/Uninstall D&D 5e/i))
-    await waitFor(() => expect(mockDeleteSchema).toHaveBeenCalledWith('dnd-5e'))
+    await waitFor(() => expect(mockDeleteSchema).toHaveBeenCalledWith('dnd-5e', false))
     expect(onChanged).toHaveBeenCalled()
   })
 
@@ -204,7 +213,7 @@ describe('SheetsTab', () => {
       const onChanged = vi.fn()
       renderTab({ onChanged })
       await userEvent.click(await screen.findByRole('button', { name: /^Update .+ to v1\.2\.0$/ }))
-      await waitFor(() => expect(mockInstallSheet).toHaveBeenCalledWith('dnd-5e-abc'))
+      await waitFor(() => expect(mockInstallSheet).toHaveBeenCalledWith('dnd-5e-abc', false))
       expect(onChanged).toHaveBeenCalled()
       await waitFor(() =>
         expect(

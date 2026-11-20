@@ -398,23 +398,47 @@ def _summarise(entry: dict, index_url: str, installed: Installed) -> dict:
     }
 
 
-def find_updates(listing: dict[str, Any]) -> list[dict[str, Any]]:
+def mark_server_installed(listing: dict[str, Any], installed: Installed) -> dict[str, Any]:
+    """Mark each listed sheet with whether, and at what version, it is server-wide.
+
+    ``installed`` is the server-wide sheets, keyed as a user's are. Applied
+    after the per-user listing, so one catalogue read answers both questions.
+    """
+    for sheet in listing.get("sheets", []):
+        raw_id, index_url, version = sheet["raw_id"], sheet["index_url"], sheet["version"]
+        server_version = installed.get((raw_id, index_url))
+        sheet["installed_server_wide"] = _is_installed(raw_id, index_url, installed)
+        sheet["server_installed_version"] = server_version or ""
+        sheet["server_update_available"] = (
+            server_version is not None and bool(version) and is_newer(version, server_version)
+        )
+    return listing
+
+
+def find_updates(listing: dict[str, Any], *, server_wide: bool = False) -> list[dict[str, Any]]:
     """The installed sheets a catalogue listing offers a newer version of.
 
     Each names the catalogue copy to install, so updating is the ordinary
     install - the same download, digest check and validation - landing on the
-    row the user already has.
+    row the user already has. With ``server_wide`` it is the server-wide
+    copies instead, from a listing ``mark_server_installed`` has been over.
     """
+    flag, version = (
+        ("server_update_available", "server_installed_version")
+        if server_wide
+        else ("update_available", "installed_version")
+    )
     return [
         {
             "schema_id": sheet["raw_id"],
             "name": sheet["name"],
-            "installed_version": sheet["installed_version"],
+            "installed_version": sheet[version],
             "version": sheet["version"],
             "sheet_id": sheet["id"],
+            "server_wide": server_wide,
         }
         for sheet in listing.get("sheets", [])
-        if sheet.get("update_available")
+        if sheet.get(flag)
     ]
 
 

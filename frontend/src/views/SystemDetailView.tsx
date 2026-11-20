@@ -7,7 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import useCollapsedSet from '../hooks/useCollapsedSet'
 import useSystemSearch from '../hooks/useSystemSearch'
@@ -15,7 +15,10 @@ import useRestoredView from '../hooks/useRestoredView'
 import usePageTitle from '../hooks/usePageTitle'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuPencil, LuFolderOpen, LuSearch, LuX, LuDownload } from 'react-icons/lu'
-import api, { bulk as bulkApi, type Schema } from '../api'
+import api, { bulk as bulkApi, compendium as compendiumApi, type Schema } from '../api'
+import SystemCompendium from '../components/compendium/SystemCompendium'
+import SystemSheetLinks from '../components/compendium/SystemSheetLinks'
+import { compendiumPath } from '../components/compendium/compendiumPaths'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import BulkActionBar from '../components/BulkActionBar'
 import useBulkMerge from '../hooks/useBulkMerge'
@@ -61,7 +64,7 @@ import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import { RECENTLY_ADDED_DAYS } from '../utils/recentlyAdded'
-import { libraryBase } from '../utils/armory'
+import { libraryBase, systemPath } from '../utils/armory'
 
 type System = Schema<'SystemDetail'>
 type Book = Schema<'BookOut'>
@@ -85,8 +88,15 @@ const foldersToTags = (r: unknown) => {
 
 export default function SystemDetailView() {
   const { t } = useTranslation()
-  const { systemId } = useParams()
+  const { systemId, contentType, entryId } = useParams()
   const navigate = useNavigate()
+  // The Compendium tab (issue #835) shares the system's route, one level down.
+  const onCompendium = /\/compendium(\/|$)/.test(useLocation().pathname)
+  const [searchParams] = useSearchParams()
+  // Undefined while loading, null if it could not be read.
+  const [compendium, setCompendium] = useState<Schema<'CompendiumSummary'> | null | undefined>(
+    undefined
+  )
   const user = useAuth()?.user
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
   const pins = usePins('systems')
@@ -186,6 +196,20 @@ export default function SystemDetailView() {
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   // Shared-tag display labels for book tags (filter values match on internal key).
   const bookTagLabels = useTagLabels('book') as Record<string, string>
+
+  // What is linked to the system's compendium decides whether it has the tab.
+  useEffect(() => {
+    let cancelled = false
+    setCompendium(undefined)
+    if (!systemId) return undefined
+    compendiumApi
+      .get(systemId)
+      .then((summary) => !cancelled && setCompendium(summary))
+      .catch(() => !cancelled && setCompendium(null))
+    return () => {
+      cancelled = true
+    }
+  }, [systemId])
 
   // Load book subcategory folder tags for this system.
   useEffect(() => {
@@ -300,6 +324,12 @@ export default function SystemDetailView() {
   // game systems, so they don't expose editable system metadata.
   const isSpecialCollection = system.is_system_agnostic || system.is_one_page
   const canEditSystemMeta = isEditor && !isSpecialCollection
+  // The tab appears once something is linked; an editor links it from Edit.
+  const hasCompendium = Boolean(
+    compendium &&
+    (compendium.packs?.length || compendium.sheets?.length || compendium.content_types?.length)
+  )
+  const compendiumRef = { systemId: system.id, gameType: system.game_type }
 
   // Every tag, category, genre and product code on the shelf - for the editors'
   // suggestions and the filter menus - from the server, since only some of the
@@ -908,6 +938,7 @@ export default function SystemDetailView() {
                   ))}
                 </div>
               )}
+              <SystemSheetLinks sheets={compendium?.sheets || []} />
             </div>
 
             <div
@@ -921,8 +952,9 @@ export default function SystemDetailView() {
               }}
             >
               <SystemLinks system={system} />
-              {/* Search bar */}
-              <div style={{ position: 'relative' }}>
+              {/* Search bar - the books', so not on the Compendium tab, which
+                  has its own. */}
+              <div style={{ position: 'relative', display: onCompendium ? 'none' : undefined }}>
                 <LuSearch
                   size={13}
                   style={{
@@ -1041,7 +1073,7 @@ export default function SystemDetailView() {
               {/* Group 2: View switcher, Grouping toggle, Collapse / Expand all */}
               <div
                 className="system-btn-row"
-                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                style={{ display: onCompendium ? 'none' : 'flex', alignItems: 'center', gap: 8 }}
               >
                 <CategoryGroupToggle grouped={grouped} onToggle={setGrouped} />
                 <CollapseExpandButtons
@@ -1076,10 +1108,66 @@ export default function SystemDetailView() {
             onCodexLinkChange={(codexId: string | null) =>
               setSystem((s) => (s ? { ...s, codex_id: codexId } : s))
             }
+            // So are its compendium links.
+            onCompendiumChange={setCompendium}
           />
         )}
 
-        {shelfBody}
+        {hasCompendium || onCompendium ? (
+          <nav
+            aria-label={t('compendium.systemSections')}
+            style={{
+              display: 'flex',
+              gap: 4,
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 24,
+            }}
+          >
+            {[
+              { to: systemPath(system), label: t('compendium.booksTab'), active: !onCompendium },
+              {
+                to: compendiumPath(compendiumRef),
+                label: t('compendium.tab'),
+                active: onCompendium,
+              },
+            ].map((tab) => (
+              <Link
+                key={tab.to}
+                to={tab.to}
+                aria-current={tab.active ? 'page' : undefined}
+                style={{
+                  padding: '8px 14px',
+                  marginBottom: -1,
+                  fontSize: 14,
+                  textDecoration: 'none',
+                  color: tab.active ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: tab.active ? 600 : 400,
+                  borderBottom: `2px solid ${tab.active ? 'var(--gold)' : 'transparent'}`,
+                }}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+
+        {!onCompendium ? (
+          shelfBody
+        ) : compendium ? (
+          <SystemCompendium
+            {...compendiumRef}
+            summary={compendium}
+            contentType={contentType}
+            entryId={entryId}
+            origin={searchParams.get('origin')}
+          />
+        ) : compendium === null ? (
+          <p role="alert" style={{ color: 'var(--danger)' }}>
+            {t('compendium.loadFailed')}
+          </p>
+        ) : (
+          <Spinner />
+        )}
       </div>
 
       {shelfOverlays}

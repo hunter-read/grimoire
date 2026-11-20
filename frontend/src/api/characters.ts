@@ -29,16 +29,27 @@ export const characters = {
   listSchemas: () => client.get('/characters/schemas'),
   getSchema: (schemaId: string) =>
     client.get('/characters/schemas/{schema_id}', { path: { schema_id: schemaId } }),
-  importSchema: (body: BodyOf<'/characters/schemas', 'post'>) =>
-    client.post('/characters/schemas', { body }),
+  // `serverWide` installs the sheet for every account (admin only); anyone's
+  // own copy of the same sheet still wins over it.
+  importSchema: (body: BodyOf<'/characters/schemas', 'post'>, serverWide = false) =>
+    client.post('/characters/schemas', {
+      body,
+      query: serverWide ? { server_wide: true } : {},
+    }),
   browseSheets: () => client.get('/characters/schemas/browse'),
-  installSheet: (sheetId: string) =>
-    client.post('/characters/schemas/install/{sheet_id}', { path: { sheet_id: sheetId } }),
+  installSheet: (sheetId: string, serverWide = false) =>
+    client.post('/characters/schemas/install/{sheet_id}', {
+      path: { sheet_id: sheetId },
+      query: serverWide ? { server_wide: true } : {},
+    }),
   // Installed sheets the catalogue has a newer version of. Updating one is
   // installing its `sheet_id`, which replaces the copy you have.
   sheetUpdates: () => client.get('/characters/schemas/updates'),
-  deleteSchema: (schemaId: string) =>
-    client.delete('/characters/schemas/{schema_id}', { path: { schema_id: schemaId } }),
+  deleteSchema: (schemaId: string, serverWide = false) =>
+    client.delete('/characters/schemas/{schema_id}', {
+      path: { schema_id: schemaId },
+      query: serverWide ? { server_wide: true } : {},
+    }),
   // A string is read as a schema filter, which is what Phase 1 callers pass.
   list: (params: CharacterQuery | string | null = {}) =>
     client.get('/characters', {

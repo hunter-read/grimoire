@@ -1157,6 +1157,7 @@ class TestUpdates:
                 "installed_version": "1.0.0",
                 "version": "1.1.0",
                 "sheet_id": updates["updates"][0]["sheet_id"],
+                "server_wide": False,
             }
         ]
 

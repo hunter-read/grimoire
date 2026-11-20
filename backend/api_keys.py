@@ -79,7 +79,11 @@ PERMISSIONS: dict[str, Permission] = {
         "library",
     ),
     "books": Permission(("books",), "Books and their metadata, covers, pages and files", "library"),
-    "systems": Permission(("systems",), "Game systems, their covers and book folders", "library"),
+    "systems": Permission(
+        ("systems", "compendium"),
+        "Game systems, their covers, book folders and compendiums",
+        "library",
+    ),
     "search": Permission(("search",), "Full-text search across the library", "library"),
     "tags": Permission(
         ("tags",), "Create, rename, merge and delete tags, and list tagged items", "library"

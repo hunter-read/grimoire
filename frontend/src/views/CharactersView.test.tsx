@@ -598,3 +598,30 @@ describe('CharactersView', () => {
     })
   })
 })
+
+describe('CharactersView - ?new=', () => {
+  const OTHER = { schema_id: 'cairn', name: 'Cairn', version: '1.0.0', character_count: 0 }
+
+  const renderAt = (path: string) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <CharactersView />
+      </MemoryRouter>
+    )
+
+  it('opens a new character on the sheet a system page linked to', async () => {
+    mockListSchemas.mockResolvedValue({ schemas: [SCHEMA, OTHER] })
+    renderAt('/characters?new=cairn')
+    const dialog = await screen.findByRole('dialog', { name: 'New character' })
+    expect(within(dialog).getByRole('radio', { name: /Cairn/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /D&D 5e/ })).not.toBeChecked()
+  })
+
+  it('ignores a sheet the user does not have', async () => {
+    mockListSchemas.mockResolvedValue({ schemas: [SCHEMA, OTHER] })
+    renderAt('/characters?new=nope')
+    await waitFor(() => expect(mockListSchemas).toHaveBeenCalled())
+    expect(await screen.findByText('Vex')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'New character' })).toBeNull()
+  })
+})

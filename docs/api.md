@@ -126,7 +126,7 @@ A permission is an area of the API, taken from each endpoint's OpenAPI tag:
 | `stats` | `stats` | `/api/stats` - library counts and totals |
 | `library` | `library` | Scan status, rescan and cancel, cleanup of missing items (`/api/maintenance/cleanup-missing`), version and changelog |
 | `books` | `books` | Books, metadata, covers, pages and files |
-| `systems` | `systems` | Game systems, covers and book folders |
+| `systems` | `systems`, `compendium` | Game systems, covers, book folders and compendiums |
 | `search` | `search` | Full-text search |
 | `tags` | `tags` | Tag management and tagged items |
 | `lookups` | `lookups` | Genres, system families, parent systems, licenses, dice/materials |
@@ -2442,15 +2442,22 @@ cannot affect anyone else, so any authenticated user may install one and there
 is no admin approval. Guests included - a guest account exists to play in one
 campaign, which is exactly who wants a character sheet.
 
+An admin may also install a sheet **server-wide**, for every account
+(`server_wide=true` on the install routes). Everyone without their own copy of
+that schema id uses it - to list, render, compute and create characters - and a
+user's own copy always wins over it. The browse listing marks each sheet with
+`installed_server_wide`, `server_installed_version` and
+`server_update_available` beside the per-user flags.
+
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/characters/schemas` | GET | user | The user's installed schemas, each with a `character_count` |
-| `/api/characters/schemas` | POST | user | Install a pasted sheet (see below). 400 with a message naming the problem if it does not validate |
+| `/api/characters/schemas` | GET | user | The sheets the user can use, each with a `character_count`: their own, then the server-wide ones (`server_wide: true`) they have no copy of |
+| `/api/characters/schemas` | POST | user | Install a pasted sheet (see below). 400 with a message naming the problem if it does not validate. `?server_wide=true` installs it for everyone (**admin**; 403 otherwise) |
 | `/api/characters/schemas/browse` | GET | user | The community catalogue of sheets, each marked `installed`. A sheet you downloaded from that same catalogue also carries `installed_version`, and `update_available` when the catalogue's `version` is newer. A pasted sheet is never offered an update, since it may be your own edit. `errors` lists the sources that could not be read, as `{url, error}`; for anyone but an admin both are `""`, and `index_url` and `sources` are empty, since the sources are server configuration |
-| `/api/characters/schemas/updates` | GET | user | `{updates: [{schema_id, name, installed_version, version, sheet_id}]}` - your installed sheets whose catalogue has a newer version. Install `sheet_id` with the route below to update one; it replaces your copy and every character on it follows. An unreadable catalogue, or downloads switched off, answers with no updates rather than an error |
-| `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue, replacing your copy if you have one |
-| `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
-| `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall a schema. Characters built on it are **kept** |
+| `/api/characters/schemas/updates` | GET | user | `{updates: [{schema_id, name, installed_version, version, sheet_id, server_wide}]}` - your installed sheets whose catalogue has a newer version. Install `sheet_id` with the route below to update one; it replaces your copy and every character on it follows. For an admin it also lists the server-wide sheets with an update, `server_wide: true` - install those with `?server_wide=true`. An unreadable catalogue, or downloads switched off, answers with no updates rather than an error |
+| `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue, replacing your copy if you have one. `?server_wide=true` installs or updates the server-wide copy (**admin**) |
+| `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document`: your own copy, else the server-wide one |
+| `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall your copy. Characters built on it are **kept**, and fall back to the server-wide copy if there is one. 403 when you have no copy and the sheet is server-wide; `?server_wide=true` removes the server-wide copy (**admin**) |
 | `/api/characters` | GET | user | The user's characters plus their parties', newest first. `?schema_ref=` filters by schema, `?campaign_id=` by campaign |
 | `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?, campaign_id?}`. 400 if that schema is not installed, 403 if the campaign is not one you own or have joined |
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
@@ -3042,7 +3049,7 @@ entries are still loading.
 
 ```
 DATA_PATH/character-content/dnd-5e-srd/
-├── _meta.json     ← pack_id, schema_id, licence, source
+├── _meta.json     ← pack_id, schema_id, licence, source, content_types
 ├── spell.json     ← an array of entries, named after the content type
 └── class.json
 ```
@@ -3056,6 +3063,40 @@ directory disappears loses its rows on the next scan.
 A pack may be installed before anyone has installed the matching sheet; its
 entries are stored as authored until a schema describes them, so install order
 does not matter.
+
+`_meta.json` may also declare **content types of its own** under
+`content_types`, in exactly the shape a sheet's [`content_types`](#content_types)
+uses, and validated the same way - a pack whose declaration does not validate is
+refused with a message naming the problem. This is how a pack carries reference
+material no sheet picks from, such as conditions, rules or monsters. A pack's
+types are merged **under** its sheet's: on a name clash the sheet's declaration
+is the one used, since its references are what the entries must fit. Declared
+types coerce and index the pack's entries even with no sheet installed, appear in
+`/api/content/:schema_id/types`, and can be given entries in a ruleset.
+
+### Compendium
+
+A library system's **compendium** (issue #835) is the rules content linked to
+it: the content packs a GM or admin links to the system, plus the readable
+rulesets written for the sheets those packs and the system's linked character
+sheets serve. A ruleset entry that is an unchanged copy of a linked pack's entry
+(a ruleset the pack was imported into) is left out. Each content type's
+definition comes from the reader's sheet for its schema (their own copy, else
+the server-wide one), then from the packs' own `content_types`, and failing both
+is inferred read-only from the entries' keys. See [Compendium](compendium.md).
+
+Reading follows the system: a system the caller cannot see answers 404 on every
+route below, and its entries are left out of the global search. Guests get 403,
+as on the rest of the library.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/systems/:id/compendium` | GET | user | `{system_id, packs, sheets, content_types, can_edit}`. `packs` are the linked packs in link order, each with its licence and `attribution` (render it verbatim) and `installed` - false for a link whose pack has since been uninstalled. `sheets` are the linked sheets, each with `available` (the caller has their own copy or a server-wide one) and `server_wide`. `content_types` lists each type with entries, its definition and `entry_count` |
+| `/api/systems/:id/compendium/links` | PUT | **gm/admin** | Body `{pack_ids?, sheet_ids?}` replaces either list; one left out is left alone. A new link must name an installed pack, or a sheet the caller has (their own or server-wide); one already linked is kept even if what it names is gone. 400 naming the unknown id, or past 50 links. Answers with the summary above |
+| `/api/systems/:id/compendium/search` | GET | user | `?q=`, optional `content_type`, `limit` (≤ 50). Matches across every type, best first; each result carries `type_label` and `systems` |
+| `/api/systems/:id/compendium/:content_type` | GET | user | Browse one type, exactly as the [content catalog](#content-catalog) browse does: `search`, `filter[field]=value`, `sort`, `page`, `page_size`. Adds `content_type` (the type's definition and total) to the response, and `schema_id` and `origin` to each entry |
+| `/api/systems/:id/compendium/:content_type/:entry_id` | GET | user | One entry with its `type_definition`. `?origin=` (a pack id, or `ruleset:<id>`) picks between entries sharing an id; without it a linked pack's entry wins, in link order. 404 when there is none |
+| `/api/compendium/search` | GET | user | Global search: `?q=` (at least 2 characters), optional `system_id`, `limit`. Searches the compendium of every system the caller can see that has a linked pack. An entry linked to several systems is one result listing them all in `systems` |
 
 ### Rulesets
 

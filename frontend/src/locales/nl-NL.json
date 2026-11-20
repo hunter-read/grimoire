@@ -482,7 +482,8 @@
         "text": "Alleen pagina-inhoud",
         "code": "Productcode van de uitgever (SKU)"
       }
-    }
+    },
+    "compendium": "Compendium"
   },
   "favorites": {
     "title": "Favorieten",
@@ -1673,7 +1674,7 @@
         },
         "systems": {
           "label": "Spelsystemen",
-          "description": "Spelsystemen, hun covers en boekmappen"
+          "description": "Spelsystemen, hun covers, boekmappen en compendia"
         },
         "search": {
           "label": "Zoeken",
@@ -4146,7 +4147,15 @@
     "updateFrom": "Je hebt v{{version}}",
     "giveToPlayer": "Aan speler geven…",
     "giveToPlayerHelp": "Geef dit personage aan een speler aan je tafel. Je kunt het blijven bewerken tot zij dat uitzetten.",
-    "confirmGive": "{{name}} aan {{player}} geven? Het wordt hun personage. Je kunt het blijven bewerken tot zij dat uitzetten."
+    "confirmGive": "{{name}} aan {{player}} geven? Het wordt hun personage. Je kunt het blijven bewerken tot zij dat uitzetten.",
+    "installForEveryone": "Voor iedereen installeren",
+    "updateForEveryone": "Voor iedereen bijwerken naar v{{version}}",
+    "installedForEveryone": "Voor iedereen geïnstalleerd",
+    "availableToEveryone": "Beschikbaar voor iedereen",
+    "forEveryone": "voor iedereen",
+    "pasteForEveryone": "Voor iedereen op deze server installeren",
+    "confirmUninstallForEveryone": "{{name}} voor iedereen verwijderen? Personages die erop gebouwd zijn blijven bestaan, en wie een eigen kopie heeft houdt die.",
+    "uninstallForEveryone": "{{name}} voor iedereen verwijderen"
   },
   "contentPacks": {
     "title": "Inhoudspakketten",
@@ -5023,5 +5032,45 @@
       "sourceError": "Kon {{url}} niet lezen: {{error}}",
       "sourceUnreadable": "Een van de sjablooncatalogi kon niet worden gelezen."
     }
+  },
+  "compendium": {
+    "tab": "Compendium",
+    "booksTab": "Boeken",
+    "systemSections": "Onderdelen van het systeem",
+    "credits": "Bronvermelding",
+    "fromRuleset": "uit {{name}}",
+    "entryFailed": "Dit item kon niet worden geladen.",
+    "loadFailed": "Het compendium kon niet worden geladen.",
+    "backTo": "Terug naar {{label}}",
+    "entryCount": "{{count}} item",
+    "entryCount_other": "{{count}} items",
+    "resultCount": "{{count}} resultaat",
+    "resultCount_other": "{{count}} resultaten",
+    "searchType": "{{label}} doorzoeken",
+    "searchAll": "Het compendium doorzoeken",
+    "searchResults": "Zoekresultaten in het compendium",
+    "filters": "Filters",
+    "filterAny": "Alle",
+    "noEntries": "Geen items gevonden.",
+    "pages": "Pagina's",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "pageOf": "Pagina {{page}} van {{pages}}",
+    "types": "Inhoudstypen",
+    "pickType": "Kies een inhoudstype om te bladeren, of zoek in alle tegelijk.",
+    "empty": "Het compendium van dit systeem is nog leeg.",
+    "emptyEditor": "Het compendium van dit systeem is nog leeg. Koppel er via Bewerken een inhoudspakket aan.",
+    "notInstalled": "niet geïnstalleerd",
+    "linksHeading": "Compendium",
+    "linksHelp": "De inhoudspakketten die het tabblad Compendium van dit systeem vullen, en de karakterbladen van de spelers. Elke wijziging wordt meteen opgeslagen.",
+    "packsLegend": "Inhoudspakketten",
+    "packsHelp": "Hun items, en regelsets voor dezelfde bladen, verschijnen in het Compendium.",
+    "noPacks": "Er zijn geen inhoudspakketten geïnstalleerd. Een beheerder installeert ze uit de add-oncatalogus.",
+    "sheetsLegend": "Karakterbladen",
+    "sheetsHelp": "Op de pagina van het systeem getoond als snelkoppeling naar een nieuw personage.",
+    "noSheets": "Je hebt geen karakterbladen geïnstalleerd.",
+    "characterSheets": "Karakterbladen",
+    "newCharacterOn": "Nieuw personage op {{name}}",
+    "sheetNotInstalled": "Je hebt dit blad niet geïnstalleerd"
   }
 }

@@ -11,8 +11,14 @@ const mockGet = vi.mocked(api.get) as unknown as Mock
 
 // Result rows render thumbnails via the named `imageSources` export, so the
 // mock has to provide it alongside the default client.
+const mockCompendiumSearch = vi.fn<(...args: unknown[]) => Promise<unknown>>(() =>
+  Promise.resolve({ results: [] })
+)
+
 vi.mock('../api', () => ({
   default: { get: vi.fn() },
+  // Compendium entries (issue #835) are asked for beside the library search.
+  compendium: { search: (...args: unknown[]) => mockCompendiumSearch(...args) },
   imageSources: {
     thumbUrl: (type: string, id: string) =>
       (
@@ -738,5 +744,81 @@ describe('SearchView - screen readers', () => {
     const books = screen.getByRole('button', { name: /books/i, expanded: true })
     expect(books.closest('h2')).not.toBeNull()
     expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0)
+  })
+})
+
+describe('SearchView - compendium', () => {
+  const hit = (systems: { id: string; name: string }[], overrides = {}) => ({
+    entry_id: 'fireball',
+    source: 'srd',
+    name: 'Fireball',
+    content_type: 'spell',
+    data: {},
+    display: 'Evocation 3',
+    ruleset: false,
+    origin: 'srd-pack',
+    schema_id: 'dnd',
+    type_label: 'Spell',
+    systems,
+    ...overrides,
+  })
+
+  beforeEach(() => {
+    mockCompendiumSearch.mockReset()
+  })
+
+  it('lists compendium entries in their own section', async () => {
+    mockGet.mockResolvedValue(makeResponse())
+    mockCompendiumSearch.mockResolvedValue({
+      results: [hit([{ id: 'sys-1', name: 'D&D 5e' }])],
+    })
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fire')
+    const section = await screen.findByRole('button', { name: /Compendium/ })
+    expect(section).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: /Fireball/ })).toHaveAttribute(
+      'href',
+      '/library/system/sys-1/compendium/spell/fireball?origin=srd-pack'
+    )
+    expect(mockCompendiumSearch).toHaveBeenLastCalledWith('fire')
+    expect(screen.queryByText(/no results/i)).toBeNull()
+    await userEvent.click(section)
+    expect(screen.queryByRole('link', { name: /Fireball/ })).toBeNull()
+  })
+
+  it('narrows compendium entries by the system filter and opens them there', async () => {
+    mockGet.mockResolvedValue(
+      makeResponse([
+        makeBookResult({ id: 'b1', title: 'PHB', game_system: 'D&D 5e', game_system_id: 'sys-1' }),
+      ])
+    )
+    mockCompendiumSearch.mockResolvedValue({
+      results: [
+        hit([
+          { id: 'sys-1', name: 'D&D 5e' },
+          { id: 'sys-2', name: 'D&D 2024' },
+        ]),
+        hit([{ id: 'sys-1', name: 'D&D 5e' }], { entry_id: 'prone', name: 'Prone' }),
+      ],
+    })
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fire')
+    await screen.findByRole('link', { name: /Prone/ })
+    // The compendium's systems are offered in the filter beside the books'.
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /game system/i }), 'sys-2')
+    expect(screen.queryByRole('link', { name: /Prone/ })).toBeNull()
+    expect(screen.getByRole('link', { name: /Fireball/ })).toHaveAttribute(
+      'href',
+      '/library/system/sys-2/compendium/spell/fireball?origin=srd-pack'
+    )
+  })
+
+  it('carries on without the compendium when it fails', async () => {
+    mockGet.mockResolvedValue(makeResponse([makeBookResult({ id: 'b1', title: 'PHB' })]))
+    mockCompendiumSearch.mockImplementation(() => Promise.reject(new Error('offline')))
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fire')
+    expect(await screen.findByText('PHB')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Compendium/ })).toBeNull()
   })
 })

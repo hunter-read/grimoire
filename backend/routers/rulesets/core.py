@@ -22,7 +22,7 @@ from ...services import characters as svc
 from ...services.catalogue_sources import shows_sources
 from ...services.characters import pack_catalogue, packs as pack_service
 from ...services.characters import rulesets as rs
-from ...services.characters.user_schemas import user_schema_document
+from ...services.characters.user_schemas import catalog_document, user_schema_document
 from ._schemas import (
     EntryCreate,
     EntryUpdate,
@@ -282,7 +282,7 @@ def create_entry(
     db: Session = Depends(get_db),
 ):
     ruleset = _editable_or_404(db, ruleset_id, current_user)
-    document = user_schema_document(db, current_user.id, ruleset.schema_id)
+    document = catalog_document(db, current_user.id, ruleset.schema_id)
     if document is None:
         raise HTTPException(
             status_code=400,
@@ -360,7 +360,7 @@ def update_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
 
     if data.data is not None:
-        document = user_schema_document(db, current_user.id, ruleset.schema_id)
+        document = catalog_document(db, current_user.id, ruleset.schema_id)
         if document is None:
             raise HTTPException(
                 status_code=400, detail="You do not have that system's sheet installed"
@@ -411,7 +411,7 @@ def fork_entry(
     a copy that belongs to a table you run.
     """
     ruleset = _editable_or_404(db, ruleset_id, current_user)
-    document = user_schema_document(db, current_user.id, ruleset.schema_id)
+    document = catalog_document(db, current_user.id, ruleset.schema_id)
     if document is None:
         raise HTTPException(
             status_code=400, detail="You do not have that system's sheet installed"
@@ -631,7 +631,7 @@ def import_into_ruleset(
 ):
     """Add entries to a ruleset, from an installed pack or a pasted document."""
     ruleset = _editable_or_404(db, ruleset_id, current_user)
-    document = user_schema_document(db, current_user.id, ruleset.schema_id)
+    document = catalog_document(db, current_user.id, ruleset.schema_id)
 
     if data.pack_id:
         pack = db.query(ContentPack).filter_by(pack_id=data.pack_id).first()

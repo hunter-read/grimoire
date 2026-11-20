@@ -20,7 +20,8 @@ import {
   LuChevronRight,
   LuInfo,
 } from 'react-icons/lu'
-import api, { type Schema } from '../api'
+import api, { compendium as compendiumApi, type Schema } from '../api'
+import CompendiumSection from '../components/search/CompendiumSection'
 import Spinner from '../components/Spinner'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkToggleButton from '../components/BulkToggleButton'
@@ -37,6 +38,7 @@ import { sectionHeadStyle, controlStyle } from '../components/search/searchStyle
 import usePageTitle from '../hooks/usePageTitle'
 
 type SearchResults = Schema<'SearchResponse'>
+type CompendiumResult = Schema<'CompendiumSearchResult'>
 
 // Audio carries an embedded track title; the rest are named by their filename.
 const resultTitle = (item: { title?: string | null; filename: string }) =>
@@ -47,6 +49,10 @@ export default function SearchView() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [results, setResults] = useState<SearchResults | null>(null)
+  // Compendium entries (issue #835), asked for beside the library search. A
+  // compendium that will not answer just adds nothing.
+  const [compendiumResults, setCompendiumResults] = useState<CompendiumResult[]>([])
+  const searchId = useRef(0)
   const [searching, setSearching] = useState(false)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [systemFilter, setSystemFilter] = useState('')
@@ -81,11 +87,17 @@ export default function SearchView() {
   )
 
   const doSearch = useCallback((q: string) => {
+    const current = ++searchId.current
     if (q.length < 2) {
       setResults(null)
+      setCompendiumResults([])
       return
     }
     setSearching(true)
+    compendiumApi
+      .search(q)
+      .then((r) => current === searchId.current && setCompendiumResults(r.results || []))
+      .catch(() => current === searchId.current && setCompendiumResults([]))
     api
       .get(`/search?q=${encodeURIComponent(q)}`)
       .then((r) => {
@@ -119,19 +131,25 @@ export default function SearchView() {
     inputRef.current?.focus()
   }
 
-  // Collect distinct game systems from book results for the filter dropdown
+  // Collect distinct game systems from book and compendium results for the
+  // filter dropdown
   const availableSystems = useMemo(() => {
-    if (!results?.results?.length) return []
+    if (!results) return []
     const seen = new Map<string, string>()
-    for (const r of results.results) {
+    for (const r of results.results || []) {
       if (r.game_system_id && !seen.has(r.game_system_id)) {
         seen.set(r.game_system_id, r.game_system)
+      }
+    }
+    for (const entry of compendiumResults) {
+      for (const system of entry.systems || []) {
+        if (!seen.has(system.id)) seen.set(system.id, system.name)
       }
     }
     return [...seen.entries()]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [results])
+  }, [results, compendiumResults])
 
   // Filter + sort + group book results client-side
   const groupedBooks = useMemo((): SearchBookGroup[] => {
@@ -177,7 +195,23 @@ export default function SearchView() {
     ? (results?.book_matches ?? []).filter((b) => b.game_system_id === systemFilter).length
     : (results?.book_matches?.length ?? 0)
 
+  // The System filter narrows compendium entries too, and an entry then opens
+  // in the system that was picked.
+  const shownCompendium = useMemo(
+    () =>
+      systemFilter
+        ? compendiumResults
+            .filter((entry) => (entry.systems || []).some((s) => s.id === systemFilter))
+            .map((entry) => ({
+              ...entry,
+              systems: (entry.systems || []).filter((s) => s.id === systemFilter),
+            }))
+        : compendiumResults,
+    [compendiumResults, systemFilter]
+  )
+
   const totalFiltered =
+    shownCompendium.length +
     matchedBookCount +
     groupedBooks.reduce((s, g) => s + g.pages.length, 0) +
     (results?.maps?.length ?? 0) +
@@ -194,12 +228,15 @@ export default function SearchView() {
     results?.tokens?.length ?? 0,
     results?.audio?.length ?? 0,
     results?.models?.length ?? 0,
+    shownCompendium.length,
   ].filter((n) => n > 0)
   const resultCount =
     matchedBookCount + pageHitCount + sectionCounts.slice(1).reduce((n, c) => n + c, 0)
   const autoCollapsed: Record<string, boolean> = {}
   if (shouldAutoCollapse(resultCount, sectionCounts.length)) {
-    for (const key of ['books', 'maps', 'tokens', 'audio', 'models']) autoCollapsed[key] = true
+    for (const key of ['books', 'compendium', 'maps', 'tokens', 'audio', 'models']) {
+      autoCollapsed[key] = true
+    }
   }
   if (shouldAutoCollapse(pageHitCount, groupedBooks.length)) {
     for (const g of groupedBooks) autoCollapsed[`book-${g.id}`] = true
@@ -409,6 +446,12 @@ export default function SearchView() {
                   )}
                 </section>
               )}
+
+              <CompendiumSection
+                results={shownCompendium}
+                collapsed={Boolean(shownCollapsed.compendium)}
+                onToggle={() => toggleSection('compendium')}
+              />
 
               {[
                 { key: 'maps', items: maps, Icon: LuMap, type: 'map', path: 'maps' },

@@ -335,7 +335,7 @@ class TestCatalogApi:
 
     def test_a_facet_past_the_cap_is_omitted_until_narrowed(self, client, admin_headers, catalog):
         from backend.models import ContentEntry
-        from backend.routers.content._helpers import MAX_FACET_VALUES
+        from backend.services.characters.catalog_query import MAX_FACET_VALUES
 
         db = SessionLocal()
         try:

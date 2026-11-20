@@ -63,6 +63,7 @@ from .routers import (
     books as books_router,
     campaigns as campaigns_router,
     characters as characters_router,
+    compendium as compendium_router,
     content as content_router,
     rulesets as rulesets_router,
     downloads as downloads_router,
@@ -526,6 +527,7 @@ api.include_router(codex_router.router)
 api.include_router(themes_router.router)
 api.include_router(characters_router.router)
 api.include_router(content_router.router)
+api.include_router(compendium_router.router)
 api.include_router(rulesets_router.router)
 api.include_router(armies_router.router)
 api.include_router(leagues_router.router)

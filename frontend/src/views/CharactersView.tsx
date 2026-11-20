@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUsers, LuPlus, LuFileUp, LuSettings, LuArrowDownUp } from 'react-icons/lu'
@@ -50,12 +50,16 @@ export default function CharactersView() {
   // is where the old /characters/rulesets route now lands.
   const [searchParams, setSearchParams] = useSearchParams()
   const manageParam = searchParams.get('manage')
+  // `?new=<schema id>` opens a new character on that sheet - a system page
+  // links here from the sheets it is set up with.
+  const newParam = useRef(searchParams.get('new'))
 
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState<CharacterSummary[]>([])
   const [schemas, setSchemas] = useState<SheetSchema[]>([])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [createOn, setCreateOn] = useState('')
   const [importing, setImporting] = useState(false)
   const [managing, setManaging] = useState(Boolean(manageParam))
   const [updates, setUpdates] = useState<SheetUpdate[]>([])
@@ -85,6 +89,14 @@ export default function CharactersView() {
       // works from it and falls back on it for ties.
       setCharacters(list.characters || [])
       setSchemas(schemaList.schemas || [])
+      // Acted on once: a later reload must not open the dialog again.
+      const wanted = newParam.current
+      newParam.current = null
+      if (wanted && (schemaList.schemas || []).some((s) => s.schema_id === wanted)) {
+        setCreateOn(wanted)
+        setCreating(true)
+      }
+      if (wanted) setSearchParams({}, { replace: true })
       setError('')
     } catch (e) {
       setError((e as Error).message || t('characters.loadFailed'))
@@ -96,7 +108,7 @@ export default function CharactersView() {
       .sheetUpdates()
       .then((result) => setUpdates(result.updates || []))
       .catch(() => setUpdates([]))
-  }, [t])
+  }, [t, setSearchParams])
 
   useEffect(() => {
     // Catches its own failure into `error`.
@@ -308,8 +320,12 @@ export default function CharactersView() {
       {creating ? (
         <NewCharacterDialog
           schemas={schemas}
+          initialSchemaRef={createOn}
           onCreate={create}
-          onClose={() => setCreating(false)}
+          onClose={() => {
+            setCreating(false)
+            setCreateOn('')
+          }}
         />
       ) : null}
 

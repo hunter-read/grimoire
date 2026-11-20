@@ -1,13 +1,17 @@
-"""Catalog querying: search, faceted filters, sorting, and display templates."""
+"""Catalog querying: search, faceted filters, sorting, and display templates.
+
+Shared by the two places catalog content is read: a sheet's content browser
+(``routers/content``) and a system's compendium (``routers/compendium``). Both
+see pack entries and ruleset entries the same way, through ``CatalogRow``.
+"""
 import re
-from typing import Any
+from typing import Any, Optional, Sequence
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ...models import ContentEntry
 from ...models.dialect import is_postgres
-from ...services import pg_search
+from .. import pg_search
 
 #: `{name}` placeholders in a content type's compact_display template.
 _DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -21,6 +25,54 @@ MAX_FACET_VALUES = 500
 
 MAX_PAGE_SIZE = 200
 DEFAULT_PAGE_SIZE = 50
+
+
+class CatalogRow:
+    """A pack entry or a ruleset entry, seen the same way.
+
+    Ruleset content is first-class: it is the same data, so the catalog should
+    not care which table a row came from. This wrapper gives both the handful
+    of attributes the sort, filter and serialize helpers read, plus the markers
+    the UI uses to label which ruleset a row belongs to. ``schema_id`` and
+    ``origin`` say which sheet's types describe the row and where it came from
+    (a pack id, or ``ruleset:<id>``), which a compendium spanning several packs
+    needs and a sheet's own browser ignores.
+    """
+
+    __slots__ = ("id", "entry_id", "source", "name", "data", "content_type",
+                 "ruleset", "owner_name", "row_id", "ruleset_id", "ruleset_name",
+                 "schema_id", "origin")
+
+    def __init__(
+        self,
+        *,
+        id: str,
+        entry_id: str,
+        source: str,
+        name: str,
+        data: dict,
+        content_type: str,
+        ruleset: bool = False,
+        owner_name: str = "",
+        row_id: Optional[str] = None,
+        ruleset_id: Optional[str] = None,
+        ruleset_name: str = "",
+        schema_id: str = "",
+        origin: str = "",
+    ) -> None:
+        self.id = id
+        self.entry_id = entry_id
+        self.source = source
+        self.name = name
+        self.data = data
+        self.content_type = content_type
+        self.ruleset = ruleset
+        self.owner_name = owner_name
+        self.row_id = row_id
+        self.ruleset_id = ruleset_id
+        self.ruleset_name = ruleset_name
+        self.schema_id = schema_id
+        self.origin = origin
 
 
 def render_display(template: str, data: dict) -> str:
@@ -53,10 +105,51 @@ def search_entry_ids(db: Session, schema_id: str, content_type: str, query: str)
     someone typing "fire" into a spell list expects. PostgreSQL does the same
     over ``content_search.search`` (``services.pg_search.prefix_tsquery``).
     """
+    return _fts_entry_ids(
+        db,
+        query,
+        "schema_id = :schema_id AND content_type = :content_type",
+        {"schema_id": schema_id, "content_type": content_type},
+    )
+
+
+def search_pack_entry_ids(
+    db: Session,
+    pack_rows: Sequence[str],
+    query: str,
+    *,
+    content_type: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> list[str]:
+    """Entry row ids in the given packs matching a search, best match first.
+
+    A compendium reads the packs linked to a system rather than everything one
+    sheet draws on, so it filters on the pack. ``pack_rows`` are
+    ``ContentPack.id`` values; each is bound as its own parameter.
+    """
+    if not pack_rows:
+        return []
+    params: dict[str, Any] = {f"pack{index}": row for index, row in enumerate(pack_rows)}
+    where = f"pack_row IN ({', '.join(f':{name}' for name in params)})"
+    if content_type:
+        params["content_type"] = content_type
+        where += " AND content_type = :content_type"
+    return _fts_entry_ids(db, query, where, params, limit=limit)
+
+
+def _fts_entry_ids(
+    db: Session,
+    query: str,
+    where: str,
+    params: dict[str, Any],
+    *,
+    limit: Optional[int] = None,
+) -> list[str]:
+    """Run one prefix-matched catalog search, narrowed by ``where``."""
     terms = [term for term in re.findall(r"[\w']+", query) if term]
     if not terms:
         return []
-    params: dict[str, Any] = {"schema_id": schema_id, "content_type": content_type}
+    params = dict(params)
     if is_postgres(db):
         tsq = pg_search.prefix_tsquery(terms, params)
         if tsq is None:
@@ -64,18 +157,19 @@ def search_entry_ids(db: Session, schema_id: str, content_type: str, query: str)
         sql = (
             f"WITH q AS (SELECT {tsq} AS q) "
             "SELECT entry_row FROM content_search, q "
-            "WHERE content_search.search @@ q.q "
-            "AND schema_id = :schema_id AND content_type = :content_type "
+            f"WHERE content_search.search @@ q.q AND {where} "
             "ORDER BY ts_rank_cd(content_search.search, q.q, 1) DESC, content_search.id"
         )
     else:
         params["match"] = " ".join(f'"{term}"*' for term in terms)
         sql = (
             "SELECT entry_row FROM content_search "
-            "WHERE content_search MATCH :match "
-            "AND schema_id = :schema_id AND content_type = :content_type "
+            f"WHERE content_search MATCH :match AND {where} "
             "ORDER BY rank"
         )
+    if limit:
+        params["limit"] = int(limit)
+        sql += " LIMIT :limit"
     return [row[0] for row in db.execute(text(sql), params).fetchall()]
 
 
@@ -97,7 +191,7 @@ def matches_filters(data: dict, filters: dict[str, str]) -> bool:
     return True
 
 
-def build_facets(entries: list[ContentEntry], filter_fields: list[str]) -> dict:
+def build_facets(entries: Sequence[Any], filter_fields: list[str]) -> dict:
     """Count the values present for each filterable field."""
     facets: dict[str, dict[str, int]] = {field: {} for field in filter_fields}
     for entry in entries:
@@ -124,7 +218,7 @@ def build_facets(entries: list[ContentEntry], filter_fields: list[str]) -> dict:
 
 
 def narrowed_facets(
-    entries: list[ContentEntry],
+    entries: Sequence[Any],
     filter_fields: list[str],
     filters: dict[str, str],
     depends: dict[str, str],
@@ -167,7 +261,7 @@ def narrowed_facets(
     return facets
 
 
-def unparented_values(entries: list[ContentEntry], depends: dict[str, str]) -> dict[str, bool]:
+def unparented_values(entries: Sequence[Any], depends: dict[str, str]) -> dict[str, bool]:
     """Whether any entry carries a `filter_depends` child without its parent.
 
     A feature with an origin but no class (a racial trait, a homebrew row) can
@@ -196,12 +290,12 @@ def _facet_order(item: tuple[str, int]) -> tuple:
         return (1, 0.0, value.lower())
 
 
-def sort_entries(entries: list[ContentEntry], sort_fields: list[str]) -> list[ContentEntry]:
+def sort_entries(entries: Sequence[Any], sort_fields: list[str]) -> list[Any]:
     """Order entries by a content type's `sort_default`, falling back to name."""
     if not sort_fields:
         return sorted(entries, key=lambda entry: entry.name.lower())
 
-    def key(entry: ContentEntry) -> tuple:
+    def key(entry: Any) -> tuple:
         data = entry.data if isinstance(entry.data, dict) else {}
         parts: list = []
         for field in sort_fields:
@@ -219,7 +313,7 @@ def sort_entries(entries: list[ContentEntry], sort_fields: list[str]) -> list[Co
     return sorted(entries, key=key)
 
 
-def serialize_entry(entry, type_definition: dict) -> dict:
+def serialize_entry(entry: Any, type_definition: dict) -> dict:
     """Shape a catalog row for the API, pack or ruleset alike."""
     data = entry.data if isinstance(entry.data, dict) else {}
     return {
@@ -239,7 +333,7 @@ def serialize_entry(entry, type_definition: dict) -> dict:
     }
 
 
-def matches_text(entry, query: str, search_fields: list[str]) -> bool:
+def matches_text(entry: Any, query: str, search_fields: list[str]) -> bool:
     """Whether an entry matches a search, for rows the FTS index does not cover.
 
     Homebrew changes on every edit and the visible set is per user and small, so
