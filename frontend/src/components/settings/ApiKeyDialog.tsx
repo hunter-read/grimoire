@@ -4,28 +4,12 @@ import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../Spinner'
 import useDialogFocus from '../../hooks/useDialogFocus'
-import ApiKeyPermissionGroup from './ApiKeyPermissionGroup'
-import ApiKeyPermissionRow from './ApiKeyPermissionRow'
-import type { PermissionRowData } from './ApiKeyPermissionRow'
-import {
-  ALL,
-  EXPIRY_CHOICES,
-  effectiveLevel,
-  expiryFromDays,
-  formatWhen,
-  rank,
-} from './apiKeyUtils'
+import ApiKeyPermissionPicker from './ApiKeyPermissionPicker'
+import { EXPIRY_CHOICES, expiryFromDays, formatWhen } from './apiKeyUtils'
 
 const KEEP = 'keep'
 
 type Permission = Schema<'ApiKeyPermissionOut'>
-type PermissionRow = Permission & PermissionRowData
-
-interface PermissionGroup {
-  id: string
-  rows: PermissionRow[]
-  granted: number
-}
 
 interface Props {
   apiKey: Schema<'ApiKeyOut'> | null
@@ -45,13 +29,8 @@ const inputStyle: CSSProperties = {
   fontSize: 14,
 }
 
-// Create or edit an API key: its name, expiry, and a No access / Read / Read and
-// Write level per permission, plus an All permissions level that sets a floor
-// for every area, including ones added in later versions. `apiKey` is null when
-// creating.
-//
-// Permissions are listed in collapsible groups (the server says which), with a
-// filter box above them, so the list stays findable as more areas are added.
+// Create or edit an API key: its name, expiry, and its level per permission
+// (ApiKeyPermissionPicker). `apiKey` is null when creating.
 export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: Props) {
   const { t, i18n } = useTranslation()
   const editing = Boolean(apiKey)
@@ -63,65 +42,13 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
   const [expiry, setExpiry] = useState<string>(editing ? KEEP : '90')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  // Groups start open where the key already reaches something, so an edit shows
-  // what it grants; a new key starts with everything folded.
-  const [openGroups, setOpenGroups] = useState(() => {
-    const initial = apiKey?.permissions || {}
-    return new Set(
-      permissions
-        .filter((perm) => rank(effectiveLevel(initial, perm)) > 0)
-        .map((perm) => perm.group)
-    )
-  })
 
   // Focus in on open (the name field), held inside, Escape closes, and back to
   // the button that opened it afterwards.
   const formRef = useRef<HTMLFormElement>(null)
   useDialogFocus(formRef, { onClose })
 
-  const floor = levels[ALL] || 'none'
-  const allRow = {
-    id: ALL,
-    label: t('appSettings.apiKeys.permissions.all.label'),
-    description: t('appSettings.apiKeys.permissions.all.description'),
-    levels: ['none', 'read', 'write'],
-    emphasis: true,
-  }
-  const rows: PermissionRow[] = permissions.map((perm) => ({
-    ...perm,
-    label: t(`appSettings.apiKeys.permissions.${perm.id}.label`, perm.id),
-    description: t(`appSettings.apiKeys.permissions.${perm.id}.description`, perm.description),
-  }))
-
-  // Group in the order the server lists permissions (it lists them group by
-  // group), so a new group appears without a client change.
-  const needle = query.trim().toLowerCase()
-  const matches = (row: PermissionRow) =>
-    !needle || `${row.label} ${row.description} ${row.id}`.toLowerCase().includes(needle)
-  const groups: PermissionGroup[] = []
-  for (const row of rows) {
-    const id = row.group || 'other'
-    let group = groups.find((g) => g.id === id)
-    if (!group) {
-      group = { id, rows: [], granted: 0 }
-      groups.push(group)
-    }
-    group.rows.push(row)
-    if (rank(effectiveLevel(levels, row)) > 0) group.granted += 1
-  }
-  const visibleGroups = groups
-    .map((g) => ({ ...g, shown: g.rows.filter(matches) }))
-    .filter((g) => g.shown.length > 0)
-
   const setLevel = (id: string, level: string) => setLevels((prev) => ({ ...prev, [id]: level }))
-  const toggleGroup = (id: string) =>
-    setOpenGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -230,66 +157,7 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 0, marginBottom: 10 }}>
           {t('appSettings.apiKeys.dialog.permissionsHint')}
         </p>
-        <div
-          style={{
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            background: 'var(--bg-card)',
-            marginBottom: 12,
-          }}
-        >
-          <ApiKeyPermissionRow
-            perm={allRow}
-            value={floor}
-            floor="none"
-            covered={false}
-            onChange={setLevel}
-            first
-          />
-        </div>
-
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('appSettings.apiKeys.dialog.filter')}
-          aria-label={t('appSettings.apiKeys.dialog.filter')}
-          style={{ ...inputStyle, marginBottom: 10 }}
-        />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-          {visibleGroups.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: '8px 0' }}>
-              {t('appSettings.apiKeys.dialog.noMatches', { query: query.trim() })}
-            </p>
-          )}
-          {visibleGroups.map((group) => (
-            <ApiKeyPermissionGroup
-              key={group.id}
-              id={group.id}
-              // A filter opens every group with a match, so results are never
-              // hidden behind a closed header.
-              open={Boolean(needle) || openGroups.has(group.id)}
-              onToggle={toggleGroup}
-              granted={group.granted}
-              total={group.rows.length}
-            >
-              {group.shown.map((perm, i) => (
-                <ApiKeyPermissionRow
-                  key={perm.id}
-                  perm={perm}
-                  value={effectiveLevel(levels, perm)}
-                  floor={floor}
-                  // Nothing left to raise once All permissions already reaches
-                  // this area's highest level.
-                  covered={rank(floor) >= rank(perm.levels[perm.levels.length - 1])}
-                  onChange={setLevel}
-                  first={i === 0}
-                />
-              ))}
-            </ApiKeyPermissionGroup>
-          ))}
-        </div>
+        <ApiKeyPermissionPicker permissions={permissions} levels={levels} onChange={setLevel} />
 
         {error && (
           <div role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>

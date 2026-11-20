@@ -1595,6 +1595,11 @@
       "allTitle": "Todas as chaves de API",
       "allDescription": "As chaves de API de todos os utilizadores. Revogue qualquer chave que não deva estar em uso; cada utilizador gere as suas nas definições da conta.",
       "empty": "Nenhuma chave de API ainda.",
+      "apps": {
+        "title": "Aplicações ligadas",
+        "description": "Aplicações a que permitiu iniciar sessão na sua conta, como o Claude. Revogue uma para a desligar.",
+        "allDescription": "Aplicações a que pessoas deste servidor permitiram iniciar sessão nas suas contas. Revogue uma para a desligar."
+      },
       "create": "Criar chave de API",
       "loadFailed": "Não foi possível carregar as chaves de API.",
       "actionFailed": "Não resultou. Tente novamente.",
@@ -1614,7 +1619,8 @@
         "edit": "Editar",
         "regenerate": "Regenerar",
         "revoke": "Revogar",
-        "owner": "Proprietário: {{name}}"
+        "owner": "Proprietário: {{name}}",
+        "signsInThrough": "através de {{host}}"
       },
       "dialog": {
         "createTitle": "Criar chave de API",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Regenerar “{{name}}”?",
         "regenerateMessage": "É emitida uma nova chave com o mesmo nome e as mesmas permissões. A chave atual deixa de funcionar de imediato, pelo que tudo o que a utiliza terá de ser atualizado.",
         "revokeTitle": "Revogar “{{name}}”?",
-        "revokeMessage": "A chave é eliminada e deixa de funcionar de imediato. Esta ação não pode ser anulada."
+        "revokeMessage": "A chave é eliminada e deixa de funcionar de imediato. Esta ação não pode ser anulada.",
+        "revokeAppMessage": "A aplicação é desligada de imediato. Vai pedir-lhe que inicie sessão de novo antes de poder usar a sua biblioteca."
       },
       "groups": {
         "library": "Biblioteca",
@@ -4378,6 +4385,26 @@
     "download": "Transferir",
     "open": "Abrir",
     "sharedFrom": "Partilhado a partir do Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} quer usar a sua biblioteca do Grimoire",
+    "signedInAs": "Sessão iniciada como {{name}}",
+    "hostLabel": "Depois de responder, vai para",
+    "hostHint": "Confirme que é o site que espera. Uma aplicação pode chamar-se o que quiser, mas não pode mudar para onde o envia.",
+    "accessTitle": "Acesso",
+    "readOnly": "Só leitura (recomendado)",
+    "readOnlyHint": "Pode ler tudo o que a sua conta pode ler, sem alterar nada.",
+    "customise": "Personalizar",
+    "cannotApprove": "Não pode permitir isto: {{reason}}. Pode ainda assim recusar, para que a aplicação deixe de esperar.",
+    "eitherWay": "Qualquer resposta envia-o para {{host}}.",
+    "denyGoesTo": "Recusar envia-o para {{host}}.",
+    "deny": "Recusar",
+    "approve": "Permitir",
+    "answerFailed": "Não funcionou. Tente novamente.",
+    "goneTitle": "Este pedido de início de sessão não está disponível",
+    "goneBody": "Expirou ou já foi respondido, ou o início de sessão de aplicações está desativado. Inicie novamente a ligação a partir da aplicação.",
+    "failedTitle": "Não foi possível carregar este pedido de início de sessão",
+    "failedBody": "Experimente recarregar a página."
   },
   "merge": {
     "action": "Mesclar…",

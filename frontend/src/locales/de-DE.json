@@ -1595,6 +1595,11 @@
       "allTitle": "Alle API-Schlüssel",
       "allDescription": "Die API-Schlüssel aller Benutzer. Widerrufe jeden Schlüssel, der nicht mehr verwendet werden soll; jeder Benutzer verwaltet seine eigenen in den Kontoeinstellungen.",
       "empty": "Noch keine API-Schlüssel.",
+      "apps": {
+        "title": "Verbundene Apps",
+        "description": "Apps, denen du die Anmeldung an deinem Konto erlaubt hast, etwa Claude. Widerrufe eine, um sie zu trennen.",
+        "allDescription": "Apps, denen Personen auf diesem Server die Anmeldung an ihrem Konto erlaubt haben. Widerrufe eine, um sie zu trennen."
+      },
       "create": "API-Schlüssel erstellen",
       "loadFailed": "API-Schlüssel konnten nicht geladen werden.",
       "actionFailed": "Das hat nicht geklappt. Bitte versuche es erneut.",
@@ -1614,7 +1619,8 @@
         "edit": "Bearbeiten",
         "regenerate": "Neu generieren",
         "revoke": "Widerrufen",
-        "owner": "Besitzer: {{name}}"
+        "owner": "Besitzer: {{name}}",
+        "signsInThrough": "über {{host}}"
       },
       "dialog": {
         "createTitle": "API-Schlüssel erstellen",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "„{{name}}“ neu generieren?",
         "regenerateMessage": "Es wird ein neuer Schlüssel mit demselben Namen und denselben Berechtigungen ausgestellt. Der aktuelle Schlüssel funktioniert sofort nicht mehr - alles, was ihn verwendet, muss aktualisiert werden.",
         "revokeTitle": "„{{name}}“ widerrufen?",
-        "revokeMessage": "Der Schlüssel wird gelöscht und funktioniert sofort nicht mehr. Das kann nicht rückgängig gemacht werden."
+        "revokeMessage": "Der Schlüssel wird gelöscht und funktioniert sofort nicht mehr. Das kann nicht rückgängig gemacht werden.",
+        "revokeAppMessage": "Die App wird sofort getrennt. Sie bittet dich erneut um Anmeldung, bevor sie deine Bibliothek nutzen kann."
       },
       "groups": {
         "library": "Bibliothek",
@@ -4378,6 +4385,26 @@
     "download": "Herunterladen",
     "open": "Öffnen",
     "sharedFrom": "Geteilt über Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} möchte deine Grimoire-Bibliothek verwenden",
+    "signedInAs": "Angemeldet als {{name}}",
+    "hostLabel": "Nach deiner Antwort geht es weiter zu",
+    "hostHint": "Prüfe, ob das die erwartete Seite ist. Eine App kann sich beliebig nennen, aber nicht ändern, wohin sie dich schickt.",
+    "accessTitle": "Zugriff",
+    "readOnly": "Nur lesen (empfohlen)",
+    "readOnlyHint": "Sie kann alles lesen, was dein Konto lesen kann, und nichts ändern.",
+    "customise": "Anpassen",
+    "cannotApprove": "Du kannst dies nicht erlauben: {{reason}}. Du kannst es trotzdem ablehnen, damit die App nicht weiter wartet.",
+    "eitherWay": "Beide Antworten schicken dich zu {{host}}.",
+    "denyGoesTo": "Ablehnen schickt dich zu {{host}}.",
+    "deny": "Ablehnen",
+    "approve": "Erlauben",
+    "answerFailed": "Das hat nicht funktioniert. Versuche es erneut.",
+    "goneTitle": "Diese Anmeldeanfrage ist nicht verfügbar",
+    "goneBody": "Sie ist abgelaufen oder wurde schon beantwortet, oder die App-Anmeldung ist ausgeschaltet. Starte die Verbindung in der App neu.",
+    "failedTitle": "Diese Anmeldeanfrage konnte nicht geladen werden",
+    "failedBody": "Lade die Seite neu."
   },
   "merge": {
     "action": "Zusammenführen…",

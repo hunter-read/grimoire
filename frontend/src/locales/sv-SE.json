@@ -1595,6 +1595,11 @@
       "allTitle": "Alla API-nycklar",
       "allDescription": "Alla användares API-nycklar. Återkalla nycklar som inte ska användas; varje användare hanterar sina egna i kontoinställningarna.",
       "empty": "Inga API-nycklar ännu.",
+      "apps": {
+        "title": "Anslutna appar",
+        "description": "Appar som du har låtit logga in på ditt konto, till exempel Claude. Återkalla en för att koppla från den.",
+        "allDescription": "Appar som personer på den här servern har låtit logga in på sina konton. Återkalla en för att koppla från den."
+      },
       "create": "Skapa API-nyckel",
       "loadFailed": "Det gick inte att läsa in API-nycklarna.",
       "actionFailed": "Det fungerade inte. Försök igen.",
@@ -1614,7 +1619,8 @@
         "edit": "Redigera",
         "regenerate": "Generera om",
         "revoke": "Återkalla",
-        "owner": "Ägare: {{name}}"
+        "owner": "Ägare: {{name}}",
+        "signsInThrough": "via {{host}}"
       },
       "dialog": {
         "createTitle": "Skapa API-nyckel",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Generera om ”{{name}}”?",
         "regenerateMessage": "En ny nyckel utfärdas med samma namn och behörigheter. Den nuvarande nyckeln slutar fungera direkt, så allt som använder den måste uppdateras.",
         "revokeTitle": "Återkalla ”{{name}}”?",
-        "revokeMessage": "Nyckeln tas bort och slutar fungera direkt. Det går inte att ångra."
+        "revokeMessage": "Nyckeln tas bort och slutar fungera direkt. Det går inte att ångra.",
+        "revokeAppMessage": "Appen kopplas från direkt. Den ber dig logga in igen innan den kan använda ditt bibliotek."
       },
       "groups": {
         "library": "Bibliotek",
@@ -4378,6 +4385,26 @@
     "download": "Ladda ner",
     "open": "Öppna",
     "sharedFrom": "Delat från Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} vill använda ditt Grimoire-bibliotek",
+    "signedInAs": "Inloggad som {{name}}",
+    "hostLabel": "När du har svarat skickas du till",
+    "hostHint": "Kontrollera att det är den webbplats du väntar dig. En app kan kalla sig vad som helst, men den kan inte ändra vart den skickar dig.",
+    "accessTitle": "Åtkomst",
+    "readOnly": "Endast läsning (rekommenderas)",
+    "readOnlyHint": "Den kan läsa allt ditt konto kan läsa och ändra ingenting.",
+    "customise": "Anpassa",
+    "cannotApprove": "Du kan inte tillåta detta: {{reason}}. Du kan ändå neka, så att appen slutar vänta.",
+    "eitherWay": "Oavsett svar skickas du till {{host}}.",
+    "denyGoesTo": "Neka skickar dig till {{host}}.",
+    "deny": "Neka",
+    "approve": "Tillåt",
+    "answerFailed": "Det fungerade inte. Försök igen.",
+    "goneTitle": "Den här inloggningsbegäran är inte tillgänglig",
+    "goneBody": "Den har gått ut eller redan besvarats, eller så är inloggning för appar avstängd. Starta anslutningen igen från appen.",
+    "failedTitle": "Det gick inte att läsa in inloggningsbegäran",
+    "failedBody": "Försök att läsa in sidan igen."
   },
   "merge": {
     "action": "Slå ihop…",

@@ -93,6 +93,50 @@ describe('ApiKeyRow', () => {
     expect(screen.getByText('All permissions: Read · Books: Read and write')).toBeInTheDocument()
   })
 
+  describe('a connected app (issue #906)', () => {
+    const app = (overrides: Partial<Schema<'ApiKeyOut'>> = {}) =>
+      key({
+        kind: 'app',
+        name: 'Claude',
+        prefix: 'grim_oauth',
+        client_name: 'Claude',
+        redirect_host: 'claude.ai',
+        ...overrides,
+      })
+
+    it('shows the app and its host instead of a key prefix', () => {
+      renderRow(app())
+      expect(screen.getByText('Claude')).toBeInTheDocument()
+      expect(screen.getByText('via claude.ai')).toBeInTheDocument()
+      expect(screen.queryByText('grim_oauth…')).toBeNull()
+    })
+
+    it('offers Edit and Revoke but never Regenerate', () => {
+      const handlers = { onEdit: vi.fn(), onRegenerate: vi.fn(), onRevoke: vi.fn() }
+      renderRow(app(), handlers)
+      expect(screen.queryByRole('button', { name: /Regenerate/ })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Edit Claude' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Revoke Claude' }))
+      expect(handlers.onEdit).toHaveBeenCalled()
+      expect(handlers.onRevoke).toHaveBeenCalled()
+    })
+
+    it('shows times as well as dates, so two connections made on one day differ', () => {
+      renderRow(app({ last_used_at: '2026-08-01T10:35:00+00:00' }))
+      expect(screen.getByText(/Created .*\d:00.* Last used .*\d:35/)).toBeInTheDocument()
+    })
+
+    it('keeps a key row to dates only', () => {
+      renderRow(key())
+      expect(screen.getByText(/Created/).textContent).not.toMatch(/\d:\d\d/)
+    })
+
+    it('falls back to the grant name when the client gave none', () => {
+      renderRow(app({ client_name: null, name: 'Unnamed app' }))
+      expect(screen.getByText('Unnamed app')).toBeInTheDocument()
+    })
+  })
+
   it('names each action after the key, since every row repeats them', () => {
     const onRevoke = vi.fn()
     renderRow(key(), { onRevoke })

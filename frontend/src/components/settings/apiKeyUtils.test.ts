@@ -27,6 +27,13 @@ describe('apiKeyUtils', () => {
     expect(formatWhen('not a date', 'en-US')).toBeNull()
   })
 
+  it('adds the time of day only when asked', () => {
+    const iso = '2026-08-01T10:05:00+00:00'
+    expect(formatWhen(iso, 'en-US')).not.toMatch(/\d:\d\d/)
+    expect(formatWhen(iso, 'en-US', true)).toMatch(/2026.*\d:05/)
+    expect(formatWhen(null, 'en-US', true)).toBeNull()
+  })
+
   it('lists granted permissions in server order, skipping none', () => {
     const perms = [{ id: 'stats' }, { id: 'books' }, { id: 'maps' }]
     const key = { permissions: { maps: 'write', stats: 'read', books: 'none' } }

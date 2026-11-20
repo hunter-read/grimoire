@@ -1595,6 +1595,11 @@
       "allTitle": "Alle API-sleutels",
       "allDescription": "De API-sleutels van alle gebruikers. Trek elke sleutel in die niet meer gebruikt hoort te worden; iedere gebruiker beheert zijn eigen sleutels in de accountinstellingen.",
       "empty": "Nog geen API-sleutels.",
+      "apps": {
+        "title": "Verbonden apps",
+        "description": "Apps die je hebt toegestaan zich bij je account aan te melden, zoals Claude. Trek er een in om de verbinding te verbreken.",
+        "allDescription": "Apps die mensen op deze server hebben toegestaan zich bij hun account aan te melden. Trek er een in om de verbinding te verbreken."
+      },
       "create": "API-sleutel aanmaken",
       "loadFailed": "Kan de API-sleutels niet laden.",
       "actionFailed": "Dat is niet gelukt. Probeer het opnieuw.",
@@ -1614,7 +1619,8 @@
         "edit": "Bewerken",
         "regenerate": "Opnieuw genereren",
         "revoke": "Intrekken",
-        "owner": "Eigenaar: {{name}}"
+        "owner": "Eigenaar: {{name}}",
+        "signsInThrough": "via {{host}}"
       },
       "dialog": {
         "createTitle": "API-sleutel aanmaken",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "‘{{name}}’ opnieuw genereren?",
         "regenerateMessage": "Er wordt een nieuwe sleutel uitgegeven met dezelfde naam en rechten. De huidige sleutel werkt meteen niet meer, dus alles wat hem gebruikt moet worden bijgewerkt.",
         "revokeTitle": "‘{{name}}’ intrekken?",
-        "revokeMessage": "De sleutel wordt verwijderd en werkt meteen niet meer. Dit kan niet ongedaan worden gemaakt."
+        "revokeMessage": "De sleutel wordt verwijderd en werkt meteen niet meer. Dit kan niet ongedaan worden gemaakt.",
+        "revokeAppMessage": "De app wordt meteen losgekoppeld. Hij vraagt je opnieuw aan te melden voordat hij je bibliotheek kan gebruiken."
       },
       "groups": {
         "library": "Bibliotheek",
@@ -4378,6 +4385,26 @@
     "download": "Downloaden",
     "open": "Openen",
     "sharedFrom": "Gedeeld via Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} wil je Grimoire-bibliotheek gebruiken",
+    "signedInAs": "Aangemeld als {{name}}",
+    "hostLabel": "Na je antwoord ga je naar",
+    "hostHint": "Controleer of dit de site is die je verwacht. Een app kan zich alles noemen, maar kan niet veranderen waar hij je heen stuurt.",
+    "accessTitle": "Toegang",
+    "readOnly": "Alleen lezen (aanbevolen)",
+    "readOnlyHint": "De app kan alles lezen wat je account kan lezen, en niets wijzigen.",
+    "customise": "Aanpassen",
+    "cannotApprove": "Je kunt dit niet toestaan: {{reason}}. Je kunt het wel weigeren, zodat de app niet blijft wachten.",
+    "eitherWay": "Welk antwoord je ook geeft, je gaat naar {{host}}.",
+    "denyGoesTo": "Weigeren stuurt je naar {{host}}.",
+    "deny": "Weigeren",
+    "approve": "Toestaan",
+    "answerFailed": "Dat is niet gelukt. Probeer het opnieuw.",
+    "goneTitle": "Dit aanmeldverzoek is niet beschikbaar",
+    "goneBody": "Het is verlopen of al beantwoord, of aanmelden voor apps staat uit. Start de verbinding opnieuw vanuit de app.",
+    "failedTitle": "Dit aanmeldverzoek kon niet worden geladen",
+    "failedBody": "Probeer de pagina opnieuw te laden."
   },
   "merge": {
     "action": "Samenvoegen…",

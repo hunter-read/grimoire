@@ -12,14 +12,22 @@ export function expiryFromDays(days: number | null | undefined, now = new Date()
   return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
-export function formatWhen(iso: string | null | undefined, locale?: string): string | null {
+// `withTime` adds the time of day: for connected apps, where one app connected
+// twice on the same day lists two rows that only the time tells apart.
+export function formatWhen(
+  iso: string | null | undefined,
+  locale?: string,
+  withTime = false
+): string | null {
   if (!iso) return null
   // Mark a naive timestamp as UTC before formatting, or the browser reads it as
   // local time.
   const normalized = /(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`
   const date = new Date(normalized)
   if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString(locale, { dateStyle: 'medium' })
+  return withTime
+    ? date.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })
+    : date.toLocaleDateString(locale, { dateStyle: 'medium' })
 }
 
 // The permissions key for "every area, including future ones".

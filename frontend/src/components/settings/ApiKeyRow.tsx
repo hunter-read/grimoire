@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { LuKey, LuPencil, LuRefreshCw, LuTrash } from 'react-icons/lu'
+import { LuKey, LuPencil, LuPlug, LuRefreshCw, LuTrash } from 'react-icons/lu'
 import type { CSSProperties } from 'react'
 import type { Schema } from '../../api'
 import { formatWhen, grantedPermissions } from './apiKeyUtils'
@@ -29,6 +29,9 @@ const actionStyle = (danger?: boolean): CSSProperties => ({
 })
 
 // One key in the list: never its secret, only the prefix that identifies it.
+// A connected app (an MCP client a user approved, issue #906) shows the name it
+// registered with and the host it signs in through instead, and has no
+// Regenerate: it holds tokens it renews itself, not a key to re-mint.
 // `showOwner` is the admin's everyone-view: it names whose key this is and only
 // offers Revoke, since nobody may edit or re-mint someone else's key.
 export default function ApiKeyRow({
@@ -42,6 +45,11 @@ export default function ApiKeyRow({
   const { t, i18n } = useTranslation()
   const when = (iso: string | null | undefined) => formatWhen(iso, i18n.language)
   const granted = grantedPermissions(apiKey, permissions)
+  const app = apiKey.kind === 'app'
+  const name = app ? apiKey.client_name || apiKey.name : apiKey.name
+  const Icon = app ? LuPlug : LuKey
+  // An app connected twice on one day lists two rows; the time tells them apart.
+  const stamp = (iso: string | null | undefined) => formatWhen(iso, i18n.language, app)
 
   const expiry = apiKey.expired
     ? t('appSettings.apiKeys.row.expired', { when: when(apiKey.expires_at) })
@@ -62,28 +70,34 @@ export default function ApiKeyRow({
         opacity: apiKey.expired ? 0.75 : 1,
       }}
     >
-      <LuKey size={18} style={{ flexShrink: 0, color: 'var(--text-dim)', marginTop: 2 }} />
+      <Icon size={18} style={{ flexShrink: 0, color: 'var(--text-dim)', marginTop: 2 }} />
       <div style={{ flex: '1 1 260px', minWidth: 0 }}>
         <div
           style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
         >
-          <span style={{ fontWeight: 600 }}>{apiKey.name}</span>
+          <span style={{ fontWeight: 600 }}>{name}</span>
           {showOwner && (
             <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
               {t('appSettings.apiKeys.row.owner', { name: apiKey.username || apiKey.user_id })}
             </span>
           )}
-          <code
-            style={{
-              fontSize: 12,
-              background: 'var(--bg-card)',
-              padding: '1px 6px',
-              borderRadius: 4,
-              color: 'var(--text-dim)',
-            }}
-          >
-            {apiKey.prefix}…
-          </code>
+          {app ? (
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              {t('appSettings.apiKeys.row.signsInThrough', { host: apiKey.redirect_host || '?' })}
+            </span>
+          ) : (
+            <code
+              style={{
+                fontSize: 12,
+                background: 'var(--bg-card)',
+                padding: '1px 6px',
+                borderRadius: 4,
+                color: 'var(--text-dim)',
+              }}
+            >
+              {apiKey.prefix}…
+            </code>
+          )}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, lineHeight: 1.5 }}>
           {granted.length === 0
@@ -99,9 +113,9 @@ export default function ApiKeyRow({
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
           {[
-            t('appSettings.apiKeys.row.created', { when: when(apiKey.created_at) }),
+            t('appSettings.apiKeys.row.created', { when: stamp(apiKey.created_at) }),
             apiKey.last_used_at
-              ? t('appSettings.apiKeys.row.lastUsed', { when: when(apiKey.last_used_at) })
+              ? t('appSettings.apiKeys.row.lastUsed', { when: stamp(apiKey.last_used_at) })
               : t('appSettings.apiKeys.row.neverUsed'),
           ].join(' · ')}{' '}
           · <span style={{ color: apiKey.expired ? 'var(--danger)' : undefined }}>{expiry}</span>
@@ -113,25 +127,27 @@ export default function ApiKeyRow({
             <button
               type="button"
               onClick={() => onEdit(apiKey)}
-              aria-label={t('a11y.settings.editNamed', { name: apiKey.name })}
+              aria-label={t('a11y.settings.editNamed', { name })}
               style={actionStyle(false)}
             >
               <LuPencil size={13} /> {t('appSettings.apiKeys.row.edit')}
             </button>
-            <button
-              type="button"
-              onClick={() => onRegenerate(apiKey)}
-              aria-label={t('a11y.settings.regenerateNamed', { name: apiKey.name })}
-              style={actionStyle(false)}
-            >
-              <LuRefreshCw size={13} /> {t('appSettings.apiKeys.row.regenerate')}
-            </button>
+            {!app && (
+              <button
+                type="button"
+                onClick={() => onRegenerate(apiKey)}
+                aria-label={t('a11y.settings.regenerateNamed', { name })}
+                style={actionStyle(false)}
+              >
+                <LuRefreshCw size={13} /> {t('appSettings.apiKeys.row.regenerate')}
+              </button>
+            )}
           </>
         )}
         <button
           type="button"
           onClick={() => onRevoke(apiKey)}
-          aria-label={t('a11y.settings.revokeNamed', { name: apiKey.name })}
+          aria-label={t('a11y.settings.revokeNamed', { name })}
           style={actionStyle(true)}
         >
           <LuTrash size={13} /> {t('appSettings.apiKeys.row.revoke')}

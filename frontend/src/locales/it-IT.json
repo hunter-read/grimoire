@@ -1595,6 +1595,11 @@
       "allTitle": "Tutte le chiavi API",
       "allDescription": "Le chiavi API di tutti gli utenti. Revoca qualsiasi chiave che non dovrebbe essere in uso; ogni utente gestisce le proprie dalle impostazioni del suo account.",
       "empty": "Ancora nessuna chiave API.",
+      "apps": {
+        "title": "App collegate",
+        "description": "Le app a cui hai consentito di accedere al tuo account, come Claude. Revocane una per scollegarla.",
+        "allDescription": "Le app a cui le persone di questo server hanno consentito di accedere al proprio account. Revocane una per scollegarla."
+      },
       "create": "Crea chiave API",
       "loadFailed": "Impossibile caricare le chiavi API.",
       "actionFailed": "Non ha funzionato. Riprova.",
@@ -1614,7 +1619,8 @@
         "edit": "Modifica",
         "regenerate": "Rigenera",
         "revoke": "Revoca",
-        "owner": "Proprietario: {{name}}"
+        "owner": "Proprietario: {{name}}",
+        "signsInThrough": "tramite {{host}}"
       },
       "dialog": {
         "createTitle": "Crea chiave API",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Rigenerare «{{name}}»?",
         "regenerateMessage": "Viene emessa una nuova chiave con lo stesso nome e le stesse autorizzazioni. La chiave attuale smette subito di funzionare, quindi tutto ciò che la usa andrà aggiornato.",
         "revokeTitle": "Revocare «{{name}}»?",
-        "revokeMessage": "La chiave viene eliminata e smette subito di funzionare. L'operazione non può essere annullata."
+        "revokeMessage": "La chiave viene eliminata e smette subito di funzionare. L'operazione non può essere annullata.",
+        "revokeAppMessage": "L'app viene scollegata subito. Ti chiederà di accedere di nuovo prima di poter usare la tua biblioteca."
       },
       "groups": {
         "library": "Libreria",
@@ -4378,6 +4385,26 @@
     "download": "Scarica",
     "open": "Apri",
     "sharedFrom": "Condiviso da Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} vuole usare la tua biblioteca Grimoire",
+    "signedInAs": "Accesso eseguito come {{name}}",
+    "hostLabel": "Dopo la risposta, andrai su",
+    "hostHint": "Controlla che sia il sito che ti aspetti. Un'app può chiamarsi come vuole, ma non può cambiare dove ti manda.",
+    "accessTitle": "Accesso",
+    "readOnly": "Sola lettura (consigliato)",
+    "readOnlyHint": "Può leggere tutto ciò che il tuo account può leggere, senza modificare nulla.",
+    "customise": "Personalizza",
+    "cannotApprove": "Non puoi consentirlo: {{reason}}. Puoi comunque rifiutare, così l'app smette di attendere.",
+    "eitherWay": "Qualunque risposta ti manda su {{host}}.",
+    "denyGoesTo": "Rifiuta ti manda su {{host}}.",
+    "deny": "Rifiuta",
+    "approve": "Consenti",
+    "answerFailed": "Non ha funzionato. Riprova.",
+    "goneTitle": "Questa richiesta di accesso non è disponibile",
+    "goneBody": "È scaduta o ha già ricevuto risposta, oppure l'accesso delle app è disattivato. Riavvia la connessione dall'app.",
+    "failedTitle": "Impossibile caricare questa richiesta di accesso",
+    "failedBody": "Prova a ricaricare la pagina."
   },
   "merge": {
     "action": "Unisci…",

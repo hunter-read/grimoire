@@ -97,6 +97,28 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
     }
   }
 
+  // Keys made here, and apps connected through an MCP sign-in (issue #906),
+  // listed under their own heading. Two connections from one app (a personal
+  // and an organisation claude.ai account, say) sit side by side, told apart by
+  // when each was made and last used.
+  const madeKeys = keys.filter((k) => k.kind !== 'app')
+  const apps = keys.filter((k) => k.kind === 'app')
+  const rowList = (list: ApiKey[]) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 760 }}>
+      {list.map((key) => (
+        <ApiKeyRow
+          key={key.id}
+          apiKey={key}
+          permissions={permissions}
+          showOwner={everyone}
+          onEdit={(k: ApiKey) => setDialog({ mode: 'edit', key: k })}
+          onRegenerate={(k: ApiKey) => setConfirm({ action: 'regenerate', key: k })}
+          onRevoke={(k: ApiKey) => setConfirm({ action: 'revoke', key: k })}
+        />
+      ))}
+    </div>
+  )
+
   return (
     <div>
       <h3 style={{ marginBottom: 6 }}>
@@ -133,24 +155,12 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
         <Spinner size={20} />
       ) : (
         <>
-          {keys.length === 0 ? (
+          {madeKeys.length === 0 ? (
             <p style={{ fontSize: 14, color: 'var(--text-dim)' }}>
               {t('appSettings.apiKeys.empty')}
             </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 760 }}>
-              {keys.map((key) => (
-                <ApiKeyRow
-                  key={key.id}
-                  apiKey={key}
-                  permissions={permissions}
-                  showOwner={everyone}
-                  onEdit={(k: ApiKey) => setDialog({ mode: 'edit', key: k })}
-                  onRegenerate={(k: ApiKey) => setConfirm({ action: 'regenerate', key: k })}
-                  onRevoke={(k: ApiKey) => setConfirm({ action: 'revoke', key: k })}
-                />
-              ))}
-            </div>
+            rowList(madeKeys)
           )}
           {!everyone && (
             <button
@@ -174,6 +184,24 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
               <LuPlus size={14} /> {t('appSettings.apiKeys.create')}
             </button>
           )}
+          {apps.length > 0 && (
+            <>
+              <h4 style={{ margin: '28px 0 6px' }}>{t('appSettings.apiKeys.apps.title')}</h4>
+              <p
+                style={{
+                  fontSize: 14,
+                  color: 'var(--text-dim)',
+                  marginBottom: 14,
+                  lineHeight: 1.6,
+                }}
+              >
+                {everyone
+                  ? t('appSettings.apiKeys.apps.allDescription')
+                  : t('appSettings.apiKeys.apps.description')}
+              </p>
+              {rowList(apps)}
+            </>
+          )}
         </>
       )}
 
@@ -188,9 +216,16 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
       {confirm && (
         <ConfirmModal
           title={t(`appSettings.apiKeys.confirm.${confirm.action}Title`, {
-            name: confirm.key.name,
+            name:
+              confirm.key.kind === 'app'
+                ? confirm.key.client_name || confirm.key.name
+                : confirm.key.name,
           })}
-          message={t(`appSettings.apiKeys.confirm.${confirm.action}Message`)}
+          message={
+            confirm.key.kind === 'app'
+              ? t('appSettings.apiKeys.confirm.revokeAppMessage')
+              : t(`appSettings.apiKeys.confirm.${confirm.action}Message`)
+          }
           onConfirm={() => void runConfirmed()}
           onClose={() => setConfirm(null)}
         />

@@ -152,6 +152,61 @@ describe('ApiKeySection', () => {
     expect(screen.getByText('Homepage')).toBeInTheDocument()
   })
 
+  describe('connected apps (issue #906)', () => {
+    const app = (overrides: Partial<Schema<'ApiKeyOut'>> = {}) =>
+      key({
+        id: 'g1',
+        kind: 'app',
+        name: 'Claude',
+        prefix: 'grim_oauth',
+        client_name: 'Claude',
+        redirect_host: 'claude.ai',
+        ...overrides,
+      })
+
+    it('lists apps under their own heading, apart from keys', async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([key(), app()])
+      render(<ApiKeySection />)
+      const heading = await screen.findByRole('heading', { name: 'Connected apps' })
+      expect(screen.getByText('Homepage')).toBeInTheDocument()
+      // The app's row comes after the heading, the key's before it.
+      expect(
+        heading.compareDocumentPosition(screen.getByText('via claude.ai')) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+      expect(
+        heading.compareDocumentPosition(screen.getByText('Homepage')) &
+          Node.DOCUMENT_POSITION_PRECEDING
+      ).toBeTruthy()
+    })
+
+    it('shows two connections from one app side by side', async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([app(), app({ id: 'g2' })])
+      render(<ApiKeySection />)
+      expect(await screen.findAllByText('via claude.ai')).toHaveLength(2)
+    })
+
+    it('with only apps, still says there are no keys and lists the app', async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([app()])
+      render(<ApiKeySection />)
+      expect(await screen.findByText('No API keys yet.')).toBeInTheDocument()
+      expect(screen.getByText('via claude.ai')).toBeInTheDocument()
+    })
+
+    it('revokes an app after a confirmation that says it will ask again', async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([app()])
+      vi.mocked(apiKeys.revoke).mockResolvedValue(null)
+      render(<ApiKeySection />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Revoke Claude' }))
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText(/Revoke .Claude.\?/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/ask you to sign in again/)).toBeInTheDocument()
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(apiKeys.revoke).toHaveBeenCalledWith('g1'))
+      expect(screen.queryByRole('heading', { name: 'Connected apps' })).toBeNull()
+    })
+  })
+
   describe('everyone view', () => {
     it("lists every user's keys with owners, and no create button", async () => {
       vi.mocked(apiKeys.list).mockResolvedValue([key({ username: 'gmuser' })])
@@ -160,6 +215,18 @@ describe('ApiKeySection', () => {
       expect(apiKeys.list).toHaveBeenCalledWith(true)
       expect(screen.getByText('Owner: gmuser')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /Create API key/ })).toBeNull()
+    })
+
+    it("describes other people's connected apps, not the admin's own", async () => {
+      vi.mocked(apiKeys.list).mockResolvedValue([
+        key({ username: 'gmuser', kind: 'app', client_name: 'Claude', redirect_host: 'claude.ai' }),
+      ])
+      render(<ApiKeySection scope="all" />)
+      expect(
+        await screen.findByText(/Apps people on this server have allowed to sign in/)
+      ).toBeInTheDocument()
+      expect(screen.queryByText(/Apps you allowed/)).toBeNull()
+      expect(screen.getByText('Owner: gmuser')).toBeInTheDocument()
     })
 
     it("revokes someone else's key", async () => {
