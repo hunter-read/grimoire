@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
@@ -11,6 +11,7 @@ import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBook
 import { useFavorites } from '../context/FavoritesContext'
 import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
+import useRenderBatches from '../hooks/useRenderBatches'
 import usePageTitle from '../hooks/usePageTitle'
 import useSavedFilters from '../hooks/useSavedFilters'
 import useUrlSortFilterState from '../hooks/useUrlSortFilterState'
@@ -86,6 +87,9 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
   const searchRef = useRef<HTMLInputElement>(null)
   useSlashToSearch(searchRef)
   const pins = usePins('systems')
+  // A large library's grid is built a few hundred cards at a time, so the first
+  // screenful shows without waiting for every card (see useRenderBatches).
+  const rendered = useRenderBatches(systems?.length ?? 0)
 
   usePageTitle(t(isArmory ? 'nav.armory' : 'nav.library'))
 
@@ -195,6 +199,18 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
   const minCard = compact ? '130px' : '220px'
+  // --card-size is the height an off-screen card is assumed to have until it is
+  // drawn (index.css, .card-list--deferred) - each view mode's usual card.
+  const cardListStyle: CSSProperties & { '--card-size': string } = {
+    '--card-size': list ? '74px' : compact ? '144px' : '440px',
+    ...(list
+      ? { display: 'flex', flexDirection: 'column', gap: 8 }
+      : {
+          display: 'grid',
+          gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
+          gap: compact ? 12 : 20,
+        }),
+  }
 
   return (
     <div
@@ -551,18 +567,12 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
                 renderItems={(rows, anchorOf) => (
                   <ul
                     role="list"
-                    className="card-list"
-                    style={
-                      list
-                        ? { display: 'flex', flexDirection: 'column', gap: 8 }
-                        : {
-                            display: 'grid',
-                            gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
-                            gap: compact ? 12 : 20,
-                          }
-                    }
+                    // Deferred: a large library's thousands of cards took the
+                    // browser most of a second to lay out before any showed.
+                    className="card-list card-list--deferred"
+                    style={cardListStyle}
                   >
-                    {rows.map((system) => (
+                    {rows.slice(0, rendered).map((system) => (
                       <li key={system.id} {...anchorOf(system)}>
                         <SystemCard
                           system={system}

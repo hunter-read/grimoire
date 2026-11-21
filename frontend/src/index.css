@@ -527,6 +527,16 @@ summary:focus-visible {
   min-width: 0;
 }
 
+/* A card list long enough that drawing every card up front is the slow part
+   (the library grid holds thousands of systems). The browser skips style,
+   layout and paint for the cards off screen until they scroll near, holding
+   their place at --card-size tall; `auto` keeps a card's real height once it
+   has been drawn. They stay in the accessibility tree and find-in-page. */
+.card-list--deferred > li {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto var(--card-size, 300px);
+}
+
 /* ---- Thumb index: the letter rail beside a long list ----------------------
    The list and the rail sit side by side; the rail sticks below the sticky
    sort/filter bar (RAIL_TOP in ThumbIndex.tsx) for as long as the list runs. */
