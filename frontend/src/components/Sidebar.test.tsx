@@ -130,6 +130,18 @@ describe('Sidebar user display', () => {
   })
 })
 
+describe('Sidebar on a short window', () => {
+  // jsdom lays nothing out, so this pins the style that keeps a tall sidebar
+  // scrolling inside itself rather than scrolling the page (issue #963).
+  it('scrolls its own content instead of growing past the shell', () => {
+    renderSidebar()
+    const sidebar = screen.getByRole('navigation').parentElement!
+    expect(sidebar.style.height).toBe('100%')
+    expect(sidebar.style.overflowY).toBe('auto')
+    expect(sidebar.style.overflowX).toBe('hidden')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Navigation visibility (existing)
 // ---------------------------------------------------------------------------
