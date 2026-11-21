@@ -25,7 +25,13 @@ interface Props {
    * token is kept on the campaign, and this card - where their characters
    * are - is where it shows.
    */
-  ownerToken?: { name: string; hasToken: boolean; canEdit: boolean; onChanged?: () => void }
+  ownerToken?: {
+    name: string
+    hasToken: boolean
+    canEdit: boolean
+    tokenEditable?: boolean
+    onChanged?: () => void
+  }
 }
 
 /**
@@ -105,6 +111,7 @@ export default function CampaignCharacters({
                 memberId={null}
                 name={ownerToken.name}
                 hasToken={ownerToken.hasToken}
+                tokenEditable={ownerToken.tokenEditable}
                 canEdit={ownerToken.canEdit}
                 onChanged={ownerToken.onChanged}
               />

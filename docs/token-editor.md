@@ -54,6 +54,17 @@ and only you for your own token in a personal campaign - also gets **Make a new 
 **Remove**, or **Make a token** while there is none. Making one from there opens the editor
 already bound to save it as that token, not as art.
 
+**Changing a token later.** Every token you save - to a character, to yourself in a
+personal campaign, or into a campaign's resources - keeps how it was made: the art, the
+frame and its colour, the background, the size, and where you placed and turned the art.
+**Edit token** (on a character's token, or the wand on a token in the resources list)
+opens the editor exactly as you left it, and saving writes the new version over the old -
+a token in the resources keeps its place, category and visibility. Art from your device is
+kept with the token for this; art from your library is read from the library, and if it
+has gone since, the editor keeps the frame and colours and asks for new art. While editing
+one destination you can still **Send to a campaign** to save a copy somewhere else.
+Tokens made before this, and tokens only ever downloaded, have nothing to reopen.
+
 Nothing is written to your library and no new token is added to it: the image is composed in
 your browser and only leaves by one of those two doors. That means the editor works fine on
 a read-only library, and never disturbs a scan.

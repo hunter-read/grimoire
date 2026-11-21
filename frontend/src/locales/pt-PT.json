@@ -2462,6 +2462,8 @@
     "removeToken": "Remover token",
     "removeTokenFor": "Remover o token de {{name}}",
     "removeTokenConfirm": "Remover o token de {{name}}? Esta ação não pode ser anulada.",
+    "editToken": "Editar token",
+    "editTokenFor": "Editar o token de {{name}}",
     "createToken": "Criar uma ficha…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Enviar para uma personagem",
     "sendToOwnedCampaign": "Enviar para uma campanha que dirige",
     "pickCharacterNext": "Escolha uma personagem a seguir",
+    "updateToken": "Atualizar token",
+    "recipeFailed": "Não foi possível carregar as definições deste token. Pode recomeçá-lo a partir de uma nova imagem.",
+    "recipeSourceGone": "A imagem a partir da qual este token foi criado já não está disponível. A moldura e as cores mantêm-se - escolha uma nova imagem para o terminar.",
     "ownTokenHint": "O seu próprio token nesta campanha",
     "chooseCharacter": "Escolher personagem",
     "chooseCharacterHint": "De quem será este token em {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "Remover {{name}} desta campanha?",
       "removeNamed": "Remover {{name}}",
       "downloadNamed": "Transferir {{name}}",
+      "editTokenNamed": "Editar {{name}} no editor de tokens",
       "removeSheetConfirm": "Remover a ficha de personagem de {{name}}? Não é possível anular.",
       "removeSheetFor": "Remover a ficha de personagem de {{name}}",
       "replaceSheetFor": "Substituir a ficha de personagem de {{name}}",

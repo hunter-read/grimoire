@@ -2462,6 +2462,8 @@
     "removeToken": "Quitar ficha",
     "removeTokenFor": "Quitar la ficha de {{name}}",
     "removeTokenConfirm": "¿Quitar la ficha de {{name}}? No se puede deshacer.",
+    "editToken": "Editar ficha",
+    "editTokenFor": "Editar la ficha de {{name}}",
     "createToken": "Crear una ficha…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Enviar a un personaje",
     "sendToOwnedCampaign": "Enviar a una campaña que diriges",
     "pickCharacterNext": "Elige un personaje después",
+    "updateToken": "Actualizar ficha",
+    "recipeFailed": "No se pudieron cargar los ajustes de esta ficha. Puedes empezarla de nuevo con otra imagen.",
+    "recipeSourceGone": "La imagen con la que se hizo esta ficha ya no está disponible. Se conservan el marco y los colores: elige otra imagen para terminarla.",
     "ownTokenHint": "Tu propia ficha en esta campaña",
     "chooseCharacter": "Elegir personaje",
     "chooseCharacterHint": "De quién será esta ficha en {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "¿Quitar a {{name}} de esta campaña?",
       "removeNamed": "Quitar {{name}}",
       "downloadNamed": "Descargar {{name}}",
+      "editTokenNamed": "Editar {{name}} en el editor de fichas",
       "removeSheetConfirm": "¿Quitar la hoja de personaje de {{name}}? No se puede deshacer.",
       "removeSheetFor": "Quitar la hoja de personaje de {{name}}",
       "replaceSheetFor": "Reemplazar la hoja de personaje de {{name}}",

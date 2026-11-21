@@ -31,6 +31,7 @@ export type TransformAction =
   | { type: 'flipY' }
   | { type: 'setSize'; size: number }
   | { type: 'reset' }
+  | { type: 'restore'; size: number; transform: TokenTransform }
 
 /** The actions the hook hands out, which the pointer hook drives. */
 export interface TransformActions {
@@ -45,6 +46,8 @@ export interface TransformActions {
   flipY: () => void
   setSize: (next: number) => void
   reset: () => void
+  /** Put back a saved size and placement - a stored token's recipe - in one step. */
+  restore: (size: number, transform: TokenTransform) => void
 }
 
 export const clampScale = (s: number): number => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s))
@@ -144,6 +147,21 @@ function reducer(state: TransformState, action: TransformAction): TransformState
       }
     case 'reset':
       return { ...DEFAULT_TRANSFORM, size: state.size }
+    case 'restore': {
+      // Saved values still pass through the same clamps as live edits, so a
+      // recipe from an older editor (or a hand-edited one) can't place the art
+      // somewhere the controls could never reach.
+      const scale = clampScale(action.transform.scale)
+      return {
+        size: action.size,
+        scale,
+        offsetX: clampOffset(action.transform.offsetX, action.size, scale),
+        offsetY: clampOffset(action.transform.offsetY, action.size, scale),
+        rotation: wrapRotation(action.transform.rotation),
+        flipX: !!action.transform.flipX,
+        flipY: !!action.transform.flipY,
+      }
+    }
     default:
       return state
   }
@@ -165,6 +183,7 @@ export default function useTokenTransform(size = 256) {
       flipY: () => dispatch({ type: 'flipY' }),
       setSize: (next) => dispatch({ type: 'setSize', size: next }),
       reset: () => dispatch({ type: 'reset' }),
+      restore: (size, transform) => dispatch({ type: 'restore', size, transform }),
     }),
     []
   )

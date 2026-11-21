@@ -141,6 +141,12 @@ TTRPG_GUEST_REACHABLE = {
     # Writes are owner-only, and a guest never owns a campaign; reading it
     # follows `can_view`, like a member's token.
     "/api/campaigns/{campaign_id}/owner/token": "DELETE GET POST",
+    # Replacing a filed token is the GM's (`assert_can_manage`), never a guest's.
+    "/api/campaigns/{campaign_id}/files/{file_id}/token": "PUT",
+    # A recipe is read only by whoever may change its token: a guest reaches
+    # their own membership's, as they set their own token.
+    "/api/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}": "GET",
+    "/api/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}/source": "GET",
     "/api/campaigns/{campaign_id}/resource-group-order": "PUT",
     "/api/campaigns/{campaign_id}/resources": "GET POST",
     "/api/campaigns/{campaign_id}/resources/bulk": "POST",

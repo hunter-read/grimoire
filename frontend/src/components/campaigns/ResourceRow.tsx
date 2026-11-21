@@ -8,6 +8,7 @@ import {
   LuArrowUp,
   LuArrowDown,
   LuDownload,
+  LuWand,
 } from 'react-icons/lu'
 import { campaigns, mediaUrl, type Schema } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
@@ -198,6 +199,27 @@ export default function ResourceRow({
           // `download` keeps the name the server sends.
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>{titleLink}</div>
+            {/* A token made in the token editor reopens there, as it was,
+                and saves back over this file (issue #948). */}
+            {isOwner && resource.token_editable && (
+              <Link
+                to="/tokens/editor"
+                state={{
+                  campaignId,
+                  fileId: resource.resource_id,
+                  memberName: name,
+                  saveAs: 'file',
+                  recipe: { kind: 'file', targetId: resource.resource_id },
+                }}
+                onClick={stop}
+                draggable={false}
+                aria-label={t('a11y.campaign.editTokenNamed', { name })}
+                title={t('a11y.campaign.editTokenNamed', { name })}
+                style={downloadBtn}
+              >
+                <LuWand size={14} aria-hidden="true" />
+              </Link>
+            )}
             <a
               href={campaigns.fileUrl(campaignId, resource.resource_id)}
               download=""

@@ -9,7 +9,9 @@ Everything a campaign stores lives under ``DATA_PATH/campaign_uploads/``:
   deleted library maps;
 * ``art/``, ``tokens/``, ``sheets/`` - each member's character art, token and
   sheet (``CampaignMember.character_*_path``), and in ``tokens/`` the owner's
-  own token (``Campaign.owner_token_path``).
+  own token (``Campaign.owner_token_path``);
+* ``token_sources/`` - the device art a token editor recipe keeps for any of
+  those tokens (``services/campaigns/token_recipes``).
 
 The rows naming these files go with a campaign or a membership, so the paths are
 collected first and the files removed once the session commits - never on a
@@ -25,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from ...config import CAMPAIGN_UPLOAD_DIR, logger
 from ...models import Campaign, CampaignFile, CampaignMember
+from .token_recipes import source_paths
 
 BANNER_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "banners")
 FILES_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "files")
@@ -50,6 +53,7 @@ def member_upload_paths(members: Iterable[CampaignMember]) -> list[str]:
     for m in members:
         paths += _under(ART_DIR, m.character_art_path)
         paths += _under(TOKEN_DIR, m.character_token_path)
+        paths += source_paths(m.character_token_recipe)
         paths += sheet_upload_paths(m)
     return paths
 
@@ -63,10 +67,14 @@ def campaign_upload_paths(db: Session, campaign_ids: list[str]) -> list[str]:
         paths += _under(BANNER_DIR, c.banner_path)
         paths += _under(BANNER_DIR, f"{c.id}_sm.webp")
         paths += _under(TOKEN_DIR, c.owner_token_path)
-    for (stored,) in (
-        db.query(CampaignFile.stored_path).filter(CampaignFile.campaign_id.in_(campaign_ids)).all()
+        paths += source_paths(c.owner_token_recipe)
+    for stored, recipe in (
+        db.query(CampaignFile.stored_path, CampaignFile.token_recipe)
+        .filter(CampaignFile.campaign_id.in_(campaign_ids))
+        .all()
     ):
         paths += _under(FILES_DIR, stored)
+        paths += source_paths(recipe)
     paths += member_upload_paths(
         db.query(CampaignMember).filter(CampaignMember.campaign_id.in_(campaign_ids)).all()
     )

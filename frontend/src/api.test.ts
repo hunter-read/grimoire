@@ -312,6 +312,74 @@ describe('api', () => {
     })
   })
 
+  describe('api.upload in place', () => {
+    it('sends a PUT when the route replaces something', async () => {
+      globalThis.fetch = mockFetch(200, { id: 'f1' })
+      await api.upload('/campaigns/c1/files/f1/token', new Blob(['x']), {}, 'PUT')
+      expect(fetchCalls()[0][1].method).toBe('PUT')
+    })
+  })
+
+  describe('api.blob', () => {
+    it('returns the response body as a Blob', async () => {
+      const blob = new Blob(['art'], { type: 'image/png' })
+      globalThis.fetch = vi.fn().mockResolvedValue({ status: 200, ok: true, blob: () => blob })
+      await expect(api.blob('/campaigns/c1/token-recipes/owner/c1/source')).resolves.toBe(blob)
+      expect(fetchCalls()[0][0]).toBe('/api/campaigns/c1/token-recipes/owner/c1/source')
+    })
+
+    it('throws on a failed response', async () => {
+      globalThis.fetch = mockFetch(404, { detail: 'No stored source art' })
+      await expect(api.blob('/x')).rejects.toMatchObject({ status: 404 })
+    })
+
+    it('signals an expired session', async () => {
+      globalThis.fetch = mockFetch(401)
+      const listener = vi.fn()
+      window.addEventListener('grimoire:unauthorized', listener)
+      await expect(api.blob('/x')).rejects.toMatchObject({ status: 401 })
+      window.removeEventListener('grimoire:unauthorized', listener)
+      expect(listener).toHaveBeenCalled()
+    })
+  })
+
+  describe('token recipes on upload', () => {
+    const recipe = {
+      size: 256,
+      frame_id: null,
+      frame_color: '',
+      background: '',
+      transform: { scale: 1, offsetX: 0, offsetY: 0, rotation: 0, flipX: false, flipY: false },
+      source: { type: 'upload', id: null },
+    }
+
+    it('sends the recipe as JSON and the device art beside the token', async () => {
+      globalThis.fetch = mockFetch(200, {})
+      const art = new Blob(['art'], { type: 'image/png' })
+      await campaigns.uploadMemberToken('c1', 'm1', new Blob(['png']), { recipe, source: art })
+      const form = fetchCalls()[0][1].body as FormData
+      expect(JSON.parse(form.get('recipe') as string)).toEqual(recipe)
+      expect(form.get('source')).toBeInstanceOf(Blob)
+    })
+
+    it('sends neither without a recipe, which clears the old one', async () => {
+      globalThis.fetch = mockFetch(200, {})
+      await campaigns.uploadOwnerToken('c1', new Blob(['png']))
+      const form = fetchCalls()[0][1].body as FormData
+      expect(form.has('recipe')).toBe(false)
+      expect(form.has('source')).toBe(false)
+    })
+
+    it('files a token in a campaign with its recipe and category', async () => {
+      globalThis.fetch = mockFetch(201, {})
+      await campaigns.uploadImage('c1', new Blob(['png']), { categoryId: 'cat' }, { recipe })
+      const form = fetchCalls()[0][1].body as FormData
+      expect(form.get('category_id')).toBe('cat')
+      expect(form.has('recipe')).toBe(true)
+      expect(form.has('source')).toBe(false)
+    })
+  })
+
   describe('api.uploadFolder', () => {
     it('sends every file with a matching path part, in order', async () => {
       globalThis.fetch = mockFetch(201, { imported: 2 })
@@ -574,6 +642,8 @@ describe('api', () => {
         campaigns.suggestedResources('s1'),
         campaigns.uploadFile('c1', file),
         campaigns.uploadImage('c1', file, { categoryId: 'cat', newCategoryName: 'n' }),
+        campaigns.getTokenRecipe('c1', 'file', 'f1'),
+        campaigns.updateTokenFile('c1', 'f1', file),
         campaigns.searchResources('q', 'book', 's1', 10),
         campaigns.listSessions('c1'),
         campaigns.createSession('c1', stub()),

@@ -283,6 +283,7 @@ export default function CampaignDetailView() {
       ? {
           name: ownerRow.display_name || ownerRow.username,
           hasToken: !!ownerRow.has_token,
+          tokenEditable: !!ownerRow.token_editable,
           canEdit:
             campaign.owner_id === user?.id && !campaign.locked && !isArchived && !selfDisabled,
           onChanged: load,

@@ -142,6 +142,33 @@ describe('useTokenTransform', () => {
     expect(result.current.size).toBe(512)
   })
 
+  it('restores a saved size and placement in one step', () => {
+    const { result } = setup(256)
+    const saved = { scale: 1.5, offsetX: 12, offsetY: -8, rotation: 90, flipX: true, flipY: false }
+    act(() => result.current.restore(512, saved))
+    expect(result.current.size).toBe(512)
+    expect(result.current.transform).toEqual(saved)
+  })
+
+  it('clamps a restored placement like a live edit', () => {
+    const { result } = setup(256)
+    act(() =>
+      result.current.restore(140, {
+        scale: 9999,
+        offsetX: 1e9,
+        offsetY: -1e9,
+        rotation: -90,
+        flipX: false,
+        flipY: true,
+      })
+    )
+    const { scale, offsetX, offsetY, rotation } = result.current.transform
+    expect(scale).toBeLessThan(9999)
+    expect(offsetX).toBe(140 * scale)
+    expect(offsetY).toBe(-140 * scale)
+    expect(rotation).toBe(270)
+  })
+
   it('ignores an unknown action', () => {
     const { result } = setup()
     const before = result.current.transform

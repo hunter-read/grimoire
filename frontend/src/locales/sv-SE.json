@@ -2462,6 +2462,8 @@
     "removeToken": "Ta bort token",
     "removeTokenFor": "Ta bort {{name}}s token",
     "removeTokenConfirm": "Ta bort {{name}}s token? Det går inte att ångra.",
+    "editToken": "Redigera token",
+    "editTokenFor": "Redigera {{name}}s token",
     "createToken": "Skapa en token…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Skicka till en rollperson",
     "sendToOwnedCampaign": "Skicka till en kampanj du leder som spelledare",
     "pickCharacterNext": "Välj en rollperson härnäst",
+    "updateToken": "Uppdatera token",
+    "recipeFailed": "Inställningarna för den här token kunde inte läsas in. Du kan börja om från en ny bild.",
+    "recipeSourceGone": "Bilden som den här token gjordes av finns inte längre. Ram och färger behålls - välj en ny bild för att göra klart den.",
     "ownTokenHint": "Din egen token i den här kampanjen",
     "chooseCharacter": "Välj en rollperson",
     "chooseCharacterHint": "Vems token det här blir i {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "Ta bort {{name}} från den här kampanjen?",
       "removeNamed": "Ta bort {{name}}",
       "downloadNamed": "Ladda ner {{name}}",
+      "editTokenNamed": "Redigera {{name}} i tokenredigeraren",
       "removeSheetConfirm": "Ta bort rollformuläret för {{name}}? Det går inte att ångra.",
       "removeSheetFor": "Ta bort rollformuläret för {{name}}",
       "replaceSheetFor": "Ersätt rollformuläret för {{name}}",

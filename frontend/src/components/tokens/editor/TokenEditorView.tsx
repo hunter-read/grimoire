@@ -24,18 +24,27 @@ import { DEFAULT_FRAME_COLOR, genericShape } from './genericFrames'
 import useTokenTransform from './useTokenTransform'
 import type { PointerActions } from './useEditorPointer'
 import type { ImageSourcePick } from '../../images/ImageSourceBrowser'
+import type { TokenRecipeKind } from '../../../api'
+import { buildRecipe, librarySource } from './tokenRecipe'
+import type { SourceRef } from './tokenRecipe'
 
 /**
  * Where the editor was opened from, when a member row opened it: who the token
  * is for, so it can be saved straight back. `saveAs: 'token'` (from a
  * character's token on the campaign page) saves it as their token rather than
  * their art; with no `memberId` that is the owner's own token on the campaign.
+ * `saveAs: 'file'` updates a token filed as a campaign resource in place.
+ *
+ * `recipe` names a stored token to reopen: the editor loads the settings and
+ * art it was made with (issue #948) rather than starting blank.
  */
 interface EditorTarget {
   campaignId?: string
   memberId?: string
   memberName?: string
-  saveAs?: 'art' | 'token'
+  fileId?: string
+  saveAs?: 'art' | 'token' | 'file'
+  recipe?: { kind: TokenRecipeKind; targetId: string }
 }
 
 /** A specific character in a specific campaign. */
@@ -71,7 +80,10 @@ export default function TokenEditorView() {
   const target: EditorTarget = location.state || {}
 
   const [source, setSource] = useState<LoadedImage | null>(null)
-  const [loadingSource, setLoadingSource] = useState(!!tokenId)
+  // Where that art came from, so a stored token can carry a recipe to reopen
+  // it with. Null for art the editor could not point back to.
+  const [sourceRef, setSourceRef] = useState<SourceRef | null>(null)
+  const [loadingSource, setLoadingSource] = useState(!!tokenId || !!target.recipe)
   const [frames, setFrames] = useState<Frame[] | null>(null)
   const [frameId, setFrameId] = useState<string | null>(null)
   const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null)
@@ -123,17 +135,22 @@ export default function TokenEditorView() {
     }
   }, [])
 
+  // `place` puts the art where a recipe left it; without one, new art starts
+  // centred and unzoomed.
   const applySource = useCallback(
-    async (src: string | Blob) => {
+    async (src: string | Blob, ref: SourceRef | null, place?: () => void, failure?: string) => {
       setError('')
       setLoadingSource(true)
       try {
         const loaded = await loadImage(src)
         setSource(loaded)
-        transform.reset()
+        setSourceRef(ref)
+        if (place) place()
+        else transform.reset()
       } catch {
-        setError(t('tokenEditor.loadFailed'))
+        setError(failure || t('tokenEditor.loadFailed'))
         setSource(null)
+        setSourceRef(null)
       } finally {
         setLoadingSource(false)
       }
@@ -145,7 +162,7 @@ export default function TokenEditorView() {
   // is same-origin and authenticated by cookie, so the canvas stays untainted.
   useEffect(() => {
     if (!tokenId) return
-    void applySource(mediaUrl(`/tokens/${tokenId}/file`))
+    void applySource(mediaUrl(`/tokens/${tokenId}/file`), { type: 'token', id: tokenId })
     // applySource is stable enough for this one-shot; re-running on every render
     // would refetch the image endlessly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,10 +198,55 @@ export default function TokenEditorView() {
     }
   }, [frameId, frameColor, shapeOnly])
 
+  // Reopening a stored token: its frame, colours, size and placement, over the
+  // art it was made from. Art that has since left the library leaves the
+  // settings in place and asks for new art.
+  const recipeTarget = target.campaignId ? target.recipe : undefined
+  useEffect(() => {
+    if (!recipeTarget || !target.campaignId) return undefined
+    const campaignId = target.campaignId
+    let cancelled = false
+    void (async () => {
+      try {
+        const recipe = await campaignsApi.getTokenRecipe(
+          campaignId,
+          recipeTarget.kind,
+          recipeTarget.targetId
+        )
+        if (cancelled) return
+        setFrameId(recipe.frame_id ?? null)
+        setFrameColor(recipe.frame_color ?? '')
+        setBackground(recipe.background ?? '')
+        const place = () => transform.restore(recipe.size, recipe.transform)
+        const gone = t('tokenEditor.recipeSourceGone')
+        const library = librarySource(recipe.source)
+        if (library) {
+          await applySource(library.url, library.ref, place, gone)
+          return
+        }
+        const blob = await campaignsApi.tokenRecipeSource(
+          campaignId,
+          recipeTarget.kind,
+          recipeTarget.targetId
+        )
+        if (!cancelled) await applySource(blob, { type: 'upload', blob }, place, gone)
+      } catch {
+        if (cancelled) return
+        setError(t('tokenEditor.recipeFailed'))
+        setLoadingSource(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // One-shot per target: reopening again would overwrite the user's edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target.campaignId, recipeTarget?.kind, recipeTarget?.targetId])
+
   const onFile = useCallback(
     (file: File) => {
       releaseObjectUrl()
-      void applySource(file)
+      void applySource(file, { type: 'upload', blob: file })
     },
     [applySource, releaseObjectUrl]
   )
@@ -194,11 +256,10 @@ export default function TokenEditorView() {
       // The picker only offers tokens, which have a full-resolution file. The
       // other branches are the safety net for any type a future caller might
       // pass: maps also have a real file, everything else only a thumbnail.
-      const url =
-        type === 'token' || type === 'map'
-          ? mediaUrl(`/${type}s/${id}/file`)
-          : imageSources.thumbUrl(type, id)
-      if (url) void applySource(url)
+      const library = type === 'token' || type === 'map'
+      const url = library ? mediaUrl(`/${type}s/${id}/file`) : imageSources.thumbUrl(type, id)
+      // Only a library file can be pointed back to by a recipe.
+      if (url) void applySource(url, library ? { type, id } : null)
     },
     [applySource]
   )
@@ -242,6 +303,8 @@ export default function TokenEditorView() {
 
   const filename = useMemo(() => {
     const base = (target.memberName || t('tokenEditor.defaultName'))
+      // A filed token is named for its file; don't carry ".png" into the stem.
+      .replace(/\.(png|jpe?g|webp|gif)$/i, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
@@ -292,14 +355,26 @@ export default function TokenEditorView() {
 
   // A character's VTT token, stored beside their portrait rather than over it.
   // With no membership id it is the owner's own, which is kept on the campaign.
+  // Every stored token carries its recipe, so it can be reopened and changed
+  // later instead of rebuilt (issue #948). Character art does not: it is a
+  // portrait, not a token.
+  const recipe = () =>
+    buildRecipe(sourceRef, {
+      size: transform.size,
+      frameId,
+      frameColor,
+      background,
+      transform: transform.transform,
+    })
+
   const saveAsMemberToken = ({
     campaignId,
     memberId,
   }: Pick<MemberOption, 'campaignId' | 'memberId'>) =>
     deliver(campaignId, (file) =>
       memberId
-        ? campaignsApi.uploadMemberToken(campaignId, memberId, file)
-        : campaignsApi.uploadOwnerToken(campaignId, file)
+        ? campaignsApi.uploadMemberToken(campaignId, memberId, file, recipe())
+        : campaignsApi.uploadOwnerToken(campaignId, file, recipe())
     )
 
   // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
@@ -307,15 +382,24 @@ export default function TokenEditorView() {
   // `assert_can_manage`, which is exactly the "GM of this campaign" rule.
   const saveToCampaign = ({ campaignId, categoryId }: CampaignChoice) =>
     deliver(campaignId, (file) =>
-      campaignsApi.uploadImage(campaignId, file, categoryId ? { categoryId } : {})
+      campaignsApi.uploadImage(campaignId, file, categoryId ? { categoryId } : {}, recipe())
     )
 
   // Arriving from a member row pre-binds the target, which is the common path
   // and skips the chooser entirely.
   const boundToToken = target.saveAs === 'token' && !!target.campaignId
-  const boundToArt = !boundToToken && !!target.campaignId && !!target.memberId
+  const boundToFile = target.saveAs === 'file' && !!target.campaignId && !!target.fileId
+  const boundToArt = !boundToToken && !boundToFile && !!target.campaignId && !!target.memberId
 
   const onSetAsArt = () => {
+    if (boundToFile) {
+      const campaignId = target.campaignId as string
+      const fileId = target.fileId as string
+      void deliver(campaignId, (file) =>
+        campaignsApi.updateTokenFile(campaignId, fileId, file, recipe())
+      )
+      return
+    }
     if (boundToToken) {
       void saveAsMemberToken({
         campaignId: target.campaignId as string,
@@ -435,17 +519,32 @@ export default function TokenEditorView() {
                   both the character-token and campaign-resource paths. */}
               <button type="button" onClick={onSetAsArt} disabled={!canSave} style={secondaryBtn}>
                 <LuUserRound size={14} aria-hidden="true" />
-                {boundToToken
-                  ? t('tokenEditor.asCharacterToken')
-                  : boundToArt
-                    ? t('tokenEditor.setAsArt')
-                    : t('tokenEditor.sendToCampaign')}
+                {boundToFile
+                  ? t('tokenEditor.updateToken')
+                  : boundToToken
+                    ? t('tokenEditor.asCharacterToken')
+                    : boundToArt
+                      ? t('tokenEditor.setAsArt')
+                      : t('tokenEditor.sendToCampaign')}
               </button>
+              {/* Bound to one destination, the token can still go somewhere
+                  else as well - another character, or a campaign's resources. */}
+              {(boundToFile || boundToToken || boundToArt) && (
+                <button
+                  type="button"
+                  onClick={() => setChoosingDestination(true)}
+                  disabled={!canSave}
+                  style={secondaryBtn}
+                >
+                  {t('tokenEditor.sendToCampaign')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   releaseObjectUrl()
                   setSource(null)
+                  setSourceRef(null)
                 }}
                 disabled={busy}
                 style={secondaryBtn}

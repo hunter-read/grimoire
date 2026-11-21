@@ -2462,6 +2462,8 @@
     "removeToken": "Remove token",
     "removeTokenFor": "Remove {{name}}'s token",
     "removeTokenConfirm": "Remove {{name}}'s token? This cannot be undone.",
+    "editToken": "Edit token",
+    "editTokenFor": "Edit {{name}}'s token",
     "createToken": "Create a token…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Send to a character",
     "sendToOwnedCampaign": "Send to a campaign you GM",
     "pickCharacterNext": "Choose a character next",
+    "updateToken": "Update token",
+    "recipeFailed": "This token's settings could not be loaded. You can start it again from new art.",
+    "recipeSourceGone": "The art this token was made from is no longer available. Its frame and colours are kept - choose new art to finish it.",
     "ownTokenHint": "Your own token in this campaign",
     "chooseCharacter": "Choose a character",
     "chooseCharacterHint": "Whose token this becomes in {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "Remove {{name}} from this campaign?",
       "removeNamed": "Remove {{name}}",
       "downloadNamed": "Download {{name}}",
+      "editTokenNamed": "Edit {{name}} in the token editor",
       "removeSheetConfirm": "Remove {{name}}’s character sheet? This can’t be undone.",
       "removeSheetFor": "Remove {{name}}’s character sheet",
       "replaceSheetFor": "Replace {{name}}’s character sheet",

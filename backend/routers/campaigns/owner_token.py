@@ -11,13 +11,16 @@ same split as a member's token. The archived freeze applies to writes.
 """
 import os
 
-from fastapi import Depends, File, HTTPException, Request, UploadFile
+from typing import Optional
+
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign
+from ...services.campaigns.token_recipes import clear_recipe, replace_recipe
 from ._helpers import assert_not_archived, can_view, get_campaign_or_404
 from .uploads import (
     _IMAGE_TYPES,
@@ -46,12 +49,17 @@ def _owned_campaign_or_403(db: Session, campaign_id: str, user: CurrentUser) -> 
 def upload_owner_token(
     campaign_id: str,
     file: UploadFile = File(...),
+    recipe: Optional[str] = Form(None),
+    source: Optional[UploadFile] = File(None),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Set the owner's token, with the token editor's ``recipe`` when it sends
+    one (see ``services/campaigns/token_recipes``)."""
     c = _owned_campaign_or_403(db, campaign_id, current_user)
     data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
+    c.owner_token_recipe = replace_recipe(_stem(c), recipe, source)
 
     os.makedirs(_TOKEN_DIR, exist_ok=True)
     _remove_existing(_TOKEN_DIR, _stem(c))
@@ -88,5 +96,7 @@ def delete_owner_token(
 ):
     c = _owned_campaign_or_403(db, campaign_id, current_user)
     _remove_existing(_TOKEN_DIR, _stem(c))
+    clear_recipe(_stem(c))
     c.owner_token_path = None
+    c.owner_token_recipe = None
     db.commit()

@@ -39,30 +39,32 @@ _VIS_ORDER = {"public": 0, "private": 1, "gm": 2}
 
 
 def _resource_meta(db, rtype: str, rid: str):
-    """Return (name, has_thumbnail, is_image) for a linked resource of any type.
+    """Return (name, has_thumbnail, is_image, token_editable) for a linked resource.
 
     is_image is True only for campaign-file resources that hold an image upload —
     those render inline (with a thumbnail) instead of as a download card.
+    token_editable is True for an image made in the token editor that kept its
+    recipe, which the editor can reopen and update in place.
     """
     if rtype == "book":
         obj = db.query(Book).filter_by(id=rid).first()
-        return (obj.title, obj.has_thumbnail, False) if obj else (rid, False, False)
+        return (obj.title, obj.has_thumbnail, False, False) if obj else (rid, False, False, False)
     if rtype == "map":
         obj = db.query(GenericMap).filter_by(id=rid).first()
-        return (obj.filename, obj.has_thumbnail, False) if obj else (rid, False, False)
+        return (obj.filename, obj.has_thumbnail, False, False) if obj else (rid, False, False, False)
     if rtype == "token":
         obj = db.query(Token).filter_by(id=rid).first()
-        return (obj.filename, obj.has_thumbnail, False) if obj else (rid, False, False)
+        return (obj.filename, obj.has_thumbnail, False, False) if obj else (rid, False, False, False)
     if rtype == "audio":
         obj = db.query(Audio).filter_by(id=rid).first()
-        return (obj.title or obj.filename, bool(obj.has_artwork), False) if obj else (rid, False, False)
+        return (obj.title or obj.filename, bool(obj.has_artwork), False, False) if obj else (rid, False, False, False)
     if rtype == "file":
         obj = db.query(CampaignFile).filter_by(id=rid).first()
         if not obj:
-            return (rid, False, False)
+            return (rid, False, False, False)
         # An image file is its own thumbnail (served via the file endpoint).
-        return (obj.filename, bool(obj.is_image), bool(obj.is_image))
-    return (rid, False, False)
+        return (obj.filename, bool(obj.is_image), bool(obj.is_image), obj.token_recipe is not None)
+    return (rid, False, False, False)
 
 
 def _resolve_category(db, campaign_id: str, category_id):
@@ -81,7 +83,7 @@ def _resolve_category(db, campaign_id: str, category_id):
 
 
 def _serialize(db, r: CampaignResource, share_map=None, include_shares=False) -> dict:
-    name, has_thumb, is_image = _resource_meta(db, r.resource_type, r.resource_id)
+    name, has_thumb, is_image, token_editable = _resource_meta(db, r.resource_type, r.resource_id)
     out = {
         "id": r.id,
         "resource_type": r.resource_type,
@@ -89,6 +91,7 @@ def _serialize(db, r: CampaignResource, share_map=None, include_shares=False) ->
         "name": name,
         "has_thumbnail": has_thumb,
         "is_image": is_image,
+        "token_editable": token_editable,
         "visibility": r.visibility,
         "category_id": r.category_id,
         "sort_order": r.sort_order,
@@ -330,4 +333,7 @@ def _delete_campaign_file(db, campaign_id: str, file_id: str) -> None:
         # DB row is still deleted below; a leftover file on disk is not fatal but
         # is logged so it can be cleaned up manually.
         logger.warning("Failed to remove campaign file %s: %s", path, e)
+    from ...services.campaigns.token_recipes import clear_recipe
+
+    clear_recipe(f"file-{f.id}")
     db.delete(f)

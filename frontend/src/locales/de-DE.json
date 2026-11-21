@@ -2462,6 +2462,8 @@
     "removeToken": "Token entfernen",
     "removeTokenFor": "Token von {{name}} entfernen",
     "removeTokenConfirm": "Token von {{name}} entfernen? Das lässt sich nicht rückgängig machen.",
+    "editToken": "Token bearbeiten",
+    "editTokenFor": "Token von {{name}} bearbeiten",
     "createToken": "Token erstellen …"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "An eine Figur senden",
     "sendToOwnedCampaign": "An eine von dir geleitete Kampagne senden",
     "pickCharacterNext": "Danach Figur wählen",
+    "updateToken": "Token aktualisieren",
+    "recipeFailed": "Die Einstellungen dieses Tokens konnten nicht geladen werden. Du kannst es mit neuem Bild neu beginnen.",
+    "recipeSourceGone": "Das Bild, aus dem dieses Token entstand, ist nicht mehr verfügbar. Rahmen und Farben bleiben erhalten - wähle ein neues Bild, um es fertigzustellen.",
     "ownTokenHint": "Dein eigenes Token in dieser Kampagne",
     "chooseCharacter": "Figur wählen",
     "chooseCharacterHint": "Wessen Token dies in {{name}} wird.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "{{name}} aus dieser Kampagne entfernen?",
       "removeNamed": "{{name}} entfernen",
       "downloadNamed": "{{name}} herunterladen",
+      "editTokenNamed": "{{name}} im Token-Editor bearbeiten",
       "removeSheetConfirm": "Charakterbogen von {{name}} entfernen? Das lässt sich nicht rückgängig machen.",
       "removeSheetFor": "Charakterbogen von {{name}} entfernen",
       "replaceSheetFor": "Charakterbogen von {{name}} ersetzen",

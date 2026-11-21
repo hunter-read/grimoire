@@ -129,4 +129,31 @@ describe('CharacterToken', () => {
     await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Campaign is archived'))
     expect(onChanged).not.toHaveBeenCalled()
   })
+
+  it('reopens a token that kept its recipe, as it was', async () => {
+    setup({ tokenEditable: true })
+    await userEvent.click(screen.getByRole('button', { name: "Edit Ireena Kolyana's token" }))
+    expect(navigate).toHaveBeenCalledWith('/tokens/editor', {
+      state: {
+        campaignId: 'c1',
+        memberId: 'm1',
+        memberName: 'Ireena Kolyana',
+        saveAs: 'token',
+        recipe: { kind: 'member', targetId: 'm1' },
+      },
+    })
+  })
+
+  it('reopens the owner’s token through the campaign', async () => {
+    setup({ memberId: null, tokenEditable: true })
+    await userEvent.click(screen.getByRole('button', { name: /^Edit/ }))
+    expect(navigate.mock.calls[0][1].state.recipe).toEqual({ kind: 'owner', targetId: 'c1' })
+  })
+
+  it('offers a fresh token, not an edit, when there was no recipe', async () => {
+    setup({ tokenEditable: false })
+    expect(screen.queryByRole('button', { name: /^Edit/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Make a new token/ }))
+    expect(navigate.mock.calls[0][1].state).not.toHaveProperty('recipe')
+  })
 })

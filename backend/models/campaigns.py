@@ -67,6 +67,9 @@ class Campaign(Base):
     # one. Kept apart from their character sheet's portrait, as a member's token
     # is kept apart from their art.
     owner_token_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # How that token was made in the token editor, so it can be reopened and
+    # changed rather than rebuilt. See ``services/campaigns/token_recipes``.
+    owner_token_recipe: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -143,6 +146,10 @@ class CampaignMember(Base):
     # disc a player drops on a battlemap, and a character routinely has one
     # without the other.
     character_token_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # The token editor's settings and source for that token, kept with it so
+    # the token can be reopened and changed (``services/campaigns/token_recipes``).
+    # Any upload that carries no recipe clears it: it describes that file only.
+    character_token_recipe: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     character_sheet_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     character_sheet_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # original upload name
     # Alternatively, a link to an external sheet (e.g. D&D Beyond or a hosted PDF).
@@ -540,6 +547,9 @@ class CampaignFile(Base):
     # True for image uploads (PNG/JPEG/WebP/GIF), so the UI can render them inline
     # (e.g. embedded in a wiki note) and show a thumbnail instead of a file card.
     is_image: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    # Set when the image is a token made in the token editor: its settings and
+    # source, so it can be reopened and the file updated in place.
+    token_recipe: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     uploaded_by_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     # Set on the copy a campaign keeps of a library map deleted through the app
     # (services/campaigns/map_copies.py), so the copy is read by the same people

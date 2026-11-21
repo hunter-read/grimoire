@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ResourceRow from './ResourceRow'
 
 vi.mock('../../api', () => ({
@@ -224,5 +224,60 @@ describe('ResourceRow — downloading a file', () => {
   it('offers no download for library resources, which open in the app', () => {
     renderRow({ resource_type: 'map', resource_id: 'm1', name: 'Barovia' })
     expect(screen.queryByRole('link', { name: /^Download/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('ResourceRow — reopening a token', () => {
+  const token = {
+    resource_type: 'file',
+    resource_id: 'f1',
+    name: 'strahd-token.png',
+    is_image: true,
+  }
+
+  it('lets the GM reopen a token that kept its recipe', () => {
+    renderRow({ ...token, token_editable: true }, { isOwner: true })
+    const edit = screen.getByRole('link', { name: 'Edit strahd-token.png in the token editor' })
+    expect(edit).toHaveAttribute('href', '/tokens/editor')
+  })
+
+  it('opens the editor bound to update this file', async () => {
+    function EditorProbe() {
+      return <pre data-testid="editor-state">{JSON.stringify(useLocation().state)}</pre>
+    }
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ResourceRow
+                resource={resource({ ...token, token_editable: true })}
+                {...baseProps({ isOwner: true })}
+              />
+            }
+          />
+          <Route path="/tokens/editor" element={<EditorProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await userEvent.click(screen.getByRole('link', { name: /token editor/ }))
+    expect(JSON.parse((await screen.findByTestId('editor-state')).textContent || '')).toEqual({
+      campaignId: 'c1',
+      fileId: 'f1',
+      memberName: 'strahd-token.png',
+      saveAs: 'file',
+      recipe: { kind: 'file', targetId: 'f1' },
+    })
+  })
+
+  it('offers nothing to reopen for a plain image', () => {
+    renderRow({ ...token, token_editable: false }, { isOwner: true })
+    expect(screen.queryByRole('link', { name: /token editor/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps it from players, who cannot change the file', () => {
+    renderRow({ ...token, token_editable: true }, { isOwner: false })
+    expect(screen.queryByRole('link', { name: /token editor/ })).not.toBeInTheDocument()
   })
 })

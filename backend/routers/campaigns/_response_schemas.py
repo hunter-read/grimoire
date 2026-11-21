@@ -56,6 +56,9 @@ class CampaignMemberOut(BaseModel):
     # On the owner row too: the owner's token is kept on the campaign
     # (`/campaigns/{id}/owner/token`), since they have no membership.
     has_token: Optional[bool] = None
+    # The token was made in the token editor and kept its recipe, so it can be
+    # reopened there (`/campaigns/{id}/token-recipes/...`).
+    token_editable: Optional[bool] = None
     has_sheet: Optional[bool] = None
     character_sheet_filename: Optional[str] = None
     character_sheet_url: Optional[str] = None
@@ -283,6 +286,9 @@ class LinkedResourceOut(BaseModel):
     # Omitted by the upload handlers, which return an image/file row directly.
     has_thumbnail: Optional[bool] = None
     is_image: bool
+    # An image made in the token editor that kept its recipe: the editor can
+    # reopen it and update the file in place.
+    token_editable: Optional[bool] = None
     visibility: Optional[str] = None
     category_id: Optional[str] = None
     # `sort_order` is `default=0` rather than NOT NULL.
@@ -320,6 +326,40 @@ class MemberTokenUploadOut(BaseModel):
 
 class OwnerTokenUploadOut(BaseModel):
     owner_token_path: str
+
+
+class TokenRecipeTransformOut(BaseModel):
+    scale: float
+    offsetX: float
+    offsetY: float
+    rotation: float
+    flipX: bool
+    flipY: bool
+
+
+class TokenRecipeSourceOut(BaseModel):
+    # "token" or "map" (a library item, by `id`) or "upload" (art kept with the
+    # token, served from the recipe's `/source`).
+    type: str
+    id: Optional[str] = None
+
+
+class TokenRecipeOut(BaseModel):
+    """How a stored token was made in the token editor."""
+
+    size: int
+    frame_id: Optional[str] = None
+    frame_color: str = ""
+    background: str = ""
+    transform: TokenRecipeTransformOut
+    source: TokenRecipeSourceOut
+
+
+class TokenFileUpdateOut(BaseModel):
+    """Returned when a token filed as a campaign resource is updated in place."""
+
+    id: str
+    token_editable: bool
 
 
 class MemberSheetOut(BaseModel):
@@ -794,6 +834,8 @@ __all__ = [
     "MemberArtUploadOut",
     "MemberTokenUploadOut",
     "OwnerTokenUploadOut",
+    "TokenFileUpdateOut",
+    "TokenRecipeOut",
     "MemberInviteOut",
     "MemberSheetOut",
     "MemberStatusOut",

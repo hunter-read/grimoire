@@ -433,6 +433,7 @@ def build_members(c: Campaign, db) -> list:
                 "campaign_access": _access(owner),
                 # The owner's token is on the campaign, not a membership.
                 "has_token": bool(c.owner_token_path),
+                "token_editable": bool(c.owner_token_path and c.owner_token_recipe),
             }
         )
     members += [
@@ -451,6 +452,7 @@ def build_members(c: Campaign, db) -> list:
             # A token is a separate picture from the art, so it gets its own
             # flag rather than being inferred from `has_art`.
             "has_token": bool(m.character_token_path),
+            "token_editable": bool(m.character_token_path and m.character_token_recipe),
             "has_sheet": bool(m.character_sheet_path),
             "character_sheet_filename": m.character_sheet_filename,
             "character_sheet_url": m.character_sheet_url,
