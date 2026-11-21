@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { render, act } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import useScrollRestoration from './useScrollRestoration'
 
 // Wrap the hook in a MemoryRouter so useLocation works.
@@ -61,9 +61,9 @@ describe('useScrollRestoration', () => {
     expect(sessionStorage.getItem('grimoire:scroll:/library')).toBeNull()
   })
 
-  it('saves scrollTop to sessionStorage on unmount', () => {
+  it('saves scrollTop as the user scrolls', () => {
     let divEl = null as HTMLDivElement | null
-    const { unmount } = render(
+    render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
           onRef={(el) => {
@@ -74,12 +74,34 @@ describe('useScrollRestoration', () => {
     )
 
     // jsdom div doesn't have real scrollTop, so set it manually.
-    if (divEl)
-      Object.defineProperty(divEl, 'scrollTop', { value: 250, writable: true, configurable: true })
+    Object.defineProperty(divEl!, 'scrollTop', { value: 250, writable: true, configurable: true })
+    act(() => {
+      divEl!.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(sessionStorage.getItem('grimoire:scroll:/library')).toBe('250')
+  })
+
+  it('keeps an offset read before unmount whose write was still pending', () => {
+    // The write waits a frame; leaving before it lands must not lose it.
+    vi.stubGlobal('requestAnimationFrame', () => 1)
+    let divEl = null as HTMLDivElement | null
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/library']}>
+        <ScrollComponent
+          onRef={(el) => {
+            divEl = el
+          }}
+        />
+      </MemoryRouter>
+    )
+    Object.defineProperty(divEl!, 'scrollTop', { value: 320, writable: true, configurable: true })
+    divEl!.dispatchEvent(new Event('scroll'))
+    expect(sessionStorage.getItem('grimoire:scroll:/library')).toBeNull()
 
     unmount()
 
-    expect(sessionStorage.getItem('grimoire:scroll:/library')).toBe('250')
+    expect(sessionStorage.getItem('grimoire:scroll:/library')).toBe('320')
   })
 
   it('restores scrollTop from sessionStorage after mounting with a saved position', () => {
@@ -270,5 +292,79 @@ describe('useScrollRestoration', () => {
 
     // Nothing to restore — no retry loop is started at all.
     expect(callbacks).toHaveLength(0)
+  })
+
+  describe('across a navigation (issue #947)', () => {
+    let go: (path: string) => void = () => {}
+    function Nav() {
+      const navigate = useNavigate()
+      go = (path) => navigate(path)
+      return null
+    }
+
+    function renderAt(path: string) {
+      let divEl = null as HTMLDivElement | null
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <Nav />
+          <ScrollComponent
+            onRef={(el) => {
+              divEl = el
+            }}
+          />
+        </MemoryRouter>
+      )
+      let value = 0
+      Object.defineProperty(divEl!, 'scrollTop', {
+        configurable: true,
+        get: () => value,
+        set: (v: number) => {
+          value = v
+        },
+      })
+      const scrollTo = (top: number) => {
+        value = top
+        act(() => {
+          divEl!.dispatchEvent(new Event('scroll'))
+        })
+      }
+      return { el: () => divEl!, scrollTo }
+    }
+
+    it('never records the next view’s clamp under the page that was left', () => {
+      const view = renderAt('/library')
+      view.scrollTo(1800)
+
+      // Opening a book swaps in the full-height reader: the browser clamps the
+      // container to 0 and fires a scroll event for it, after the navigation.
+      act(() => go('/library/book/b1'))
+      view.scrollTo(0)
+
+      expect(sessionStorage.getItem('grimoire:scroll:/library')).toBe('1800')
+      expect(sessionStorage.getItem('grimoire:scroll:/library/book/b1')).toBe('0')
+    })
+
+    it('returns to the same place on coming back', () => {
+      const view = renderAt('/library')
+      view.scrollTo(1800)
+      act(() => go('/library/book/b1'))
+      view.scrollTo(0)
+
+      act(() => go('/library'))
+
+      expect(view.el().scrollTop).toBe(1800)
+    })
+
+    it('does not let the restore’s own scrolling replace the saved offset', () => {
+      sessionStorage.setItem('grimoire:scroll:/library', '900')
+      // Hold the restore mid-flight: its first frame never runs.
+      vi.stubGlobal('requestAnimationFrame', () => 1)
+      const view = renderAt('/library')
+
+      // A clamp while the list is still loading.
+      view.scrollTo(40)
+
+      expect(sessionStorage.getItem('grimoire:scroll:/library')).toBe('900')
+    })
   })
 })

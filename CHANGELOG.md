@@ -25,6 +25,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- **Going back to the library returns to where you were.** Opening a book and coming back used to land at the top of the library, or of a system's page, however far down you had scrolled. The same went for the maps and tokens lists after opening one
 - **Files in a campaign download in Firefox.** Saving a campaign file - a token sent from the token editor and opened in its own tab, or a handout that downloads - ended in "Failed". Each uploaded file also has a download button in the campaign's resources now, beside the link that opens it
 - **A token can be set for your character in a personal campaign.** The token editor's **Send to a campaign → Set as a character token** only listed invited players, so in a campaign you run alone it said there were no characters to set art for. It now offers your own token there, kept apart from your character sheet's portrait. See [Token editor](docs/token-editor.md)
 
