@@ -3924,9 +3924,7 @@
     "sendToCharacter": "An eine Figur senden",
     "sendToOwnedCampaign": "An eine von dir geleitete Kampagne senden",
     "pickCharacterNext": "Danach Figur wählen",
-    "memberToken": "Token in der Runde",
-    "sheetPortrait": "Porträt auf dem Charakterbogen",
-    "unnamedSheet": "Unbenannte Figur",
+    "ownTokenHint": "Dein eigenes Token in dieser Kampagne",
     "chooseCharacter": "Figur wählen",
     "chooseCharacterHint": "Wessen Token dies in {{name}} wird.",
     "frameVersions": "Versionen"

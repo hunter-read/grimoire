@@ -3924,9 +3924,7 @@
     "sendToCharacter": "Skicka till en rollperson",
     "sendToOwnedCampaign": "Skicka till en kampanj du leder som spelledare",
     "pickCharacterNext": "Välj en rollperson härnäst",
-    "memberToken": "Gruppens token",
-    "sheetPortrait": "Porträtt på rollformuläret",
-    "unnamedSheet": "Namnlös rollperson",
+    "ownTokenHint": "Din egen token i den här kampanjen",
     "chooseCharacter": "Välj en rollperson",
     "chooseCharacterHint": "Vems token det här blir i {{name}}.",
     "frameVersions": "Versioner"

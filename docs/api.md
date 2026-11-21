@@ -1766,6 +1766,9 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/members/:member_id/token` | POST | member (own) or owner | Upload/replace the character's VTT token (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/token` | GET | member or owner | Character token image |
 | `/api/campaigns/:id/members/:member_id/token` | DELETE | member (own) or owner | Remove the character token |
+| `/api/campaigns/:id/owner/token` | POST | owner | Upload/replace the owner's own VTT token (multipart `file`). Returns `{owner_token_path}`. The owner has no membership to hold one, so this is how a player running a personal campaign keeps a token for their character without storing it over their sheet's portrait. 409 while archived |
+| `/api/campaigns/:id/owner/token` | GET | member or owner | The owner's token image; 404 when none is set |
+| `/api/campaigns/:id/owner/token` | DELETE | owner | Remove the owner's token |
 | `/api/campaigns/:id/members/:member_id/sheet` | POST | member (own) or owner | Upload/replace character sheet (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/sheet` | GET | member or owner | Download character sheet (original filename) |
 | `/api/campaigns/:id/members/:member_id/sheet` | DELETE | member (own) or owner | Remove character sheet |
@@ -1776,7 +1779,9 @@ A member's **token** is stored separately from their **art** rather than reusing
 column: the art is a portrait for the campaign page, the token is the cropped disc that goes
 on a battlemap, and a character routinely has one without the other. Both are keyed by
 `CampaignMember` id and carry the same permission rule — the member themselves or the
-campaign owner. The member payload exposes `has_art` and `has_token` independently.
+campaign owner. The member payload exposes `has_art` and `has_token` independently. The
+owner row has no `CampaignMember` id, so the owner's own token is kept on the campaign
+(`/owner/token`, owner only) and their row's `has_token` reports that one.
 
 Neither writes to the shared library. The token editor composes in the browser and must keep
 working against a read-only library, so a character token is campaign data (stored under

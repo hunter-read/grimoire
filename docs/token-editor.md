@@ -35,17 +35,10 @@ have the standing for:
 - **Send to a campaign you GM** - one row per campaign rather than per character, so running
   four games does not bury them under twenty characters. Pick a campaign and you then choose
   either **Set as a character token** - which lists just that campaign's characters - or a
-  resource category, defaulting to the built-in **Tokens** group.
-
-A campaign's characters are of two kinds, and both are listed, each row saying which picture
-it replaces:
-
-- **Party token** - an invited player's row on the campaign page. The token is kept beside
-  their art, as above.
-- **Sheet portrait** - a [character sheet](characters.md) placed in the campaign, such as a
-  GM's NPCs or the party of a GM-only game with no invited players. A sheet has one picture,
-  so the token becomes its portrait. Only sheets you may edit are listed: your own, and a
-  player's whose owner has let the GM edit it.
+  resource category, defaulting to the built-in **Tokens** group. In a personal campaign, the
+  character list starts with **your own token**: you have no membership in a campaign you
+  run, so that token is kept on the campaign, and your character sheet's portrait is never
+  touched.
 
 You are only shown the paths that apply to you: a player with no campaign of their own never
 sees the GM route, and someone in no campaigns at all is told so rather than offered a

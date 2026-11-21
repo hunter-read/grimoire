@@ -3924,9 +3924,7 @@
     "sendToCharacter": "Enviar a un personaje",
     "sendToOwnedCampaign": "Enviar a una campaña que diriges",
     "pickCharacterNext": "Elige un personaje después",
-    "memberToken": "Ficha del grupo",
-    "sheetPortrait": "Retrato de la hoja",
-    "unnamedSheet": "Personaje sin nombre",
+    "ownTokenHint": "Tu propia ficha en esta campaña",
     "chooseCharacter": "Elegir personaje",
     "chooseCharacterHint": "De quién será esta ficha en {{name}}.",
     "frameVersions": "Versiones"

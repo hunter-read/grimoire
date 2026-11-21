@@ -32,11 +32,11 @@ vi.mock('../../../api', () => ({
   campaigns: {
     uploadMemberArt: vi.fn(),
     uploadMemberToken: vi.fn(),
+    uploadOwnerToken: vi.fn(),
     list: vi.fn(),
     get: vi.fn(),
     listCategories: vi.fn(),
   },
-  characters: { list: vi.fn(), uploadPortrait: vi.fn() },
   imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}/${id}/thumb` },
   mediaUrl: (path: string) => `/api${path}`,
 }))
@@ -61,7 +61,7 @@ vi.mock('../../../lib/frameMask', () => ({
   frameApertureMask: vi.fn(() => null),
 }))
 
-import { campaigns as campaignsApi, characters as charactersApi } from '../../../api'
+import { campaigns as campaignsApi } from '../../../api'
 import { composeToBlob, loadImage } from '../../../lib/tokenCompositor'
 import type { LoadedImage } from '../../../lib/tokenCompositor'
 import TokenEditorView from './TokenEditorView'
@@ -70,11 +70,11 @@ import TokenEditorView from './TokenEditorView'
 const campaigns = campaignsApi as unknown as {
   uploadMemberArt: Mock
   uploadMemberToken: Mock
+  uploadOwnerToken: Mock
   list: Mock
   get: Mock
   listCategories: Mock
 }
-const characters = charactersApi as unknown as { list: Mock; uploadPortrait: Mock }
 
 const loaded = { image: {}, width: 800, height: 600, intrinsic: true } as LoadedImage
 
@@ -84,7 +84,6 @@ beforeEach(() => {
   routeState = {}
   vi.mocked(loadImage).mockResolvedValue(loaded)
   vi.mocked(composeToBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
-  characters.list.mockResolvedValue({ characters: [] })
   campaigns.listCategories.mockResolvedValue([])
 })
 
@@ -211,29 +210,26 @@ describe('the character-art exit', () => {
     expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
   })
 
-  it('sets a chosen character sheet’s portrait (#949)', async () => {
-    // A GM-only campaign: the character is a sheet, with no membership.
+  it('sets the owner’s own token in a personal campaign (#949)', async () => {
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
     campaigns.get.mockResolvedValue({
       id: 'c1',
-      name: 'Curse of Strahd',
+      name: 'Solo Delve',
       owner_id: 'user-me',
-      members: [],
+      is_gm_campaign: false,
+      members: [{ user_id: 'user-me', username: 'me', display_name: 'Hunter', is_owner: true }],
     })
-    characters.list.mockResolvedValue({
-      characters: [{ id: 'ch1', name: 'Strahd', campaign_id: 'c1', editable: true }],
-    })
-    characters.uploadPortrait.mockResolvedValue({})
+    campaigns.uploadOwnerToken.mockResolvedValue({})
     await renderWithSource()
 
     await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
-    await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Solo Delve/ }))
     await userEvent.click(await screen.findByRole('button', { name: /Set as a character token/ }))
-    await userEvent.click(await screen.findByRole('button', { name: /Strahd/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Hunter/ }))
 
-    await waitFor(() => expect(characters.uploadPortrait).toHaveBeenCalled())
-    const [characterId, file] = characters.uploadPortrait.mock.calls[0]
-    expect(characterId).toBe('ch1')
+    await waitFor(() => expect(campaigns.uploadOwnerToken).toHaveBeenCalled())
+    const [campaignId, file] = campaigns.uploadOwnerToken.mock.calls[0]
+    expect(campaignId).toBe('c1')
     expect((file as File).type).toBe('image/png')
     expect(campaigns.uploadMemberToken).not.toHaveBeenCalled()
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/campaigns/c1', expect.anything()))

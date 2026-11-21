@@ -4,12 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { LuArrowLeft, LuDownload, LuUserRound } from 'react-icons/lu'
 
-import {
-  campaigns as campaignsApi,
-  characters as charactersApi,
-  imageSources,
-  mediaUrl,
-} from '../../../api'
+import { campaigns as campaignsApi, imageSources, mediaUrl } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
 import useIsMobile from '../../../hooks/useIsMobile'
 import Spinner from '../../Spinner'
@@ -19,7 +14,7 @@ import { frameApertureMask } from '../../../lib/frameMask'
 import { resolveIconColor } from '../../campaigns/iconColors'
 import FramePicker from './FramePicker'
 import SendToCampaignDialog from './SendToCampaignDialog'
-import type { CampaignChoice, CharacterOption } from './SendToCampaignDialog'
+import type { CampaignChoice, MemberOption } from './SendToCampaignDialog'
 import TokenEditorCanvas from './TokenEditorCanvas'
 import TokenEditorControls from './TokenEditorControls'
 import TokenSourcePicker from './TokenSourcePicker'
@@ -292,13 +287,13 @@ export default function TokenEditorView() {
   const saveAsArt = ({ campaignId, memberId }: MemberTarget) =>
     deliver(campaignId, (file) => campaignsApi.uploadMemberArt(campaignId, memberId, file))
 
-  // A membership's VTT token is stored beside its art rather than over it. A
-  // character sheet has only its portrait, so there the token becomes that.
-  const saveToCharacter = ({ kind, campaignId, id }: CharacterOption) =>
+  // A character's VTT token, stored beside their portrait rather than over it.
+  // With no membership id it is the owner's own, which is kept on the campaign.
+  const saveAsMemberToken = ({ campaignId, memberId }: MemberOption) =>
     deliver(campaignId, (file) =>
-      kind === 'sheet'
-        ? charactersApi.uploadPortrait(id, file)
-        : campaignsApi.uploadMemberToken(campaignId, id, file)
+      memberId
+        ? campaignsApi.uploadMemberToken(campaignId, memberId, file)
+        : campaignsApi.uploadOwnerToken(campaignId, file)
     )
 
   // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
@@ -494,7 +489,7 @@ export default function TokenEditorView() {
         <SendToCampaignDialog
           userId={user?.id}
           onClose={() => setChoosingDestination(false)}
-          onChooseCharacter={(choice) => void saveToCharacter(choice)}
+          onChooseMember={(choice) => void saveAsMemberToken(choice)}
           onChooseCampaign={(choice) => void saveToCampaign(choice)}
         />
       )}

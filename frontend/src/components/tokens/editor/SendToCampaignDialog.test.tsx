@@ -5,16 +5,14 @@ import userEvent from '@testing-library/user-event'
 
 vi.mock('../../../api', () => ({
   campaigns: { list: vi.fn(), get: vi.fn(), listCategories: vi.fn() },
-  characters: { list: vi.fn() },
 }))
 
-import { campaigns as campaignsApi, characters as charactersApi } from '../../../api'
+import { campaigns as campaignsApi } from '../../../api'
 import SendToCampaignDialog from './SendToCampaignDialog'
 
 // The fixtures below are partial campaign payloads, so the mocks are reached
 // untyped rather than through the full response types.
 const campaigns = campaignsApi as unknown as { list: Mock; get: Mock; listCategories: Mock }
-const characters = charactersApi as unknown as { list: Mock }
 
 const ME = 'user-me'
 
@@ -34,21 +32,12 @@ const member = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-/** One character sheet from the `/characters` list, placed in campaign c1. */
-const sheet = (over: Record<string, unknown> = {}) => ({
-  id: 'ch1',
-  name: 'Strahd',
-  campaign_id: 'c1',
-  editable: true,
-  ...over,
-})
-
 const setup = (props: Record<string, unknown> = {}) =>
   render(
     <SendToCampaignDialog
       userId={ME}
       onClose={vi.fn()}
-      onChooseCharacter={vi.fn()}
+      onChooseMember={vi.fn()}
       onChooseCampaign={vi.fn()}
       {...props}
     />
@@ -57,7 +46,6 @@ const setup = (props: Record<string, unknown> = {}) =>
 beforeEach(() => {
   vi.clearAllMocks()
   campaigns.listCategories.mockResolvedValue([])
-  characters.list.mockResolvedValue({ characters: [] })
 })
 
 describe('SendToCampaignDialog', () => {
@@ -72,15 +60,15 @@ describe('SendToCampaignDialog', () => {
   })
 
   it('reports the chosen membership', async () => {
-    const onChooseCharacter = vi.fn()
+    const onChooseMember = vi.fn()
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
     campaigns.get.mockResolvedValue(campaign({ members: [member()] }))
 
-    setup({ onChooseCharacter })
+    setup({ onChooseMember })
     await userEvent.click(await screen.findByRole('button', { name: /Ireena/ }))
 
-    expect(onChooseCharacter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'member', campaignId: 'c1', id: 'm1' })
+    expect(onChooseMember).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: 'c1', memberId: 'm1' })
     )
   })
 
@@ -129,71 +117,66 @@ describe('SendToCampaignDialog', () => {
       })
     )
 
-    const onChooseCharacter = vi.fn()
-    setup({ onChooseCharacter })
+    const onChooseMember = vi.fn()
+    setup({ onChooseMember })
 
     await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
     await userEvent.click(await screen.findByRole('button', { name: /Set as a character token/ }))
     await userEvent.click(await screen.findByRole('button', { name: /Rahadin/ }))
 
-    expect(onChooseCharacter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'member', campaignId: 'c1', id: 'm1' })
+    expect(onChooseMember).toHaveBeenCalledWith(
+      expect.objectContaining({ campaignId: 'c1', memberId: 'm1' })
     )
   })
 
-  it('offers a GM’d campaign’s character sheets when it has no players (#949)', async () => {
-    // A GM-only campaign: no memberships, just a sheet the GM made in it.
+  it('offers the owner their own token in a personal campaign (#949)', async () => {
+    // A personal campaign: no memberships, only the synthetic owner row, which
+    // carries the GM title as its character_name.
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
-    campaigns.get.mockResolvedValue(campaign({ owner_id: ME, members: [] }))
-    characters.list.mockResolvedValue({ characters: [sheet()] })
+    campaigns.get.mockResolvedValue(
+      campaign({
+        owner_id: ME,
+        is_gm_campaign: false,
+        members: [
+          {
+            user_id: ME,
+            username: 'me',
+            display_name: 'Hunter',
+            character_name: 'Game Master',
+            is_owner: true,
+          },
+        ],
+      })
+    )
 
-    const onChooseCharacter = vi.fn()
-    setup({ onChooseCharacter })
+    const onChooseMember = vi.fn()
+    setup({ onChooseMember })
 
     await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
     const route = await screen.findByRole('button', { name: /Set as a character token/ })
     expect(route).toBeEnabled()
     await userEvent.click(route)
-    await userEvent.click(await screen.findByRole('button', { name: /Strahd.*Sheet portrait/ }))
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Hunter.*Your own token in this campaign/ })
+    )
 
-    expect(onChooseCharacter).toHaveBeenCalledWith({
-      kind: 'sheet',
+    expect(onChooseMember).toHaveBeenCalledWith({
       campaignId: 'c1',
       campaignName: 'Curse of Strahd',
-      id: 'ch1',
-      name: 'Strahd',
+      memberId: null,
+      memberName: 'Hunter',
     })
   })
 
-  it('lists both a GM’d campaign’s memberships and its sheets', async () => {
+  it('does not offer a GM their own row as a character', async () => {
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
     campaigns.get.mockResolvedValue(
       campaign({
         owner_id: ME,
-        members: [member({ user_id: 'player-2', character_name: 'Rahadin' })],
+        is_gm_campaign: true,
+        members: [{ user_id: ME, username: 'me', character_name: 'Game Master', is_owner: true }],
       })
     )
-    characters.list.mockResolvedValue({ characters: [sheet()] })
-
-    setup()
-
-    await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
-    await userEvent.click(await screen.findByRole('button', { name: /Set as a character token/ }))
-
-    expect(await screen.findByRole('button', { name: /Rahadin.*Party token/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Strahd.*Sheet portrait/ })).toBeInTheDocument()
-  })
-
-  it('leaves out sheets the viewer may not edit, or that sit in no campaign', async () => {
-    campaigns.list.mockResolvedValue([{ id: 'c1' }])
-    campaigns.get.mockResolvedValue(campaign({ owner_id: ME, members: [] }))
-    characters.list.mockResolvedValue({
-      characters: [
-        // A player's sheet the GM was not let in to edit: the server would 404.
-        sheet({ id: 'ch2', name: 'Ireena', editable: false }),
-        sheet({ id: 'ch3', name: 'Ezmerelda', campaign_id: null }),
-      ],
-    })
 
     setup()
 
@@ -201,35 +184,7 @@ describe('SendToCampaignDialog', () => {
     expect(await screen.findByRole('button', { name: /Set as a character token/ })).toBeDisabled()
   })
 
-  it('offers a player their own sheet in a game they play in', async () => {
-    campaigns.list.mockResolvedValue([{ id: 'c1' }])
-    campaigns.get.mockResolvedValue(campaign({ members: [member()] }))
-    characters.list.mockResolvedValue({ characters: [sheet({ name: '' })] })
-
-    const onChooseCharacter = vi.fn()
-    setup({ onChooseCharacter })
-
-    // Both of the player's pictures are offered, each saying which it replaces.
-    expect(await screen.findByRole('button', { name: /Ireena.*Party token/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Unnamed character/ }))
-
-    expect(onChooseCharacter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'sheet', id: 'ch1', name: 'Unnamed character' })
-    )
-  })
-
-  it('still offers memberships and campaigns when the sheet list fails', async () => {
-    campaigns.list.mockResolvedValue([{ id: 'c1' }])
-    campaigns.get.mockResolvedValue(campaign({ members: [member()] }))
-    characters.list.mockRejectedValue(new Error('sheets down'))
-
-    setup()
-
-    expect(await screen.findByRole('button', { name: /Ireena/ })).toBeInTheDocument()
-    expect(screen.queryByText('sheets down')).not.toBeInTheDocument()
-  })
-
-  it('offers no character route in a GM’d campaign with no characters', async () => {
+  it('offers no character route in a GM’d campaign with no members', async () => {
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
     campaigns.get.mockResolvedValue(campaign({ owner_id: ME, members: [] }))
 

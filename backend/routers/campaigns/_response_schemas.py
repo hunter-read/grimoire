@@ -53,6 +53,8 @@ class CampaignMemberOut(BaseModel):
     is_guest: Optional[bool] = None
     guest_code: Optional[str] = None
     has_art: Optional[bool] = None
+    # On the owner row too: the owner's token is kept on the campaign
+    # (`/campaigns/{id}/owner/token`), since they have no membership.
     has_token: Optional[bool] = None
     has_sheet: Optional[bool] = None
     character_sheet_filename: Optional[str] = None
@@ -314,6 +316,10 @@ class MemberArtUploadOut(BaseModel):
 
 class MemberTokenUploadOut(BaseModel):
     character_token_path: str
+
+
+class OwnerTokenUploadOut(BaseModel):
+    owner_token_path: str
 
 
 class MemberSheetOut(BaseModel):
@@ -787,6 +793,7 @@ __all__ = [
     "LinkedResourceOut",
     "MemberArtUploadOut",
     "MemberTokenUploadOut",
+    "OwnerTokenUploadOut",
     "MemberInviteOut",
     "MemberSheetOut",
     "MemberStatusOut",
