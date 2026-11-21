@@ -14,7 +14,7 @@ import { frameApertureMask } from '../../../lib/frameMask'
 import { resolveIconColor } from '../../campaigns/iconColors'
 import FramePicker from './FramePicker'
 import SendToCampaignDialog from './SendToCampaignDialog'
-import type { CampaignChoice } from './SendToCampaignDialog'
+import type { CampaignChoice, MemberOption } from './SendToCampaignDialog'
 import TokenEditorCanvas from './TokenEditorCanvas'
 import TokenEditorControls from './TokenEditorControls'
 import TokenSourcePicker from './TokenSourcePicker'
@@ -27,12 +27,15 @@ import type { ImageSourcePick } from '../../images/ImageSourceBrowser'
 
 /**
  * Where the editor was opened from, when a member row opened it: who the token
- * is for, so it can be saved straight back as their art.
+ * is for, so it can be saved straight back. `saveAs: 'token'` (from a
+ * character's token on the campaign page) saves it as their token rather than
+ * their art; with no `memberId` that is the owner's own token on the campaign.
  */
 interface EditorTarget {
   campaignId?: string
   memberId?: string
   memberName?: string
+  saveAs?: 'art' | 'token'
 }
 
 /** A specific character in a specific campaign. */
@@ -288,8 +291,16 @@ export default function TokenEditorView() {
     deliver(campaignId, (file) => campaignsApi.uploadMemberArt(campaignId, memberId, file))
 
   // A character's VTT token, stored beside their portrait rather than over it.
-  const saveAsMemberToken = ({ campaignId, memberId }: MemberTarget) =>
-    deliver(campaignId, (file) => campaignsApi.uploadMemberToken(campaignId, memberId, file))
+  // With no membership id it is the owner's own, which is kept on the campaign.
+  const saveAsMemberToken = ({
+    campaignId,
+    memberId,
+  }: Pick<MemberOption, 'campaignId' | 'memberId'>) =>
+    deliver(campaignId, (file) =>
+      memberId
+        ? campaignsApi.uploadMemberToken(campaignId, memberId, file)
+        : campaignsApi.uploadOwnerToken(campaignId, file)
+    )
 
   // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
   // as a resource under the chosen category in one call — it is guarded by
@@ -301,8 +312,18 @@ export default function TokenEditorView() {
 
   // Arriving from a member row pre-binds the target, which is the common path
   // and skips the chooser entirely.
+  const boundToToken = target.saveAs === 'token' && !!target.campaignId
+  const boundToArt = !boundToToken && !!target.campaignId && !!target.memberId
+
   const onSetAsArt = () => {
-    if (target.campaignId && target.memberId) {
+    if (boundToToken) {
+      void saveAsMemberToken({
+        campaignId: target.campaignId as string,
+        memberId: target.memberId ?? null,
+      })
+      return
+    }
+    if (boundToArt) {
       void saveAsArt(target as MemberTarget)
       return
     }
@@ -414,9 +435,11 @@ export default function TokenEditorView() {
                   both the character-token and campaign-resource paths. */}
               <button type="button" onClick={onSetAsArt} disabled={!canSave} style={secondaryBtn}>
                 <LuUserRound size={14} aria-hidden="true" />
-                {target.campaignId && target.memberId
-                  ? t('tokenEditor.setAsArt')
-                  : t('tokenEditor.sendToCampaign')}
+                {boundToToken
+                  ? t('tokenEditor.asCharacterToken')
+                  : boundToArt
+                    ? t('tokenEditor.setAsArt')
+                    : t('tokenEditor.sendToCampaign')}
               </button>
               <button
                 type="button"

@@ -2453,6 +2453,15 @@
     "saveCopy": "Salvar cópia",
     "sheetEditError": "Não foi possível abrir ou salvar esta ficha. Pode não ser um PDF válido.",
     "setArt": "Definir retrato",
+    "makeToken": "Criar um token",
+    "makeTokenFor": "Criar um token para {{name}}",
+    "remakeToken": "Criar um novo token",
+    "remakeTokenFor": "Criar um novo token para {{name}}",
+    "downloadToken": "Transferir token",
+    "downloadTokenFor": "Transferir o token de {{name}}",
+    "removeToken": "Remover token",
+    "removeTokenFor": "Remover o token de {{name}}",
+    "removeTokenConfirm": "Remover o token de {{name}}? Esta ação não pode ser anulada.",
     "createToken": "Criar uma ficha…"
   },
   "sessions": {
@@ -3924,6 +3933,7 @@
     "sendToCharacter": "Enviar para uma personagem",
     "sendToOwnedCampaign": "Enviar para uma campanha que dirige",
     "pickCharacterNext": "Escolha uma personagem a seguir",
+    "ownTokenHint": "O seu próprio token nesta campanha",
     "chooseCharacter": "Escolher personagem",
     "chooseCharacterHint": "De quem será este token em {{name}}.",
     "frameVersions": "Versões"
@@ -3939,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Personagens",
     "add": "Adicionar personagem",
+    "yourToken": "O seu token",
     "addTitle": "Traz uma das tuas personagens",
     "noneToAdd": "Todas as tuas personagens já estão aqui, ou ainda não tens nenhuma.",
     "goToCharacters": "Ir para Personagens",

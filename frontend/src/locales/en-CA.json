@@ -2453,6 +2453,15 @@
     "saveCopy": "Save copy",
     "sheetEditError": "Could not open or save this sheet. It may not be a valid PDF.",
     "setArt": "Set character art",
+    "makeToken": "Make a token",
+    "makeTokenFor": "Make a token for {{name}}",
+    "remakeToken": "Make a new token",
+    "remakeTokenFor": "Make a new token for {{name}}",
+    "downloadToken": "Download token",
+    "downloadTokenFor": "Download {{name}}'s token",
+    "removeToken": "Remove token",
+    "removeTokenFor": "Remove {{name}}'s token",
+    "removeTokenConfirm": "Remove {{name}}'s token? This cannot be undone.",
     "createToken": "Create a token…"
   },
   "sessions": {
@@ -3924,6 +3933,7 @@
     "sendToCharacter": "Send to a character",
     "sendToOwnedCampaign": "Send to a campaign you GM",
     "pickCharacterNext": "Choose a character next",
+    "ownTokenHint": "Your own token in this campaign",
     "chooseCharacter": "Choose a character",
     "chooseCharacterHint": "Whose token this becomes in {{name}}.",
     "frameVersions": "Versions"
@@ -3939,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Characters",
     "add": "Add character",
+    "yourToken": "Your token",
     "addTitle": "Bring one of your characters",
     "noneToAdd": "All of your characters are already here, or you have none yet.",
     "goToCharacters": "Go to Characters",

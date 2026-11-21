@@ -8,7 +8,8 @@ Everything a campaign stores lives under ``DATA_PATH/campaign_uploads/``:
   images embedded in notes or shown on map pages, and the copies kept of
   deleted library maps;
 * ``art/``, ``tokens/``, ``sheets/`` - each member's character art, token and
-  sheet (``CampaignMember.character_*_path``).
+  sheet (``CampaignMember.character_*_path``), and in ``tokens/`` the owner's
+  own token (``Campaign.owner_token_path``).
 
 The rows naming these files go with a campaign or a membership, so the paths are
 collected first and the files removed once the session commits - never on a
@@ -61,6 +62,7 @@ def campaign_upload_paths(db: Session, campaign_ids: list[str]) -> list[str]:
     for c in db.query(Campaign).filter(Campaign.id.in_(campaign_ids)).all():
         paths += _under(BANNER_DIR, c.banner_path)
         paths += _under(BANNER_DIR, f"{c.id}_sm.webp")
+        paths += _under(TOKEN_DIR, c.owner_token_path)
     for (stored,) in (
         db.query(CampaignFile.stored_path).filter(CampaignFile.campaign_id.in_(campaign_ids)).all()
     ):

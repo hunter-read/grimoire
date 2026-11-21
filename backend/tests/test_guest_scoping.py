@@ -138,6 +138,9 @@ TTRPG_GUEST_REACHABLE = {
     "/api/campaigns/{campaign_id}/members/{member_id}/sheet/duplicate": "POST",
     "/api/campaigns/{campaign_id}/members/{member_id}/token": "DELETE GET POST",
     "/api/campaigns/{campaign_id}/members/{user_id}": "DELETE PATCH",
+    # Writes are owner-only, and a guest never owns a campaign; reading it
+    # follows `can_view`, like a member's token.
+    "/api/campaigns/{campaign_id}/owner/token": "DELETE GET POST",
     "/api/campaigns/{campaign_id}/resource-group-order": "PUT",
     "/api/campaigns/{campaign_id}/resources": "GET POST",
     "/api/campaigns/{campaign_id}/resources/bulk": "POST",

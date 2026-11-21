@@ -7,6 +7,8 @@ import InvitePanel from './InvitePanel'
 // MemberRow's avatar navigates to the token editor, so it needs a router.
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
+  // CharacterToken reads the editor's cache-busting stamp from router state.
+  useLocation: () => ({ state: null }),
 }))
 
 vi.mock('../../api', () => ({

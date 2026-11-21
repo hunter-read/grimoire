@@ -274,6 +274,21 @@ export default function CampaignDetailView() {
     !isArchived &&
     !selfDisabled
 
+  // A personal campaign's character is its owner's, and their token is kept on
+  // the campaign - the server lets the owner alone set it, so an admin looking
+  // in sees it but cannot change it.
+  const ownerRow = campaign.members?.find((m: Member) => m.is_owner)
+  const ownerToken =
+    !isGmCampaign && ownerRow
+      ? {
+          name: ownerRow.display_name || ownerRow.username,
+          hasToken: !!ownerRow.has_token,
+          canEdit:
+            campaign.owner_id === user?.id && !campaign.locked && !isArchived && !selfDisabled,
+          onChanged: load,
+        }
+      : undefined
+
   const deleteCampaign = () => {
     if (!confirm(t('campaignDetail.deleteConfirm', { name: campaign.name }))) return
     void runAction(async () => {
@@ -786,6 +801,7 @@ export default function CampaignDetailView() {
         ownerId={campaign.owner_id}
         viewerId={user?.id}
         canAdd={canAddCharacter}
+        ownerToken={ownerToken}
         style={{ ...CARD, marginBottom: 20 }}
       />
 

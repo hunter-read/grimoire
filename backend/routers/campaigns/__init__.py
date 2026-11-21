@@ -62,6 +62,7 @@ from .calendar import (
     get_calendar_subscription,
     revoke_calendar_token,
 )
+from .owner_token import delete_owner_token, get_owner_token, upload_owner_token
 from .uploads import (
     upload_banner,
     get_banner,
@@ -167,6 +168,7 @@ from ._response_schemas import (
     LinkedResourceOut,
     MemberArtUploadOut,
     MemberTokenUploadOut,
+    OwnerTokenUploadOut,
     MemberInviteOut,
     MemberSheetOut,
     MemberStatusOut,
@@ -478,6 +480,28 @@ router.add_api_route(
     delete_member_token,
     methods=["DELETE"],
     summary="Remove a member's character token",
+    status_code=204,
+)
+# The owner's token. The owner has no membership to hang one on, so it lives on
+# the campaign; only the owner sets it.
+router.add_api_route(
+    "/{campaign_id}/owner/token",
+    upload_owner_token,
+    methods=["POST"],
+    summary="Upload the campaign owner's token",
+    response_model=OwnerTokenUploadOut,
+)
+router.add_api_route(
+    "/{campaign_id}/owner/token",
+    get_owner_token,
+    methods=["GET"],
+    summary="Get the campaign owner's token",
+)
+router.add_api_route(
+    "/{campaign_id}/owner/token",
+    delete_owner_token,
+    methods=["DELETE"],
+    summary="Remove the campaign owner's token",
     status_code=204,
 )
 router.add_api_route(

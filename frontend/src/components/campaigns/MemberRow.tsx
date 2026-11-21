@@ -18,6 +18,7 @@ import { campaigns, type Schema } from '../../api'
 import SheetTemplatePicker from './SheetTemplatePicker'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
+import CharacterToken from './CharacterToken'
 import MemberArtButton from './MemberArtButton'
 
 // Lazy so pdf.js (a large dependency) is only fetched when a sheet is edited.
@@ -169,6 +170,19 @@ export default function MemberRow({
         onUpload={(file) => void uploadArt(file)}
         artVersion={artVersion}
       />
+      {/* The player's VTT token, beside their art. The owner row has no
+          membership to hold one; a personal campaign shows the owner's
+          token on its Characters card instead. */}
+      {!isMemberOwner && member.id && campaignId && (
+        <CharacterToken
+          campaignId={campaignId}
+          memberId={member.id}
+          name={member.character_name || displayLabel}
+          hasToken={!!member.has_token}
+          canEdit={canEditMedia}
+          onChanged={onMediaChanged}
+        />
+      )}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Character name — primary */}
         {isMemberOwner ? (

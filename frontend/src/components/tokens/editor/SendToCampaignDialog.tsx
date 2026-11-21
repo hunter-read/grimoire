@@ -24,8 +24,15 @@ import Spinner from '../../Spinner'
  * campaign's characters. So the characters a GM can reach are never more than
  * one campaign's worth at a time.
  *
+ * In a personal campaign the viewer runs, step three also offers their own
+ * token (issue #949). The owner has no membership - their row in the member
+ * list is synthetic - so that token is kept on the campaign itself, apart from
+ * their character sheet's portrait. A GM's campaign does not offer it: there
+ * the owner is the GM, not a character.
+ *
  * Both paths mirror the server: character rows match `_assert_can_edit_member`
- * (the member themselves or the campaign owner), and the GM list matches
+ * (the member themselves or the campaign owner), the owner's own token matches
+ * `owner_token` (the owner only), and the GM list matches
  * `assert_can_manage`. A viewer with neither relationship sees neither list —
  * anything offered here must be something the server will actually accept.
  */
@@ -36,7 +43,8 @@ type Category = Schema<'CampaignCategoryOut'>
 export interface MemberOption {
   campaignId: string
   campaignName: string
-  memberId: string
+  /** The membership's id, or null for the owner's own token on the campaign. */
+  memberId: string | null
   memberName: string
 }
 
@@ -98,18 +106,22 @@ export default function SendToCampaignDialog({
           const row = (m: Member): MemberOption => ({
             campaignId: detail.id,
             campaignName: detail.name,
-            memberId: m.id as string,
-            memberName: m.character_name || m.display_name || m.username,
+            memberId: m.id ?? null,
+            // The owner row's character_name is the GM title, not a character.
+            memberName: (m.is_owner ? null : m.character_name) || m.display_name || m.username,
           })
           // The synthetic owner row has no membership id to key an upload by.
           const membersWithIds = (detail.members || []).filter((m) => m.id)
 
           if (detail.owner_id === userId) {
-            ownedRows.push({
-              id: detail.id,
-              name: detail.name,
-              members: membersWithIds.map(row),
-            })
+            const members = membersWithIds.map(row)
+            // A personal campaign's character is the owner's own, and the
+            // owner row is the only place it can be named.
+            const ownerRow = (detail.members || []).find((m) => m.is_owner)
+            if (!detail.is_gm_campaign && ownerRow) {
+              members.unshift({ ...row(ownerRow), memberId: null })
+            }
+            ownedRows.push({ id: detail.id, name: detail.name, members })
             continue
           }
           // A game they play in: only their own character is theirs to set.
@@ -227,12 +239,15 @@ export default function SendToCampaignDialog({
             ) : (
               target.members.map((option) => (
                 <button
-                  key={option.memberId}
+                  key={option.memberId ?? 'owner'}
                   type="button"
                   onClick={() => onChooseMember(option)}
                   style={rowStyle}
                 >
                   <div style={rowTitle}>{option.memberName}</div>
+                  {option.memberId === null && (
+                    <div style={rowSub}>{t('tokenEditor.ownTokenHint')}</div>
+                  )}
                 </button>
               ))
             )}
@@ -298,7 +313,7 @@ export default function SendToCampaignDialog({
                 <div style={sectionLabel}>{t('tokenEditor.sendToCharacter')}</div>
                 {playing!.map((option) => (
                   <button
-                    key={option.memberId}
+                    key={option.memberId ?? option.campaignId}
                     type="button"
                     onClick={() => onChooseMember(option)}
                     style={rowStyle}

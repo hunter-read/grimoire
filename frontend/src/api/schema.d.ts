@@ -2727,6 +2727,25 @@ export interface paths {
         patch: operations["update_member_status_api_campaigns__campaign_id__members__user_id__patch"];
         trace?: never;
     };
+    "/api/campaigns/{campaign_id}/owner/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the campaign owner's token */
+        get: operations["get_owner_token_api_campaigns__campaign_id__owner_token_get"];
+        put?: never;
+        /** Upload the campaign owner's token */
+        post: operations["upload_owner_token_api_campaigns__campaign_id__owner_token_post"];
+        /** Remove the campaign owner's token */
+        delete: operations["delete_owner_token_api_campaigns__campaign_id__owner_token_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/campaigns/{campaign_id}/resource-group-order": {
         parameters: {
             query?: never;
@@ -9456,6 +9475,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_upload_owner_token_api_campaigns__campaign_id__owner_token_post */
+        Body_upload_owner_token_api_campaigns__campaign_id__owner_token_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_portrait_api_characters__character_id__portrait_post */
         Body_upload_portrait_api_characters__character_id__portrait_post: {
             /** File */
@@ -15625,6 +15649,11 @@ export interface components {
             truncated?: boolean;
             /** Width */
             width: number;
+        };
+        /** OwnerTokenUploadOut */
+        OwnerTokenUploadOut: {
+            /** Owner Token Path */
+            owner_token_path: string;
         };
         /** PackCatalogueResponse */
         PackCatalogueResponse: {
@@ -26909,6 +26938,116 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MemberStatusOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_owner_token_api_campaigns__campaign_id__owner_token_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_owner_token_api_campaigns__campaign_id__owner_token_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_owner_token_api_campaigns__campaign_id__owner_token_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerTokenUploadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_owner_token_api_campaigns__campaign_id__owner_token_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

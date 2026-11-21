@@ -2453,6 +2453,15 @@
     "saveCopy": "Kopie speichern",
     "sheetEditError": "Dieses Blatt konnte nicht geöffnet oder gespeichert werden. Möglicherweise ist es keine gültige PDF-Datei.",
     "setArt": "Charakterbild festlegen",
+    "makeToken": "Token erstellen",
+    "makeTokenFor": "Token für {{name}} erstellen",
+    "remakeToken": "Neues Token erstellen",
+    "remakeTokenFor": "Neues Token für {{name}} erstellen",
+    "downloadToken": "Token herunterladen",
+    "downloadTokenFor": "Token von {{name}} herunterladen",
+    "removeToken": "Token entfernen",
+    "removeTokenFor": "Token von {{name}} entfernen",
+    "removeTokenConfirm": "Token von {{name}} entfernen? Das lässt sich nicht rückgängig machen.",
     "createToken": "Token erstellen …"
   },
   "sessions": {
@@ -3924,6 +3933,7 @@
     "sendToCharacter": "An eine Figur senden",
     "sendToOwnedCampaign": "An eine von dir geleitete Kampagne senden",
     "pickCharacterNext": "Danach Figur wählen",
+    "ownTokenHint": "Dein eigenes Token in dieser Kampagne",
     "chooseCharacter": "Figur wählen",
     "chooseCharacterHint": "Wessen Token dies in {{name}} wird.",
     "frameVersions": "Versionen"
@@ -3939,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Charaktere",
     "add": "Charakter hinzufügen",
+    "yourToken": "Dein Token",
     "addTitle": "Einen deiner Charaktere mitbringen",
     "noneToAdd": "Alle deine Charaktere sind schon hier, oder du hast noch keine.",
     "goToCharacters": "Zu den Charakteren",

@@ -35,7 +35,10 @@ have the standing for:
 - **Send to a campaign you GM** - one row per campaign rather than per character, so running
   four games does not bury them under twenty characters. Pick a campaign and you then choose
   either **Set as a character token** - which lists just that campaign's characters - or a
-  resource category, defaulting to the built-in **Tokens** group.
+  resource category, defaulting to the built-in **Tokens** group. In a personal campaign, the
+  character list starts with **your own token**: you have no membership in a campaign you
+  run, so that token is kept on the campaign, and your character sheet's portrait is never
+  touched.
 
 You are only shown the paths that apply to you: a player with no campaign of their own never
 sees the GM route, and someone in no campaigns at all is told so rather than offered a
@@ -43,6 +46,13 @@ destination that would be refused.
 
 Opening the editor from a character's portrait is the exception - it already knows who the
 token is for, so the button simply sets that character's art.
+
+**Tokens on the campaign page.** Each player's token sits beside their art in the member
+list, and a personal campaign shows **Your token** on its Characters card. Click the token to
+download it for your VTT. Whoever may set it - the player themselves or the campaign owner,
+and only you for your own token in a personal campaign - also gets **Make a new token** and
+**Remove**, or **Make a token** while there is none. Making one from there opens the editor
+already bound to save it as that token, not as art.
 
 Nothing is written to your library and no new token is added to it: the image is composed in
 your browser and only leaves by one of those two doors. That means the editor works fine on

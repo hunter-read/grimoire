@@ -2453,6 +2453,15 @@
     "saveCopy": "Enregistrer une copie",
     "sheetEditError": "Impossible d’ouvrir ou d’enregistrer cette fiche. Ce n’est peut-être pas un PDF valide.",
     "setArt": "Définir le portrait",
+    "makeToken": "Créer un pion",
+    "makeTokenFor": "Créer un pion pour {{name}}",
+    "remakeToken": "Créer un nouveau pion",
+    "remakeTokenFor": "Créer un nouveau pion pour {{name}}",
+    "downloadToken": "Télécharger le pion",
+    "downloadTokenFor": "Télécharger le pion de {{name}}",
+    "removeToken": "Retirer le pion",
+    "removeTokenFor": "Retirer le pion de {{name}}",
+    "removeTokenConfirm": "Retirer le pion de {{name}} ? Cette action est irréversible.",
     "createToken": "Créer un pion…"
   },
   "sessions": {
@@ -3924,6 +3933,7 @@
     "sendToCharacter": "Envoyer à un personnage",
     "sendToOwnedCampaign": "Envoyer à une campagne que vous dirigez",
     "pickCharacterNext": "Choisir ensuite un personnage",
+    "ownTokenHint": "Votre propre pion dans cette campagne",
     "chooseCharacter": "Choisir un personnage",
     "chooseCharacterHint": "À qui appartiendra ce pion dans {{name}}.",
     "frameVersions": "Versions"
@@ -3939,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Personnages",
     "add": "Ajouter un personnage",
+    "yourToken": "Votre pion",
     "addTitle": "Amener l'un de vos personnages",
     "noneToAdd": "Tous vos personnages sont déjà ici, ou vous n'en avez pas encore.",
     "goToCharacters": "Aller aux personnages",

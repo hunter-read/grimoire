@@ -60,6 +60,14 @@ class Campaign(Base):
     # order. Empty/null means "use the default order" (categories then types).
     resource_group_order: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
+    # The owner's own VTT token, under DATA_PATH/campaign_uploads/tokens/. Every
+    # other player keeps theirs on their membership, but the owner has no
+    # CampaignMember row - the owner row of the member list is synthetic - so a
+    # player running a personal campaign would otherwise have nowhere to put
+    # one. Kept apart from their character sheet's portrait, as a member's token
+    # is kept apart from their art.
+    owner_token_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
     # Last time any user opened the campaign — drives "recently accessed" sorting.

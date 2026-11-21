@@ -29,7 +29,14 @@ vi.mock('../../../lib/tokenCompositor', () => ({
 }))
 
 vi.mock('../../../api', () => ({
-  campaigns: { uploadMemberArt: vi.fn(), list: vi.fn(), get: vi.fn() },
+  campaigns: {
+    uploadMemberArt: vi.fn(),
+    uploadMemberToken: vi.fn(),
+    uploadOwnerToken: vi.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+    listCategories: vi.fn(),
+  },
   imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}/${id}/thumb` },
   mediaUrl: (path: string) => `/api${path}`,
 }))
@@ -60,7 +67,14 @@ import type { LoadedImage } from '../../../lib/tokenCompositor'
 import TokenEditorView from './TokenEditorView'
 
 // Reached untyped: the tests resolve these with partial payloads.
-const campaigns = campaignsApi as unknown as { uploadMemberArt: Mock; list: Mock; get: Mock }
+const campaigns = campaignsApi as unknown as {
+  uploadMemberArt: Mock
+  uploadMemberToken: Mock
+  uploadOwnerToken: Mock
+  list: Mock
+  get: Mock
+  listCategories: Mock
+}
 
 const loaded = { image: {}, width: 800, height: 600, intrinsic: true } as LoadedImage
 
@@ -70,6 +84,7 @@ beforeEach(() => {
   routeState = {}
   vi.mocked(loadImage).mockResolvedValue(loaded)
   vi.mocked(composeToBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+  campaigns.listCategories.mockResolvedValue([])
 })
 
 /** Render with a source already loaded, which is where both exits live. */
@@ -172,6 +187,74 @@ describe('the character-art exit', () => {
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('sets a chosen membership’s token, not its art', async () => {
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue({
+      id: 'c1',
+      name: 'Curse of Strahd',
+      owner_id: 'someone-else',
+      members: [{ id: 'm1', user_id: 'user-me', character_name: 'Ireena' }],
+    })
+    campaigns.uploadMemberToken.mockResolvedValue({})
+    await renderWithSource()
+
+    await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Ireena/ }))
+
+    await waitFor(() => expect(campaigns.uploadMemberToken).toHaveBeenCalled())
+    const [campaignId, memberId, file] = campaigns.uploadMemberToken.mock.calls[0]
+    expect([campaignId, memberId]).toEqual(['c1', 'm1'])
+    expect((file as File).type).toBe('image/png')
+    expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('sets the owner’s own token in a personal campaign (#949)', async () => {
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue({
+      id: 'c1',
+      name: 'Solo Delve',
+      owner_id: 'user-me',
+      is_gm_campaign: false,
+      members: [{ user_id: 'user-me', username: 'me', display_name: 'Hunter', is_owner: true }],
+    })
+    campaigns.uploadOwnerToken.mockResolvedValue({})
+    await renderWithSource()
+
+    await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Solo Delve/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Set as a character token/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Hunter/ }))
+
+    await waitFor(() => expect(campaigns.uploadOwnerToken).toHaveBeenCalled())
+    const [campaignId, file] = campaigns.uploadOwnerToken.mock.calls[0]
+    expect(campaignId).toBe('c1')
+    expect((file as File).type).toBe('image/png')
+    expect(campaigns.uploadMemberToken).not.toHaveBeenCalled()
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/campaigns/c1', expect.anything()))
+  })
+
+  it('saves straight back as a member’s token when opened from their token', async () => {
+    campaigns.uploadMemberToken.mockResolvedValue({})
+    await renderWithSource({ campaignId: 'c1', memberId: 'm1', saveAs: 'token' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set as a character token' }))
+
+    await waitFor(() => expect(campaigns.uploadMemberToken).toHaveBeenCalled())
+    expect(campaigns.uploadMemberToken.mock.calls[0].slice(0, 2)).toEqual(['c1', 'm1'])
+    expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('saves straight back as the owner’s token with no member id', async () => {
+    campaigns.uploadOwnerToken.mockResolvedValue({})
+    await renderWithSource({ campaignId: 'c1', saveAs: 'token' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set as a character token' }))
+
+    await waitFor(() => expect(campaigns.uploadOwnerToken).toHaveBeenCalled())
+    expect(campaigns.uploadOwnerToken.mock.calls[0][0]).toBe('c1')
+    expect(campaigns.uploadMemberToken).not.toHaveBeenCalled()
   })
 
   it('surfaces an upload rejection', async () => {

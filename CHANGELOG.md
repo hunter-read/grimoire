@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- **Character tokens show on the campaign page.** A player's token sits beside their art in the member list, and a personal campaign shows yours on its Characters card. Click it to download it for your VTT. Whoever may set it can also make a new one, which opens the token editor ready to save it back as that token, or remove it. See [Token editor](docs/token-editor.md)
 - **A game system can have a compendium.** Link content packs to a system from its edit form and its page gains a **Compendium** tab: every kind of content the packs hold - spells, classes, conditions, monsters, rules - with how many entries each has, a list you can search, filter and page through, and each entry on its own address so it can be bookmarked or linked from a note. A search box looks across every kind at once, and entries also turn up in a **Compendium** section of the global search, narrowed by its System filter. Rulesets written for the same sheets join in, so a table's house version of a spell sits beside the SRD's. A system can link several packs and one pack can serve several systems; the links survive the pack being uninstalled or updated. Each pack's credit is printed at the foot of every compendium page, word for word. See [Compendium](docs/compendium.md)
 - **A naming pattern can cap a field's length.** `{title:80}` writes at most 80 characters of the title when renaming files onto the pattern, so long titles stop pushing filenames and paths past what a filesystem or sync tool accepts. Every field takes a cap, and reading filenames ignores it. See [Filename rules](docs/filename-rules.md#writing-a-pattern)
 - **A system can be set up with the character sheets its players use.** Sheets linked from the system's edit form are listed on its page, and choosing one opens a new character already on that sheet. `/characters?new=<sheet id>` does the same from anywhere
@@ -20,6 +21,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Changed
 
 - A long description in a content entry keeps its paragraphs when the entry is opened, in the sheet's content browser as well as the compendium
+
+### Fixed
+
+- **A token can be set for your character in a personal campaign.** The token editor's **Send to a campaign → Set as a character token** only listed invited players, so in a campaign you run alone it said there were no characters to set art for. It now offers your own token there, kept apart from your character sheet's portrait. See [Token editor](docs/token-editor.md)
 
 ## [1.11.1] - 2026-11-19
 

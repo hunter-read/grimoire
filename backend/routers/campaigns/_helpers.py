@@ -431,6 +431,8 @@ def build_members(c: Campaign, db) -> list:
                 "character_name": c.gm_title,
                 "is_owner": True,
                 "campaign_access": _access(owner),
+                # The owner's token is on the campaign, not a membership.
+                "has_token": bool(c.owner_token_path),
             }
         )
     members += [

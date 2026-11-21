@@ -129,6 +129,61 @@ describe('SendToCampaignDialog', () => {
     )
   })
 
+  it('offers the owner their own token in a personal campaign (#949)', async () => {
+    // A personal campaign: no memberships, only the synthetic owner row, which
+    // carries the GM title as its character_name.
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue(
+      campaign({
+        owner_id: ME,
+        is_gm_campaign: false,
+        members: [
+          {
+            user_id: ME,
+            username: 'me',
+            display_name: 'Hunter',
+            character_name: 'Game Master',
+            is_owner: true,
+          },
+        ],
+      })
+    )
+
+    const onChooseMember = vi.fn()
+    setup({ onChooseMember })
+
+    await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
+    const route = await screen.findByRole('button', { name: /Set as a character token/ })
+    expect(route).toBeEnabled()
+    await userEvent.click(route)
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Hunter.*Your own token in this campaign/ })
+    )
+
+    expect(onChooseMember).toHaveBeenCalledWith({
+      campaignId: 'c1',
+      campaignName: 'Curse of Strahd',
+      memberId: null,
+      memberName: 'Hunter',
+    })
+  })
+
+  it('does not offer a GM their own row as a character', async () => {
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue(
+      campaign({
+        owner_id: ME,
+        is_gm_campaign: true,
+        members: [{ user_id: ME, username: 'me', character_name: 'Game Master', is_owner: true }],
+      })
+    )
+
+    setup()
+
+    await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
+    expect(await screen.findByRole('button', { name: /Set as a character token/ })).toBeDisabled()
+  })
+
   it('offers no character route in a GM’d campaign with no members', async () => {
     campaigns.list.mockResolvedValue([{ id: 'c1' }])
     campaigns.get.mockResolvedValue(campaign({ owner_id: ME, members: [] }))

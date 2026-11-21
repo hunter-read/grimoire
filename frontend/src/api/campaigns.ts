@@ -170,6 +170,20 @@ export const campaigns = {
       }),
       cacheBust(v)
     ),
+  // The owner's own token. The owner has no membership to hang one on, so it is
+  // kept on the campaign; only the owner may set it.
+  uploadOwnerToken: (id: Id, file: Blob) =>
+    api.upload(
+      postUrl('/campaigns/{campaign_id}/owner/token', { path: { campaign_id: id } }),
+      file
+    ),
+  deleteOwnerToken: (id: Id) =>
+    client.delete('/campaigns/{campaign_id}/owner/token', { path: { campaign_id: id } }),
+  ownerTokenUrl: (id: Id, v?: Id | null) =>
+    mediaUrl(
+      getUrl('/campaigns/{campaign_id}/owner/token', { path: { campaign_id: id } }),
+      cacheBust(v)
+    ),
   uploadMemberSheet: (id: Id, memberId: Id, file: Blob) =>
     api.upload(
       postUrl('/campaigns/{campaign_id}/members/{member_id}/sheet', {
