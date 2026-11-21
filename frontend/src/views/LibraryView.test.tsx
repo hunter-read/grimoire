@@ -918,17 +918,20 @@ describe('LibraryView', () => {
     })
 
     it('draws a library bigger than one batch in batches, ending with every card', async () => {
+      // Just past the first batch (120), so the second is small and quick to draw.
       mockGet.mockResolvedValue(
-        Array.from({ length: 300 }, (_, i) =>
+        Array.from({ length: 130 }, (_, i) =>
           makeSystem({ id: `b${i}`, name: `Game ${String(i).padStart(3, '0')}` })
         )
       )
       renderView()
       await screen.findByText('Game 000')
       // The first batch is drawn on its own, before the rest.
-      expect(screen.queryByText('Game 299')).not.toBeInTheDocument()
-      expect(await screen.findByText('Game 299')).toBeInTheDocument()
-      expect(screen.getByText('300 game systems in your library')).toBeInTheDocument()
+      expect(screen.queryByText('Game 129')).not.toBeInTheDocument()
+      // The next batch waits for a frame and renders as a transition, which a
+      // slow, coverage-instrumented CI runner can take past findBy's 1 s default.
+      expect(await screen.findByText('Game 129', {}, { timeout: 3000 })).toBeInTheDocument()
+      expect(screen.getByText('130 game systems in your library')).toBeInTheDocument()
     })
 
     it('letters a large library and indexes it', async () => {
