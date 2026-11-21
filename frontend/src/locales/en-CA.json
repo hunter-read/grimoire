@@ -4401,6 +4401,7 @@
     "deny": "Deny",
     "approve": "Allow",
     "answerFailed": "That didn't work. Try again.",
+    "permissionsFailed": "Couldn't load the permissions. Choose Customize to try again.",
     "goneTitle": "This sign-in request isn't available",
     "goneBody": "It has expired or was already answered, or app sign-in is turned off. Start the connection again from the app.",
     "failedTitle": "Couldn't load this sign-in request",

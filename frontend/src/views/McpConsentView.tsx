@@ -99,7 +99,7 @@ export default function McpConsentView({ requestId }: McpConsentViewProps) {
         // Back to Read only, with Customize there to try again, rather than
         // a spinner that never finishes.
         setCustomise(false)
-        setError(message(err) || t('mcpConsent.answerFailed'))
+        setError(message(err) || t('mcpConsent.permissionsFailed'))
       })
   }
 

@@ -29,9 +29,10 @@ const actionStyle = (danger?: boolean): CSSProperties => ({
 })
 
 // One key in the list: never its secret, only the prefix that identifies it.
-// A connected app (an MCP client a user approved, issue #906) shows the name it
-// registered with and the host it signs in through instead, and has no
-// Regenerate: it holds tokens it renews itself, not a key to re-mint.
+// A connected app (an MCP client a user approved, issue #906) shows the host it
+// signs in through instead, and has no Regenerate: it holds tokens it renews
+// itself, not a key to re-mint. Its name starts as the client's own and can be
+// changed in Edit, so two connections from one app can be told apart.
 // `showOwner` is the admin's everyone-view: it names whose key this is and only
 // offers Revoke, since nobody may edit or re-mint someone else's key.
 export default function ApiKeyRow({
@@ -46,9 +47,6 @@ export default function ApiKeyRow({
   const when = (iso: string | null | undefined) => formatWhen(iso, i18n.language)
   const granted = grantedPermissions(apiKey, permissions)
   const app = apiKey.kind === 'app'
-  // An app's name starts as the client's own and can be changed in Edit, so
-  // two connections from one app can be told apart ("Claude (work)").
-  const name = apiKey.name
   const Icon = app ? LuPlug : LuKey
   // An app connected twice on one day lists two rows; the time tells them apart.
   const stamp = (iso: string | null | undefined) => formatWhen(iso, i18n.language, app)
@@ -77,7 +75,7 @@ export default function ApiKeyRow({
         <div
           style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
         >
-          <span style={{ fontWeight: 600 }}>{name}</span>
+          <span style={{ fontWeight: 600 }}>{apiKey.name}</span>
           {showOwner && (
             <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
               {t('appSettings.apiKeys.row.owner', { name: apiKey.username || apiKey.user_id })}
@@ -129,7 +127,7 @@ export default function ApiKeyRow({
             <button
               type="button"
               onClick={() => onEdit(apiKey)}
-              aria-label={t('a11y.settings.editNamed', { name })}
+              aria-label={t('a11y.settings.editNamed', { name: apiKey.name })}
               style={actionStyle(false)}
             >
               <LuPencil size={13} /> {t('appSettings.apiKeys.row.edit')}
@@ -138,7 +136,7 @@ export default function ApiKeyRow({
               <button
                 type="button"
                 onClick={() => onRegenerate(apiKey)}
-                aria-label={t('a11y.settings.regenerateNamed', { name })}
+                aria-label={t('a11y.settings.regenerateNamed', { name: apiKey.name })}
                 style={actionStyle(false)}
               >
                 <LuRefreshCw size={13} /> {t('appSettings.apiKeys.row.regenerate')}
@@ -149,7 +147,7 @@ export default function ApiKeyRow({
         <button
           type="button"
           onClick={() => onRevoke(apiKey)}
-          aria-label={t('a11y.settings.revokeNamed', { name })}
+          aria-label={t('a11y.settings.revokeNamed', { name: apiKey.name })}
           style={actionStyle(true)}
         >
           <LuTrash size={13} /> {t('appSettings.apiKeys.row.revoke')}
