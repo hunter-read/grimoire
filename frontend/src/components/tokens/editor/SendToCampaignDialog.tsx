@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { campaigns as campaignsApi } from '../../../api'
+import { campaigns as campaignsApi, characters as charactersApi } from '../../../api'
 import type { Schema } from '../../../api'
 import Spinner from '../../Spinner'
 
@@ -24,27 +24,61 @@ import Spinner from '../../Spinner'
  * campaign's characters. So the characters a GM can reach are never more than
  * one campaign's worth at a time.
  *
- * Both paths mirror the server: character rows match `_assert_can_edit_member`
- * (the member themselves or the campaign owner), and the GM list matches
- * `assert_can_manage`. A viewer with neither relationship sees neither list —
- * anything offered here must be something the server will actually accept.
+ * A campaign's characters come in two kinds, and both are offered (issue #949):
+ *
+ *  - **A player's membership** - the invited player's row on the campaign page,
+ *    which has its own token slot beside its art.
+ *  - **A character sheet** placed in the campaign - a GM's NPCs, or the party
+ *    of a GM-only game with no invited players. A sheet has one picture, its
+ *    portrait, so the token becomes that.
+ *
+ * Both paths mirror the server: membership rows match `_assert_can_edit_member`
+ * (the member themselves or the campaign owner), sheets match the list's
+ * `editable` flag (`editable_character_or_404`: the owner, or a GM let in), and
+ * the GM list matches `assert_can_manage`. A viewer with no such relationship
+ * sees no list - anything offered here must be something the server will
+ * actually accept.
  */
 type Member = Schema<'CampaignMemberOut'>
 type Category = Schema<'CampaignCategoryOut'>
+type Sheet = Schema<'CharacterSummary'>
 
 /** One character a token can be sent to. */
-export interface MemberOption {
+export interface CharacterOption {
+  /** A campaign membership's token, or a character sheet's portrait. */
+  kind: 'member' | 'sheet'
   campaignId: string
   campaignName: string
-  memberId: string
-  memberName: string
+  /** The membership id for a member, the character id for a sheet. */
+  id: string
+  name: string
 }
 
 /** A campaign the viewer runs, with the characters in it. */
 interface OwnedCampaign {
   id: string
   name: string
-  members: MemberOption[]
+  characters: CharacterOption[]
+}
+
+/** The sheets the viewer may edit, keyed by the campaign each is placed in. */
+async function editableSheetsByCampaign(): Promise<Map<string, Sheet[]>> {
+  const byCampaign = new Map<string, Sheet[]>()
+  let sheets: Sheet[] = []
+  try {
+    sheets = (await charactersApi.list()).characters || []
+  } catch {
+    // Sheets are an extra here, not the point: a failed list leaves the
+    // memberships and campaigns still on offer rather than failing the dialog.
+    return byCampaign
+  }
+  for (const sheet of sheets) {
+    if (!sheet.editable || !sheet.campaign_id) continue
+    const list = byCampaign.get(sheet.campaign_id) || []
+    list.push(sheet)
+    byCampaign.set(sheet.campaign_id, list)
+  }
+  return byCampaign
 }
 
 /** A campaign, and optionally a category in it, to file the token under. */
@@ -56,20 +90,20 @@ export interface CampaignChoice {
 export interface SendToCampaignDialogProps {
   userId?: string | null
   onClose: () => void
-  onChooseMember: (option: MemberOption) => void
+  onChooseCharacter: (option: CharacterOption) => void
   onChooseCampaign: (choice: CampaignChoice) => void
 }
 
 export default function SendToCampaignDialog({
   userId,
   onClose,
-  onChooseMember,
+  onChooseCharacter,
   onChooseCampaign,
 }: SendToCampaignDialogProps) {
   const { t } = useTranslation()
-  // Characters in games the viewer *plays* — their own membership only.
-  const [playing, setPlaying] = useState<MemberOption[] | null>(null)
-  // Campaigns the viewer owns, each carrying its own member rows for step three.
+  // Characters in games the viewer *plays* - their own membership and sheets.
+  const [playing, setPlaying] = useState<CharacterOption[] | null>(null)
+  // Campaigns the viewer owns, each carrying its own characters for step three.
   const [owned, setOwned] = useState<OwnedCampaign[]>([])
   const [error, setError] = useState('')
   // The campaign a GM has drilled into, and whether they are picking a character
@@ -83,38 +117,51 @@ export default function SendToCampaignDialog({
     void (async () => {
       try {
         // `/campaigns` answers with a bare array, not a `{campaigns}` wrapper.
-        const list = await campaignsApi.list()
+        const [list, sheetsByCampaign] = await Promise.all([
+          campaignsApi.list(),
+          editableSheetsByCampaign(),
+        ])
         // A wrapped `{ campaigns }` body is tolerated as well as the bare list.
         const summaries = Array.isArray(list)
           ? list
           : (list as { campaigns?: Schema<'CampaignOut'>[] } | null)?.campaigns || []
-        const playingRows: MemberOption[] = []
+        const playingRows: CharacterOption[] = []
         const ownedRows: OwnedCampaign[] = []
         // The list payload carries only light member rows, so each campaign is
         // fetched for the membership ids the token endpoint is keyed by.
         for (const summary of summaries) {
           const detail = await campaignsApi.get(summary.id)
           // Only members that have an id reach here; see `membersWithIds`.
-          const row = (m: Member): MemberOption => ({
+          const row = (m: Member): CharacterOption => ({
+            kind: 'member',
             campaignId: detail.id,
             campaignName: detail.name,
-            memberId: m.id as string,
-            memberName: m.character_name || m.display_name || m.username,
+            id: m.id as string,
+            name: m.character_name || m.display_name || m.username,
+          })
+          const sheetRow = (sheet: Sheet): CharacterOption => ({
+            kind: 'sheet',
+            campaignId: detail.id,
+            campaignName: detail.name,
+            id: sheet.id,
+            name: sheet.name || t('tokenEditor.unnamedSheet'),
           })
           // The synthetic owner row has no membership id to key an upload by.
           const membersWithIds = (detail.members || []).filter((m) => m.id)
+          const sheets = (sheetsByCampaign.get(detail.id) || []).map(sheetRow)
 
           if (detail.owner_id === userId) {
             ownedRows.push({
               id: detail.id,
               name: detail.name,
-              members: membersWithIds.map(row),
+              characters: [...membersWithIds.map(row), ...sheets],
             })
             continue
           }
           // A game they play in: only their own character is theirs to set.
           const mine = membersWithIds.find((m) => m.user_id === userId)
           if (mine) playingRows.push(row(mine))
+          playingRows.push(...sheets)
         }
         if (!cancelled) {
           setPlaying(playingRows)
@@ -175,6 +222,11 @@ export default function SendToCampaignDialog({
     onClose()
   }
 
+  // A player can hold both a membership and a sheet of the same name in one
+  // campaign, so each row says which picture it replaces.
+  const kindLabel = (option: CharacterOption) =>
+    option.kind === 'sheet' ? t('tokenEditor.sheetPortrait') : t('tokenEditor.memberToken')
+
   const loading = playing === null
   const nothingOffered = !loading && playing!.length === 0 && owned.length === 0
 
@@ -220,19 +272,20 @@ export default function SendToCampaignDialog({
         {/* Step three: the characters in the one campaign a GM drilled into. */}
         {target && pickingCharacter && (
           <div style={listStyle}>
-            {target.members.length === 0 ? (
+            {target.characters.length === 0 ? (
               <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>
                 {t('tokenEditor.noCharacters')}
               </p>
             ) : (
-              target.members.map((option) => (
+              target.characters.map((option) => (
                 <button
-                  key={option.memberId}
+                  key={`${option.kind}:${option.id}`}
                   type="button"
-                  onClick={() => onChooseMember(option)}
+                  onClick={() => onChooseCharacter(option)}
                   style={rowStyle}
                 >
-                  <div style={rowTitle}>{option.memberName}</div>
+                  <div style={rowTitle}>{option.name}</div>
+                  <div style={rowSub}>{kindLabel(option)}</div>
                 </button>
               ))
             )}
@@ -253,11 +306,11 @@ export default function SendToCampaignDialog({
                   type="button"
                   onClick={() => setPickingCharacter(true)}
                   style={rowStyle}
-                  disabled={target.members.length === 0}
+                  disabled={target.characters.length === 0}
                 >
                   <div style={rowTitle}>{t('tokenEditor.asCharacterToken')}</div>
                   <div style={rowSub}>
-                    {target.members.length === 0
+                    {target.characters.length === 0
                       ? t('tokenEditor.noCharacters')
                       : t('tokenEditor.pickCharacterNext')}
                   </div>
@@ -298,13 +351,15 @@ export default function SendToCampaignDialog({
                 <div style={sectionLabel}>{t('tokenEditor.sendToCharacter')}</div>
                 {playing!.map((option) => (
                   <button
-                    key={option.memberId}
+                    key={`${option.kind}:${option.id}`}
                     type="button"
-                    onClick={() => onChooseMember(option)}
+                    onClick={() => onChooseCharacter(option)}
                     style={rowStyle}
                   >
-                    <div style={rowTitle}>{option.memberName}</div>
-                    <div style={rowSub}>{option.campaignName}</div>
+                    <div style={rowTitle}>{option.name}</div>
+                    <div style={rowSub}>
+                      {option.campaignName} · {kindLabel(option)}
+                    </div>
                   </button>
                 ))}
               </>

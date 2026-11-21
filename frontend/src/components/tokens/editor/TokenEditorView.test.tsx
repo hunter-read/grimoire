@@ -29,7 +29,14 @@ vi.mock('../../../lib/tokenCompositor', () => ({
 }))
 
 vi.mock('../../../api', () => ({
-  campaigns: { uploadMemberArt: vi.fn(), list: vi.fn(), get: vi.fn() },
+  campaigns: {
+    uploadMemberArt: vi.fn(),
+    uploadMemberToken: vi.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+    listCategories: vi.fn(),
+  },
+  characters: { list: vi.fn(), uploadPortrait: vi.fn() },
   imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}/${id}/thumb` },
   mediaUrl: (path: string) => `/api${path}`,
 }))
@@ -54,13 +61,20 @@ vi.mock('../../../lib/frameMask', () => ({
   frameApertureMask: vi.fn(() => null),
 }))
 
-import { campaigns as campaignsApi } from '../../../api'
+import { campaigns as campaignsApi, characters as charactersApi } from '../../../api'
 import { composeToBlob, loadImage } from '../../../lib/tokenCompositor'
 import type { LoadedImage } from '../../../lib/tokenCompositor'
 import TokenEditorView from './TokenEditorView'
 
 // Reached untyped: the tests resolve these with partial payloads.
-const campaigns = campaignsApi as unknown as { uploadMemberArt: Mock; list: Mock; get: Mock }
+const campaigns = campaignsApi as unknown as {
+  uploadMemberArt: Mock
+  uploadMemberToken: Mock
+  list: Mock
+  get: Mock
+  listCategories: Mock
+}
+const characters = charactersApi as unknown as { list: Mock; uploadPortrait: Mock }
 
 const loaded = { image: {}, width: 800, height: 600, intrinsic: true } as LoadedImage
 
@@ -70,6 +84,8 @@ beforeEach(() => {
   routeState = {}
   vi.mocked(loadImage).mockResolvedValue(loaded)
   vi.mocked(composeToBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+  characters.list.mockResolvedValue({ characters: [] })
+  campaigns.listCategories.mockResolvedValue([])
 })
 
 /** Render with a source already loaded, which is where both exits live. */
@@ -172,6 +188,55 @@ describe('the character-art exit', () => {
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('sets a chosen membership’s token, not its art', async () => {
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue({
+      id: 'c1',
+      name: 'Curse of Strahd',
+      owner_id: 'someone-else',
+      members: [{ id: 'm1', user_id: 'user-me', character_name: 'Ireena' }],
+    })
+    campaigns.uploadMemberToken.mockResolvedValue({})
+    await renderWithSource()
+
+    await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Ireena/ }))
+
+    await waitFor(() => expect(campaigns.uploadMemberToken).toHaveBeenCalled())
+    const [campaignId, memberId, file] = campaigns.uploadMemberToken.mock.calls[0]
+    expect([campaignId, memberId]).toEqual(['c1', 'm1'])
+    expect((file as File).type).toBe('image/png')
+    expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('sets a chosen character sheet’s portrait (#949)', async () => {
+    // A GM-only campaign: the character is a sheet, with no membership.
+    campaigns.list.mockResolvedValue([{ id: 'c1' }])
+    campaigns.get.mockResolvedValue({
+      id: 'c1',
+      name: 'Curse of Strahd',
+      owner_id: 'user-me',
+      members: [],
+    })
+    characters.list.mockResolvedValue({
+      characters: [{ id: 'ch1', name: 'Strahd', campaign_id: 'c1', editable: true }],
+    })
+    characters.uploadPortrait.mockResolvedValue({})
+    await renderWithSource()
+
+    await userEvent.click(screen.getByRole('button', { name: /Send to a campaign/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Curse of Strahd/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Set as a character token/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Strahd/ }))
+
+    await waitFor(() => expect(characters.uploadPortrait).toHaveBeenCalled())
+    const [characterId, file] = characters.uploadPortrait.mock.calls[0]
+    expect(characterId).toBe('ch1')
+    expect((file as File).type).toBe('image/png')
+    expect(campaigns.uploadMemberToken).not.toHaveBeenCalled()
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/campaigns/c1', expect.anything()))
   })
 
   it('surfaces an upload rejection', async () => {

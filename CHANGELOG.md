@@ -21,6 +21,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - A long description in a content entry keeps its paragraphs when the entry is opened, in the sheet's content browser as well as the compendium
 
+### Fixed
+
+- **A token can be sent to a character sheet in a campaign.** The token editor's **Send to a campaign** only listed invited players, so a GM whose campaign had characters but no players was told there were no characters to set art for. It now lists the campaign's character sheets you may edit too, and sending a token to one sets the sheet's portrait. See [Token editor](docs/token-editor.md)
+
 ## [1.11.1] - 2026-11-19
 
 ### Added

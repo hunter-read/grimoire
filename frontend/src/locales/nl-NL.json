@@ -3924,6 +3924,9 @@
     "sendToCharacter": "Naar een personage sturen",
     "sendToOwnedCampaign": "Naar een campagne die je leidt sturen",
     "pickCharacterNext": "Kies hierna een personage",
+    "memberToken": "Groepstoken",
+    "sheetPortrait": "Portret op het personageblad",
+    "unnamedSheet": "Naamloos personage",
     "chooseCharacter": "Personage kiezen",
     "chooseCharacterHint": "Van wie deze token wordt in {{name}}.",
     "frameVersions": "Versies"

@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { LuArrowLeft, LuDownload, LuUserRound } from 'react-icons/lu'
 
-import { campaigns as campaignsApi, imageSources, mediaUrl } from '../../../api'
+import {
+  campaigns as campaignsApi,
+  characters as charactersApi,
+  imageSources,
+  mediaUrl,
+} from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
 import useIsMobile from '../../../hooks/useIsMobile'
 import Spinner from '../../Spinner'
@@ -14,7 +19,7 @@ import { frameApertureMask } from '../../../lib/frameMask'
 import { resolveIconColor } from '../../campaigns/iconColors'
 import FramePicker from './FramePicker'
 import SendToCampaignDialog from './SendToCampaignDialog'
-import type { CampaignChoice } from './SendToCampaignDialog'
+import type { CampaignChoice, CharacterOption } from './SendToCampaignDialog'
 import TokenEditorCanvas from './TokenEditorCanvas'
 import TokenEditorControls from './TokenEditorControls'
 import TokenSourcePicker from './TokenSourcePicker'
@@ -287,9 +292,14 @@ export default function TokenEditorView() {
   const saveAsArt = ({ campaignId, memberId }: MemberTarget) =>
     deliver(campaignId, (file) => campaignsApi.uploadMemberArt(campaignId, memberId, file))
 
-  // A character's VTT token, stored beside their portrait rather than over it.
-  const saveAsMemberToken = ({ campaignId, memberId }: MemberTarget) =>
-    deliver(campaignId, (file) => campaignsApi.uploadMemberToken(campaignId, memberId, file))
+  // A membership's VTT token is stored beside its art rather than over it. A
+  // character sheet has only its portrait, so there the token becomes that.
+  const saveToCharacter = ({ kind, campaignId, id }: CharacterOption) =>
+    deliver(campaignId, (file) =>
+      kind === 'sheet'
+        ? charactersApi.uploadPortrait(id, file)
+        : campaignsApi.uploadMemberToken(campaignId, id, file)
+    )
 
   // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
   // as a resource under the chosen category in one call — it is guarded by
@@ -484,7 +494,7 @@ export default function TokenEditorView() {
         <SendToCampaignDialog
           userId={user?.id}
           onClose={() => setChoosingDestination(false)}
-          onChooseMember={(choice) => void saveAsMemberToken(choice)}
+          onChooseCharacter={(choice) => void saveToCharacter(choice)}
           onChooseCampaign={(choice) => void saveToCampaign(choice)}
         />
       )}

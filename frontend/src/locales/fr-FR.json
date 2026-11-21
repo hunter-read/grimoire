@@ -3924,6 +3924,9 @@
     "sendToCharacter": "Envoyer à un personnage",
     "sendToOwnedCampaign": "Envoyer à une campagne que vous dirigez",
     "pickCharacterNext": "Choisir ensuite un personnage",
+    "memberToken": "Pion du groupe",
+    "sheetPortrait": "Portrait de la fiche",
+    "unnamedSheet": "Personnage sans nom",
     "chooseCharacter": "Choisir un personnage",
     "chooseCharacterHint": "À qui appartiendra ce pion dans {{name}}.",
     "frameVersions": "Versions"
