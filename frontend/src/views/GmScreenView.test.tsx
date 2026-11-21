@@ -92,7 +92,8 @@ describe('GmScreenView', () => {
       'href',
       '/campaigns/camp/overview'
     )
-    expect(document.title).toMatch(/The Tithe/)
+    // The title is set in an effect, which can land after the heading renders.
+    await waitFor(() => expect(document.title).toMatch(/The Tithe/))
   })
 
   it('says when the campaign is read-only', async () => {
