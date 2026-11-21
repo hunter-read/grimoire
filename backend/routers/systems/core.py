@@ -18,7 +18,7 @@ from ...services.reader_paths import ReaderPaths
 from ...services.systems import (
     get_visible_system,
     load_browsable_system,
-    resolve_cover_book_id,
+    resolve_cover_book_ids,
     visible_cover_id,
 )
 from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
@@ -107,6 +107,7 @@ def list_systems(
     }
     system_tags = tag_service.display_tags_for_resources(db, "system", [s.id for s in systems])
     paths = ReaderPaths(db, current_user)
+    covers = resolve_cover_book_ids(db, systems, user)
     result = []
     for s in systems:
         # Container children are browsed through their container, so they stay
@@ -135,13 +136,12 @@ def list_systems(
         if license and not _has_value(s.license, license):
             continue
         book_count, total_pages = agg.get(s.id, (0, 0))
-        cover_book_id = resolve_cover_book_id(db, s, user)
         result.append(
             serialize_system_summary(
                 s,
                 book_count,
                 int(total_pages or 0),
-                cover_book_id,
+                covers[s.id],
                 tags=system_tags.get(s.id, []),
                 child_count=child_counts.get(s.id, 0),
                 paths=paths,
@@ -373,6 +373,7 @@ def _serialize_children(
         book_links.linked_counts(_count_base(db, user, can_see_explicit), [c.id for c in children]),
     )
     child_tags = tag_service.display_tags_for_resources(db, "system", [c.id for c in children])
+    covers = resolve_cover_book_ids(db, children, user)
     rows = []
     for c in children:
         book_count, total_pages = agg.get(c.id, (0, 0))
@@ -381,7 +382,7 @@ def _serialize_children(
                 c,
                 book_count,
                 int(total_pages or 0),
-                resolve_cover_book_id(db, c, user),
+                covers[c.id],
                 tags=child_tags.get(c.id, []),
                 paths=paths,
             )
