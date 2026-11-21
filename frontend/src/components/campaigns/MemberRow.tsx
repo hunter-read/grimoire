@@ -179,6 +179,7 @@ export default function MemberRow({
           memberId={member.id}
           name={member.character_name || displayLabel}
           hasToken={!!member.has_token}
+          tokenEditable={!!member.token_editable}
           canEdit={canEditMedia}
           onChanged={onMediaChanged}
         />

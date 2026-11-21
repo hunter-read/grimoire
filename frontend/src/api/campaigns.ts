@@ -6,6 +6,7 @@ import api, {
   client,
   getUrl,
   postUrl,
+  putUrl,
   mediaUrl,
   cacheBust,
   withQuery,
@@ -15,6 +16,32 @@ import api, {
   type ResponseOf,
   type FolderEntry,
 } from './client'
+
+/** How a token was made in the token editor, as the server keeps it. */
+export type TokenRecipe = ResponseOf<
+  '/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}',
+  'get'
+>
+
+/** Which stored token a recipe belongs to: a membership, the owner, or a campaign file. */
+export type TokenRecipeKind = 'member' | 'owner' | 'file'
+
+/**
+ * A token's recipe as the editor sends it with the token: the settings, and the
+ * art itself when it came from the device (the server keeps a copy, since it
+ * exists nowhere else). Without one, an upload clears any recipe the token had.
+ */
+export interface TokenRecipeUpload {
+  recipe: TokenRecipe
+  source?: Blob | null
+}
+
+function recipeFields(upload?: TokenRecipeUpload | null): Record<string, string | Blob> {
+  if (!upload) return {}
+  const fields: Record<string, string | Blob> = { recipe: JSON.stringify(upload.recipe) }
+  if (upload.source) fields.source = upload.source
+  return fields
+}
 
 /** Which resource categories (note | resource) a category list is for. */
 type CategoryKind = QueryOf<'/campaigns/{campaign_id}/categories', 'get'>['kind']
@@ -152,12 +179,13 @@ export const campaigns = {
     ),
   // The character's VTT token — a separate picture from the art above, with the
   // same "the member themselves or the campaign owner" permission rule.
-  uploadMemberToken: (id: Id, memberId: Id, file: Blob) =>
+  uploadMemberToken: (id: Id, memberId: Id, file: Blob, recipe?: TokenRecipeUpload | null) =>
     api.upload(
       postUrl('/campaigns/{campaign_id}/members/{member_id}/token', {
         path: { campaign_id: id, member_id: memberId },
       }),
-      file
+      file,
+      recipeFields(recipe)
     ),
   deleteMemberToken: (id: Id, memberId: Id) =>
     client.delete('/campaigns/{campaign_id}/members/{member_id}/token', {
@@ -172,10 +200,34 @@ export const campaigns = {
     ),
   // The owner's own token. The owner has no membership to hang one on, so it is
   // kept on the campaign; only the owner may set it.
-  uploadOwnerToken: (id: Id, file: Blob) =>
+  uploadOwnerToken: (id: Id, file: Blob, recipe?: TokenRecipeUpload | null) =>
     api.upload(
       postUrl('/campaigns/{campaign_id}/owner/token', { path: { campaign_id: id } }),
-      file
+      file,
+      recipeFields(recipe)
+    ),
+  // Reopening a stored token in the token editor: its settings, and the device
+  // art it kept (a library source is read from the library instead).
+  getTokenRecipe: (id: Id, kind: TokenRecipeKind, targetId: Id) =>
+    client.get('/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}', {
+      path: { campaign_id: id, kind, target_id: targetId },
+    }),
+  tokenRecipeSource: (id: Id, kind: TokenRecipeKind, targetId: Id) =>
+    api.blob(
+      getUrl('/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}/source', {
+        path: { campaign_id: id, kind, target_id: targetId },
+      })
+    ),
+  // A token filed as a campaign resource, replaced in place: same resource,
+  // category and visibility, new picture and recipe.
+  updateTokenFile: (id: Id, fileId: Id, file: Blob, recipe?: TokenRecipeUpload | null) =>
+    api.upload(
+      putUrl('/campaigns/{campaign_id}/files/{file_id}/token', {
+        path: { campaign_id: id, file_id: fileId },
+      }),
+      file,
+      recipeFields(recipe),
+      'PUT'
     ),
   deleteOwnerToken: (id: Id) =>
     client.delete('/campaigns/{campaign_id}/owner/token', { path: { campaign_id: id } }),
@@ -266,12 +318,11 @@ export const campaigns = {
       })
     ),
   // Image upload for note embedding. opts: { categoryId, newCategoryName }.
-  uploadImage: (id: Id, file: Blob, opts: UploadFiling = {}) =>
-    api.upload(
-      postUrl('/campaigns/{campaign_id}/images', { path: campaign(id) }),
-      file,
-      filingFields(opts)
-    ),
+  uploadImage: (id: Id, file: Blob, opts: UploadFiling = {}, recipe?: TokenRecipeUpload | null) =>
+    api.upload(postUrl('/campaigns/{campaign_id}/images', { path: campaign(id) }), file, {
+      ...filingFields(opts),
+      ...recipeFields(recipe),
+    }),
   // `limit` is applied per resource type server-side. It defaults high because
   // the picker browses a whole collection as a folder tree rather than showing a
   // preview slice; the server clamps it to its own ceiling.

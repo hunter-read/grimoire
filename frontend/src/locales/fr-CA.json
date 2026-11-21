@@ -2462,6 +2462,8 @@
     "removeToken": "Retirer le pion",
     "removeTokenFor": "Retirer le pion de {{name}}",
     "removeTokenConfirm": "Retirer le pion de {{name}} ? Cette action est irréversible.",
+    "editToken": "Modifier le pion",
+    "editTokenFor": "Modifier le pion de {{name}}",
     "createToken": "Créer un pion…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Envoyer à un personnage",
     "sendToOwnedCampaign": "Envoyer à une campagne que vous dirigez",
     "pickCharacterNext": "Choisir ensuite un personnage",
+    "updateToken": "Mettre à jour le pion",
+    "recipeFailed": "Les réglages de ce pion n'ont pas pu être chargés. Vous pouvez le recommencer à partir d'une nouvelle image.",
+    "recipeSourceGone": "L'image dont ce pion est issu n'est plus disponible. Le cadre et les couleurs sont conservés : choisissez une nouvelle image pour le terminer.",
     "ownTokenHint": "Votre propre pion dans cette campagne",
     "chooseCharacter": "Choisir un personnage",
     "chooseCharacterHint": "À qui appartiendra ce pion dans {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "Retirer {{name}} de cette campagne ?",
       "removeNamed": "Retirer {{name}}",
       "downloadNamed": "Télécharger {{name}}",
+      "editTokenNamed": "Modifier {{name}} dans l'éditeur de pions",
       "removeSheetConfirm": "Retirer la feuille de personnage de {{name}} ? C’est irréversible.",
       "removeSheetFor": "Retirer la feuille de personnage de {{name}}",
       "replaceSheetFor": "Remplacer la feuille de personnage de {{name}}",

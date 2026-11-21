@@ -63,6 +63,7 @@ from .calendar import (
     revoke_calendar_token,
 )
 from .owner_token import delete_owner_token, get_owner_token, upload_owner_token
+from .token_recipes import get_token_recipe, get_token_recipe_source, update_token_file
 from .uploads import (
     upload_banner,
     get_banner,
@@ -169,6 +170,8 @@ from ._response_schemas import (
     MemberArtUploadOut,
     MemberTokenUploadOut,
     OwnerTokenUploadOut,
+    TokenFileUpdateOut,
+    TokenRecipeOut,
     MemberInviteOut,
     MemberSheetOut,
     MemberStatusOut,
@@ -503,6 +506,29 @@ router.add_api_route(
     methods=["DELETE"],
     summary="Remove the campaign owner's token",
     status_code=204,
+)
+# Reopening a stored token in the token editor. `kind` is member (a membership
+# id), owner (the campaign id) or file (a campaign file id); the recipe itself
+# is written by whichever upload stored the token.
+router.add_api_route(
+    "/{campaign_id}/token-recipes/{kind}/{target_id}",
+    get_token_recipe,
+    methods=["GET"],
+    summary="Get the token editor recipe a stored token was made with",
+    response_model=TokenRecipeOut,
+)
+router.add_api_route(
+    "/{campaign_id}/token-recipes/{kind}/{target_id}/source",
+    get_token_recipe_source,
+    methods=["GET"],
+    summary="Get the device art a token recipe kept",
+)
+router.add_api_route(
+    "/{campaign_id}/files/{file_id}/token",
+    update_token_file,
+    methods=["PUT"],
+    summary="Replace a campaign image with a new version of the token (GM)",
+    response_model=TokenFileUpdateOut,
 )
 router.add_api_route(
     "/{campaign_id}/members/{member_id}/sheet",

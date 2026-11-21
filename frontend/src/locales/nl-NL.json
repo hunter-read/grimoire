@@ -2462,6 +2462,8 @@
     "removeToken": "Token verwijderen",
     "removeTokenFor": "Token van {{name}} verwijderen",
     "removeTokenConfirm": "Token van {{name}} verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "editToken": "Token bewerken",
+    "editTokenFor": "Token van {{name}} bewerken",
     "createToken": "Token maken…"
   },
   "sessions": {
@@ -3933,6 +3935,9 @@
     "sendToCharacter": "Naar een personage sturen",
     "sendToOwnedCampaign": "Naar een campagne die je leidt sturen",
     "pickCharacterNext": "Kies hierna een personage",
+    "updateToken": "Token bijwerken",
+    "recipeFailed": "De instellingen van deze token konden niet worden geladen. Je kunt opnieuw beginnen met een nieuwe afbeelding.",
+    "recipeSourceGone": "De afbeelding waarvan deze token is gemaakt, is niet meer beschikbaar. Kader en kleuren blijven bewaard - kies een nieuwe afbeelding om hem af te maken.",
     "ownTokenHint": "Je eigen token in deze campagne",
     "chooseCharacter": "Personage kiezen",
     "chooseCharacterHint": "Van wie deze token wordt in {{name}}.",
@@ -4644,6 +4649,7 @@
       "removeMemberConfirm": "{{name}} uit deze campagne verwijderen?",
       "removeNamed": "{{name}} verwijderen",
       "downloadNamed": "{{name}} downloaden",
+      "editTokenNamed": "{{name}} bewerken in de token-editor",
       "removeSheetConfirm": "Personageblad van {{name}} verwijderen? Dit kan niet ongedaan worden gemaakt.",
       "removeSheetFor": "Personageblad van {{name}} verwijderen",
       "replaceSheetFor": "Personageblad van {{name}} vervangen",

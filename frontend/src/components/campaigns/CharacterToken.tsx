@@ -16,7 +16,9 @@ import LazyImg from '../LazyImg'
  *
  * The disc downloads the PNG, since a token is for dropping into a VTT. Someone
  * who may set it can also make a new one, which opens the editor bound to save
- * straight back here, or remove it. `canEdit` must match the server: the
+ * straight back here, or remove it. A token made in the editor kept its recipe
+ * (`tokenEditable`), so that button becomes "Edit token" and reopens it as it
+ * was (issue #948). `canEdit` must match the server: the
  * member themselves or the campaign owner for a membership, the owner alone for
  * their own. With no token and no right to make one, nothing renders.
  */
@@ -26,6 +28,8 @@ interface CharacterTokenProps {
   name: string
   hasToken: boolean
   canEdit: boolean
+  /** The token kept the editor's recipe, so it can be reopened rather than redone. */
+  tokenEditable?: boolean
   onChanged?: () => void
 }
 
@@ -35,6 +39,7 @@ export default function CharacterToken({
   name,
   hasToken,
   canEdit,
+  tokenEditable = false,
   onChanged,
 }: CharacterTokenProps) {
   const { t } = useTranslation()
@@ -50,9 +55,22 @@ export default function CharacterToken({
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'character'
 
+  const reopen = hasToken && tokenEditable
   const openEditor = () => {
     void navigate('/tokens/editor', {
-      state: { campaignId, memberId: memberId ?? undefined, memberName: name, saveAs: 'token' },
+      state: {
+        campaignId,
+        memberId: memberId ?? undefined,
+        memberName: name,
+        saveAs: 'token',
+        ...(reopen
+          ? {
+              recipe: memberId
+                ? { kind: 'member', targetId: memberId }
+                : { kind: 'owner', targetId: campaignId },
+            }
+          : {}),
+      },
     })
   }
 
@@ -108,8 +126,10 @@ export default function CharacterToken({
             type="button"
             onClick={openEditor}
             disabled={busy}
-            title={t('members.remakeToken')}
-            aria-label={t('members.remakeTokenFor', { name })}
+            title={reopen ? t('members.editToken') : t('members.remakeToken')}
+            aria-label={
+              reopen ? t('members.editTokenFor', { name }) : t('members.remakeTokenFor', { name })
+            }
             style={iconBtn}
           >
             <LuWand size={12} aria-hidden="true" />

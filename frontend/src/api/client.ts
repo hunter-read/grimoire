@@ -283,6 +283,11 @@ export const postUrl = <P extends PathsFor<'post'>>(
   ...args: RequestArgs<Operation<P, 'post'>>
 ) => urlFor('post', path, ...args)
 
+export const putUrl = <P extends PathsFor<'put'>>(
+  path: P,
+  ...args: RequestArgs<Operation<P, 'put'>>
+) => urlFor('put', path, ...args)
+
 // `v` cache-busts a URL whose content can change under it.
 export const cacheBust = (v?: Id | null): Record<string, Id> => (v ? { v } : {})
 
@@ -400,12 +405,27 @@ const api = {
     URL.revokeObjectURL(objectUrl)
   },
 
+  // Fetch a file response as a Blob, authenticated like every other call - for
+  // bytes the app needs in hand (the token editor re-reading the art it kept)
+  // rather than shown or saved.
+  blob: async (url: string): Promise<Blob> => {
+    const res = await authedFetch(`/api${url}`, () => ({ headers: authHeaders() }))
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
+      throw apiError('Unauthorized', { status: 401 })
+    }
+    if (!res.ok) throw apiError('Request failed', { status: res.status })
+    return res.blob()
+  },
+
   // Multipart upload — do NOT set Content-Type so the browser adds the boundary.
-  // `fields` appends extra form values alongside the file.
+  // `fields` appends extra form values alongside the file; `method` is POST
+  // unless the route replaces something in place.
   upload: (
     url: string,
     file: Blob,
-    fields: Record<string, string | Blob> = {}
+    fields: Record<string, string | Blob> = {},
+    method: 'POST' | 'PUT' = 'POST'
   ): Promise<unknown> => {
     // Rebuilt per attempt: a FormData body is a one-shot stream, so a retry
     // after a token refresh needs its own instance.
@@ -416,7 +436,7 @@ const api = {
       return form
     }
     return authedFetch(`/api${url}`, () => ({
-      method: 'POST',
+      method,
       headers: authHeaders(),
       body: buildForm(),
     })).then(handleResponse)

@@ -20,6 +20,7 @@ from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ...security import INERT_DOCUMENT_HEADERS
 from ...services.books.covers import COVER_MAX_SOURCE_PIXELS
+from ...services.campaigns.token_recipes import clear_recipe, replace_recipe
 from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._file_access import can_read_campaign_file
@@ -458,14 +459,20 @@ def upload_member_token(
     campaign_id: str,
     member_id: str,
     file: UploadFile = File(...),
+    recipe: Optional[str] = Form(None),
+    source: Optional[UploadFile] = File(None),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Set a member's token. The token editor also sends its ``recipe`` (and the
+    ``source`` art, for art from the device) so the token can be reopened; see
+    ``services/campaigns/token_recipes``. An upload without one clears it."""
     c = get_campaign_or_404(db, campaign_id)
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
     data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
+    member.character_token_recipe = replace_recipe(f"member-{member_id}", recipe, source)
 
     os.makedirs(_TOKEN_DIR, exist_ok=True)
     _remove_existing(_TOKEN_DIR, member_id)
@@ -507,7 +514,9 @@ def delete_member_token(
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
     _remove_existing(_TOKEN_DIR, member_id)
+    clear_recipe(f"member-{member_id}")
     member.character_token_path = None
+    member.character_token_recipe = None
     db.commit()
 
 
@@ -729,6 +738,8 @@ def upload_campaign_image(
     file: UploadFile = File(...),
     category_id: str = Form(""),
     new_category_name: str = Form(""),
+    recipe: Optional[str] = Form(None),
+    source: Optional[UploadFile] = File(None),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -758,11 +769,19 @@ def upload_campaign_image(
         db, campaign_id, category_id, new_category_name
     )
 
+    # A token from the token editor carries its recipe, so the file can be
+    # reopened and updated in place. The id is chosen here because the stored
+    # source art is named for it.
+    file_id = str(uuid.uuid4())
+    token_recipe = replace_recipe(f"file-{file_id}", recipe, source) if recipe else None
+
     stored = f"{uuid.uuid4().hex}{ext}"
     with open(os.path.join(_FILES_DIR, stored), "wb") as f:
         f.write(data)
 
     cf = CampaignFile(
+        id=file_id,
+        token_recipe=token_recipe,
         campaign_id=campaign_id,
         stored_path=stored,
         filename=os.path.basename(file.filename or stored),
@@ -792,6 +811,7 @@ def upload_campaign_image(
         "resource_id": cf.id,
         "name": cf.filename,
         "is_image": True,
+        "token_editable": token_recipe is not None,
         "visibility": res.visibility,
         "category_id": res.category_id,
         "sort_order": res.sort_order,

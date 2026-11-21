@@ -2264,6 +2264,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/campaigns/{campaign_id}/files/{file_id}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a campaign image with a new version of the token (GM)
+         * @description Replace a campaign image with a new version of the token, keeping its place.
+         *
+         *     The resource, its category, visibility and shares stay as they were; only
+         *     the picture and its recipe change. Bound by the same upload limits as a new
+         *     campaign image.
+         */
+        put: operations["update_token_file_api_campaigns__campaign_id__files__file_id__token_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/campaigns/{campaign_id}/gm-screen": {
         parameters: {
             query?: never;
@@ -2700,7 +2724,12 @@ export interface paths {
         /** Get a member's character token */
         get: operations["get_member_token_api_campaigns__campaign_id__members__member_id__token_get"];
         put?: never;
-        /** Upload a member's character token */
+        /**
+         * Upload a member's character token
+         * @description Set a member's token. The token editor also sends its ``recipe`` (and the
+         *     ``source`` art, for art from the device) so the token can be reopened; see
+         *     ``services/campaigns/token_recipes``. An upload without one clears it.
+         */
         post: operations["upload_member_token_api_campaigns__campaign_id__members__member_id__token_post"];
         /** Remove a member's character token */
         delete: operations["delete_member_token_api_campaigns__campaign_id__members__member_id__token_delete"];
@@ -2737,7 +2766,11 @@ export interface paths {
         /** Get the campaign owner's token */
         get: operations["get_owner_token_api_campaigns__campaign_id__owner_token_get"];
         put?: never;
-        /** Upload the campaign owner's token */
+        /**
+         * Upload the campaign owner's token
+         * @description Set the owner's token, with the token editor's ``recipe`` when it sends
+         *     one (see ``services/campaigns/token_recipes``).
+         */
         post: operations["upload_owner_token_api_campaigns__campaign_id__owner_token_post"];
         /** Remove the campaign owner's token */
         delete: operations["delete_owner_token_api_campaigns__campaign_id__owner_token_delete"];
@@ -2970,6 +3003,46 @@ export interface paths {
          *     campaign PDF files.
          */
         get: operations["list_sheet_sources_api_campaigns__campaign_id__sheet_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the token editor recipe a stored token was made with
+         * @description The token editor's settings for a stored token, to reopen it.
+         */
+        get: operations["get_token_recipe_api_campaigns__campaign_id__token_recipes__kind___target_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the device art a token recipe kept
+         * @description The device art a recipe kept. A library source is read from the library.
+         */
+        get: operations["get_token_recipe_source_api_campaigns__campaign_id__token_recipes__kind___target_id__source_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9388,6 +9461,15 @@ export interface components {
              */
             paths?: string[];
         };
+        /** Body_update_token_file_api_campaigns__campaign_id__files__file_id__token_put */
+        Body_update_token_file_api_campaigns__campaign_id__files__file_id__token_put: {
+            /** File */
+            file: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
+        };
         /** Body_upload_audio_cover_api_audio__audio_id__cover_post */
         Body_upload_audio_cover_api_audio__audio_id__cover_post: {
             /** File */
@@ -9432,6 +9514,10 @@ export interface components {
              * @default
              */
             new_category_name?: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
         };
         /** Body_upload_file_api_files_upload_post */
         Body_upload_file_api_files_upload_post: {
@@ -9469,6 +9555,10 @@ export interface components {
         Body_upload_member_token_api_campaigns__campaign_id__members__member_id__token_post: {
             /** File */
             file: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
         };
         /** Body_upload_oidc_button_icon_api_settings_oidc_button_icon_post */
         Body_upload_oidc_button_icon_api_settings_oidc_button_icon_post: {
@@ -9479,6 +9569,10 @@ export interface components {
         Body_upload_owner_token_api_campaigns__campaign_id__owner_token_post: {
             /** File */
             file: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
         };
         /** Body_upload_portrait_api_characters__character_id__portrait_post */
         Body_upload_portrait_api_characters__character_id__portrait_post: {
@@ -10409,6 +10503,8 @@ export interface components {
             is_owner?: boolean | null;
             /** Status */
             status?: string | null;
+            /** Token Editable */
+            token_editable?: boolean | null;
             /** User Id */
             user_id: string;
             /** Username */
@@ -14498,6 +14594,8 @@ export interface components {
             shared_user_ids?: string[] | null;
             /** Sort Order */
             sort_order?: number | null;
+            /** Token Editable */
+            token_editable?: boolean | null;
             /** Visibility */
             visibility?: string | null;
         };
@@ -19025,6 +19123,16 @@ export interface components {
              */
             variants?: components["schemas"]["VariantEntry"][];
         };
+        /**
+         * TokenFileUpdateOut
+         * @description Returned when a token filed as a campaign resource is updated in place.
+         */
+        TokenFileUpdateOut: {
+            /** Id */
+            id: string;
+            /** Token Editable */
+            token_editable: boolean;
+        };
         /** TokenFoldersResponse */
         TokenFoldersResponse: {
             /** Folders */
@@ -19082,6 +19190,50 @@ export interface components {
             variant_count?: number;
             /** Variant Kinds */
             variant_kinds?: string[];
+        };
+        /**
+         * TokenRecipeOut
+         * @description How a stored token was made in the token editor.
+         */
+        TokenRecipeOut: {
+            /**
+             * Background
+             * @default
+             */
+            background?: string;
+            /**
+             * Frame Color
+             * @default
+             */
+            frame_color?: string;
+            /** Frame Id */
+            frame_id?: string | null;
+            /** Size */
+            size: number;
+            source: components["schemas"]["TokenRecipeSourceOut"];
+            transform: components["schemas"]["TokenRecipeTransformOut"];
+        };
+        /** TokenRecipeSourceOut */
+        TokenRecipeSourceOut: {
+            /** Id */
+            id?: string | null;
+            /** Type */
+            type: string;
+        };
+        /** TokenRecipeTransformOut */
+        TokenRecipeTransformOut: {
+            /** Flipx */
+            flipX: boolean;
+            /** Flipy */
+            flipY: boolean;
+            /** Offsetx */
+            offsetX: number;
+            /** Offsety */
+            offsetY: number;
+            /** Rotation */
+            rotation: number;
+            /** Scale */
+            scale: number;
         };
         /** TokenUpdate */
         TokenUpdate: {
@@ -25731,6 +25883,47 @@ export interface operations {
             };
         };
     };
+    update_token_file_api_campaigns__campaign_id__files__file_id__token_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                file_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_update_token_file_api_campaigns__campaign_id__files__file_id__token_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenFileUpdateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_gm_screen_api_campaigns__campaign_id__gm_screen_get: {
         parameters: {
             query?: never;
@@ -27774,6 +27967,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SheetSourcesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_token_recipe_api_campaigns__campaign_id__token_recipes__kind___target_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                kind: "member" | "owner" | "file";
+                target_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenRecipeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_token_recipe_source_api_campaigns__campaign_id__token_recipes__kind___target_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                campaign_id: string;
+                kind: "member" | "owner" | "file";
+                target_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

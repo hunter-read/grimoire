@@ -39,6 +39,8 @@ UNTYPED_BY_DESIGN = {
     "/api/campaigns/{campaign_id}/members/{member_id}/art",
     "/api/campaigns/{campaign_id}/members/{member_id}/token",
     "/api/campaigns/{campaign_id}/owner/token",
+    # The source art a token recipe kept, served as the image itself.
+    "/api/campaigns/{campaign_id}/token-recipes/{kind}/{target_id}/source",
     "/api/campaigns/{campaign_id}/members/{member_id}/sheet",
     "/api/campaigns/{campaign_id}/wiki/export",
     "/api/campaigns/{campaign_id}/wiki/templates/{template_id}/export",

@@ -1769,6 +1769,9 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/owner/token` | POST | owner | Upload/replace the owner's own VTT token (multipart `file`). Returns `{owner_token_path}`. The owner has no membership to hold one, so this is how a player running a personal campaign keeps a token for their character without storing it over their sheet's portrait. 409 while archived |
 | `/api/campaigns/:id/owner/token` | GET | member or owner | The owner's token image; 404 when none is set |
 | `/api/campaigns/:id/owner/token` | DELETE | owner | Remove the owner's token |
+| `/api/campaigns/:id/token-recipes/:kind/:target_id` | GET | whoever may change the token | The [token recipe](#token-recipes) a stored token was made with. `kind` is `member` (a membership id), `owner` (the campaign id) or `file` (a campaign file id). 404 when the token kept none |
+| `/api/campaigns/:id/token-recipes/:kind/:target_id/source` | GET | whoever may change the token | The device art a recipe kept, as the image itself. 404 for a recipe whose art is a library item |
+| `/api/campaigns/:id/files/:file_id/token` | PUT | owner | Replace a campaign image with a new version of a token (multipart `file`, optional `recipe` and `source`). The resource keeps its id, category, visibility and shares; only the picture and its recipe change. 400 for a file that isn't an image. Bound by the campaign upload limits. Returns `{id, token_editable}` |
 | `/api/campaigns/:id/members/:member_id/sheet` | POST | member (own) or owner | Upload/replace character sheet (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/sheet` | GET | member or owner | Download character sheet (original filename) |
 | `/api/campaigns/:id/members/:member_id/sheet` | DELETE | member (own) or owner | Remove character sheet |
@@ -1789,6 +1792,28 @@ working against a read-only library, so a character token is campaign data (stor
 campaign's *resources* instead goes through `POST /api/campaigns/:id/images`, which stores it
 as a campaign file and links it as a `file` resource under an optional category.
 
+#### Token recipes
+
+A token made in the token editor is a flat PNG, so each stored token can keep a
+*recipe* beside it - the editor's settings and where its art came from - and the
+editor reopens it from that. The three token uploads (`/members/:member_id/token`,
+`/owner/token`, `/images`) and the in-place `/files/:file_id/token` take two
+optional multipart fields:
+
+- `recipe` - JSON: `{size, frame_id, frame_color, background, transform: {scale,
+  offsetX, offsetY, rotation, flipX, flipY}, source: {type, id}}`. `source.type`
+  is `token` or `map` (a library item, by `id` - nothing is copied out of the
+  library) or `upload`. Checked before anything is written; an invalid one is a
+  400.
+- `source` - the art itself, required for an `upload` source (PNG, JPEG, WebP
+  or GIF, at most 20 MB). It is kept under
+  `DATA_PATH/campaign_uploads/token_sources/` and removed with the token.
+
+An upload **without** a recipe clears the one the token had: a recipe describes
+one particular file. The member payload's `token_editable` (also on the owner
+row) and a file resource's `token_editable` say whether a recipe is there to
+reopen. Only whoever may change the token reads its recipe or its art.
+
 #### Resources
 
 | Endpoint | Method | Auth | Description |
@@ -1802,7 +1827,7 @@ as a campaign file and links it as a `file` resource under an optional category.
 | `/api/campaigns/:id/resources/:res_id` | PATCH | owner | Update visibility/shares/category. Body: `{visibility?, shared_user_ids?, category_id?}` (each optional; `category_id: ""` clears it). A `shared_user_ids` entry that names no user is `400` |
 | `/api/campaigns/:id/resources/:res_id` | DELETE | owner | Unlink resource (deletes the underlying file for `file` resources) |
 | `/api/campaigns/:id/files` | POST | owner | Upload a campaign file (multipart `file`); links it as a `file` resource. Optional `category_id` / `new_category_name` form fields file it under a resource category in the same call. Subject to admin upload limits (admins exempt). |
-| `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there). |
+| `/api/campaigns/:id/images` | POST | owner | Upload an image (multipart `file`, image types only) to embed in a wiki note; links it as a `file` resource with `is_image: true`. Optional multipart fields: `category_id` (file it under an existing resource category) or `new_category_name` (create a category and file it there), and a [token recipe](#token-recipes) (`recipe`, `source`) for a token from the token editor. |
 | `/api/campaigns/:id/files/:file_id` | GET | per visibility | Serve a campaign file (honours the linking resource's visibility; a [map page](#map-pages) the caller can read shares its picture, and the copy of a deleted library map follows the rules under [map pages](#map-pages)). A PNG, JPEG, GIF or WebP image - the types that get a thumbnail - is sent `Content-Disposition: inline`, so it opens in the browser tab; anything else, SVG included, is an `attachment` and downloads. The type comes from the file's extension, and every file is sent with `nosniff` and a sandboxing `Content-Security-Policy`, so a mislabelled file can't run as a page. The sandbox carries `allow-downloads` and nothing else: Firefox applies it to saving the file as well, and without it every download - an attachment, or "Save Image As" on an image opened in its own tab - fails. A `304` repeats the disposition, so a copy cached as a download switches to inline |
 
 Resource types: `book`, `map`, `token`, `audio`, `model`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload - those render inline with a thumbnail instead of as a download card).
