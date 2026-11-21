@@ -399,8 +399,14 @@ SAME_ORIGIN_FRAME_HEADERS = {
 # no framing. An <img> already renders SVG like this, so pages that embed these
 # files are unaffected. The middleware below keeps it in place of the app-wide
 # policy, as it does for SAME_ORIGIN_FRAME_HEADERS.
+#
+# The sandbox keeps `allow-downloads`. Firefox applies a response's sandbox to
+# saving it as well as to showing it, so without the token the file downloads
+# as "Failed" - an attachment, and "Save Image As" on an image opened in its own
+# tab alike (issue #946). Nothing in the file can start a download itself: the
+# sandbox still allows no script.
 INERT_DOCUMENT_CSP = (
-    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox; "
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox allow-downloads; "
     "frame-ancestors 'none'"
 )
 INERT_DOCUMENT_HEADERS = {"Content-Security-Policy": INERT_DOCUMENT_CSP}

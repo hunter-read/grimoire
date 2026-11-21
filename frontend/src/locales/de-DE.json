@@ -4643,6 +4643,7 @@
       "removeMember": "{{name}} aus der Kampagne entfernen",
       "removeMemberConfirm": "{{name}} aus dieser Kampagne entfernen?",
       "removeNamed": "{{name}} entfernen",
+      "downloadNamed": "{{name}} herunterladen",
       "removeSheetConfirm": "Charakterbogen von {{name}} entfernen? Das lässt sich nicht rückgängig machen.",
       "removeSheetFor": "Charakterbogen von {{name}} entfernen",
       "replaceSheetFor": "Charakterbogen von {{name}} ersetzen",

@@ -4643,6 +4643,7 @@
       "removeMember": "Quitar a {{name}} de la campaña",
       "removeMemberConfirm": "¿Quitar a {{name}} de esta campaña?",
       "removeNamed": "Quitar {{name}}",
+      "downloadNamed": "Descargar {{name}}",
       "removeSheetConfirm": "¿Quitar la hoja de personaje de {{name}}? No se puede deshacer.",
       "removeSheetFor": "Quitar la hoja de personaje de {{name}}",
       "replaceSheetFor": "Reemplazar la hoja de personaje de {{name}}",

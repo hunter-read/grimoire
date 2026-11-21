@@ -4643,6 +4643,7 @@
       "removeMember": "Retirer {{name}} de la campagne",
       "removeMemberConfirm": "Retirer {{name}} de cette campagne ?",
       "removeNamed": "Retirer {{name}}",
+      "downloadNamed": "Télécharger {{name}}",
       "removeSheetConfirm": "Retirer la feuille de personnage de {{name}} ? C’est irréversible.",
       "removeSheetFor": "Retirer la feuille de personnage de {{name}}",
       "replaceSheetFor": "Remplacer la feuille de personnage de {{name}}",

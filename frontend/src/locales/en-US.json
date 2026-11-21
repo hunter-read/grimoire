@@ -4643,6 +4643,7 @@
       "removeMember": "Remove {{name}} from the campaign",
       "removeMemberConfirm": "Remove {{name}} from this campaign?",
       "removeNamed": "Remove {{name}}",
+      "downloadNamed": "Download {{name}}",
       "removeSheetConfirm": "Remove {{name}}’s character sheet? This can’t be undone.",
       "removeSheetFor": "Remove {{name}}’s character sheet",
       "replaceSheetFor": "Replace {{name}}’s character sheet",

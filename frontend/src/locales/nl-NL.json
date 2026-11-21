@@ -4643,6 +4643,7 @@
       "removeMember": "{{name}} uit de campagne verwijderen",
       "removeMemberConfirm": "{{name}} uit deze campagne verwijderen?",
       "removeNamed": "{{name}} verwijderen",
+      "downloadNamed": "{{name}} downloaden",
       "removeSheetConfirm": "Personageblad van {{name}} verwijderen? Dit kan niet ongedaan worden gemaakt.",
       "removeSheetFor": "Personageblad van {{name}} verwijderen",
       "replaceSheetFor": "Personageblad van {{name}} vervangen",

@@ -2640,6 +2640,27 @@ class TestCampaignFileUploads:
         assert again.status_code == 304
         assert "sandbox" in again.headers["content-security-policy"]
 
+    def test_campaign_files_can_still_be_downloaded(self, client, gm_headers, campaign):
+        """Firefox applies the sandbox to saving the file too, so without
+        `allow-downloads` a token opened in its own tab, or any attachment,
+        downloads as "Failed" (issue #946). Script stays off either way."""
+        url = f"/api/campaigns/{campaign['id']}/files"
+        token = client.post(
+            url, files={"file": ("token.png", _png_bytes(), "image/png")}, headers=gm_headers
+        ).json()
+        doc = client.post(
+            url, files={"file": ("h.txt", b"hello", "text/plain")}, headers=gm_headers
+        ).json()
+        for resource in (token, doc):
+            resp = client.get(f"{url}/{resource['resource_id']}", headers=gm_headers)
+            sandbox = next(
+                d.split()
+                for d in (part.strip() for part in resp.headers["content-security-policy"].split(";"))
+                if d.startswith("sandbox")
+            )
+            assert "allow-downloads" in sandbox
+            assert "allow-scripts" not in sandbox
+
     def test_files_stored_with_a_reported_type_are_served_by_the_same_rules(
         self, client, gm_headers, campaign
     ):

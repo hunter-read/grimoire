@@ -1,7 +1,14 @@
 import { useState, type CSSProperties, type DragEvent, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
-import { LuBookOpen, LuTrash2, LuChevronRight, LuArrowUp, LuArrowDown } from 'react-icons/lu'
+import {
+  LuBookOpen,
+  LuTrash2,
+  LuChevronRight,
+  LuArrowUp,
+  LuArrowDown,
+  LuDownload,
+} from 'react-icons/lu'
 import { campaigns, mediaUrl, type Schema } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
@@ -185,7 +192,27 @@ export default function ResourceRow({
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {titleLink}
+        {isFile ? (
+          // An uploaded file - a token from the editor, a handout - is often
+          // wanted as a file rather than a tab (issue #946). An empty
+          // `download` keeps the name the server sends.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>{titleLink}</div>
+            <a
+              href={campaigns.fileUrl(campaignId, resource.resource_id)}
+              download=""
+              onClick={stop}
+              draggable={false}
+              aria-label={t('a11y.campaign.downloadNamed', { name })}
+              title={t('a11y.campaign.downloadNamed', { name })}
+              style={downloadBtn}
+            >
+              <LuDownload size={14} aria-hidden="true" />
+            </a>
+          </div>
+        ) : (
+          titleLink
+        )}
 
         {/* Row 2 — options */}
         {isOwner ? (
@@ -337,6 +364,14 @@ export default function ResourceRow({
       )}
     </div>
   )
+}
+
+const downloadBtn: CSSProperties = {
+  display: 'flex',
+  flexShrink: 0,
+  padding: 4,
+  borderRadius: 4,
+  color: 'var(--text-muted)',
 }
 
 const moveBtn: CSSProperties = {
