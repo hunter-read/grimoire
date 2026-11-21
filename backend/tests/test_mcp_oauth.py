@@ -433,8 +433,11 @@ class TestAuthorizeNeverBouncesAway:
 
 
 class TestBrowserBinding:
-    """A request answers only in the browser that called /authorize (issue #942):
-    a consent link someone else started, forwarded to a user, is a 404."""
+    """A request answers only in the browser that called /authorize (issue #942).
+
+    Extra protection only: an /authorize link sent to someone starts a request
+    bound to their browser instead (see codes.py).
+    """
 
     PATHS = ("", "/approve", "/deny")
 
@@ -446,17 +449,16 @@ class TestBrowserBinding:
         return c.get(url, headers=headers)
 
     @staticmethod
-    def other_browser(oauth_client, cookie=None):
-        other = TestClient(oauth_client.app)
-        if cookie is not None:
-            other.cookies.set(codes.BROWSER_COOKIE, cookie)
-        return other
+    def name(rid, secure=False):
+        return codes.browser_cookie_name(rid, secure)
 
     @pytest.mark.parametrize("cookie", [None, "wrong", "w" * 43])
     def test_another_browser_gets_the_expired_404(self, oauth_client, admin_headers, cookie):
         flow = Flow(oauth_client, admin_headers)
         rid = flow.request_id()
-        other = self.other_browser(oauth_client, cookie)
+        other = TestClient(oauth_client.app)
+        if cookie is not None:
+            other.cookies.set(self.name(rid), cookie)
         for path in self.PATHS:
             resp = self.answer(other, rid, path, admin_headers)
             assert resp.status_code == 404, (path, resp.text)
@@ -469,52 +471,99 @@ class TestBrowserBinding:
         # The cookie is the binding, not anything else about the connection.
         flow = Flow(oauth_client, admin_headers)
         rid = flow.request_id()
-        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
-        other = self.other_browser(oauth_client, value)
+        other = TestClient(oauth_client.app)
+        other.cookies.set(self.name(rid), oauth_client.cookies.get(self.name(rid)))
         assert self.answer(other, rid, "", admin_headers).status_code == 200
 
-    def test_two_sign_ins_in_one_browser_share_the_cookie(self, oauth_client, admin_headers):
+    def test_another_requests_cookie_does_not_answer(self, oauth_client, admin_headers):
+        # Each request has a cookie of its own: one request's value, presented
+        # under another's name, is still a 404.
+        first, second = Flow(oauth_client, admin_headers), Flow(oauth_client, admin_headers)
+        rid1, rid2 = first.request_id(), second.request_id()
+        other = TestClient(oauth_client.app)
+        other.cookies.set(self.name(rid2), oauth_client.cookies.get(self.name(rid1)))
+        assert self.answer(other, rid2, "", admin_headers).status_code == 404
+
+    def test_a_new_sign_in_never_replaces_a_waiting_ones_cookie(self, oauth_client, admin_headers):
+        # A form POST from another site carries none of this site's Lax
+        # cookies; the new request's cookie has its own name, so the first
+        # request's cookie survives it.
         first, second = Flow(oauth_client, admin_headers), Flow(oauth_client, admin_headers)
         rid1 = first.request_id()
-        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
-        rid2 = second.request_id()
-        assert oauth_client.cookies.get(codes.BROWSER_COOKIE) == value
+        value1 = oauth_client.cookies.get(self.name(rid1))
+        stranger = TestClient(oauth_client.app)
+        resp = stranger.post(
+            "/authorize",
+            data={
+                "response_type": "code",
+                "client_id": second.client_id,
+                "redirect_uri": REDIRECT,
+                "code_challenge": second.challenge,
+                "code_challenge_method": "S256",
+                "state": "st-123",
+                "resource": RESOURCE,
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302, resp.text
+        rid2 = parse_qs(urlsplit(resp.headers["location"]).query)["request"][0]
+        assert resp.headers["set-cookie"].startswith(f"{self.name(rid2)}=")
+        assert self.name(rid1) != self.name(rid2)
+        # The browser keeps both, and both requests can be answered.
+        oauth_client.cookies.set(self.name(rid2), stranger.cookies.get(self.name(rid2)))
+        assert oauth_client.cookies.get(self.name(rid1)) == value1
         assert first.exchange(first.approve(rid1)).status_code == 200
         assert second.exchange(second.approve(rid2)).status_code == 200
-
-    def test_a_malformed_cookie_is_replaced(self, oauth_client):
-        assert codes.browser_value("w" * 43) == "w" * 43
-        for bad in (None, "", "short", "w" * 44, "w" * 42 + ";"):
-            fresh = codes.browser_value(bad)
-            assert fresh != bad and len(fresh) == 43
 
     def test_the_cookie_flags(self, oauth_client, admin_headers):
         flow = Flow(oauth_client, admin_headers)
         resp = authorize(oauth_client, flow.client_id, flow.challenge)
         assert resp.status_code == 302
+        rid = parse_qs(urlsplit(resp.headers["location"]).query)["request"][0]
         cookie = resp.headers["set-cookie"]
-        assert cookie.startswith(f"{codes.BROWSER_COOKIE}=")
-        # Path=/: it must come back to /authorize as well as to /api/oauth.
+        assert cookie.startswith(f"{codes.BROWSER_COOKIE_PREFIX}{digest(rid)[:16]}=")
         for flag in ("HttpOnly", "SameSite=Lax", "Path=/;", "Max-Age=600"):
             assert flag in cookie
-        # Plain http is allowed only on loopback, where Secure would drop it.
+        assert "Domain" not in cookie
+        # Plain http, where Secure would drop the cookie: no Secure, no __Host-.
         assert "Secure" not in cookie
 
-    def test_the_cookie_is_secure_under_https(self, monkeypatch):
-        monkeypatch.setattr(config, "BASE_URL", "https://grimoire.example")
-        assert b"; Secure" in oauth_routes.browser_cookie("v" * 43)
+    def test_over_https_the_cookie_is_secure_and_host_only(self, oauth_client, admin_headers):
+        # HTTPS seen at the request, as auth.cookie_secure decides for every
+        # other cookie, though BASE_URL here is plain http on loopback.
+        browser = TestClient(oauth_client.app, base_url="https://testserver")
+        flow = Flow(browser, admin_headers)
+        resp = authorize(browser, flow.client_id, flow.challenge)
+        assert resp.status_code == 302
+        rid = parse_qs(urlsplit(resp.headers["location"]).query)["request"][0]
+        cookie = resp.headers["set-cookie"]
+        assert cookie.startswith(f"__Host-{self.name(rid)}=")
+        assert "; Secure" in cookie and "Path=/;" in cookie and "Domain" not in cookie
+        assert self.answer(browser, rid, "", admin_headers).status_code == 200
+
+    def test_over_https_a_cookie_without_the_host_prefix_is_ignored(
+        self, oauth_client, admin_headers
+    ):
+        # The unprefixed name is one a site on a sibling domain could plant.
+        browser = TestClient(oauth_client.app, base_url="https://testserver")
+        flow = Flow(browser, admin_headers)
+        resp = authorize(browser, flow.client_id, flow.challenge)
+        rid = parse_qs(urlsplit(resp.headers["location"]).query)["request"][0]
+        value = browser.cookies.get(f"__Host-{self.name(rid)}")
+        planted = TestClient(oauth_client.app, base_url="https://testserver")
+        planted.cookies.set(self.name(rid), value)
+        assert self.answer(planted, rid, "", admin_headers).status_code == 404
 
     def test_only_the_cookies_hash_is_stored(self, oauth_client, admin_headers):
-        Flow(oauth_client, admin_headers).request_id()
-        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
+        rid = Flow(oauth_client, admin_headers).request_id()
+        value = oauth_client.cookies.get(self.name(rid))
         db = SessionLocal()
         try:
-            rows = db.query(OAuthCode).all()
+            row = db.query(OAuthCode).filter_by(request_hash=digest(rid)).one()
         finally:
             db.close()
-        stored = [r.params.get("browser") for r in rows]
-        assert digest(value) in stored
-        assert all(value not in str(r.params) for r in rows)
+        assert row.params.get("browser") == digest(value)
+        assert value not in str(row.params)
 
     def test_a_request_without_a_binding_cannot_be_answered(self, oauth_client, admin_headers):
         # Requests stored before this change have no "browser": they lapse.

@@ -40,7 +40,7 @@ from .. import config, security
 from . import codes
 from .clients import presented_secret
 from .provider import CONSENT_PATH, GrimoireOAuthProvider, resource_url
-from .tokens import REQUEST_TTL, SCOPE
+from .tokens import REQUEST_TTL, SCOPE, new_token
 
 logger = logging.getLogger("grimoire.mcp")
 
@@ -83,29 +83,34 @@ async def _send_json(send: Send, status: int, body: dict[str, Any]) -> None:
     await send({"type": "http.response.body", "body": data})
 
 
-def browser_cookie(value: str) -> bytes:
-    """The ``Set-Cookie`` value tying a sign-in request to this browser (issue #942).
+def browser_cookie(request_id: str, value: str, secure: bool) -> bytes:
+    """The ``Set-Cookie`` value tying sign-in request ``request_id`` to this
+    browser (issue #942).
 
-    Read only by ``/authorize`` and the consent API, never by scripts, and kept as long as
-    a request waits for an answer. ``SameSite=Lax`` still lets the cookie be set
-    by ``/authorize``, which a hosted client opens with a top-level navigation.
+    Read only by the consent API, never by scripts, and kept as long as the
+    request waits for an answer. ``SameSite=Lax`` still lets it be sent to the
+    consent API, which the consent page calls from this site. ``secure`` comes
+    from :func:`backend.auth.cookie_secure`, as for every other cookie, and also
+    gives the name its ``__Host-`` prefix.
     """
     parts = [
-        f"{codes.BROWSER_COOKIE}={value}",
+        f"{codes.browser_cookie_name(request_id, secure)}={value}",
         f"Max-Age={int(REQUEST_TTL.total_seconds())}",
         f"Path={codes.BROWSER_COOKIE_PATH}",
         "HttpOnly",
         "SameSite=Lax",
     ]
-    if config.BASE_URL.startswith("https://"):
+    if secure:
         parts.append("Secure")
     return "; ".join(parts).encode("latin-1")
 
 
-def _consent_only(send: Send, cookie: Optional[bytes] = None) -> Send:
+def _consent_only(send: Send, browser: Optional[tuple[str, bool]] = None) -> Send:
     """``send`` for ``/authorize``: redirect only to this server's consent page.
 
-    The redirect that is let through also sets ``cookie``, the browser binding.
+    The redirect that is let through also sets the browser binding's cookie,
+    from ``browser`` (its value, and whether it is Secure), named for the
+    request id in that redirect.
 
     When ``/authorize`` fails after the client and redirect address check out
     (a bad scope, a ``resource`` that isn't this server's, a host the allow-list
@@ -136,7 +141,9 @@ def _consent_only(send: Send, cookie: Optional[bytes] = None) -> Send:
                     },
                 )
                 return
-            if cookie is not None:
+            request_id = parse_qs(urlsplit(location).query).get("request", [""])[0]
+            if browser is not None and request_id:
+                cookie = browser_cookie(request_id, *browser)
                 message = {
                     **message,
                     "headers": [*message.get("headers", []), (b"set-cookie", cookie)],
@@ -212,10 +219,12 @@ class Throttled:
             if scope_name != AUTHORIZE_SCOPE:
                 await app(scope, replay, send)
                 return
-            value = codes.browser_value(request.cookies.get(codes.BROWSER_COOKIE))
+            from ..auth import cookie_secure
+
+            value = new_token()
             bound = codes.browser.set(value)
             try:
-                await app(scope, replay, _consent_only(send, browser_cookie(value)))
+                await app(scope, replay, _consent_only(send, (value, cookie_secure(request))))
             finally:
                 codes.browser.reset(bound)
             return

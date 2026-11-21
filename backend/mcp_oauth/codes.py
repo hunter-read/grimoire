@@ -14,16 +14,17 @@ One ``oauth_codes`` row follows a sign-in:
 
 Rows expire (10 minutes pending, 5 once approved) and are deleted lazily.
 
-A request is tied to the browser that called ``/authorize`` (issue #942): that
-response sets a random cookie (:data:`BROWSER_COOKIE`), the row keeps its hash,
-and the consent API finds the request only when the same cookie comes back.
-Without that, someone could start a real sign-in in their own account and send
-the consent link to a user, whose Allow would give the sender the user's access.
+A request is also tied to the browser that called ``/authorize`` (issue #942):
+that response sets a random cookie of the request's own
+(:func:`browser_cookie_name`), the row keeps its hash, and the consent API finds
+the request only when the same cookie comes back. That is extra protection, not
+the defence against a forwarded sign-in: whoever sends a user an ``/authorize``
+link instead of a consent link gets a request bound to the user's browser. What
+protects the user is the consent page naming the site the browser goes to next.
 """
 from __future__ import annotations
 
 import hmac
-import re
 from contextvars import ContextVar
 from typing import Any, Optional
 
@@ -32,25 +33,24 @@ from .tokens import CODE_TTL, REQUEST_TTL, SCOPE, aware, digest, new_token, now
 # At most this many requests may wait for approval per client at once.
 MAX_PENDING_PER_CLIENT = 10
 
-# The cookie that ties a request to its browser. Its path is the whole site: it
-# has to come back both to /authorize (so a second sign-in in the same browser
-# keeps it rather than replacing it, which would strand the first) and to the
-# consent API under /api/oauth, and no narrower path covers both.
-BROWSER_COOKIE = "grimoire_oauth_browser"
+# The cookies that tie a request to its browser: one per request, so a new
+# sign-in never replaces the cookie of one still waiting, even when a form POST
+# from another site arrives without the SameSite=Lax cookies it would otherwise
+# carry. Over https the name has the __Host- prefix, which the browser accepts
+# only from this exact host, Secure, with Path=/ and no Domain, so a site on a
+# sibling domain can't plant one.
+BROWSER_COOKIE_PREFIX = "grimoire_oauth_"
 BROWSER_COOKIE_PATH = "/"
-_BROWSER_VALUE = re.compile(r"[A-Za-z0-9_-]{43}")
 
 # The browser's cookie value during an /authorize request, set by the route
 # wrapper (see routes.py), as the provider never sees the HTTP request.
 browser: ContextVar[Optional[str]] = ContextVar("mcp_oauth_browser", default=None)
 
 
-def browser_value(presented: Optional[str]) -> str:
-    """The cookie value to use: the browser's own if it has a valid one, so two
-    sign-ins in progress in one browser share it, or a new one."""
-    if presented and _BROWSER_VALUE.fullmatch(presented):
-        return presented
-    return new_token()
+def browser_cookie_name(request_id: str, secure: bool) -> str:
+    """The name of the cookie that ties request ``request_id`` to its browser."""
+    name = f"{BROWSER_COOKIE_PREFIX}{digest(request_id)[:16]}"
+    return f"__Host-{name}" if secure else name
 
 
 def _same_browser(row: Any, presented: Optional[str]) -> bool:

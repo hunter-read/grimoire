@@ -197,8 +197,8 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
   add it to `MCP_ALLOWED_HOSTS`.
 - **The consent page says "This sign-in request isn't available"** - the request is older than
   ten minutes, was already answered, was opened in a different browser from the one the connection
-  started in (a request only answers there, so a consent link sent by someone else is no use), or
-  `MCP_OAUTH_ENABLED` is off. Start the connection again from the app, in this browser.
+  started in (a request only answers there), or `MCP_OAUTH_ENABLED` is off. Start the connection
+  again from the app, in this browser.
 - **`/mcp` returns `404 Not Found`** - `MCP_ENABLED` is not set.
 - **`406 Not Acceptable`** - the client's `Accept` header excludes `application/json`. MCP clients send `application/json, text/event-stream`; a script calling `/mcp` directly should send that, or `*/*`.
 

@@ -42,11 +42,12 @@ def require_oauth_active(request: Request) -> None:
 GONE = "This sign-in request has expired or was already answered"
 
 
-def _browser(request: Request) -> Optional[str]:
-    """The cookie ``/authorize`` set in this browser (issue #942)."""
+def _browser(request: Request, request_id: str) -> Optional[str]:
+    """The cookie ``/authorize`` set in this browser for this request (issue #942)."""
+    from ...auth import cookie_secure
     from ...mcp_oauth import codes
 
-    return request.cookies.get(codes.BROWSER_COOKIE)
+    return request.cookies.get(codes.browser_cookie_name(request_id, cookie_secure(request)))
 
 
 def _pending_or_404(db: Session, request_id: str, request: Request) -> Any:
@@ -57,7 +58,7 @@ def _pending_or_404(db: Session, request_id: str, request: Request) -> Any:
     """
     from ...mcp_oauth import codes
 
-    row = codes.pending(db, request_id, _browser(request))
+    row = codes.pending(db, request_id, _browser(request, request_id))
     if row is None:
         raise HTTPException(404, GONE)
     return row
@@ -107,7 +108,7 @@ def approve_request(
         else validate_permissions(data.permissions, request.app.routes, current_user.role)
     )
     params = dict(row.params)
-    code = codes.approve(db, request_id, _browser(request), current_user.id, permissions)
+    code = codes.approve(db, request_id, _browser(request, request_id), current_user.id, permissions)
     if code is None:
         raise HTTPException(404, GONE)
     return {
@@ -128,7 +129,7 @@ def deny_request(
 
     from ...mcp_oauth import codes
 
-    params = codes.deny(db, request_id, _browser(request))
+    params = codes.deny(db, request_id, _browser(request, request_id))
     if params is None:
         raise HTTPException(404, GONE)
     return {
