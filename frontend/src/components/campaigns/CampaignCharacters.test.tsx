@@ -12,6 +12,7 @@ vi.mock('../../api', () => ({
     update: (...a: unknown[]) => mockUpdate(...a),
     portraitUrl: (id: string) => `/portrait/${id}`,
   },
+  campaigns: { ownerTokenUrl: (id: string) => `/owner-token/${id}` },
 }))
 
 type Row = Record<string, unknown>
@@ -164,5 +165,34 @@ describe('CampaignCharacters', () => {
     expect(mockUpdate).toHaveBeenCalledWith('wand', { campaign_id: 'camp' })
     expect(await screen.findByRole('link', { name: /Wanderer/ })).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Bring one of your characters' })).toBeNull()
+  })
+})
+
+describe('CampaignCharacters owner token', () => {
+  it('shows a personal campaign’s owner token in the card', async () => {
+    renderCard({ ownerToken: { name: 'Dana', hasToken: true, canEdit: true } })
+    await screen.findByText('Innkeeper')
+    expect(screen.getByText('Your token')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Download Dana's token" })).toHaveAttribute(
+      'href',
+      '/owner-token/camp'
+    )
+  })
+
+  it('offers the owner a token to make before they have one', async () => {
+    renderCard({ ownerToken: { name: 'Dana', hasToken: false, canEdit: true } })
+    expect(await screen.findByRole('button', { name: 'Make a token for Dana' })).toBeInTheDocument()
+  })
+
+  it('still shows the token with no characters and nothing to add', async () => {
+    mockList.mockResolvedValue({ characters: [] })
+    renderCard({ canAdd: false, ownerToken: { name: 'Dana', hasToken: true, canEdit: false } })
+    expect(await screen.findByRole('link', { name: "Download Dana's token" })).toBeInTheDocument()
+  })
+
+  it('shows no token slot without an owner token', async () => {
+    renderCard()
+    await screen.findByText('Innkeeper')
+    expect(screen.queryByText('Your token')).not.toBeInTheDocument()
   })
 })

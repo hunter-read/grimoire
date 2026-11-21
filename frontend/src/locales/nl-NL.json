@@ -2453,6 +2453,15 @@
     "saveCopy": "Kopie opslaan",
     "sheetEditError": "Kan dit blad niet openen of opslaan. Mogelijk is het geen geldige PDF.",
     "setArt": "Personagebeeld instellen",
+    "makeToken": "Token maken",
+    "makeTokenFor": "Token maken voor {{name}}",
+    "remakeToken": "Nieuwe token maken",
+    "remakeTokenFor": "Nieuwe token maken voor {{name}}",
+    "downloadToken": "Token downloaden",
+    "downloadTokenFor": "Token van {{name}} downloaden",
+    "removeToken": "Token verwijderen",
+    "removeTokenFor": "Token van {{name}} verwijderen",
+    "removeTokenConfirm": "Token van {{name}} verwijderen? Dit kan niet ongedaan worden gemaakt.",
     "createToken": "Token maken…"
   },
   "sessions": {
@@ -3940,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Personages",
     "add": "Personage toevoegen",
+    "yourToken": "Jouw token",
     "addTitle": "Breng een van je personages mee",
     "noneToAdd": "Al je personages zijn hier al, of je hebt er nog geen.",
     "goToCharacters": "Naar personages",

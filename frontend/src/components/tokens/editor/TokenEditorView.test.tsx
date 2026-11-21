@@ -235,6 +235,28 @@ describe('the character-art exit', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/campaigns/c1', expect.anything()))
   })
 
+  it('saves straight back as a member’s token when opened from their token', async () => {
+    campaigns.uploadMemberToken.mockResolvedValue({})
+    await renderWithSource({ campaignId: 'c1', memberId: 'm1', saveAs: 'token' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set as a character token' }))
+
+    await waitFor(() => expect(campaigns.uploadMemberToken).toHaveBeenCalled())
+    expect(campaigns.uploadMemberToken.mock.calls[0].slice(0, 2)).toEqual(['c1', 'm1'])
+    expect(campaigns.uploadMemberArt).not.toHaveBeenCalled()
+  })
+
+  it('saves straight back as the owner’s token with no member id', async () => {
+    campaigns.uploadOwnerToken.mockResolvedValue({})
+    await renderWithSource({ campaignId: 'c1', saveAs: 'token' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set as a character token' }))
+
+    await waitFor(() => expect(campaigns.uploadOwnerToken).toHaveBeenCalled())
+    expect(campaigns.uploadOwnerToken.mock.calls[0][0]).toBe('c1')
+    expect(campaigns.uploadMemberToken).not.toHaveBeenCalled()
+  })
+
   it('surfaces an upload rejection', async () => {
     campaigns.uploadMemberArt.mockRejectedValue(new Error('File is too large'))
     await renderWithSource({ campaignId: 'c1', memberId: 'm1' })

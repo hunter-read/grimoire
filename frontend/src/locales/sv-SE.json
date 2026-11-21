@@ -2453,6 +2453,15 @@
     "saveCopy": "Spara kopia",
     "sheetEditError": "Kunde inte öppna eller spara det här bladet. Det kanske inte är en giltig PDF.",
     "setArt": "Ange rollpersonskonst",
+    "makeToken": "Skapa en token",
+    "makeTokenFor": "Skapa en token för {{name}}",
+    "remakeToken": "Skapa en ny token",
+    "remakeTokenFor": "Skapa en ny token för {{name}}",
+    "downloadToken": "Ladda ner token",
+    "downloadTokenFor": "Ladda ner {{name}}s token",
+    "removeToken": "Ta bort token",
+    "removeTokenFor": "Ta bort {{name}}s token",
+    "removeTokenConfirm": "Ta bort {{name}}s token? Det går inte att ångra.",
     "createToken": "Skapa en token…"
   },
   "sessions": {
@@ -3940,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Rollpersoner",
     "add": "Lägg till rollperson",
+    "yourToken": "Din token",
     "addTitle": "Ta med en av dina rollpersoner",
     "noneToAdd": "Alla dina rollpersoner är redan här, eller så har du inga än.",
     "goToCharacters": "Gå till rollpersoner",

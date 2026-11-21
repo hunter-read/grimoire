@@ -47,6 +47,13 @@ destination that would be refused.
 Opening the editor from a character's portrait is the exception - it already knows who the
 token is for, so the button simply sets that character's art.
 
+**Tokens on the campaign page.** Each player's token sits beside their art in the member
+list, and a personal campaign shows **Your token** on its Characters card. Click the token to
+download it for your VTT. Whoever may set it - the player themselves or the campaign owner,
+and only you for your own token in a personal campaign - also gets **Make a new token** and
+**Remove**, or **Make a token** while there is none. Making one from there opens the editor
+already bound to save it as that token, not as art.
+
 Nothing is written to your library and no new token is added to it: the image is composed in
 your browser and only leaves by one of those two doors. That means the editor works fine on
 a read-only library, and never disturbs a scan.

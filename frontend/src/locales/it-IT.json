@@ -2453,6 +2453,15 @@
     "saveCopy": "Salva copia",
     "sheetEditError": "Non è stato possibile aprire o salvare questa scheda. Potrebbe non essere un PDF valido.",
     "setArt": "Imposta illustrazione personaggio",
+    "makeToken": "Crea un token",
+    "makeTokenFor": "Crea un token per {{name}}",
+    "remakeToken": "Crea un nuovo token",
+    "remakeTokenFor": "Crea un nuovo token per {{name}}",
+    "downloadToken": "Scarica il token",
+    "downloadTokenFor": "Scarica il token di {{name}}",
+    "removeToken": "Rimuovi il token",
+    "removeTokenFor": "Rimuovi il token di {{name}}",
+    "removeTokenConfirm": "Rimuovere il token di {{name}}? L'operazione non può essere annullata.",
     "createToken": "Crea un token…"
   },
   "sessions": {
@@ -3940,6 +3949,7 @@
   "campaignCharacters": {
     "title": "Personaggi",
     "add": "Aggiungi personaggio",
+    "yourToken": "Il tuo token",
     "addTitle": "Porta uno dei tuoi personaggi",
     "noneToAdd": "Tutti i tuoi personaggi sono già qui, oppure non ne hai ancora.",
     "goToCharacters": "Vai ai personaggi",

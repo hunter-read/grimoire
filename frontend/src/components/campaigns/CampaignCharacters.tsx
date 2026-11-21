@@ -6,6 +6,7 @@ import { characters as charactersApi } from '../../api'
 import Spinner from '../Spinner'
 import AnchoredPopover from './AnchoredPopover'
 import AttachCharacterPicker from './AttachCharacterPicker'
+import CharacterToken from './CharacterToken'
 import CampaignCharacterGroup from './CampaignCharacterGroup'
 import { groupByOwner } from './campaignCharacterGroups'
 import type { CampaignCharacter } from './campaignCharacterGroups'
@@ -19,6 +20,12 @@ interface Props {
   canAdd: boolean
   /** The card's frame, so the page lays it out like its other cards. */
   style?: CSSProperties
+  /**
+   * A personal campaign's owner token. The owner has no membership, so their
+   * token is kept on the campaign, and this card - where their characters
+   * are - is where it shows.
+   */
+  ownerToken?: { name: string; hasToken: boolean; canEdit: boolean; onChanged?: () => void }
 }
 
 /**
@@ -37,6 +44,7 @@ export default function CampaignCharacters({
   viewerId,
   canAdd,
   style,
+  ownerToken,
 }: Props) {
   const { t } = useTranslation()
   const [characters, setCharacters] = useState<CampaignCharacter[] | null>(null)
@@ -67,7 +75,7 @@ export default function CampaignCharacters({
       </div>
     ) : null
   }
-  if (!error && characters?.length === 0 && !canAdd) return null
+  if (!error && characters?.length === 0 && !canAdd && !ownerToken?.hasToken) return null
 
   const groups = groupByOwner(characters || [], { gmId: ownerId, viewerId })
 
@@ -86,29 +94,46 @@ export default function CampaignCharacters({
         >
           <LuSwords size={15} aria-hidden="true" /> {t('campaignCharacters.title')}
         </h2>
-        {canAdd ? (
-          <button
-            ref={addBtnRef}
-            type="button"
-            onClick={() => setAdding((open) => !open)}
-            aria-haspopup="dialog"
-            aria-expanded={adding}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 5,
-              padding: '5px 10px',
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text-dim)',
-              cursor: 'pointer',
-              fontSize: 12,
-            }}
-          >
-            <LuPlus size={12} aria-hidden="true" /> {t('campaignCharacters.add')}
-          </button>
-        ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {ownerToken && (ownerToken.hasToken || ownerToken.canEdit) ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {t('campaignCharacters.yourToken')}
+              </span>
+              <CharacterToken
+                campaignId={campaignId}
+                memberId={null}
+                name={ownerToken.name}
+                hasToken={ownerToken.hasToken}
+                canEdit={ownerToken.canEdit}
+                onChanged={ownerToken.onChanged}
+              />
+            </div>
+          ) : null}
+          {canAdd ? (
+            <button
+              ref={addBtnRef}
+              type="button"
+              onClick={() => setAdding((open) => !open)}
+              aria-haspopup="dialog"
+              aria-expanded={adding}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '5px 10px',
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                fontSize: 12,
+              }}
+            >
+              <LuPlus size={12} aria-hidden="true" /> {t('campaignCharacters.add')}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {adding ? (

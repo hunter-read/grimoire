@@ -27,12 +27,15 @@ import type { ImageSourcePick } from '../../images/ImageSourceBrowser'
 
 /**
  * Where the editor was opened from, when a member row opened it: who the token
- * is for, so it can be saved straight back as their art.
+ * is for, so it can be saved straight back. `saveAs: 'token'` (from a
+ * character's token on the campaign page) saves it as their token rather than
+ * their art; with no `memberId` that is the owner's own token on the campaign.
  */
 interface EditorTarget {
   campaignId?: string
   memberId?: string
   memberName?: string
+  saveAs?: 'art' | 'token'
 }
 
 /** A specific character in a specific campaign. */
@@ -289,7 +292,10 @@ export default function TokenEditorView() {
 
   // A character's VTT token, stored beside their portrait rather than over it.
   // With no membership id it is the owner's own, which is kept on the campaign.
-  const saveAsMemberToken = ({ campaignId, memberId }: MemberOption) =>
+  const saveAsMemberToken = ({
+    campaignId,
+    memberId,
+  }: Pick<MemberOption, 'campaignId' | 'memberId'>) =>
     deliver(campaignId, (file) =>
       memberId
         ? campaignsApi.uploadMemberToken(campaignId, memberId, file)
@@ -306,8 +312,18 @@ export default function TokenEditorView() {
 
   // Arriving from a member row pre-binds the target, which is the common path
   // and skips the chooser entirely.
+  const boundToToken = target.saveAs === 'token' && !!target.campaignId
+  const boundToArt = !boundToToken && !!target.campaignId && !!target.memberId
+
   const onSetAsArt = () => {
-    if (target.campaignId && target.memberId) {
+    if (boundToToken) {
+      void saveAsMemberToken({
+        campaignId: target.campaignId as string,
+        memberId: target.memberId ?? null,
+      })
+      return
+    }
+    if (boundToArt) {
       void saveAsArt(target as MemberTarget)
       return
     }
@@ -419,9 +435,11 @@ export default function TokenEditorView() {
                   both the character-token and campaign-resource paths. */}
               <button type="button" onClick={onSetAsArt} disabled={!canSave} style={secondaryBtn}>
                 <LuUserRound size={14} aria-hidden="true" />
-                {target.campaignId && target.memberId
-                  ? t('tokenEditor.setAsArt')
-                  : t('tokenEditor.sendToCampaign')}
+                {boundToToken
+                  ? t('tokenEditor.asCharacterToken')
+                  : boundToArt
+                    ? t('tokenEditor.setAsArt')
+                    : t('tokenEditor.sendToCampaign')}
               </button>
               <button
                 type="button"

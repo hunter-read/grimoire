@@ -12,6 +12,7 @@ const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Moc
 vi.mock('../../api', () => ({
   campaigns: {
     memberArtUrl: vi.fn(() => '/api/art'),
+    memberTokenUrl: vi.fn(() => '/api/token'),
     memberSheetUrl: vi.fn(() => '/api/sheet'),
     uploadMemberArt: vi.fn(),
     uploadMemberSheet: vi.fn(),
@@ -23,6 +24,8 @@ vi.mock('../../api', () => ({
 // MemberArtButton navigates to the token editor, so the row needs a router.
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
+  // CharacterToken reads the editor's cache-busting stamp from router state.
+  useLocation: () => ({ state: null }),
 }))
 
 // The nested editor/picker/dialog components make their own API calls — stub
@@ -312,5 +315,30 @@ describe('MemberRow status and removal controls', () => {
     expect(screen.getByText('The Dungeon Master')).toBeInTheDocument()
     // Owner row shows no status pill / remove button.
     expect(screen.queryByLabelText(/remove/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('MemberRow character token', () => {
+  it('shows a player’s token to everyone in the campaign', () => {
+    renderRow({ has_token: true, character_name: 'Ireena' })
+    expect(screen.getByRole('link', { name: "Download Ireena's token" })).toHaveAttribute(
+      'href',
+      '/api/token'
+    )
+  })
+
+  it('offers the player a token to make when they have none', () => {
+    renderRow({}, { currentUserId: 'u1' })
+    expect(screen.getByRole('button', { name: /Make a token for/ })).toBeInTheDocument()
+  })
+
+  it('offers nothing to someone else when there is no token', () => {
+    renderRow()
+    expect(screen.queryByRole('button', { name: /Make a token for/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps the owner row free of a token slot', () => {
+    renderRow({ id: undefined, is_owner: true, has_token: true }, { currentUserId: 'u1' })
+    expect(screen.queryByRole('link', { name: /token/ })).not.toBeInTheDocument()
   })
 })
