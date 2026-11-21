@@ -4419,7 +4419,7 @@
     "answerFailed": "Das hat nicht funktioniert. Versuche es erneut.",
     "permissionsFailed": "Die Berechtigungen konnten nicht geladen werden. Wähle erneut „Anpassen“.",
     "goneTitle": "Diese Anmeldeanfrage ist nicht verfügbar",
-    "goneBody": "Sie ist abgelaufen oder wurde schon beantwortet, oder die App-Anmeldung ist ausgeschaltet. Starte die Verbindung in der App neu.",
+    "goneBody": "Sie ist abgelaufen, wurde schon beantwortet oder in einem anderen Browser gestartet, oder die App-Anmeldung ist ausgeschaltet. Starte die Verbindung in der App neu, in diesem Browser.",
     "failedTitle": "Diese Anmeldeanfrage konnte nicht geladen werden",
     "failedBody": "Lade die Seite neu."
   },

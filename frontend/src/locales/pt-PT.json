@@ -4419,7 +4419,7 @@
     "answerFailed": "Não funcionou. Tente novamente.",
     "permissionsFailed": "Não foi possível carregar as permissões. Escolha Personalizar para tentar novamente.",
     "goneTitle": "Este pedido de início de sessão não está disponível",
-    "goneBody": "Expirou ou já foi respondido, ou o início de sessão de aplicações está desativado. Inicie novamente a ligação a partir da aplicação.",
+    "goneBody": "Expirou, já foi respondido ou foi iniciado noutro navegador, ou o início de sessão de aplicações está desativado. Inicie novamente a ligação a partir da aplicação, neste navegador.",
     "failedTitle": "Não foi possível carregar este pedido de início de sessão",
     "failedBody": "Experimente recarregar a página."
   },
