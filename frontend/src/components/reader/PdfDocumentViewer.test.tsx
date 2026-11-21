@@ -232,6 +232,104 @@ describe('PdfDocumentViewer — following the page', () => {
   })
 })
 
+describe('PdfDocumentViewer — jumping while hidden (issue #944)', () => {
+  // On a phone the reader hides the viewer (`display: none`) while a panel such
+  // as the contents fills the screen. jsdom has no layout, so the tests say
+  // what is hidden and when the container is resized.
+  let hidden = false
+  let resized: (() => void)[] = []
+
+  beforeEach(() => {
+    hidden = false
+    resized = []
+    Object.defineProperty(HTMLElement.prototype, 'checkVisibility', {
+      configurable: true,
+      value: () => !hidden,
+    })
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          resized.push(cb)
+        }
+        observe() {}
+        disconnect() {}
+      }
+    )
+  })
+
+  afterEach(() => {
+    delete (HTMLElement.prototype as { checkVisibility?: unknown }).checkVisibility
+    vi.unstubAllGlobals()
+  })
+
+  const showAgain = () => {
+    hidden = false
+    act(() => resized.forEach((cb) => cb()))
+  }
+
+  it('waits to jump until the viewer is shown again', async () => {
+    render(<Harness />)
+    await ready()
+    hidden = true
+    act(() => jumpTo(40))
+    // A hidden container can't scroll: setting the page now would move
+    // pdf.js's page number and leave the old page on screen.
+    expect(viewer().pageSets).toEqual([])
+
+    showAgain()
+
+    expect(viewer().pageSets).toEqual([40])
+  })
+
+  it('goes to the last page asked for while hidden', async () => {
+    render(<Harness />)
+    await ready()
+    hidden = true
+    act(() => jumpTo(40))
+    act(() => jumpTo(12))
+    showAgain()
+    expect(viewer().pageSets).toEqual([12])
+  })
+
+  it('keeps waiting while a resize leaves it hidden', async () => {
+    render(<Harness />)
+    await ready()
+    hidden = true
+    act(() => jumpTo(40))
+    act(() => resized.forEach((cb) => cb()))
+    expect(viewer().pageSets).toEqual([])
+  })
+
+  it('drops a waiting jump once one is made while visible', async () => {
+    render(<Harness />)
+    await ready()
+    hidden = true
+    act(() => jumpTo(40))
+    hidden = false
+    act(() => jumpTo(10))
+    expect(viewer().pageSets).toEqual([10])
+    showAgain()
+    expect(viewer().pageSets).toEqual([10])
+  })
+
+  it('opens on the reader’s page once shown, if laid out while hidden', async () => {
+    hidden = true
+    render(<Harness initialPage={7} />)
+    await ready()
+    expect(viewer().pageSets).toEqual([])
+    showAgain()
+    expect(viewer().pageSets).toEqual([7])
+  })
+
+  it('jumps straight away while visible', async () => {
+    render(<Harness />)
+    await ready()
+    act(() => jumpTo(30))
+    expect(viewer().pageSets).toEqual([30])
+  })
+})
+
 describe('PdfDocumentViewer — zoom', () => {
   it('zooms in, out and back to the width of the screen', async () => {
     const user = userEvent.setup()

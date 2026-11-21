@@ -25,6 +25,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- **Picking a contents entry in PDF view on a phone goes to that page.** The page number changed but the old page stayed on screen, because the viewer was hidden behind the contents panel when the jump was made. The same went for search results and bookmarks
 - **Files in a campaign download in Firefox.** Saving a campaign file - a token sent from the token editor and opened in its own tab, or a handout that downloads - ended in "Failed". Each uploaded file also has a download button in the campaign's resources now, beside the link that opens it
 - **A token can be set for your character in a personal campaign.** The token editor's **Send to a campaign → Set as a character token** only listed invited players, so in a campaign you run alone it said there were no characters to set art for. It now offers your own token there, kept apart from your character sheet's portrait. See [Token editor](docs/token-editor.md)
 

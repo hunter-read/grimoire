@@ -73,6 +73,19 @@ interface Options {
  * highlight / text / drawing annotations that `save` writes into a copy of the
  * file. Nothing is stored server-side; `dirty` says there is work to lose.
  */
+/**
+ * Whether `el` is in a `display: none` subtree - the reader hides the viewer
+ * that way on a phone while a side panel fills the screen. A hidden scroll
+ * container can't scroll, so a page jump made then is lost.
+ *
+ * `checkVisibility` is in every browser that runs this viewer's pdf.js; where
+ * it is missing (jsdom, older Safari) the viewer is taken to be visible, which
+ * is what it did before.
+ */
+function isHidden(el: HTMLElement): boolean {
+  return typeof el.checkVisibility === 'function' && !el.checkVisibility()
+}
+
 export default function usePdfJsViewer({
   url,
   page,
@@ -100,6 +113,10 @@ export default function usePdfJsViewer({
   // `page`. A `page` found here is that echo, not a request to jump: acting on
   // it would yank a reader mid-scroll back to a page they have already left.
   const reportedRef = useRef<number[]>([])
+  // A jump asked for while the viewer was hidden, made once it can scroll.
+  // Setting the page on a hidden viewer moves pdf.js's page number but not the
+  // view, so the reader showed the new number over the old page (issue #944).
+  const pendingJumpRef = useRef<number | null>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -136,7 +153,10 @@ export default function usePdfJsViewer({
       'pagesinit',
       () => {
         viewer.currentScaleValue = 'page-width'
-        if (pageRef.current > 1) viewer.currentPageNumber = pageRef.current
+        if (pageRef.current > 1) {
+          if (isHidden(container)) pendingJumpRef.current = pageRef.current
+          else viewer.currentPageNumber = pageRef.current
+        }
         setStatus('ready')
       },
       { signal }
@@ -237,8 +257,30 @@ export default function usePdfJsViewer({
       return
     }
     reportedRef.current = []
+    const container = containerRef.current
+    if (container && isHidden(container)) {
+      pendingJumpRef.current = page
+      return
+    }
+    pendingJumpRef.current = null
     if (viewer.currentPageNumber !== page) viewer.currentPageNumber = page
   }, [page, status])
+
+  // Make a jump that waited while the viewer was hidden. Shown again, the
+  // container goes from no size to its full size, which is what this observes.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => {
+      const viewer = pdfViewerRef.current
+      const pending = pendingJumpRef.current
+      if (pending === null || !viewer || isHidden(container)) return
+      pendingJumpRef.current = null
+      if (viewer.currentPageNumber !== pending) viewer.currentPageNumber = pending
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     onDirtyChangeRef.current?.(dirty)
