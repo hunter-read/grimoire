@@ -37,7 +37,8 @@ from .constants import (
     PDF_EXTS,
     VTT_DATA_EXTS,
 )
-from .hashing import file_signature, hash_file
+from .hashing import apply_signature, file_signature, hash_file
+from .media_refresh import audio_signature_matches, reread_audio
 from .metadata import _find_folder_artwork, _read_audio_metadata
 from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 from .thumbnails import archive_ext
@@ -365,28 +366,60 @@ def _scan_media(
                 logger.debug(f"{singular.capitalize()} already exists, skipping: {filepath}")
 
 
-def _backfill_track_numbers(
-    ctx: _ScanContext, track: Audio, filepath: str, is_archive: bool
-) -> None:
-    """Read the track/disc tags of a track registered before they were stored.
+# Why a registered track is loaded again on a rescan (see ``_audio_work``).
+_BACKFILL, _CHANGED = "backfill", "changed"
 
-    Runs once per such row (issue #494): afterwards the columns hold a number,
-    0 meaning "no tag", so later scans skip the row as before. Archives carry no
-    tags and get 0 without being opened.
 
-    The same read fills a blank title, artist or album - WAV and AIFF tags were
-    not read at all before - but never replaces one already stored.
+def _audio_work(ctx: _ScanContext, row: Any, filepath: str, is_archive: bool) -> Optional[str]:
+    """What a rescan has to do for a registered track, or None to skip it.
+
+    Asked of the looked-up columns, so a track nothing happened to is never
+    loaded. In order: a row from before track numbers were stored is
+    backfilled once (issue #494); a file whose size or mtime moved is read
+    again (issue #966); and a "missing" or "replace" metadata rescan re-reads
+    every track's tags, which is how a file changed before this was noticed
+    gets its listing corrected.
     """
-    if is_archive:
+    if row.track_number is None:
+        return _BACKFILL
+    signature = file_signature(filepath)
+    if signature is not None and not audio_signature_matches(row, signature):
+        return _CHANGED
+    if ctx.metadata_mode in ("missing", "replace") and not is_archive:
+        return str(ctx.metadata_mode)
+    return None
+
+
+def _update_existing_audio(
+    ctx: _ScanContext, track: Audio, filepath: str, is_archive: bool, work: str
+) -> None:
+    """Bring a registered track up to date with its file, and commit it.
+
+    A changed file gets its new size, mtime and - when the row has one to keep
+    current for move detection - content hash, then its tags read again over
+    the stored ones: they come from the file and nothing else. A backfill or a
+    "missing" rescan only fills what is blank. Archives carry no tags and get
+    track and disc 0 without being opened, as does a file whose tags cannot be
+    read, so a backfill is not tried again on every scan.
+    """
+    if work == _CHANGED:
+        signature = file_signature(filepath)
+        if signature is not None:
+            new_hash = (
+                hash_file(filepath, should_stop=ctx.should_stop)
+                if track.content_hash is not None
+                else None
+            )
+            apply_signature(track, signature[0], signature[1], new_hash)
+            logger.info(f"Contents changed on disk, re-reading tags: {filepath}")
+    if not is_archive:
+        reread_audio(track, overwrite=work in (_CHANGED, "replace"))
+    if track.track_number is None:
         track.track_number, track.disc_number = 0, 0
-    else:
-        meta = _read_audio_metadata(filepath)
-        track.track_number, track.disc_number = meta["track_number"], meta["disc_number"]
-        for field in ("title", "artist", "album"):
-            if not getattr(track, field) and meta[field]:
-                setattr(track, field, meta[field])
     try:
         _db_call(ctx.session.commit, f"commit audio '{filepath}'", ctx.session)
+        if work != _BACKFILL:
+            ctx.stats["updated_audio"] = ctx.stats.get("updated_audio", 0) + 1
     except DatabaseBusyError as e:
         logger.error(f"DB error: {e} - rolling back '{filepath}'")
         ctx.session.rollback()
@@ -414,7 +447,13 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             known = lookup_by_path(
                 _db_call,
                 session,
-                (Audio.id, Audio.filepath, Audio.track_number),
+                (
+                    Audio.id,
+                    Audio.filepath,
+                    Audio.track_number,
+                    Audio.file_mtime,
+                    Audio.file_size,
+                ),
                 [c[1] for c in candidates],
                 "query audio",
             )
@@ -447,7 +486,8 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 )
             row = known.get(filepath)
             if row is not None:
-                if row.track_number is not None:
+                work = _audio_work(ctx, row, filepath, bool(arc_ext))
+                if work is None:
                     if debug:
                         logger.debug("Already registered, skipping: %s", filename)
                     continue
@@ -461,7 +501,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                     stats["errors"] += 1
                     continue
                 if existing is not None:
-                    _backfill_track_numbers(ctx, existing, filepath, bool(arc_ext))
+                    _update_existing_audio(ctx, existing, filepath, bool(arc_ext), work)
                 continue
 
             signature = file_signature(filepath)

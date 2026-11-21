@@ -4,10 +4,15 @@ The media counterpart of ``refresh_book_file`` (issue #870): an upload with
 ``on_conflict=replace`` writes new bytes under a path Grimoire already tracks,
 and everything the record learned from the old bytes is read again - size,
 mtime and content hash, the thumbnail, a model's triangle count, a track's
-duration and whether it has artwork. Nothing the user wrote is touched: the
-description, tags, variant links, a map's grid override and authored walls, a
-track's title and artist all stay as they are, since they are keyed by the
+duration, artwork and the title, artist, album and numbers in its tags. Nothing
+the user wrote is touched: the description, tags, variant links, a map's grid
+override and authored walls all stay as they are, since they are keyed by the
 record's id and the id does not change.
+
+A track's title, artist, album and numbers are read from the file and nowhere
+else - nothing in Grimoire edits them - so new tags in the file are new values
+in the listing (issue #966). The library scan uses ``reread_audio`` too, for a
+track whose file changed on disk.
 
 Patch-safety: ``generate_thumbnail`` is called through the package namespace
 (``indexer.NAME``) so tests can stub it, as in ``media.py``.
@@ -15,7 +20,7 @@ Patch-safety: ``generate_thumbnail`` is called through the package namespace
 import glob
 import logging
 import os
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 
 from backend import indexer  # package namespace, for patch-sensitive calls
 from ._context import _title_from_filename, path_hash, thumb_path_for
@@ -29,6 +34,9 @@ logger = logging.getLogger("grimoire.indexer")
 
 # The collections this refreshes: every one but the books trees.
 MEDIA_SECTIONS = ("maps", "tokens", "models", "audio")
+
+# What a track's listing reads from its tags.
+AUDIO_TAG_FIELDS = ("title", "artist", "album", "track_number", "disc_number")
 
 
 def refresh_media_file(
@@ -129,11 +137,17 @@ def _refresh_model(record: Any, ext: str) -> None:
 
 
 def _refresh_audio(record: Any) -> None:
-    """Re-read a track's duration, and whether it still has artwork to show.
+    """Re-read everything a replaced track's listing takes from its file."""
+    reread_audio(record)
 
-    The title, artist, album and track numbers read from the tags on insert are
-    left alone: they are the fields a user edits, and a replace corrects the
-    file, not the listing.
+
+def reread_audio(record: Any, overwrite: bool = True) -> None:
+    """Re-read a track's tags, duration and whether it has artwork to show.
+
+    ``overwrite=False`` only fills tag fields still blank (or 0), as a
+    "missing" metadata rescan asks. A file whose tags cannot be parsed keeps
+    the values it has: a failed read looks exactly like a file with no tags,
+    and should not blank a listing. Archives carry no tags and are left alone.
     """
     if archive_ext(record.filename):
         return
@@ -145,3 +159,23 @@ def _refresh_audio(record: Any) -> None:
         or bool(meta["embedded_art"])
         or _find_folder_artwork(os.path.dirname(record.filepath)) is not None
     )
+    if not meta["read"]:
+        return
+    for field in AUDIO_TAG_FIELDS:
+        if overwrite or not getattr(record, field):
+            setattr(record, field, meta[field])
+
+
+def audio_signature_matches(row: Any, signature: Sequence[float]) -> bool:
+    """Whether a track's stored ``(mtime, size)`` still matches its file.
+
+    Unlike ``signature_matches`` for books, a row with no content hash still
+    matches on its stat signature alone: hashing a whole audio library - hours
+    of audiobooks - to fill in a digest the tags do not need would make the
+    first rescan after upgrading read every byte. A row with no stored mtime
+    never matches, so it is read once and gets one.
+    """
+    mtime, size = signature
+    return row.file_mtime is not None and row.file_mtime == mtime and (
+        row.file_size or 0
+    ) == size

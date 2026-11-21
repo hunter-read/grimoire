@@ -4,7 +4,7 @@ The book case lives in ``test_upload_replace.py``. Here, as there, what matters
 is what survives and what does not: the record keeps its id - and with it its
 description, tags, variant links and favorites - while everything read from the
 old file (size, hash, thumbnail, cached renders, a mesh's triangle count, a
-track's duration) is read again from the new one.
+track's duration and tags) is read again from the new one.
 """
 import io
 import os
@@ -73,6 +73,22 @@ def _wav(frames: int) -> bytes:
         w.setframerate(8000)
         w.writeframes(b"\0\0" * frames)
     return buf.getvalue()
+
+
+def _tagged_wav(frames: int, tmp_path, **tags: str) -> bytes:
+    """A WAV of ``frames`` frames carrying the given ID3 text frames."""
+    from mutagen.id3 import TALB, TIT2, TPE1, TRCK
+    from mutagen.wave import WAVE
+
+    frame_types = {"title": TIT2, "artist": TPE1, "album": TALB, "track": TRCK}
+    path = tmp_path / f"tagged-{uuid.uuid4().hex[:6]}.wav"
+    path.write_bytes(_wav(frames))
+    f = WAVE(str(path))
+    f.add_tags()
+    for key, value in tags.items():
+        f.tags.add(frame_types[key](encoding=3, text=value))
+    f.save()
+    return path.read_bytes()
 
 
 def _place(make, rel: str, name: str, content: bytes, **fields):
@@ -308,7 +324,8 @@ class TestReplaceModel:
 
 class TestReplaceAudio:
     @pytest.mark.parametrize("folder", ["audio"], indirect=True)
-    def test_rereads_the_duration_and_keeps_the_listing(self, client, admin_headers, folder):
+    def test_rereads_the_duration_and_the_tags(self, client, admin_headers, folder, tmp_path):
+        """A retagged copy updates the listing and keeps the record (issue #966)."""
         a = _place(
             make_audio,
             folder,
@@ -316,18 +333,39 @@ class TestReplaceAudio:
             _wav(800),
             title="Tavern Night",
             artist="Bardcore",
+            album="Old Album",
+            track_number=1,
+            disc_number=0,
             duration=0.1,
             has_artwork=True,
+            description="Played at the Yawning Portal.",
+            tags=["ambience"],
         )
-        resp = _replace(client, admin_headers, folder, "tavern.wav", _wav(16000))
+        new = _tagged_wav(
+            16000, tmp_path, title="New Title", artist="New Artist", album="New Album", track="7/12"
+        )
+        resp = _replace(client, admin_headers, folder, "tavern.wav", new)
         assert resp.status_code == 200, resp.text
         assert resp.json()["record_type"] == "audio"
+        assert resp.json()["record_id"] == a.id
         row = _get(Audio, a.id)
         assert row.duration == pytest.approx(2.0, abs=0.05)
-        assert row.title == "Tavern Night"
-        assert row.artist == "Bardcore"
+        assert (row.title, row.artist, row.album) == ("New Title", "New Artist", "New Album")
+        assert (row.track_number, row.disc_number) == (7, 0)
+        # What the user wrote stays on the record.
+        assert row.description == "Played at the Yawning Portal."
+        body = client.get(f"/api/audio/{a.id}", headers=admin_headers).json()
+        assert body["tags"] == ["ambience"]
         # The new file has no art of its own, and there is no folder cover.
         assert row.has_artwork is False
+
+    @pytest.mark.parametrize("folder", ["audio"], indirect=True)
+    def test_an_untagged_copy_clears_the_old_tags(self, client, admin_headers, folder):
+        """The listing shows what the file says, as a fresh scan of it would."""
+        a = _place(make_audio, folder, "bare.wav", _wav(800), title="Old", artist="Old")
+        assert _replace(client, admin_headers, folder, "bare.wav", _wav(1600)).status_code == 200
+        row = _get(Audio, a.id)
+        assert (row.title, row.artist) == ("", "")
 
     @pytest.mark.parametrize("folder", ["audio"], indirect=True)
     def test_a_cover_set_in_the_ui_still_counts(self, client, admin_headers, folder):

@@ -83,6 +83,13 @@ class TestReadAudioMetadata:
         assert meta["title"] == ""
         assert meta["embedded_art"] is False
         assert meta["track_number"] == 0
+        # Blank because nothing was read, not because the file has no tags.
+        assert meta["read"] is False
+
+    def test_a_parsed_file_says_so_even_with_no_tags(self):
+        wav = os.path.join(tempfile.mkdtemp(), "plain.wav")
+        _write_wav(wav)
+        assert _read_audio_metadata(wav)["read"] is True
 
     def test_reads_id3_tags_from_wav(self):
         """WAV's ID3 tags are read by frame - easy mode only wraps MP3's (issue #494)."""
@@ -269,6 +276,26 @@ class TestAudioScanLoop:
         finally:
             db.close()
 
+    def test_backfill_of_an_unreadable_file_happens_once(self, monkeypatch):
+        tmp, lib = self._mk_lib()
+        wav = os.path.join(lib, "audio", "Ambient", "garbled.wav")
+        with open(wav, "wb") as f:
+            f.write(b"not audio")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            db.query(Audio).filter(Audio.filepath == wav).update(
+                {"track_number": None, "disc_number": None}, synchronize_session=False
+            )
+            db.commit()
+            scan_library(lib, data, db)
+            db.expire_all()
+            row = db.query(Audio).filter(Audio.filepath == wav).first()
+            assert (row.track_number, row.disc_number) == (0, 0)
+        finally:
+            db.close()
+
     def test_audio_exts_cover_target_formats(self):
         for ext in (".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".m4b", ".aac"):
             assert ext in AUDIO_EXTS
@@ -286,6 +313,167 @@ class TestAudioScanLoop:
             assert row.title == "Test Audiobook"
             assert row.duration > 0
             assert row.has_artwork is True
+        finally:
+            db.close()
+
+
+def _retag(path, **tags):
+    """Rewrite ``path`` with new tags and move its mtime, as an editor would."""
+    stat = os.stat(path)
+    _write_wav_with_id3(path, **tags)
+    os.utime(path, (stat.st_atime, stat.st_mtime + 60))
+
+
+class TestAudioRescanRereadsTags:
+    """A rescan reads a changed file's tags again, keeping the record (issue #966)."""
+
+    def _lib(self):
+        lib = os.path.join(tempfile.mkdtemp(), "library")
+        adir = os.path.join(lib, "audio", f"Set-{uuid.uuid4().hex[:6]}")
+        os.makedirs(adir)
+        return lib, adir
+
+    def _row(self, db, path):
+        db.expire_all()
+        return db.query(Audio).filter(Audio.filepath == path).first()
+
+    def test_a_retagged_file_updates_the_listing(self):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "storm.wav")
+        _write_wav_with_id3(wav, title="Old Title", artist="Old Artist", album="Old", track="1")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            before = self._row(db, wav)
+            track_id, old_hash = before.id, before.content_hash
+            before.description = "Kept."
+            db.commit()
+
+            _retag(wav, title="New Title", artist="New Artist", album="New", track="4/9", disc="2")
+            stats = scan_library(lib, data, db)
+            row = self._row(db, wav)
+            assert row.id == track_id
+            assert (row.title, row.artist, row.album) == ("New Title", "New Artist", "New")
+            assert (row.track_number, row.disc_number) == (4, 2)
+            assert row.description == "Kept."
+            assert stats["updated_audio"] == 1
+            assert stats["new_audio"] == 0
+            # The stored signature and hash follow the file, so the next scan skips it.
+            assert row.file_mtime == os.stat(wav).st_mtime
+            assert row.content_hash not in (None, old_hash)
+            assert scan_library(lib, data, db)["updated_audio"] == 0
+        finally:
+            db.close()
+
+    def test_an_unchanged_file_is_not_read_again(self, monkeypatch):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "calm.wav")
+        _write_wav_with_id3(wav, title="Calm", track="1")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            from backend.indexer import media_refresh
+
+            reads = []
+            monkeypatch.setattr(
+                media_refresh, "_read_audio_metadata", lambda p: reads.append(p) or {}
+            )
+            assert scan_library(lib, data, db)["updated_audio"] == 0
+            assert reads == []
+        finally:
+            db.close()
+
+    def test_a_row_without_a_stored_mtime_is_read_once_without_hashing(self, monkeypatch):
+        """A track from before content hashing gets a signature, not a whole-file read."""
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "legacy.wav")
+        _write_wav_with_id3(wav, title="Legacy", track="2")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            db.query(Audio).filter(Audio.filepath == wav).update(
+                {"file_mtime": None, "content_hash": None, "title": "Stale"},
+                synchronize_session=False,
+            )
+            db.commit()
+            from backend.indexer import media
+
+            hashed = []
+            monkeypatch.setattr(media, "hash_file", lambda p, **kw: hashed.append(p) or "x")
+            assert scan_library(lib, data, db)["updated_audio"] == 1
+            row = self._row(db, wav)
+            assert row.title == "Legacy"
+            assert row.file_mtime == os.stat(wav).st_mtime
+            assert row.content_hash is None
+            assert wav not in hashed
+            assert scan_library(lib, data, db)["updated_audio"] == 0
+        finally:
+            db.close()
+
+    def test_a_changed_archive_gets_its_signature_and_nothing_else(self):
+        lib, adir = self._lib()
+        archive = os.path.join(adir, "pack.zip")
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("inner.wav", b"")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            with zipfile.ZipFile(archive, "a") as z:
+                z.writestr("second.wav", b"more")
+            assert scan_library(lib, data, db)["updated_audio"] == 1
+            row = self._row(db, archive)
+            assert row.file_size == os.path.getsize(archive)
+            assert (row.title, row.track_number) == ("", 0)
+        finally:
+            db.close()
+
+    def test_a_replace_rescan_rereads_unchanged_files(self):
+        """How a listing that went stale before this fix is put right."""
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "stale.wav")
+        _write_wav_with_id3(wav, title="Right", artist="Right", track="3")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            db.query(Audio).filter(Audio.filepath == wav).update(
+                {"title": "Wrong", "artist": ""}, synchronize_session=False
+            )
+            db.commit()
+            # A plain rescan sees an unchanged file and leaves it.
+            scan_library(lib, data, db)
+            assert self._row(db, wav).title == "Wrong"
+
+            # "missing" fills only what is blank...
+            stats = scan_library(lib, data, db, metadata_mode="missing")
+            assert stats["updated_audio"] == 1
+            row = self._row(db, wav)
+            assert (row.title, row.artist) == ("Wrong", "Right")
+
+            # ...and "replace" reads every tag again.
+            scan_library(lib, data, db, metadata_mode="replace")
+            assert self._row(db, wav).title == "Right"
+        finally:
+            db.close()
+
+    def test_an_unparseable_file_keeps_its_tags(self):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "broken.wav")
+        _write_wav_with_id3(wav, title="Keep Me", artist="Me", track="1")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            with open(wav, "wb") as f:
+                f.write(b"not audio at all")
+            assert scan_library(lib, data, db)["updated_audio"] == 1
+            row = self._row(db, wav)
+            assert (row.title, row.artist, row.track_number) == ("Keep Me", "Me", 1)
+            assert row.file_size == len(b"not audio at all")
         finally:
             db.close()
 
@@ -359,6 +547,29 @@ class TestAudioScanFailures:
             db.expire_all()
             # Rolled back, so the next scan tries again.
             assert self._row(db, wav).track_number is None
+        finally:
+            db.close()
+
+    def test_a_changed_file_whose_commit_hangs_is_retried(self, monkeypatch):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "retag.wav")
+        _write_wav_with_id3(wav, title="Before", track="1")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            _retag(wav, title="After", track="1")
+            self._locked_on(monkeypatch, "commit audio", wav)
+            stats = scan_library(lib, data, db)
+            assert stats["errors"] >= 1
+            assert stats["updated_audio"] == 0
+            db.expire_all()
+            # Rolled back with its old signature, so the next scan sees the change again.
+            assert self._row(db, wav).title == "Before"
+            monkeypatch.undo()
+            assert scan_library(lib, data, db)["updated_audio"] == 1
+            db.expire_all()
+            assert self._row(db, wav).title == "After"
         finally:
             db.close()
 
