@@ -4403,7 +4403,7 @@
     "answerFailed": "No ha funcionado. Inténtalo de nuevo.",
     "permissionsFailed": "No se han podido cargar los permisos. Elige Personalizar para volver a intentarlo.",
     "goneTitle": "Esta solicitud de inicio de sesión no está disponible",
-    "goneBody": "Ha caducado o ya se respondió, o el inicio de sesión de aplicaciones está desactivado. Vuelve a iniciar la conexión desde la aplicación.",
+    "goneBody": "Ha caducado, ya se respondió o se inició en otro navegador, o el inicio de sesión de aplicaciones está desactivado. Vuelve a iniciar la conexión desde la aplicación, en este navegador.",
     "failedTitle": "No se pudo cargar esta solicitud de inicio de sesión",
     "failedBody": "Prueba a recargar la página."
   },

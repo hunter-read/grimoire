@@ -4403,7 +4403,7 @@
     "answerFailed": "Non ha funzionato. Riprova.",
     "permissionsFailed": "Impossibile caricare le autorizzazioni. Scegli Personalizza per riprovare.",
     "goneTitle": "Questa richiesta di accesso non è disponibile",
-    "goneBody": "È scaduta o ha già ricevuto risposta, oppure l'accesso delle app è disattivato. Riavvia la connessione dall'app.",
+    "goneBody": "È scaduta, ha già ricevuto risposta o è stata avviata in un altro browser, oppure l'accesso delle app è disattivato. Riavvia la connessione dall'app, in questo browser.",
     "failedTitle": "Impossibile caricare questa richiesta di accesso",
     "failedBody": "Prova a ricaricare la pagina."
   },

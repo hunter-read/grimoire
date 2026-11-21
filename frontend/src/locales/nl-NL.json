@@ -4403,7 +4403,7 @@
     "answerFailed": "Dat is niet gelukt. Probeer het opnieuw.",
     "permissionsFailed": "De rechten konden niet worden geladen. Kies Aanpassen om het opnieuw te proberen.",
     "goneTitle": "Dit aanmeldverzoek is niet beschikbaar",
-    "goneBody": "Het is verlopen of al beantwoord, of aanmelden voor apps staat uit. Start de verbinding opnieuw vanuit de app.",
+    "goneBody": "Het is verlopen, al beantwoord of in een andere browser gestart, of aanmelden voor apps staat uit. Start de verbinding opnieuw vanuit de app, in deze browser.",
     "failedTitle": "Dit aanmeldverzoek kon niet worden geladen",
     "failedBody": "Probeer de pagina opnieuw te laden."
   },
