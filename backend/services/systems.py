@@ -5,6 +5,7 @@ Shared by the systems, campaigns, favorites, tags and Codex routers.
 from typing import Any, Iterable
 
 from fastapi import HTTPException
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from ..models import Book, GameSystem, User
@@ -116,17 +117,45 @@ def get_visible_system(db: Session, system_id: str, user: Any) -> GameSystem:
 
 def visible_cover_id(db: Session, cover_book_id: str | None, user: Any) -> str | None:
     """``cover_book_id``, or None when it names a book ``user`` cannot see."""
-    if not cover_book_id or access_control.sees_everything(user):
-        return cover_book_id or None
-    book = db.query(Book.id).filter(Book.id == cover_book_id)
-    if access_control.visible_books(db, book, user).first() is not None:
-        return cover_book_id
-    # A dangling id is left as it was; only a book the user can't see is dropped.
-    return cover_book_id if book.first() is None else None
+    if not cover_book_id:
+        return None
+    return cover_book_id if cover_book_id in visible_cover_ids(db, [cover_book_id], user) else None
+
+
+def visible_cover_ids(db: Session, cover_book_ids: Iterable[str | None], user: Any) -> set[str]:
+    """The ids among ``cover_book_ids`` that :func:`visible_cover_id` would keep.
+
+    At most two queries however many ids are asked about.
+    """
+    wanted = {bid for bid in cover_book_ids if bid}
+    if not wanted or access_control.sees_everything(user):
+        return wanted
+    shown = {
+        bid
+        for (bid,) in access_control.visible_books(
+            db, db.query(Book.id).filter(Book.id.in_(wanted)), user
+        )
+    }
+    rest = wanted - shown
+    if rest:
+        # A dangling id is left as it was; only a book the user can't see is dropped.
+        existing = {bid for (bid,) in db.query(Book.id).filter(Book.id.in_(rest))}
+        shown |= rest - existing
+    return shown
 
 
 def resolve_cover_book_id(db: Session, system: GameSystem, user: Any) -> str | None:
     """Return the system's cover book id, falling back to an auto-derived cover.
+
+    One system's entry from :func:`resolve_cover_book_ids`, which documents the rules.
+    """
+    return resolve_cover_book_ids(db, [system], user)[system.id]
+
+
+def resolve_cover_book_ids(
+    db: Session, systems: Iterable[GameSystem], user: Any
+) -> dict[str, str | None]:
+    """Each system's cover book id, by system id, falling back to an auto-derived cover.
 
     Most systems don't have an explicit ``cover_book_id`` set, so we pick the
     first core book with a thumbnail (or any book with a thumbnail) — matching
@@ -143,38 +172,42 @@ def resolve_cover_book_id(db: Session, system: GameSystem, user: Any) -> str | N
 
     Both the explicit and the automatic cover come only from books ``user`` can
     see, so the cover never shows one they could not open.
+
+    A fixed number of queries however many systems are asked about: the library
+    grid lists every system at once, and a query or two per card made a large
+    library's grid take a second to load.
     """
-    cover_book_id = visible_cover_id(db, system.cover_book_id, user)
-    if system.container_kind:
-        return cover_book_id
-    if not cover_book_id:
-        auto = (
-            access_control.visible_books(
-                db,
-                variants.parents_only(
-                    db.query(Book).filter_by(
-                        game_system_id=system.id, category="core", has_thumbnail=True
-                    ),
-                    Book,
-                ),
-                user,
-            )
-            .order_by(Book.title)
-            .first()
+    systems = list(systems)
+    shown = visible_cover_ids(db, (s.cover_book_id for s in systems), user)
+    covers: dict[str, str | None] = {
+        s.id: s.cover_book_id if s.cover_book_id in shown else None for s in systems
+    }
+    need = [s.id for s in systems if not s.container_kind and not covers[s.id]]
+    if not need:
+        return covers
+    # Rank each system's visible thumbnailed books - core first, then by title -
+    # and keep the first of each.
+    rank = (
+        func.row_number()
+        .over(
+            partition_by=Book.game_system_id,
+            order_by=(case((Book.category == "core", 0), else_=1), Book.title, Book.id),
         )
-        if not auto:
-            auto = (
-                access_control.visible_books(
-                    db,
-                    variants.parents_only(
-                        db.query(Book).filter_by(game_system_id=system.id, has_thumbnail=True),
-                        Book,
-                    ),
-                    user,
-                )
-                .order_by(Book.title)
-                .first()
-            )
-        if auto:
-            cover_book_id = auto.id
-    return cover_book_id
+        .label("rank")
+    )
+    ranked = access_control.visible_books(
+        db,
+        variants.parents_only(
+            db.query(Book.game_system_id.label("system_id"), Book.id.label("book_id"), rank).filter(
+                Book.game_system_id.in_(need),
+                Book.has_thumbnail == True,  # noqa: E712
+            ),
+            Book,
+        ),
+        user,
+    ).subquery()
+    for system_id, book_id in db.query(ranked.c.system_id, ranked.c.book_id).filter(
+        ranked.c.rank == 1
+    ):
+        covers[system_id] = book_id
+    return covers

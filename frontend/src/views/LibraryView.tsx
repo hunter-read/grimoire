@@ -11,6 +11,7 @@ import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBook
 import { useFavorites } from '../context/FavoritesContext'
 import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
+import useRenderBatches from '../hooks/useRenderBatches'
 import usePageTitle from '../hooks/usePageTitle'
 import useSavedFilters from '../hooks/useSavedFilters'
 import useUrlSortFilterState from '../hooks/useUrlSortFilterState'
@@ -86,6 +87,9 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
   const searchRef = useRef<HTMLInputElement>(null)
   useSlashToSearch(searchRef)
   const pins = usePins('systems')
+  // A large library's grid is built a few hundred cards at a time, so the first
+  // screenful shows without waiting for every card (see useRenderBatches).
+  const rendered = useRenderBatches(systems?.length ?? 0)
 
   usePageTitle(t(isArmory ? 'nav.armory' : 'nav.library'))
 
@@ -562,7 +566,7 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
                           }
                     }
                   >
-                    {rows.map((system) => (
+                    {rows.slice(0, rendered).map((system) => (
                       <li key={system.id} {...anchorOf(system)}>
                         <SystemCard
                           system={system}
