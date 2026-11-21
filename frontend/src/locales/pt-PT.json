@@ -4643,6 +4643,7 @@
       "removeMember": "Remover {{name}} da campanha",
       "removeMemberConfirm": "Remover {{name}} desta campanha?",
       "removeNamed": "Remover {{name}}",
+      "downloadNamed": "Transferir {{name}}",
       "removeSheetConfirm": "Remover a ficha de personagem de {{name}}? Não é possível anular.",
       "removeSheetFor": "Remover a ficha de personagem de {{name}}",
       "replaceSheetFor": "Substituir a ficha de personagem de {{name}}",

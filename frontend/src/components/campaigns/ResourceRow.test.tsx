@@ -195,3 +195,34 @@ describe('ResourceRow — now playing', () => {
     expect(screen.queryByRole('img', { name: /now playing|paused/i })).not.toBeInTheDocument()
   })
 })
+
+describe('ResourceRow — downloading a file', () => {
+  it('offers every viewer a download of an uploaded file, keeping its name', () => {
+    renderRow({
+      resource_type: 'file',
+      resource_id: 'f1',
+      name: 'strahd-token.png',
+      is_image: true,
+    })
+
+    const link = screen.getByRole('link', { name: 'Download strahd-token.png' })
+    expect(link).toHaveAttribute('href', 'http://localhost/campaigns/c1/files/f1')
+    // Empty, so the browser keeps the filename the server sends.
+    expect(link).toHaveAttribute('download', '')
+  })
+
+  it('also offers it to the owner, beside the opening link', () => {
+    renderRow({ resource_type: 'file', resource_id: 'f1', name: 'handout.pdf' }, { isOwner: true })
+
+    expect(screen.getByRole('link', { name: 'Download handout.pdf' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /handout\.pdf.*new tab/ })).toHaveAttribute(
+      'target',
+      '_blank'
+    )
+  })
+
+  it('offers no download for library resources, which open in the app', () => {
+    renderRow({ resource_type: 'map', resource_id: 'm1', name: 'Barovia' })
+    expect(screen.queryByRole('link', { name: /^Download/ })).not.toBeInTheDocument()
+  })
+})

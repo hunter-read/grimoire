@@ -4643,6 +4643,7 @@
       "removeMember": "Ta bort {{name}} från kampanjen",
       "removeMemberConfirm": "Ta bort {{name}} från den här kampanjen?",
       "removeNamed": "Ta bort {{name}}",
+      "downloadNamed": "Ladda ner {{name}}",
       "removeSheetConfirm": "Ta bort rollformuläret för {{name}}? Det går inte att ångra.",
       "removeSheetFor": "Ta bort rollformuläret för {{name}}",
       "replaceSheetFor": "Ersätt rollformuläret för {{name}}",
