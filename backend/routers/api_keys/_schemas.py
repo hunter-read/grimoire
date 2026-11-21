@@ -65,12 +65,12 @@ class OAuthRequestOut(BaseModel):
     # calling itself "Claude" can't fake. Show it prominently.
     redirect_host: str
     redirect_uri: Optional[str] = None
-    # Whether the caller may approve (they may hold keys), and if not, why.
+    # Whether the caller may approve: false only when they may not hold keys,
+    # which the page says in its own (translated) words.
     may_approve: bool
-    reason: Optional[str] = None
+    # Read on everything; the page's Customize lists what the role can choose
+    # from with GET /api/api-keys/permissions, as the key editor does.
     default_permissions: dict[str, str]
-    # {permission: [levels]} the caller's role can grant, as for a key.
-    levels: dict[str, list[str]]
 
 
 class OAuthRedirectOut(BaseModel):

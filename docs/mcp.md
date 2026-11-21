@@ -42,6 +42,66 @@ refuses every request and Grimoire logs a warning at startup.
 Any MCP client that supports the Streamable HTTP transport and custom headers can connect the
 same way: the URL is your instance's address plus `/mcp`, and the key goes in `X-API-Key`.
 
+## Sign in with OAuth
+
+Hosted clients - claude.ai on the web and in the apps, including an organisation's
+connectors - can't be given a per-user key: in an organisation connector the owner fixes any
+header for everyone. With `MCP_OAUTH_ENABLED=true`, such a client signs each user in to their
+own Grimoire account instead, through OAuth 2.1:
+
+1. Add Grimoire as a connector with the URL `https://grimoire.example.com/mcp`, and leave any
+   OAuth client ID and secret fields empty: the client registers itself.
+2. Connecting sends you to Grimoire's consent page; sign in first if you aren't already. The page
+   names the app and, in a box of its own, **the site you go to next**. Any app can call itself
+   "Claude"; only `claude.ai` is Claude. If that isn't the site you expect, choose **Deny**: both
+   buttons send you to that site, but Deny gives it nothing.
+3. Access is **Read only** unless you choose **Customize**, which opens the same permission picker
+   as an API key's. Choose **Allow**, and the app calls `/mcp` as you with that access, exactly as
+   an API key with those permissions would.
+
+Each approval is listed under **Connected apps** in Settings → Connections → API Keys, with the
+site it signs in through and when it was made and last used. Two connections from the same app
+(a personal and an organisation claude.ai account, say) show as two rows. **Edit** renames an
+app (each starts with the name the app gave itself, so "Claude (personal)" and "Claude (work)" tell
+two of them apart), changes its access or sets an expiry, and **Revoke** disconnects it; an admin can revoke anyone's under
+Settings → Access & sharing → All API Keys. Revoking signs the app out: it shows a **Connect**
+button, and you can approve it again. To stop someone using an app for good, turn API keys off for
+them; that refuses every key and app they have at once.
+
+A user who may not hold keys sees why on the consent page, and only **Deny**, so the app stops
+waiting.
+
+What it needs:
+
+- `MCP_ENABLED=true` and `API_KEYS_ENABLED=true`: an approval is an API key row, under the same
+  rules - admins always, other users once an admin turns keys on for them, guests never.
+- `BASE_URL` set to the public `https://` address. The OAuth issuer, the token's audience and the
+  links the client follows all come from it, so behind a reverse proxy it must be the address the
+  client sees. Over plain `http` (other than `localhost`) sign-in stays off, with an error in the
+  log; on `localhost` it starts with a warning.
+- The OAuth endpoints - `/authorize`, `/token`, `/register`, `/revoke` and the `/.well-known/`
+  documents - at the site root, reachable from the client's servers. Once a hostname is public,
+  expect it to be probed by scanners within minutes.
+
+Optionally, `MCP_OAUTH_REDIRECT_HOSTS` (e.g. `claude.ai`) limits which sites an app may send you
+back to, checked when it registers and on every sign-in. Without it, any `https` site may
+register, and `http` on loopback for an app on your own machine. Registering grants nothing: a
+user still has to sign in and approve.
+
+How it behaves:
+
+- Access tokens last an hour and the client renews them by itself; refresh tokens last 30 days
+  from their last use and are replaced on every renewal. An approval doesn't expire unless you
+  set an expiry on it in the key list. One left unused until its refresh token lapses is deleted.
+- Every check that applies to a key - the owner still exists, may still hold keys, and their
+  current role - runs on every call and on every renewal, so it can't be renewed around.
+- `/token` and `/revoke` are rate-limited per client and address, and `/register` and
+  `/authorize` per address (`AUTH_RATE_LIMIT`). Like every limit in Grimoire, the counts are per
+  worker unless `VALKEY_URL` is set.
+- Apps that registered and never got an approval are deleted after a day (an hour if they never
+  started a sign-in); apps whose approval was revoked are kept 30 days, so a client that reuses its
+  registration can be approved again.
+
 ## What it can do
 
 An assistant is only shown the tools, resources and prompts its key can use.
@@ -135,6 +195,9 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
 - **`403` "This host name isn't allowed for MCP"** - the assistant reaches Grimoire at an
   address that isn't loopback or `BASE_URL`'s host, such as a LAN IP. Set `BASE_URL` to it, or
   add it to `MCP_ALLOWED_HOSTS`.
+- **The consent page says "This sign-in request isn't available"** - the request is older than
+  ten minutes, was already answered, or `MCP_OAUTH_ENABLED` is off. Start the connection again
+  from the app.
 - **`/mcp` returns `404 Not Found`** - `MCP_ENABLED` is not set.
 - **`406 Not Acceptable`** - the client's `Accept` header excludes `application/json`. MCP clients send `application/json, text/event-stream`; a script calling `/mcp` directly should send that, or `*/*`.
 

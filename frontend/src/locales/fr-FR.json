@@ -1595,6 +1595,11 @@
       "allTitle": "Toutes les clés API",
       "allDescription": "Les clés API de tous les utilisateurs. Révoquez toute clé qui ne devrait plus servir ; chaque utilisateur gère les siennes depuis les paramètres de son compte.",
       "empty": "Aucune clé API pour l'instant.",
+      "apps": {
+        "title": "Applications connectées",
+        "description": "Les applications que vous avez autorisées à se connecter à votre compte, comme Claude. Révoquez-en une pour la déconnecter.",
+        "allDescription": "Les applications que les personnes de ce serveur ont autorisées à se connecter à leur compte. Révoquez-en une pour la déconnecter."
+      },
       "create": "Créer une clé API",
       "loadFailed": "Impossible de charger les clés API.",
       "actionFailed": "Cela n'a pas fonctionné. Veuillez réessayer.",
@@ -1614,7 +1619,8 @@
         "edit": "Modifier",
         "regenerate": "Régénérer",
         "revoke": "Révoquer",
-        "owner": "Propriétaire : {{name}}"
+        "owner": "Propriétaire : {{name}}",
+        "signsInThrough": "via {{host}}"
       },
       "dialog": {
         "createTitle": "Créer une clé API",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Régénérer « {{name}} » ?",
         "regenerateMessage": "Une nouvelle clé est émise avec le même nom et les mêmes autorisations. La clé actuelle cesse de fonctionner immédiatement : tout ce qui l'utilise devra être mis à jour.",
         "revokeTitle": "Révoquer « {{name}} » ?",
-        "revokeMessage": "La clé est supprimée et cesse de fonctionner immédiatement. Cette action est irréversible."
+        "revokeMessage": "La clé est supprimée et cesse de fonctionner immédiatement. Cette action est irréversible.",
+        "revokeAppMessage": "L'application est déconnectée immédiatement. Elle vous demandera de vous reconnecter avant de pouvoir utiliser votre bibliothèque."
       },
       "groups": {
         "library": "Bibliothèque",
@@ -4378,6 +4385,26 @@
     "download": "Télécharger",
     "open": "Ouvrir",
     "sharedFrom": "Partagé depuis Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} souhaite utiliser votre bibliothèque Grimoire",
+    "signedInAs": "Connecté en tant que {{name}}",
+    "hostLabel": "Après votre réponse, vous irez sur",
+    "hostHint": "Vérifiez que c'est bien le site attendu. Une application peut porter n'importe quel nom, mais elle ne peut pas changer l'endroit où elle vous envoie.",
+    "accessTitle": "Accès",
+    "readOnly": "Lecture seule (recommandé)",
+    "readOnlyHint": "Elle peut lire tout ce que votre compte peut lire, sans rien modifier.",
+    "customise": "Personnaliser",
+    "cannotApprove": "Vous ne pouvez pas autoriser ceci, car les clés API ne sont pas activées pour votre compte. Vous pouvez quand même refuser, pour que l'application cesse d'attendre.",
+    "eitherWay": "Quelle que soit votre réponse, vous irez sur {{host}}.",
+    "denyGoesTo": "Refuser vous envoie sur {{host}}.",
+    "deny": "Refuser",
+    "approve": "Autoriser",
+    "answerFailed": "Cela n'a pas fonctionné. Réessayez.",
+    "goneTitle": "Cette demande de connexion n'est pas disponible",
+    "goneBody": "Elle a expiré ou a déjà reçu une réponse, ou la connexion des applications est désactivée. Relancez la connexion depuis l'application.",
+    "failedTitle": "Impossible de charger cette demande de connexion",
+    "failedBody": "Essayez de recharger la page."
   },
   "merge": {
     "action": "Fusionner…",

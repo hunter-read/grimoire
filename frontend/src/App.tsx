@@ -9,12 +9,13 @@ import LoginView from './views/LoginView'
 import LoadingScreen from './components/LoadingScreen'
 import AppShell from './components/AppShell'
 import ShareView from './views/ShareView'
+import McpConsentView from './views/McpConsentView'
 import { tryDecodeURIComponent } from './utils/safeDecode'
 
 export default function App() {
   // App is always rendered inside AuthProvider (see main.tsx).
   const { status, user, login } = useAuth()!
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
 
   // A share link's page is public (issue #541): it renders for anyone, signed
   // in or not, before any of the auth gates below.
@@ -26,6 +27,16 @@ export default function App() {
   if (status === 'loading') return <LoadingScreen />
   if (status === 'uninitialized') return <SetupView onSetup={login} />
   if (status === 'unauthenticated') return <LoginView onLogin={login} />
+  // An MCP client's sign-in (issue #906) is answered on a page of its own,
+  // without the app shell. Signed out, the login page above shows at this same
+  // address, so the request survives signing in.
+  if (/^\/oauth\/consent\/?$/.test(pathname)) {
+    return (
+      <ThemeProvider key={user?.id}>
+        <McpConsentView requestId={new URLSearchParams(search).get('request')} />
+      </ThemeProvider>
+    )
+  }
   // Keyed by account: if a different user signs in without a page load, every
   // provider below starts over and reads that user's own stored state.
   return (

@@ -243,6 +243,32 @@ describe('ApiKeyDialog', () => {
       )
     })
 
+    it('keeps groups folded when they reach something only through All permissions', () => {
+      render(
+        <ApiKeyDialog
+          apiKey={
+            {
+              id: 'k1',
+              name: 'Old',
+              permissions: { '*': 'read' },
+              expires_at: null,
+            } as unknown as ApiKey
+          }
+          permissions={permissions}
+          onSave={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
+      const library = screen.getByRole('button', { name: /Library/ })
+      expect(library).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.getByRole('button', { name: /Media/ })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      )
+      // The folded header still says what the group reaches.
+      expect(library).toHaveTextContent('2 of 2 with access')
+    })
+
     it('filters by name or description and opens the matching groups', () => {
       renderNew()
       const filter = screen.getByPlaceholderText('Filter permissions')

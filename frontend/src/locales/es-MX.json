@@ -1595,6 +1595,11 @@
       "allTitle": "Todas las claves de API",
       "allDescription": "Las claves de API de todos los usuarios. Revoca cualquier clave que no deba estar en uso; cada usuario gestiona las suyas desde la configuración de su cuenta.",
       "empty": "Todavía no hay claves de API.",
+      "apps": {
+        "title": "Apps conectadas",
+        "description": "Apps a las que permitiste iniciar sesión en tu cuenta, como Claude. Revoca una para desconectarla.",
+        "allDescription": "Apps a las que las personas de este servidor permitieron iniciar sesión en sus cuentas. Revoca una para desconectarla."
+      },
       "create": "Crear clave de API",
       "loadFailed": "No se pudieron cargar las claves de API.",
       "actionFailed": "No ha funcionado. Inténtalo de nuevo.",
@@ -1614,7 +1619,8 @@
         "edit": "Editar",
         "regenerate": "Regenerar",
         "revoke": "Revocar",
-        "owner": "Propietario: {{name}}"
+        "owner": "Propietario: {{name}}",
+        "signsInThrough": "a través de {{host}}"
       },
       "dialog": {
         "createTitle": "Crear clave de API",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "¿Regenerar «{{name}}»?",
         "regenerateMessage": "Se emite una clave nueva con el mismo nombre y los mismos permisos. La clave actual deja de funcionar de inmediato, así que habrá que actualizar todo lo que la use.",
         "revokeTitle": "¿Revocar «{{name}}»?",
-        "revokeMessage": "La clave se elimina y deja de funcionar de inmediato. Esta acción no se puede deshacer."
+        "revokeMessage": "La clave se elimina y deja de funcionar de inmediato. Esta acción no se puede deshacer.",
+        "revokeAppMessage": "La app se desconecta de inmediato. Te pedirá que inicies sesión otra vez antes de poder usar tu biblioteca."
       },
       "groups": {
         "library": "Biblioteca",
@@ -4378,6 +4385,26 @@
     "download": "Descargar",
     "open": "Abrir",
     "sharedFrom": "Compartido desde Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} quiere usar tu biblioteca de Grimoire",
+    "signedInAs": "Sesión iniciada como {{name}}",
+    "hostLabel": "Después de responder, irás a",
+    "hostHint": "Verifica que sea el sitio que esperas. Una app puede llamarse como quiera, pero no puede cambiar a dónde te envía.",
+    "accessTitle": "Acceso",
+    "readOnly": "Solo lectura (recomendado)",
+    "readOnlyHint": "Puede leer todo lo que tu cuenta puede leer y no cambiar nada.",
+    "customise": "Personalizar",
+    "cannotApprove": "No puedes permitirlo, porque las claves de API no están activadas para tu cuenta. Aun así puedes rechazarlo para que la app deje de esperar.",
+    "eitherWay": "Cualquier respuesta te envía a {{host}}.",
+    "denyGoesTo": "Rechazar te envía a {{host}}.",
+    "deny": "Rechazar",
+    "approve": "Permitir",
+    "answerFailed": "No funcionó. Inténtalo de nuevo.",
+    "goneTitle": "Esta solicitud de inicio de sesión no está disponible",
+    "goneBody": "Expiró o ya se respondió, o el inicio de sesión de apps está desactivado. Vuelve a iniciar la conexión desde la app.",
+    "failedTitle": "No se pudo cargar esta solicitud de inicio de sesión",
+    "failedBody": "Intenta recargar la página."
   },
   "merge": {
     "action": "Fusionar…",

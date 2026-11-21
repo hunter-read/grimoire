@@ -1595,6 +1595,11 @@
       "allTitle": "Todas as chaves de API",
       "allDescription": "As chaves de API de todos os usuários. Revogue qualquer chave que não deva estar em uso; cada usuário gerencia as suas nas configurações da conta.",
       "empty": "Nenhuma chave de API ainda.",
+      "apps": {
+        "title": "Apps conectados",
+        "description": "Apps que você permitiu entrar na sua conta, como o Claude. Revogue um para desconectá-lo.",
+        "allDescription": "Apps que pessoas deste servidor permitiram entrar nas próprias contas. Revogue um para desconectá-lo."
+      },
       "create": "Criar chave de API",
       "loadFailed": "Não foi possível carregar as chaves de API.",
       "actionFailed": "Não deu certo. Tente novamente.",
@@ -1614,7 +1619,8 @@
         "edit": "Editar",
         "regenerate": "Gerar novamente",
         "revoke": "Revogar",
-        "owner": "Dono: {{name}}"
+        "owner": "Dono: {{name}}",
+        "signsInThrough": "via {{host}}"
       },
       "dialog": {
         "createTitle": "Criar chave de API",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Gerar “{{name}}” novamente?",
         "regenerateMessage": "Uma nova chave é emitida com o mesmo nome e as mesmas permissões. A chave atual para de funcionar imediatamente, então tudo o que a usa precisará ser atualizado.",
         "revokeTitle": "Revogar “{{name}}”?",
-        "revokeMessage": "A chave é excluída e para de funcionar imediatamente. Isso não pode ser desfeito."
+        "revokeMessage": "A chave é excluída e para de funcionar imediatamente. Isso não pode ser desfeito.",
+        "revokeAppMessage": "O app é desconectado na hora. Ele vai pedir que você entre de novo antes de poder usar sua biblioteca."
       },
       "groups": {
         "library": "Biblioteca",
@@ -4378,6 +4385,26 @@
     "download": "Baixar",
     "open": "Abrir",
     "sharedFrom": "Compartilhado pelo Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} quer usar sua biblioteca do Grimoire",
+    "signedInAs": "Conectado como {{name}}",
+    "hostLabel": "Depois de responder, você vai para",
+    "hostHint": "Confira se é o site que você espera. Um app pode se chamar como quiser, mas não pode mudar para onde envia você.",
+    "accessTitle": "Acesso",
+    "readOnly": "Somente leitura (recomendado)",
+    "readOnlyHint": "Ele pode ler tudo o que sua conta pode ler, sem alterar nada.",
+    "customise": "Personalizar",
+    "cannotApprove": "Você não pode permitir isso, porque as chaves de API não estão ativadas para sua conta. Ainda assim pode negar, para que o app pare de esperar.",
+    "eitherWay": "Qualquer resposta envia você para {{host}}.",
+    "denyGoesTo": "Negar envia você para {{host}}.",
+    "deny": "Negar",
+    "approve": "Permitir",
+    "answerFailed": "Não funcionou. Tente de novo.",
+    "goneTitle": "Este pedido de login não está disponível",
+    "goneBody": "Ele expirou ou já foi respondido, ou o login de apps está desativado. Inicie a conexão de novo pelo app.",
+    "failedTitle": "Não foi possível carregar este pedido de login",
+    "failedBody": "Tente recarregar a página."
   },
   "merge": {
     "action": "Mesclar…",

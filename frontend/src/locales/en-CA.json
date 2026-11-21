@@ -1595,6 +1595,11 @@
       "allTitle": "All API Keys",
       "allDescription": "Every user's API keys. Revoke any key that shouldn't be in use; each user manages their own from their account settings.",
       "empty": "No API keys yet.",
+      "apps": {
+        "title": "Connected apps",
+        "description": "Apps you allowed to sign in to your account, such as Claude. Revoke one to disconnect it.",
+        "allDescription": "Apps people on this server have allowed to sign in to their accounts. Revoke one to disconnect it."
+      },
       "create": "Create API key",
       "loadFailed": "Could not load API keys.",
       "actionFailed": "That didn't work. Please try again.",
@@ -1614,7 +1619,8 @@
         "edit": "Edit",
         "regenerate": "Regenerate",
         "revoke": "Revoke",
-        "owner": "Owner: {{name}}"
+        "owner": "Owner: {{name}}",
+        "signsInThrough": "via {{host}}"
       },
       "dialog": {
         "createTitle": "Create API key",
@@ -1651,7 +1657,8 @@
         "regenerateTitle": "Regenerate “{{name}}”?",
         "regenerateMessage": "A new key is issued with the same name and permissions. The current key stops working immediately, so anything using it must be updated.",
         "revokeTitle": "Revoke “{{name}}”?",
-        "revokeMessage": "The key is deleted and stops working immediately. This can't be undone."
+        "revokeMessage": "The key is deleted and stops working immediately. This can't be undone.",
+        "revokeAppMessage": "The app is disconnected at once. It will ask you to sign in again before it can use your library."
       },
       "groups": {
         "library": "Library",
@@ -4378,6 +4385,26 @@
     "download": "Download",
     "open": "Open",
     "sharedFrom": "Shared from Grimoire"
+  },
+  "mcpConsent": {
+    "title": "{{app}} wants to use your Grimoire library",
+    "signedInAs": "Signed in as {{name}}",
+    "hostLabel": "After you answer, you go to",
+    "hostHint": "Check this is the site you expect. An app can call itself anything, but it can't change where it sends you.",
+    "accessTitle": "Access",
+    "readOnly": "Read only (recommended)",
+    "readOnlyHint": "It can read everything your account can read, and change nothing.",
+    "customise": "Customize",
+    "cannotApprove": "You can't allow this, because API keys aren't turned on for your account. You can still deny it, so the app stops waiting.",
+    "eitherWay": "Either answer sends you to {{host}}.",
+    "denyGoesTo": "Deny sends you to {{host}}.",
+    "deny": "Deny",
+    "approve": "Allow",
+    "answerFailed": "That didn't work. Try again.",
+    "goneTitle": "This sign-in request isn't available",
+    "goneBody": "It has expired or was already answered, or app sign-in is turned off. Start the connection again from the app.",
+    "failedTitle": "Couldn't load this sign-in request",
+    "failedBody": "Try reloading the page."
   },
   "merge": {
     "action": "Merge…",

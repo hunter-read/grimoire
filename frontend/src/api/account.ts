@@ -55,6 +55,21 @@ export const apiKeys = {
   revoke: (id: Id) => client.delete('/api-keys/{key_id}', { path: { key_id: id } }),
 }
 
+// The consent page for an MCP client's sign-in (issue #906). `/authorize`
+// sends the browser to /oauth/consent?request=<id>; approve and deny both
+// answer with the address to send the browser to next.
+export const mcpSignIns = {
+  get: (requestId: string) =>
+    client.get('/oauth/requests/{request_id}', { path: { request_id: requestId } }),
+  approve: (requestId: string, permissions: Record<string, string> | null) =>
+    client.post('/oauth/requests/{request_id}/approve', {
+      path: { request_id: requestId },
+      body: { permissions },
+    }),
+  deny: (requestId: string) =>
+    client.post('/oauth/requests/{request_id}/deny', { path: { request_id: requestId } }),
+}
+
 // Share links (issue #541): public, revocable URLs for one library item.
 export const shareLinks = {
   list: (params: QueryOf<'/share-links', 'get'> = {}) =>
