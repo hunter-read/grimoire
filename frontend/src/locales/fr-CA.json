@@ -4403,7 +4403,7 @@
     "answerFailed": "Ça n'a pas fonctionné. Réessayez.",
     "permissionsFailed": "Impossible de charger les autorisations. Choisissez Personnaliser pour réessayer.",
     "goneTitle": "Cette demande de connexion n'est pas disponible",
-    "goneBody": "Elle a expiré ou a déjà reçu une réponse, ou la connexion des applications est désactivée. Relancez la connexion à partir de l'application.",
+    "goneBody": "Elle a expiré, a déjà reçu une réponse ou a été lancée dans un autre navigateur, ou la connexion des applications est désactivée. Relancez la connexion à partir de l'application, dans ce navigateur.",
     "failedTitle": "Impossible de charger cette demande de connexion",
     "failedBody": "Essayez de recharger la page."
   },

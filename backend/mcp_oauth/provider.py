@@ -23,7 +23,7 @@ from mcp.server.auth.provider import (
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
 from .. import config
-from .tokens import aware
+from .tokens import aware, digest
 from . import clients, codes, grants
 from .tokens import SCOPE
 
@@ -111,6 +111,10 @@ class GrimoireOAuthProvider:
             "redirect_uri": str(params.redirect_uri),
             "redirect_uri_provided_explicitly": params.redirect_uri_provided_explicitly,
             "resource": params.resource,
+            # The hash of the browser's cookie (issue #942): only that browser
+            # can answer the request. Unset only outside the routes' wrapper,
+            # and then nobody can.
+            "browser": digest(value) if (value := codes.browser.get()) else None,
         }
         try:
             request_id = await _db(lambda db: codes.create(db, client.client_id, stored))

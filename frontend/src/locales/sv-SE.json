@@ -4403,7 +4403,7 @@
     "answerFailed": "Det fungerade inte. Försök igen.",
     "permissionsFailed": "Behörigheterna kunde inte läsas in. Välj Anpassa för att försöka igen.",
     "goneTitle": "Den här inloggningsbegäran är inte tillgänglig",
-    "goneBody": "Den har gått ut eller redan besvarats, eller så är inloggning för appar avstängd. Starta anslutningen igen från appen.",
+    "goneBody": "Den har gått ut, redan besvarats eller startats i en annan webbläsare, eller så är inloggning för appar avstängd. Starta anslutningen igen från appen, i den här webbläsaren.",
     "failedTitle": "Det gick inte att läsa in inloggningsbegäran",
     "failedBody": "Försök att läsa in sidan igen."
   },

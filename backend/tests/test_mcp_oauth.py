@@ -19,9 +19,12 @@ from fastapi.testclient import TestClient
 from backend import config
 from backend.auth import get_current_user
 from backend.config import SessionLocal
+from backend.mcp_oauth import codes
 from backend.mcp_oauth import routes as oauth_routes
+from backend.mcp_oauth.tokens import digest
 from backend.models import ApiKey, OAuthClient, OAuthCode
 from backend.routers import api_keys as api_keys_router
+from backend.routers.api_keys import oauth as oauth_api
 from backend.routers import mcp as mcp_router
 from backend.security import limiter
 from backend.tests._mcp import allow_keys, make_key
@@ -373,6 +376,7 @@ class TestAuthorizeNeverBouncesAway:
         resp = authorize(oauth_client, client_id, challenge, redirect=self.EVIL, **extra)
         assert resp.status_code == 400, resp.headers.get("location")
         assert "location" not in resp.headers
+        assert "set-cookie" not in resp.headers
         assert resp.json()["error"] == error
 
     def test_too_many_waiting_sign_ins_is_a_400_too(self, oauth_client, monkeypatch):
@@ -426,6 +430,105 @@ class TestAuthorizeNeverBouncesAway:
             db.close()
         assert flow.client["client_secret"] not in str(row.info)
         assert row.client_secret_hash != flow.client["client_secret"]
+
+
+class TestBrowserBinding:
+    """A request answers only in the browser that called /authorize (issue #942):
+    a consent link someone else started, forwarded to a user, is a 404."""
+
+    PATHS = ("", "/approve", "/deny")
+
+    @staticmethod
+    def answer(c, rid, path, headers):
+        url = f"/api/oauth/requests/{rid}{path}"
+        if path:
+            return c.post(url, json={}, headers=headers)
+        return c.get(url, headers=headers)
+
+    @staticmethod
+    def other_browser(oauth_client, cookie=None):
+        other = TestClient(oauth_client.app)
+        if cookie is not None:
+            other.cookies.set(codes.BROWSER_COOKIE, cookie)
+        return other
+
+    @pytest.mark.parametrize("cookie", [None, "wrong", "w" * 43])
+    def test_another_browser_gets_the_expired_404(self, oauth_client, admin_headers, cookie):
+        flow = Flow(oauth_client, admin_headers)
+        rid = flow.request_id()
+        other = self.other_browser(oauth_client, cookie)
+        for path in self.PATHS:
+            resp = self.answer(other, rid, path, admin_headers)
+            assert resp.status_code == 404, (path, resp.text)
+            assert resp.json()["detail"] == oauth_api.GONE
+        # Still waiting, for the browser that started it.
+        assert self.answer(oauth_client, rid, "", admin_headers).status_code == 200
+        assert flow.approve(rid)
+
+    def test_the_same_cookie_in_another_client_works(self, oauth_client, admin_headers):
+        # The cookie is the binding, not anything else about the connection.
+        flow = Flow(oauth_client, admin_headers)
+        rid = flow.request_id()
+        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
+        other = self.other_browser(oauth_client, value)
+        assert self.answer(other, rid, "", admin_headers).status_code == 200
+
+    def test_two_sign_ins_in_one_browser_share_the_cookie(self, oauth_client, admin_headers):
+        first, second = Flow(oauth_client, admin_headers), Flow(oauth_client, admin_headers)
+        rid1 = first.request_id()
+        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
+        rid2 = second.request_id()
+        assert oauth_client.cookies.get(codes.BROWSER_COOKIE) == value
+        assert first.exchange(first.approve(rid1)).status_code == 200
+        assert second.exchange(second.approve(rid2)).status_code == 200
+
+    def test_a_malformed_cookie_is_replaced(self, oauth_client):
+        assert codes.browser_value("w" * 43) == "w" * 43
+        for bad in (None, "", "short", "w" * 44, "w" * 42 + ";"):
+            fresh = codes.browser_value(bad)
+            assert fresh != bad and len(fresh) == 43
+
+    def test_the_cookie_flags(self, oauth_client, admin_headers):
+        flow = Flow(oauth_client, admin_headers)
+        resp = authorize(oauth_client, flow.client_id, flow.challenge)
+        assert resp.status_code == 302
+        cookie = resp.headers["set-cookie"]
+        assert cookie.startswith(f"{codes.BROWSER_COOKIE}=")
+        # Path=/: it must come back to /authorize as well as to /api/oauth.
+        for flag in ("HttpOnly", "SameSite=Lax", "Path=/;", "Max-Age=600"):
+            assert flag in cookie
+        # Plain http is allowed only on loopback, where Secure would drop it.
+        assert "Secure" not in cookie
+
+    def test_the_cookie_is_secure_under_https(self, monkeypatch):
+        monkeypatch.setattr(config, "BASE_URL", "https://grimoire.example")
+        assert b"; Secure" in oauth_routes.browser_cookie("v" * 43)
+
+    def test_only_the_cookies_hash_is_stored(self, oauth_client, admin_headers):
+        Flow(oauth_client, admin_headers).request_id()
+        value = oauth_client.cookies.get(codes.BROWSER_COOKIE)
+        db = SessionLocal()
+        try:
+            rows = db.query(OAuthCode).all()
+        finally:
+            db.close()
+        stored = [r.params.get("browser") for r in rows]
+        assert digest(value) in stored
+        assert all(value not in str(r.params) for r in rows)
+
+    def test_a_request_without_a_binding_cannot_be_answered(self, oauth_client, admin_headers):
+        # Requests stored before this change have no "browser": they lapse.
+        flow = Flow(oauth_client, admin_headers)
+        rid = flow.request_id()
+        db = SessionLocal()
+        try:
+            row = db.query(OAuthCode).filter_by(request_hash=digest(rid)).one()
+            row.params = {k: v for k, v in row.params.items() if k != "browser"}
+            db.commit()
+        finally:
+            db.close()
+        for path in self.PATHS:
+            assert self.answer(oauth_client, rid, path, admin_headers).status_code == 404
 
 
 class TestTokens:
