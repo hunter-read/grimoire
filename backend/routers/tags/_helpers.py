@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ...models import Audio, Book, GameSystem, GenericMap, Model3D, Token, User
-from ...services.systems import resolve_cover_book_id
+from ...services.systems import resolve_cover_book_ids
 
 
 def can_see_explicit(db: Session, user_id: str) -> bool:
@@ -34,6 +34,7 @@ def enrich_tagged_items(
     audio = {a.id: a for a in db.query(Audio).filter(Audio.id.in_(audio_ids))}
     models = {m.id: m for m in db.query(Model3D).filter(Model3D.id.in_(model_ids))}
     systems = {s.id: s for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids))}
+    system_covers = resolve_cover_book_ids(db, systems.values(), access_user)
 
     items: list[dict] = []
     for r in refs:
@@ -117,7 +118,7 @@ def enrich_tagged_items(
                     "item_id": s.id,
                     "name": s.name,
                     "publishers": s.publishers or [],
-                    "cover_book_id": resolve_cover_book_id(db, s, access_user),
+                    "cover_book_id": system_covers[s.id],
                 }
             )
     return items

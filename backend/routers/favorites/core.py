@@ -7,7 +7,7 @@ from ...config import get_db
 from ...auth import get_current_user, CurrentUser
 from ...models import Favorite, Book, GenericMap, Token, Audio, Model3D, GameSystem
 from ...services import access_control, tag_service
-from ...services.systems import resolve_cover_book_id
+from ...services.systems import resolve_cover_book_ids
 from ..systems.covers import has_cover_file
 from ._schemas import FavoriteIn
 
@@ -75,6 +75,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
     token_tags = tag_service.display_tags_for_resources(db, "token", token_ids)
     audio_tags = tag_service.display_tags_for_resources(db, "audio", audio_ids)
     model_tags = tag_service.display_tags_for_resources(db, "model", model_ids)
+    system_covers = resolve_cover_book_ids(db, systems.values(), access_user)
 
     enriched = []
     for r in rows:
@@ -153,7 +154,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
                     "item_id": s.id,
                     "name": s.name,
                     "publishers": s.publishers or [],
-                    "cover_book_id": resolve_cover_book_id(db, s, access_user),
+                    "cover_book_id": system_covers[s.id],
                     # Container folders (issues #261, #262) own no books, so
                     # `cover_book_id` is always null for them and folder art /
                     # an upload served by GET /systems/{id}/cover is their only
