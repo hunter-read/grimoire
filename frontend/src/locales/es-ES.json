@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Campos",
       "insertField": "Insertar {{field}}",
-      "syntaxHint": "Texto literal y campos. {*} coincide con cualquier cosa y se ignora. Encierra una parte entre < > para hacerla opcional. Los libros nuevos de la carpeta toman el título del nombre de archivo cuando encaja.",
+      "syntaxHint": "Texto literal y campos. {*} coincide con cualquier cosa y se ignora. Encierra una parte entre < > para hacerla opcional. {title:80} escribe como máximo 80 caracteres del título al renombrar. Los libros nuevos de la carpeta toman el título del nombre de archivo cuando encaja.",
       "unsaved": "Guarda el patrón para aplicarlo a los libros de arriba.",
       "saved": "Patrón guardado. Los libros nuevos de esta carpeta toman de él su título.",
       "saveFailed": "No se pudo guardar el patrón.",

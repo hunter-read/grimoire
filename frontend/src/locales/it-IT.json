@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Campi",
       "insertField": "Inserisci {{field}}",
-      "syntaxHint": "Testo fisso più campi. {*} corrisponde a qualsiasi cosa e viene ignorato. Racchiudi una parte tra < > per renderla facoltativa. I nuovi libri nella cartella prendono il titolo dal nome del file quando corrisponde.",
+      "syntaxHint": "Testo fisso più campi. {*} corrisponde a qualsiasi cosa e viene ignorato. Racchiudi una parte tra < > per renderla facoltativa. {title:80} scrive al massimo 80 caratteri del titolo quando rinomina. I nuovi libri nella cartella prendono il titolo dal nome del file quando corrisponde.",
       "unsaved": "Salva lo schema per applicarlo ai libri qui sopra.",
       "saved": "Schema salvato. I nuovi libri in questa cartella ne ricavano il titolo.",
       "saveFailed": "Impossibile salvare lo schema.",

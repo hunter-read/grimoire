@@ -19,6 +19,11 @@ the part it cares about without accounting for every other piece of a filename
 - but a wildcard has no value to write back, so a pattern holding one can read
 filenames and never rename them.
 
+``{field:N}`` caps what writing puts in a field at N characters, so
+``{title:80}`` keeps a long title from pushing a name past what a filesystem
+or a sync tool takes (issue #938). Reading ignores the cap: a name written
+with one fits the pattern either way, and so does one written before it.
+
 ``<...>`` marks an optional part. Reading accepts the filename with or without
 it; writing drops it when any field inside it is empty, so a book with no
 version is written ``Title`` rather than ``Title (v, )``. The angle brackets are
@@ -96,6 +101,8 @@ class PatternError(ValueError):
 @dataclass(frozen=True)
 class _Field:
     name: str
+    # The most characters writing puts here (``{title:80}``); None is no cap.
+    limit: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -113,11 +120,12 @@ def _parse_run(text: str) -> list[Union[str, _Field]]:
     for match in _PLACEHOLDER.finditer(text):
         if match.start() > pos:
             parts.append(text[pos : match.start()])
-        name = match.group(1).strip().lower()
+        raw_name, colon, raw_limit = match.group(1).partition(":")
+        name = raw_name.strip().lower()
         if name != WILDCARD and name not in _FIELD_REGEX:
             known = ", ".join("{" + f + "}" for f in FIELDS)
             raise PatternError(f"Unknown field {{{match.group(1)}}}. Use one of {known}, or {{*}}.")
-        parts.append(_Field(name))
+        parts.append(_Field(name, _parse_limit(name, raw_limit) if colon else None))
         pos = match.end()
     tail = text[pos:]
     literals = [p for p in parts if isinstance(p, str)] + [tail]
@@ -130,6 +138,18 @@ def _parse_run(text: str) -> list[Union[str, _Field]]:
     if tail:
         parts.append(tail)
     return parts
+
+
+def _parse_limit(name: str, raw: str) -> int:
+    """The N of ``{name:N}``, checked."""
+    if name == WILDCARD:
+        raise PatternError("{*} writes nothing, so it cannot have a length.")
+    text = raw.strip()
+    if not text.isascii() or not text.isdigit() or not 1 <= int(text) <= MAX_NAME_BYTES:
+        raise PatternError(
+            f"The length in {{{name}:{raw}}} must be a whole number from 1 to {MAX_NAME_BYTES}."
+        )
+    return int(text)
 
 
 class Pattern:
@@ -157,6 +177,11 @@ class Pattern:
             if any(isinstance(p, _Field) and p.name == WILDCARD for p in inner):
                 return False
         return True
+
+    def written(self, name: str, value: Any) -> str:
+        """``value`` as writing would put it in field ``name``: cleaned, and cut to any cap."""
+        limit = next((p.limit for p in _flatten(self.parts) if isinstance(p, _Field) and p.name == name), None)
+        return _fit(value, limit)
 
     def read(self, filename: str) -> Optional[dict[str, Any]]:
         """The fields ``filename`` carries, or None when it does not fit the pattern.
@@ -200,7 +225,7 @@ class Pattern:
                 if chunk is not None:
                     out.append(chunk)
             elif isinstance(part, _Field):
-                value = clean_value(values.get(part.name, ""))
+                value = _fit(values.get(part.name, ""), part.limit)
                 if not value:
                     missing.append(part.name)
                 out.append(value)
@@ -404,12 +429,26 @@ def clean_value(value: Any) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+# Left dangling at the end of a cut value: ``Curse of Strahd - Reloaded`` cut
+# to 17 is ``Curse of Strahd``, not ``Curse of Strahd -``.
+_CUT_TAIL = " -,;([{"
+
+
+def _fit(value: Any, limit: Optional[int]) -> str:
+    """``value`` cleaned for a filename and cut to ``limit`` characters."""
+    text = clean_value(value)
+    if limit is None or len(text) <= limit:
+        return text
+    cut = text[:limit]
+    return cut.rstrip(_CUT_TAIL) or cut.rstrip()
+
+
 def _render_run(parts: tuple[Union[str, _Field], ...], values: dict[str, str]) -> Optional[str]:
     """An optional group's text, or None when any field inside it is empty."""
     out: list[str] = []
     for part in parts:
         if isinstance(part, _Field):
-            value = clean_value(values.get(part.name, ""))
+            value = _fit(values.get(part.name, ""), part.limit)
             if not value:
                 return None
             out.append(value)

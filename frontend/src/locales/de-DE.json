@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Felder",
       "insertField": "{{field}} einfügen",
-      "syntaxHint": "Fester Text plus Felder. {*} passt auf alles und wird ignoriert. Setze einen Teil in < >, um ihn optional zu machen. Neue Bücher im Ordner übernehmen ihren Titel aus dem Dateinamen, wenn er passt.",
+      "syntaxHint": "Fester Text plus Felder. {*} passt auf alles und wird ignoriert. Setze einen Teil in < >, um ihn optional zu machen. {title:80} schreibt beim Umbenennen höchstens 80 Zeichen des Titels. Neue Bücher im Ordner übernehmen ihren Titel aus dem Dateinamen, wenn er passt.",
       "unsaved": "Speichere das Muster, um es auf die Bücher oben anzuwenden.",
       "saved": "Muster gespeichert. Neue Bücher in diesem Ordner übernehmen ihren Titel daraus.",
       "saveFailed": "Das Muster konnte nicht gespeichert werden.",

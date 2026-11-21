@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Champs",
       "insertField": "Insérer {{field}}",
-      "syntaxHint": "Du texte fixe et des champs. {*} correspond à n'importe quoi et est ignoré. Entourez une partie de < > pour la rendre facultative. Les nouveaux livres du dossier prennent leur titre dans le nom de fichier quand il correspond.",
+      "syntaxHint": "Du texte fixe et des champs. {*} correspond à n'importe quoi et est ignoré. Entourez une partie de < > pour la rendre facultative. {title:80} écrit au plus 80 caractères du titre lors du renommage. Les nouveaux livres du dossier prennent leur titre dans le nom de fichier quand il correspond.",
       "unsaved": "Enregistrez le modèle pour l'appliquer aux livres ci-dessus.",
       "saved": "Modèle enregistré. Les nouveaux livres de ce dossier en tirent leur titre.",
       "saveFailed": "Impossible d'enregistrer le modèle.",
