@@ -4401,6 +4401,7 @@
     "deny": "Negar",
     "approve": "Permitir",
     "answerFailed": "Não funcionou. Tente de novo.",
+    "permissionsFailed": "Não foi possível carregar as permissões. Escolha Personalizar para tentar de novo.",
     "goneTitle": "Este pedido de login não está disponível",
     "goneBody": "Ele expirou ou já foi respondido, ou o login de apps está desativado. Inicie a conexão de novo pelo app.",
     "failedTitle": "Não foi possível carregar este pedido de login",

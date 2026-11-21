@@ -4401,6 +4401,7 @@
     "deny": "Ablehnen",
     "approve": "Erlauben",
     "answerFailed": "Das hat nicht funktioniert. Versuche es erneut.",
+    "permissionsFailed": "Die Berechtigungen konnten nicht geladen werden. Wähle erneut „Anpassen“.",
     "goneTitle": "Diese Anmeldeanfrage ist nicht verfügbar",
     "goneBody": "Sie ist abgelaufen oder wurde schon beantwortet, oder die App-Anmeldung ist ausgeschaltet. Starte die Verbindung in der App neu.",
     "failedTitle": "Diese Anmeldeanfrage konnte nicht geladen werden",

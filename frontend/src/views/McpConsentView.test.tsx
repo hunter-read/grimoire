@@ -99,6 +99,16 @@ describe('McpConsentView', () => {
     expect(apiKeys.permissions).toHaveBeenCalledTimes(2)
   })
 
+  it('says the permission list failed to load when the server gives no reason', async () => {
+    vi.mocked(mcpSignIns.get).mockResolvedValue(signIn())
+    vi.mocked(apiKeys.permissions).mockRejectedValueOnce({})
+    render(<McpConsentView requestId="r1" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Customize' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't load the permissions. Choose Customize to try again."
+    )
+  })
+
   it('denies and returns to the app', async () => {
     vi.mocked(mcpSignIns.get).mockResolvedValue(signIn())
     vi.mocked(mcpSignIns.deny).mockResolvedValue({

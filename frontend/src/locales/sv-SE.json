@@ -4401,6 +4401,7 @@
     "deny": "Neka",
     "approve": "Tillåt",
     "answerFailed": "Det fungerade inte. Försök igen.",
+    "permissionsFailed": "Behörigheterna kunde inte läsas in. Välj Anpassa för att försöka igen.",
     "goneTitle": "Den här inloggningsbegäran är inte tillgänglig",
     "goneBody": "Den har gått ut eller redan besvarats, eller så är inloggning för appar avstängd. Starta anslutningen igen från appen.",
     "failedTitle": "Det gick inte att läsa in inloggningsbegäran",

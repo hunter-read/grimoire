@@ -4401,6 +4401,7 @@
     "deny": "Rifiuta",
     "approve": "Consenti",
     "answerFailed": "Non ha funzionato. Riprova.",
+    "permissionsFailed": "Impossibile caricare le autorizzazioni. Scegli Personalizza per riprovare.",
     "goneTitle": "Questa richiesta di accesso non è disponibile",
     "goneBody": "È scaduta o ha già ricevuto risposta, oppure l'accesso delle app è disattivato. Riavvia la connessione dall'app.",
     "failedTitle": "Impossibile caricare questa richiesta di accesso",

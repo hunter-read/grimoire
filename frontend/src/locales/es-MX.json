@@ -4401,6 +4401,7 @@
     "deny": "Rechazar",
     "approve": "Permitir",
     "answerFailed": "No funcionó. Inténtalo de nuevo.",
+    "permissionsFailed": "No se pudieron cargar los permisos. Elige Personalizar para intentarlo de nuevo.",
     "goneTitle": "Esta solicitud de inicio de sesión no está disponible",
     "goneBody": "Expiró o ya se respondió, o el inicio de sesión de apps está desactivado. Vuelve a iniciar la conexión desde la app.",
     "failedTitle": "No se pudo cargar esta solicitud de inicio de sesión",

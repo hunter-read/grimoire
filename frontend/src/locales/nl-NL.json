@@ -4401,6 +4401,7 @@
     "deny": "Weigeren",
     "approve": "Toestaan",
     "answerFailed": "Dat is niet gelukt. Probeer het opnieuw.",
+    "permissionsFailed": "De rechten konden niet worden geladen. Kies Aanpassen om het opnieuw te proberen.",
     "goneTitle": "Dit aanmeldverzoek is niet beschikbaar",
     "goneBody": "Het is verlopen of al beantwoord, of aanmelden voor apps staat uit. Start de verbinding opnieuw vanuit de app.",
     "failedTitle": "Dit aanmeldverzoek kon niet worden geladen",
