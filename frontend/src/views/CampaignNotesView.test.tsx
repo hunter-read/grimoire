@@ -67,7 +67,8 @@ describe('CampaignNotesView', () => {
   it('names the page with an h1 and the tab title', async () => {
     renderView()
     expect(await screen.findByRole('heading', { level: 1, name: 'The Tithe' })).toBeInTheDocument()
-    expect(document.title).toMatch(/The Tithe/)
+    // The title is set in an effect, which can land after the heading renders.
+    await waitFor(() => expect(document.title).toMatch(/The Tithe/))
   })
 
   it('hides the header while a note is being viewed, and restores it on return', async () => {
