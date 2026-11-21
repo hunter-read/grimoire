@@ -247,6 +247,17 @@ class TestPreview:
         assert row["id"] == book.id
         assert row["proposed"] == "Adventures - T - 2024-05-01.pdf"
 
+    def test_a_capped_title_still_reads_back(self, shelf):
+        """A title cut by ``{title:N}`` reads back as written, so it is no warning."""
+        book = _book(shelf, "a.pdf", title="The Very Long Title of a Book", publisher="Pub")
+        db = SessionLocal()
+        row = renames.preview(db, shelf["rel"], "[{publisher}] {title:13}")["rows"][0]
+        db.close()
+        assert row["id"] == book.id
+        assert row["proposed"] == "[Pub] The Very Long.pdf"
+        assert row["rename_status"] == "ok"
+        assert row["reads_back"] is True
+
 
 class TestApplyTitles:
     def test_overwrites_the_title_and_fills_only_blank_fields(self, client, admin_headers, shelf):

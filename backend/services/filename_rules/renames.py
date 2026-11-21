@@ -28,7 +28,7 @@ from ...models.languages import language_label
 from ...sql_paths import path_under
 from .. import library_fs as fs
 from .folders import SECTION, RuleSet, in_section, normalise_path, rule_set
-from .pattern import MAX_NAME_BYTES, READ_FIELDS, Pattern, PatternError, clean_value, parse
+from .pattern import MAX_NAME_BYTES, READ_FIELDS, Pattern, PatternError, parse
 
 # Rows returned by one preview. Past a few hundred a table stops being something
 # anyone reviews line by line; the response says how many it left out.
@@ -111,7 +111,7 @@ def _rename_row(
     )
 
     read = pattern.read(name)
-    out["reads_back"] = read is not None and read["title"] == clean_value(book.title)
+    out["reads_back"] = read is not None and read["title"] == pattern.written("title", book.title)
 
     if name == book.filename:
         out["rename_status"] = "same"

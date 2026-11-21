@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Fields",
       "insertField": "Insert {{field}}",
-      "syntaxHint": "Literal text plus fields. {*} matches anything and is ignored. Wrap a part in < > to make it optional. New books in the folder take their title from the filename when it fits.",
+      "syntaxHint": "Literal text plus fields. {*} matches anything and is ignored. Wrap a part in < > to make it optional. {title:80} writes at most 80 characters of the title when renaming. New books in the folder take their title from the filename when it fits.",
       "unsaved": "Save the pattern to apply it to the books above.",
       "saved": "Pattern saved. New books in this folder take their titles from it.",
       "saveFailed": "Could not save the pattern.",

@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Campos",
       "insertField": "Inserir {{field}}",
-      "syntaxHint": "Texto fixo mais campos. {*} corresponde a qualquer coisa e é ignorado. Coloque uma parte entre < > para torná-la opcional. Livros novos na pasta tiram o título do nome do ficheiro quando ele se encaixa.",
+      "syntaxHint": "Texto fixo mais campos. {*} corresponde a qualquer coisa e é ignorado. Coloque uma parte entre < > para torná-la opcional. {title:80} escreve no máximo 80 caracteres do título ao renomear. Livros novos na pasta tiram o título do nome do ficheiro quando ele se encaixa.",
       "unsaved": "Guarde o padrão para aplicá-lo aos livros acima.",
       "saved": "Padrão guardado. Livros novos nesta pasta tiram dele o título.",
       "saveFailed": "Não foi possível guardar o padrão.",

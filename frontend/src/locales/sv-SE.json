@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Fält",
       "insertField": "Infoga {{field}}",
-      "syntaxHint": "Fast text plus fält. {*} matchar vad som helst och ignoreras. Omge en del med < > för att göra den valfri. Nya böcker i mappen tar sin titel från filnamnet när det passar.",
+      "syntaxHint": "Fast text plus fält. {*} matchar vad som helst och ignoreras. Omge en del med < > för att göra den valfri. {title:80} skriver högst 80 tecken av titeln vid namnbyte. Nya böcker i mappen tar sin titel från filnamnet när det passar.",
       "unsaved": "Spara mönstret för att tillämpa det på böckerna ovan.",
       "saved": "Mönstret sparades. Nya böcker i mappen tar sina titlar från det.",
       "saveFailed": "Det gick inte att spara mönstret.",

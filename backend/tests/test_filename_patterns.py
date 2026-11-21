@@ -126,6 +126,67 @@ class TestCleanValue:
         assert clean_value("a\x00b\tc") == "abc"
 
 
+class TestLengthCaps:
+    """``{field:N}`` caps what writing puts in a field (issue #938)."""
+
+    def test_cuts_a_long_value_to_the_cap(self):
+        name, _ = parse("{title:10}").render({"title": "Tomb of Annihilation"}, ".pdf")
+        assert name == "Tomb of An.pdf"
+
+    def test_a_short_value_is_left_alone(self):
+        assert parse("{title:80}").render({"title": "Crystallica"}, ".pdf")[0] == "Crystallica.pdf"
+
+    def test_counts_the_cleaned_value(self):
+        # The colon is written as " - " before the cut, and the dash it leaves
+        # at the end is dropped rather than kept dangling.
+        name, _ = parse("{title:17}").render({"title": "Curse of Strahd: Reloaded"}, ".pdf")
+        assert name == "Curse of Strahd.pdf"
+
+    def test_a_cut_does_not_leave_an_open_bracket(self):
+        name, _ = parse("{title:7}").render({"title": "Title (Revised)"}, ".pdf")
+        assert name == "Title.pdf"
+
+    def test_a_value_of_nothing_but_trimmable_characters_is_kept(self):
+        assert parse("{title:2}").render({"title": "(((("}, "")[0] == "(("
+
+    def test_caps_every_field_including_optional_ones(self):
+        pattern = parse("{publisher:3} - {title:5}< ({authors:4})>")
+        name, _ = pattern.render(
+            {"publisher": "Loot Tavern", "title": "Crystallica", "authors": "Ann Smith"}, ".pdf"
+        )
+        assert name == "Loo - Cryst (Ann).pdf"
+
+    def test_reading_ignores_the_cap(self):
+        pattern = parse("{publisher:3} - {title:5}")
+        assert pattern.read("Loot Tavern - Crystallica.pdf") == {
+            "publisher": "Loot Tavern",
+            "title": "Crystallica",
+        }
+
+    def test_written_gives_a_value_as_the_pattern_writes_it(self):
+        pattern = parse("{title:5} ({year})")
+        assert pattern.written("title", "Crystallica") == "Cryst"
+        assert pattern.written("year", "2026") == "2026"
+        assert pattern.written("publisher", "A: B") == "A - B"
+
+    def test_a_capped_field_still_counts_once(self):
+        with pytest.raises(PatternError, match="more than once"):
+            parse("{title:5} - {title}")
+
+    def test_padding_around_the_cap_is_allowed(self):
+        assert parse("{ Title : 80 }").parts[0].limit == 80
+
+    @pytest.mark.parametrize("source", ["{title:}", "{title:0}", "{title:256}", "{title:-5}",
+                                        "{title:x}", "{title:1.5}", "{title:\u0663}"])
+    def test_rejects_a_cap_that_is_not_a_usable_length(self, source):
+        with pytest.raises(PatternError, match="whole number from 1 to 255"):
+            parse(source)
+
+    def test_a_wildcard_cannot_have_a_cap(self):
+        with pytest.raises(PatternError, match="cannot have a length"):
+            parse("{*:5} - {title}")
+
+
 class TestParsing:
     @pytest.mark.parametrize(
         "source, message",

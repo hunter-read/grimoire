@@ -53,7 +53,7 @@ the part of the name in its place.
 | `{language}` | Matched, but not kept | ✓ |
 | `{*}` | Anything at all, thrown away | ✗ |
 
-Two more pieces of syntax:
+Three more pieces of syntax:
 
 - **`{*}` matches anything you do not care about.** It is what lets a pattern pick out the title
   without describing every other part of the name. A pattern containing `{*}` can read titles but
@@ -61,6 +61,13 @@ Two more pieces of syntax:
 - **`< ... >` marks an optional part.** `{title}< (v{version})>` matches both `Crystallica.pdf`
   and `Crystallica (v2).pdf`. When renaming, an optional part is left out if any field in it is
   empty, so a book without a version is named `Crystallica.pdf` rather than `Crystallica (v).pdf`.
+- **`{field:N}` caps a field at N characters when renaming**, from 1 to 255. `{title:80}`
+  keeps a long title from pushing the name, or the path it sits in, past what a filesystem or a
+  sync tool accepts. The cut counts the value as written, after a `:` has become ` - `, and drops
+  a space, dash or opening bracket it would leave at the end, so `{title:17}` writes
+  `Curse of Strahd: Reloaded` as `Curse of Strahd`. Any field can take a cap, except `{*}`.
+  Reading ignores it, so the pattern matches files named before and after the cap alike - and a
+  title read from a cut name is the cut title.
 
 Two fields need some text between them (`{title}{year}` is refused - there is no telling where one
 ends), each field may appear only once, and a pattern holds at most 20 fields, `{*}` included. The

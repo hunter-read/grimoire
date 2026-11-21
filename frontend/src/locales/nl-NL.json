@@ -3475,7 +3475,7 @@
       "patternPlaceholder": "{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>",
       "fieldsLabel": "Velden",
       "insertField": "{{field}} invoegen",
-      "syntaxHint": "Vaste tekst plus velden. {*} past op alles en wordt genegeerd. Zet een deel tussen < > om het optioneel te maken. Nieuwe boeken in de map nemen hun titel uit de bestandsnaam als die past.",
+      "syntaxHint": "Vaste tekst plus velden. {*} past op alles en wordt genegeerd. Zet een deel tussen < > om het optioneel te maken. {title:80} schrijft bij het hernoemen hooguit 80 tekens van de titel. Nieuwe boeken in de map nemen hun titel uit de bestandsnaam als die past.",
       "unsaved": "Sla het patroon op om het op de boeken hierboven toe te passen.",
       "saved": "Patroon opgeslagen. Nieuwe boeken in deze map halen hun titel eruit.",
       "saveFailed": "Kon het patroon niet opslaan.",
