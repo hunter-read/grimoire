@@ -174,6 +174,11 @@ export default function Sidebar({
         height: '100%',
         position: 'sticky',
         top: 0,
+        // On a short window the links outgrow the viewport. Scrolling here keeps
+        // them inside the shell: left to spill out, they scrolled the whole page
+        // and slid `main` up, leaving a blank band below it (issue #963).
+        overflowY: 'auto',
+        overflowX: 'hidden',
         transition: 'width 0.15s ease, min-width 0.15s ease',
       }}
     >
