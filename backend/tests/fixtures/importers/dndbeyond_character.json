@@ -251,6 +251,16 @@
     "magic": true,
     "rarity": "Uncommon"
    }
+  },
+  {
+   "quantity": 3,
+   "equipped": false,
+   "isAttuned": false,
+   "definition": {
+    "name": "Potion of Healing (Greater)",
+    "magic": true,
+    "rarity": "Uncommon"
+   }
   }
  ],
  "customItems": [
