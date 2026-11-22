@@ -137,14 +137,20 @@ def test_head_and_post_on_a_get_only_route_keep_their_405(client, frontend):
 
 
 @pytest.fixture
-def post_only_route():
-    """A route outside the reserved prefixes, added before the catch-alls."""
-    routes = main.app.router.routes
+def post_only_route(client):
+    """A route outside the reserved prefixes, added before the catch-alls.
+
+    Added to the app ``client`` calls, not ``main.app``: a test module that
+    reloads ``backend.main`` (``test_opds.py`` does) replaces ``main.app`` with
+    an app the session client never sees (issue #931).
+    """
+    app = client.app
+    routes = app.router.routes
 
     def endpoint():
         return {"ok": True}
 
-    main.app.add_api_route("/spa-test-post-only", endpoint, methods=["POST"])
+    app.add_api_route("/spa-test-post-only", endpoint, methods=["POST"])
     route = routes.pop()
     routes.insert(0, route)
     yield "/spa-test-post-only"
