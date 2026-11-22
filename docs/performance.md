@@ -84,6 +84,27 @@ Four workers fall short of four times one because books are shared out by a hash
 
 Set `RENDER_WORKERS=0` on a host that is very short of memory: rendering then happens inside Grimoire as it used to, without the crash protection. See [Memory use](#memory-use) for the trade-off.
 
+`RENDER_WORKERS=0` also costs render speed, and that cost is what keeps Grimoire answering. The PDF library holds Python's interpreter lock for the whole time it draws a page, so while Grimoire draws a page itself nothing else in it runs - not the web server, and not the health check. So when Grimoire renders in-process, it draws one page at a time (two can't run side by side anyway), in strips of about a quarter of a megapixel, and lets other work go first between strips. During a burst - a deep zoom asking for dozens of tiles at once, or a book opening with the next few pages loading behind it - other requests get at least half of the time, so pages arrive later but the server keeps answering. The strips cost time of their own: the PDF library decodes a large picture again for each strip it crosses, so the first render of a heavily illustrated page can take up to about twice as long as it would in a render worker. Where a picture is drawn larger than its own resolution, a strip boundary can leave one row of it a pixel out, the same as at the edge of a zoom tile.
+
+### The burst probe
+
+`backend/tests/test_render_burst_probe.py` checks this against a real server. It starts Grimoire with a library of its own and asks for 60 zoom tiles at once, none of them rendered yet, from a generated book of heavily illustrated pages. While they render, it times `/api/health` and `/api/books` every 50 ms. It fails if any health check takes a second or more, or if any request is answered 500. Being refused with a 503 past `RENDER_QUEUE_LIMIT` is expected. The probe takes about 15 seconds and is skipped unless you ask for it, so it isn't part of the normal test run or CI:
+
+```bash
+RENDER_PROBE=1 python3 -m pytest backend/tests/test_render_burst_probe.py -s
+```
+
+It prints what it measured. `RENDER_PROBE_WORKERS` sets the server's `RENDER_WORKERS` (default `0`), `RENDER_PROBE_TILES` sets the size of the burst (default `60`), and `RENDER_PROBE_PDF=/path/to/book.pdf` zooms into a book of your own instead.
+
+Measured on a 10-core Apple M1 Pro that was heavily loaded by other work at the time (load average 9-17), four runs each, alternating:
+
+| `RENDER_WORKERS=0` | Slowest health check | Slowest `/api/books` | Burst took |
+|---|---|---|---|
+| Before strips and turns | 2.0-2.4 s | 1.4-2.4 s | 3.5-3.7 s |
+| After | 0.39-1.06 s | 0.95-1.32 s | 4.9-6.0 s |
+
+Each run answered 16 tiles and refused 44 with a 503, and none answered 500. One of the four runs after the change still went past a second, on a machine with more work than cores, so treat the probe's one-second bar as a target to measure on your own hardware, not a guarantee. The same probe with `RENDER_WORKERS=1` gave a slowest health check of 0.25 s, which is why one render worker stays the default.
+
 **`RENDER_QUEUE_LIMIT`** (default `16`) caps how many pages and zoom tiles may be rendering or waiting to render at once. Each one ties up a request thread until its render finishes, so without a cap a big book opened or a deep zoom could leave nothing to answer anyone else. Past the cap, a page that isn't rendered yet gets a "busy, try again" answer and the reader asks again a second or two later; pages already rendered are always served. Raise it alongside `RENDER_WORKERS`, but going far past `20` leaves little room for other requests during a burst.
 
 ## Memory use

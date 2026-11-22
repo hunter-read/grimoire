@@ -5,7 +5,8 @@ The public API is the module-level functions: ``render_page``, ``render_tile``,
 ``export_page_size``, ``detect_shapes``, ``export`` and ``evict``. With
 ``RENDER_WORKERS`` at 1 or more they run in worker processes
 (``backend.render.worker``); at 0 they run in this process through the
-``open_pdf()`` cache, as rendering always did before.
+``open_pdf()`` cache, as rendering always did before, taking turns with the
+rest of the process (``_InProcessRaster``).
 
 How the pool behaves:
 
@@ -40,8 +41,9 @@ import threading
 import time
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
+from contextlib import contextmanager
 from multiprocessing.connection import Connection
-from typing import Any, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from .. import config
 from . import ops, worker
@@ -60,6 +62,78 @@ _STOP_GRACE = 5.0
 # Seconds one export may run. An export is capped at 100 images or 200 cut-outs,
 # which at the highest resolution takes minutes, not tens of them.
 EXPORT_TIMEOUT = 600.0
+# Rendering in this process (RENDER_WORKERS=0) draws a page or tile in bands of
+# about this many pixels (ops._rasterize) and makes way for other threads
+# between them (_InProcessRaster), so the API waits on a render for one band at
+# most rather than a whole page.
+IN_PROCESS_BAND_PIXELS = 256 * 1024
+# How long a render naps to see whether another thread wants the interpreter,
+# and how much longer than that the nap must take to say that one did.
+_NAP = 0.0005
+_CONTENDED = 0.001
+
+
+class _InProcessRaster:
+    """Turns at rasterising in this process, which make way for the rest of it.
+
+    PyMuPDF never lets go of the GIL while it rasterises, so an in-process
+    render stops every other thread until it is done: the event loop, and the
+    request threads behind ``/api/health`` and the rest of the API. A burst of
+    renders stalled them for seconds (issue #975). Three things stop that:
+
+    * One rasterise at a time. The GIL runs only one anyway, so this costs
+      nothing, and the rest of the process contends with one render rather
+      than several. Encoding still runs in parallel: Pillow lets the GIL go.
+    * Bands. Each page or tile is drawn in bands of IN_PROCESS_BAND_PIXELS
+      (``ops._rasterize``), so nothing waits on the GIL for more than one.
+    * Making way. Before each turn, and between bands, the render naps
+      briefly. If another thread took the interpreter during the nap, the nap
+      comes back late, and the render naps again, for up to as long as it last
+      held the interpreter. A busy API so gets at least half of it, and a
+      quiet one costs a render one nap per band.
+
+    Bands cost time of their own: MuPDF decodes a large picture again for each
+    band it crosses, so a cold render of an illustrated page takes up to about
+    twice as long. A render worker has nothing to share the GIL with and draws
+    pages whole; this is the price of rendering in-process, paid to keep the
+    server answering.
+    """
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        # How long the last stretch of rasterising held the GIL, and when the
+        # current one started. Both under ``lock``.
+        self.held = 0.0
+        self.since = 0.0
+
+    def make_way(self, held: float) -> None:
+        """Nap while other threads want the interpreter, for up to ``held`` seconds."""
+        deadline = time.monotonic() + held
+        while True:
+            napped = time.monotonic()
+            time.sleep(_NAP)
+            now = time.monotonic()
+            if now - napped < _NAP + _CONTENDED or now >= deadline:
+                return
+
+    def between_bands(self) -> None:
+        """Make way for as long as the band just drawn held the interpreter."""
+        self.make_way(time.monotonic() - self.since)
+        self.since = time.monotonic()
+
+    @contextmanager
+    def turn(self) -> Iterator[Callable[[], None]]:
+        """Hold the turn; yields the callback to run between bands."""
+        with self.lock:
+            self.make_way(self.held)
+            self.since = time.monotonic()
+            try:
+                yield self.between_bands
+            finally:
+                self.held = time.monotonic() - self.since
+
+
+_in_process = _InProcessRaster()
 
 
 def _hang_up(conn: Connection) -> None:
@@ -385,8 +459,10 @@ def render_page(
         return pool.call("page", filepath, page_num, width, quality, method, count)
     from ..services.books.documents import note_page_render, open_pdf
 
-    with open_pdf(filepath) as doc:
-        img = ops.rasterize_page(doc, page_num, width)
+    with open_pdf(filepath) as doc, _in_process.turn() as between:
+        img = ops.rasterize_page(
+            doc, page_num, width, band_pixels=IN_PROCESS_BAND_PIXELS, between_bands=between
+        )
     # Encoded outside open_pdf() so the book's lock isn't held through it.
     data = ops.encode_webp(img, quality, method)
     del img
@@ -405,8 +481,16 @@ def render_tile(filepath: str, page_num: int, width: int, col: int, row: int) ->
         return pool.call("tile", filepath, page_num, width, col, row)
     from ..services.books.documents import open_pdf
 
-    with open_pdf(filepath) as doc:
-        img = ops.rasterize_tile(doc, page_num, width, col, row)
+    with open_pdf(filepath) as doc, _in_process.turn() as between:
+        img = ops.rasterize_tile(
+            doc,
+            page_num,
+            width,
+            col,
+            row,
+            band_pixels=IN_PROCESS_BAND_PIXELS,
+            between_bands=between,
+        )
     # Encoded outside open_pdf(): a zoomed view asks for several tiles of one
     # book at once, and their encodes can run in parallel. Not counted toward
     # the reclaim, which would drop the decoded images the next tile needs.

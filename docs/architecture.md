@@ -210,7 +210,12 @@ requests.
 
 `RENDER_WORKERS=0` runs the same operations in the app process through the `open_pdf()`
 document cache in [`services/books/documents.py`](../backend/services/books/documents.py), as
-rendering worked before: no extra process, no crash isolation.
+rendering worked before: no extra process, no crash isolation. PyMuPDF holds the GIL for
+the whole of a rasterise, so there pages and tiles take turns through
+`pool._InProcessRaster`: one rasterise at a time, each drawn in bands from one display list
+(`ops._rasterize`), with a short nap before each turn and between bands that stretches for
+as long as other threads keep taking the interpreter. The event loop and request threads so
+wait for one band rather than a whole page (issue #975).
 
 ### Change and move detection
 
