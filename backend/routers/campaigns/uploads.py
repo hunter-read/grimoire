@@ -21,6 +21,7 @@ from ...models import Campaign, CampaignMember
 from ...security import INERT_DOCUMENT_HEADERS
 from ...services.books.covers import COVER_MAX_SOURCE_PIXELS
 from ...services.campaigns.token_recipes import clear_recipe, replace_recipe
+from ...services.campaigns.upload_quota import assert_within_campaign_quota, upload_limits
 from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._file_access import can_read_campaign_file
@@ -38,6 +39,8 @@ _IMAGE_TYPES = {
     "image/webp": ".webp",
     "image/gif": ".gif",
 }
+# A stored image's content type, by the extension it was saved under.
+_IMAGE_MEDIA_TYPES = {ext: mime for mime, ext in _IMAGE_TYPES.items()}
 # Character sheets may be a PDF or an image.
 _SHEET_TYPES = {**_IMAGE_TYPES, "application/pdf": ".pdf"}
 # A stored sheet's content type, by the extension it was saved under.
@@ -597,10 +600,9 @@ def _upload_limits(db):
     """Return (disabled, max_file_bytes, max_total_bytes); 0 bytes = unlimited.
 
     Shared with the copies a campaign keeps of a map deleted from the library,
-    which the same settings bound.
+    which the same settings bound. The total is checked by
+    ``assert_within_campaign_quota``.
     """
-    from ...services.campaigns.map_copies import upload_limits
-
     return upload_limits(db)
 
 
@@ -665,7 +667,7 @@ def upload_campaign_file(
     assert_can_manage(c, current_user, db)
 
     is_admin = current_user.role == "admin"
-    disabled, max_file, max_total = _upload_limits(db)
+    disabled, max_file, _max_total = _upload_limits(db)
     if disabled and not is_admin:
         raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
 
@@ -677,13 +679,8 @@ def upload_campaign_file(
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
 
-    if not is_admin and max_total:
-        used = sum(
-            f.size_bytes or 0
-            for f in db.query(CampaignFile).filter_by(campaign_id=campaign_id).all()
-        )
-        if used + len(data) > max_total:
-            raise HTTPException(413, "Campaign upload storage limit reached")
+    if not is_admin:
+        assert_within_campaign_quota(db, campaign_id, len(data))
 
     resolved_category_id = _resolve_resource_category(
         db, campaign_id, category_id, new_category_name
@@ -763,6 +760,8 @@ def upload_campaign_image(
     _validate_image(data)
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
+    if not is_admin:
+        assert_within_campaign_quota(db, campaign_id, len(data))
 
     # An existing resource category, or a new one created on the spot.
     resolved_category_id = _resolve_resource_category(
@@ -785,7 +784,8 @@ def upload_campaign_image(
         campaign_id=campaign_id,
         stored_path=stored,
         filename=os.path.basename(file.filename or stored),
-        mime_type=file.content_type,
+        # Labelled by the extension it is stored under, as every upload is.
+        mime_type=_IMAGE_MEDIA_TYPES[ext],
         size_bytes=len(data),
         is_image=True,
         uploaded_by_id=current_user.id,

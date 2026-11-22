@@ -53,7 +53,7 @@ from ...models import (
     GenericMap,
     WikiPage,
 )
-from ...services.app_settings import get_raw
+from .upload_quota import campaign_upload_bytes, upload_limits
 
 # Where campaign uploads live (``routers/campaigns/uploads.py`` serves them).
 FILES_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "files")
@@ -87,15 +87,6 @@ UPLOADS_DISABLED = "uploads_disabled"
 TOO_LARGE = "too_large"
 NOT_IMAGE = "not_image"
 FILE_MISSING = "file_missing"
-
-
-def upload_limits(db: Session) -> tuple[bool, int, int]:
-    """``(disabled, max_file_bytes, max_total_bytes)``; 0 bytes means unlimited."""
-    raw = get_raw(db)
-    disabled = raw.get("campaign_uploads_disabled") == "true"
-    max_file = int(raw.get("campaign_upload_max_file_mb") or 0) * 1024 * 1024
-    max_total = int(raw.get("campaign_upload_max_total_mb") or 0) * 1024 * 1024
-    return disabled, max_file, max_total
 
 
 @dataclass
@@ -170,10 +161,7 @@ def _plan(
         else:
             size = os.path.getsize(m.filepath)
             if campaign_id not in used:
-                used[campaign_id] = sum(
-                    f.size_bytes or 0
-                    for f in db.query(CampaignFile).filter_by(campaign_id=campaign_id).all()
-                )
+                used[campaign_id] = campaign_upload_bytes(db, campaign_id)
             if (max_file and size > max_file) or (max_total and used[campaign_id] + size > max_total):
                 outcome = TOO_LARGE
             else:
