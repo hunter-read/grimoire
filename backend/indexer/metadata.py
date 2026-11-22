@@ -46,6 +46,10 @@ def _read_audio_metadata(filepath: str) -> dict:
     (ints, 0 when absent) and ``embedded_art`` (bool — whether the file carries
     embedded cover art).  Never raises; on any failure it returns zeroed/empty
     values so scanning continues.
+
+    ``read`` says whether the file's tags were actually parsed. A file that
+    could not be opened comes back looking exactly like one with no tags, and a
+    caller about to overwrite stored values needs to tell the two apart.
     """
     info = {
         "duration": 0.0,
@@ -55,6 +59,7 @@ def _read_audio_metadata(filepath: str) -> dict:
         "track_number": 0,
         "disc_number": 0,
         "embedded_art": False,
+        "read": False,
     }
     try:
         from mutagen import File as MutagenFile  # local import keeps startup light
@@ -85,6 +90,7 @@ def _read_audio_metadata(filepath: str) -> dict:
             info["album"] = _first("album")
             info["track_number"] = _leading_number(_first("tracknumber"))
             info["disc_number"] = _leading_number(_first("discnumber"))
+            info["read"] = True
 
         info["embedded_art"] = _has_embedded_art(filepath)
     except Exception as exc:

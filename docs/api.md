@@ -559,7 +559,7 @@ end or removes it - `400` if that would make more than 10.
 }
 ```
 
-`phase` is `"scanning"`, `"indexing"`, or `null` when idle. `updated_books` counts books whose metadata was re-applied from sidecar files during a metadata-refresh rescan. `replaced_books` counts books whose contents changed under an unchanged path (re-indexed in place), and `moved_files` counts files recognised as moved rather than deleted-and-re-added.
+`phase` is `"scanning"`, `"indexing"`, or `null` when idle. `updated_books` counts books whose metadata was re-applied from sidecar files during a metadata-refresh rescan. `updated_audio` counts audio files whose tags were read again: every file whose size or modified time changed since the last scan, and, in a metadata-refresh rescan, every track in scope. `replaced_books` counts books whose contents changed under an unchanged path (re-indexed in place), and `moved_files` counts files recognised as moved rather than deleted-and-re-added.
 
 **Rescan request body** (all fields optional):
 ```json
@@ -572,7 +572,7 @@ end or removes it - `400` if that would make more than 10.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `scope` | `null` | Restrict the rescan to a subtree relative to the library root. Must begin with `books/`, `maps/`, `tokens/`, `audio/`, or `models/`. Omit to rescan the whole library. Paths that escape the library root return `400`. |
-| `metadata_mode` | `"new"` | `"new"` adds new files and flags missing ones (existing records untouched). `"missing"` additionally fills **empty** book fields from sidecar metadata (`<stem>.opf` / `metadata.opf`), leaving fields you've already set in place. `"replace"` overwrites fields wherever the sidecar provides a value (destructive to UI-edited metadata). |
+| `metadata_mode` | `"new"` | `"new"` adds new files and flags missing ones (existing records untouched), and re-reads the tags of any audio file whose size or modified time changed. `"missing"` additionally fills **empty** book fields from sidecar metadata (`<stem>.opf` / `metadata.opf`), leaving fields you've already set in place, and empty audio title, artist, album and track fields from each file's tags. `"replace"` overwrites fields wherever the sidecar provides a value (destructive to UI-edited metadata), and reads every audio file's tags again over the stored values. |
 
 Returns `{"status": "scan_started"}`, or `{"status": "already_running"}` if a scan is already in progress (scoped and global rescans share the same single-worker lock).
 
@@ -3915,11 +3915,14 @@ is re-read before the response returns:
 - For a 3D model, the triangle count. A mesh too heavy to render inline is left
   for the deferred preview queue (`thumbnail_pending`), which the next rescan
   drains, exactly as a scan leaves it.
-- For an audio file, the duration, and whether it has artwork (a cover set in
-  the UI, art embedded in the new file, or a folder cover).
+- For an audio file, the duration, whether it has artwork (a cover set in the
+  UI, art embedded in the new file, or a folder cover), and the title, artist,
+  album, track and disc numbers from its tags. These come only from the file,
+  so a copy with no tags clears them, as a first scan of it would. A file whose
+  tags cannot be read at all keeps the ones it had.
 - Nothing you wrote is touched: the description, tags, variant links, a map's
-  grid override and authored walls, lights and doors, a model's presupported
-  flag, and a track's title, artist, album and track numbers stay as they are.
+  grid override and authored walls, lights and doors, and a model's
+  presupported flag stay as they are.
   A map's authored geometry is in grid units, so it still lines up if the new
   image has the same grid.
 - If the re-read fails, the response still reports the saved file, which is

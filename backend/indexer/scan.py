@@ -159,6 +159,9 @@ def scan_library(
         "updated_maps": 0,
         "updated_tokens": 0,
         "updated_models": 0,
+        # Tracks whose file changed on disk, or whose tags a "missing" or
+        # "replace" metadata rescan read again (issue #966).
+        "updated_audio": 0,
         "indexed_pages": 0,
         # Books whose bytes changed under an unchanged path, and files recognised
         # as moved rather than deleted-and-re-added (issue #284).
