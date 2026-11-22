@@ -33,6 +33,7 @@ export default function ScheduleEditor({
     { key: 'weekly', label: t('schedule.frequency.weekly') },
     { key: 'biweekly', label: t('schedule.frequency.biweekly') },
     { key: 'monthly', label: t('schedule.frequency.monthly') },
+    { key: 'rotation', label: t('schedule.frequency.rotation') },
     { key: 'custom', label: t('schedule.frequency.custom') },
   ]
 
@@ -60,11 +61,31 @@ export default function ScheduleEditor({
   const [biweeklyRef, setBiweeklyRef] = useState(existing?.biweekly_reference ?? '')
   const [monthlyWeek, setMonthlyWeek] = useState(existing?.monthly_week ?? 1)
   const [customDates, setCustomDates] = useState<string[]>(existing?.custom_dates ?? [])
+  // A rotating schedule: the session days of each week in a 2-4 week cycle.
+  // A new one starts from the weekly days, alternating with a week to fill in.
+  const [rotation, setRotation] = useState<number[][]>(
+    existing?.rotation ?? [existing?.days ?? [], []]
+  )
+  const [rotationRef, setRotationRef] = useState(existing?.rotation_reference ?? '')
   const [newCustomDate, setNewCustomDate] = useState('')
   const [saving, setSaving] = useState(false)
 
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
+
+  const toggleRotationDay = (week: number, d: number) =>
+    setRotation((prev) =>
+      prev.map((days, i) =>
+        i !== week ? days : days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort()
+      )
+    )
+
+  // Lengthening keeps the weeks already set and adds empty ones; shortening
+  // drops the last weeks.
+  const setRotationLength = (weeks: number) =>
+    setRotation((prev) => Array.from({ length: weeks }, (_, i) => prev[i] ?? []))
+
+  const today = () => new Date().toISOString().slice(0, 10)
 
   const addCustomDate = () => {
     if (!newCustomDate || customDates.includes(newCustomDate)) return
@@ -75,7 +96,12 @@ export default function ScheduleEditor({
   const removeCustomDate = (d: string) => setCustomDates((prev) => prev.filter((x) => x !== d))
 
   const save = async () => {
-    if (frequency !== 'custom' && days.length === 0) {
+    const rotationDays = [...new Set(rotation.flat())].sort()
+    if (
+      frequency === 'rotation'
+        ? rotationDays.length === 0
+        : frequency !== 'custom' && days.length === 0
+    ) {
       alert(t('schedule.selectDay'))
       return
     }
@@ -86,7 +112,7 @@ export default function ScheduleEditor({
     setSaving(true)
     try {
       const payload = {
-        days,
+        days: frequency === 'rotation' ? rotationDays : days,
         frequency,
         time_local: timeLocal,
         // Both the weekdays and the time above are local. The zone travels with
@@ -94,9 +120,10 @@ export default function ScheduleEditor({
         // instant — converting is what dropped the day rollover and published
         // evening games a day early.
         timezone: USER_TZ,
-        biweekly_reference:
-          frequency === 'biweekly' ? biweeklyRef || new Date().toISOString().slice(0, 10) : null,
+        biweekly_reference: frequency === 'biweekly' ? biweeklyRef || today() : null,
         monthly_week: frequency === 'monthly' ? monthlyWeek : null,
+        rotation: frequency === 'rotation' ? rotation : null,
+        rotation_reference: frequency === 'rotation' ? rotationRef || today() : null,
         custom_dates: frequency === 'custom' ? customDates : null,
       }
       const result = await campaigns.setSchedule(campaign.id, payload)
@@ -118,6 +145,47 @@ export default function ScheduleEditor({
     }
   }
 
+  const pillStyle = (selected: boolean) => ({
+    padding: '5px 12px',
+    borderRadius: 20,
+    cursor: 'pointer',
+    fontSize: 13,
+    background: selected ? 'var(--gold)' : 'var(--bg-deep)',
+    border: selected ? 'none' : '1px solid var(--border)',
+    color: selected ? 'var(--on-accent)' : 'var(--text-dim)',
+    fontWeight: selected ? 600 : 400,
+  })
+
+  // A row of weekday chips. Each shows "Mon"; the full name is read, and
+  // whether it is one of the session days.
+  const dayChips = (
+    labelledBy: string,
+    isSelected: (day: number) => boolean,
+    onToggle: (day: number) => void
+  ) => (
+    <div
+      role="group"
+      aria-labelledby={labelledBy}
+      style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
+    >
+      {DAYS.map((d, i) => {
+        const selected = isSelected(i)
+        return (
+          <button
+            key={i}
+            type="button"
+            aria-label={d}
+            aria-pressed={selected}
+            onClick={() => onToggle(i)}
+            style={pillStyle(selected)}
+          >
+            {d.slice(0, 3)}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   return (
     <div
       style={{
@@ -132,7 +200,7 @@ export default function ScheduleEditor({
         <SegmentControl value={frequency} options={FREQ_OPTIONS} onChange={setFrequency} />
       </div>
 
-      {frequency !== 'custom' && (
+      {frequency !== 'custom' && frequency !== 'rotation' && (
         <div style={{ marginBottom: 16 }}>
           <div
             id="schedule-days-label"
@@ -140,38 +208,11 @@ export default function ScheduleEditor({
           >
             {frequency === 'monthly' ? t('schedule.dayOfWeek') : t('schedule.sessionDays')}
           </div>
-          <div
-            role="group"
-            aria-labelledby="schedule-days-label"
-            style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
-          >
-            {DAYS.map((d, i) => {
-              const selected = frequency === 'monthly' ? days[0] === i : days.includes(i)
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  // The chip shows "Mon"; the full name is read, and whether it
-                  // is one of the session days.
-                  aria-label={d}
-                  aria-pressed={selected}
-                  onClick={() => (frequency === 'monthly' ? setDays([i]) : toggleDay(i))}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 20,
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    background: selected ? 'var(--gold)' : 'var(--bg-deep)',
-                    border: selected ? 'none' : '1px solid var(--border)',
-                    color: selected ? 'var(--on-accent)' : 'var(--text-dim)',
-                    fontWeight: selected ? 600 : 400,
-                  }}
-                >
-                  {d.slice(0, 3)}
-                </button>
-              )
-            })}
-          </div>
+          {dayChips(
+            'schedule-days-label',
+            (i) => (frequency === 'monthly' ? days[0] === i : days.includes(i)),
+            (i) => (frequency === 'monthly' ? setDays([i]) : toggleDay(i))
+          )}
         </div>
       )}
 
@@ -194,16 +235,7 @@ export default function ScheduleEditor({
                 type="button"
                 aria-pressed={monthlyWeek === w.value}
                 onClick={() => setMonthlyWeek(w.value)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 20,
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  background: monthlyWeek === w.value ? 'var(--gold)' : 'var(--bg-deep)',
-                  border: monthlyWeek === w.value ? 'none' : '1px solid var(--border)',
-                  color: monthlyWeek === w.value ? 'var(--on-accent)' : 'var(--text-dim)',
-                  fontWeight: monthlyWeek === w.value ? 600 : 400,
-                }}
+                style={pillStyle(monthlyWeek === w.value)}
               >
                 {w.label}
               </button>
@@ -217,6 +249,61 @@ export default function ScheduleEditor({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {frequency === 'rotation' && (
+        <div style={{ marginBottom: 16 }}>
+          <div
+            id="schedule-rotation-length-label"
+            style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}
+          >
+            {t('schedule.rotationLength')}
+          </div>
+          <div
+            role="group"
+            aria-labelledby="schedule-rotation-length-label"
+            style={{ display: 'flex', gap: 6, marginBottom: 14 }}
+          >
+            {[2, 3, 4].map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={rotation.length === n}
+                onClick={() => setRotationLength(n)}
+                style={pillStyle(rotation.length === n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          {rotation.map((weekDays, week) => (
+            <div key={week} style={{ marginBottom: 12 }}>
+              <div
+                id={`schedule-rotation-week-${week}`}
+                style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}
+              >
+                {t('schedule.rotationWeek', { n: week + 1 })}
+                {weekDays.length === 0 && ` - ${t('schedule.rotationOff')}`}
+              </div>
+              {dayChips(
+                `schedule-rotation-week-${week}`,
+                (i) => weekDays.includes(i),
+                (i) => toggleRotationDay(week, i)
+              )}
+            </div>
+          ))}
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 6px' }}>
+            {t('schedule.rotationReference')}
+          </div>
+          <input
+            id="schedule-rotation-ref"
+            type="date"
+            aria-label={t('schedule.rotationReference')}
+            value={rotationRef}
+            onChange={(e) => setRotationRef(e.target.value)}
+            style={inputStyle}
+          />
         </div>
       )}
 

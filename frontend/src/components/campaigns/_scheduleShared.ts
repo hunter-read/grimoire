@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import type { TFunction } from 'i18next'
 import type { IconType } from 'react-icons'
 import type { Schema } from '../../api'
 import { LuCheck, LuMinus, LuX } from 'react-icons/lu'
@@ -17,8 +18,30 @@ export const FREQ_OPTIONS = [
   { key: 'weekly', label: 'Weekly' },
   { key: 'biweekly', label: 'Bi-weekly' },
   { key: 'monthly', label: 'Monthly' },
+  { key: 'rotation', label: 'Rotating' },
   { key: 'custom', label: 'Custom' },
 ]
+
+/**
+ * A rotating schedule's weeks in words, e.g. "Week 1: Friday / Week 2: Saturday",
+ * with "off" for a week without sessions. `dayNames` runs Monday to Sunday.
+ */
+export function rotationPattern(
+  rotation: number[][] | null | undefined,
+  dayNames: string[],
+  t: TFunction
+): string {
+  return (rotation ?? [])
+    .map((days, i) =>
+      t('schedule.rotationWeekPattern', {
+        n: i + 1,
+        days: days.length
+          ? days.map((d) => dayNames[d] ?? '').join(' & ')
+          : t('schedule.rotationOff'),
+      })
+    )
+    .join(' / ')
+}
 
 /** A saved schedule definition. The API types `definition` as a plain dict. */
 export type ScheduleDef = Schema<'ScheduleUpsert'>

@@ -6,6 +6,10 @@ from typing import List, Optional, Tuple
 # The weeks a monthly schedule can fall on: the 1st to 4th, or -1 for the last.
 MONTHLY_WEEKS = (1, 2, 3, 4, -1)
 
+# How many weeks a rotating schedule's cycle may have: two (Friday one week,
+# Saturday the next) up to four.
+ROTATION_WEEKS = range(2, 5)
+
 # How far from today a custom session date may be, either way, and how many a
 # schedule may list. Ten years of weekly sessions fit in the count.
 CUSTOM_DATE_WINDOW = datetime.timedelta(days=3653)
@@ -74,6 +78,9 @@ def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
         )
         return future[:n]
 
+    if frequency == "rotation":
+        return _rotation_sessions(definition, today, n)
+
     days = definition.get("days", [])
     if not days:
         return []
@@ -125,6 +132,47 @@ def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
                 continue
         results.append(candidate.isoformat())
 
+    return results
+
+
+def week_monday(day: datetime.date) -> datetime.date:
+    """The Monday of ``day``'s week."""
+    return day - datetime.timedelta(days=day.weekday())
+
+
+def _rotation_sessions(definition: dict, today: datetime.date, n: int) -> List[str]:
+    """The next ``n`` dates of a rotating schedule, after ``today``.
+
+    ``rotation`` lists the weekdays of each week in the cycle; the week holding
+    ``rotation_reference`` is its first week. A week may be empty (a week off).
+    A rotation the editor would refuse yields no dates.
+    """
+    rotation = definition.get("rotation")
+    if not isinstance(rotation, list) or len(rotation) not in ROTATION_WEEKS:
+        return []
+    weeks: List[set[int]] = []
+    for week in rotation:
+        if not isinstance(week, list) or not all(
+            isinstance(d, int) and 0 <= d <= 6 for d in week
+        ):
+            return []
+        weeks.append(set(week))
+    if not any(weeks):
+        return []
+    reference = parse_iso_date(definition.get("rotation_reference"))
+    ref_monday = week_monday(reference or today)
+
+    results: List[str] = []
+    candidate = today
+    # Every week of a non-empty cycle has a session within len(weeks) weeks, so
+    # this bounds the search at the same two years the other kinds use.
+    for _ in range(365 * 2):
+        if len(results) >= n:
+            break
+        candidate += datetime.timedelta(days=1)
+        index = ((week_monday(candidate) - ref_monday).days // 7) % len(weeks)
+        if candidate.weekday() in weeks[index]:
+            results.append(candidate.isoformat())
     return results
 
 

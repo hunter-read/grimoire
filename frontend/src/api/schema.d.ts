@@ -17121,6 +17121,10 @@ export interface components {
             frequency?: string;
             /** Monthly Week */
             monthly_week?: number | null;
+            /** Rotation */
+            rotation?: number[][] | null;
+            /** Rotation Reference */
+            rotation_reference?: string | null;
             /** Time Local */
             time_local?: string | null;
             /** Time Utc */

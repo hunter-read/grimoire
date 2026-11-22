@@ -103,6 +103,7 @@ GM campaigns support recurring session schedules:
 - **Weekly** - same day(s) every week
 - **Biweekly** - every other week (anchored to a reference date)
 - **Monthly** - nth weekday of the month (e.g. "first Friday")
+- **Rotating** - a cycle of two to four weeks, each with its own day(s) or none: Friday one week and Saturday the next, say. A date in the cycle's first week anchors it
 - **Custom** - explicit list of dates
 
 Session note stubs are auto-created the day before each scheduled session. Players can mark their availability for upcoming dates, and the GM can cancel individual dates.

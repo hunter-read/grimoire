@@ -52,6 +52,15 @@ describe('ScheduleSummary', () => {
     expect(screen.getByText(/schedule\.monthlyPattern/)).toBeInTheDocument()
   })
 
+  it('describes each week of a rotating schedule, with off weeks', () => {
+    render(<ScheduleSummary def={{ frequency: 'rotation', rotation: [[4], [], [5, 6]] }} />)
+    const text = screen.getByText(/schedule\.rotationWeekPattern/).textContent ?? ''
+    expect(text).toContain('schedule.frequency.rotation')
+    expect(text).toContain('"n":1,"days":"schedule.days.friday"')
+    expect(text).toContain('"n":2,"days":"schedule.rotationOff"')
+    expect(text).toContain('"days":"schedule.days.saturday & schedule.days.sunday"')
+  })
+
   it('falls back to the raw frequency when unrecognised', () => {
     render(<ScheduleSummary def={{ frequency: 'hourly', days: [] }} />)
     expect(screen.getByText(/hourly/)).toBeInTheDocument()

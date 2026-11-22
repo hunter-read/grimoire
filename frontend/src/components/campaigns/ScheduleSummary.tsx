@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuClock } from 'react-icons/lu'
 import type { Schema } from '../../api'
-import { formatScheduleTime, USER_TZ } from './_scheduleShared'
+import { formatScheduleTime, rotationPattern, USER_TZ } from './_scheduleShared'
 
 /** Read-only summary of a campaign's recurring schedule definition. */
 interface ScheduleSummaryProps {
@@ -16,6 +16,7 @@ export default function ScheduleSummary({ def, onEdit, isOwner }: ScheduleSummar
     { key: 'weekly', label: t('schedule.frequency.weekly') },
     { key: 'biweekly', label: t('schedule.frequency.biweekly') },
     { key: 'monthly', label: t('schedule.frequency.monthly') },
+    { key: 'rotation', label: t('schedule.frequency.rotation') },
     { key: 'custom', label: t('schedule.frequency.custom') },
   ]
   const MONTH_WEEKS = [
@@ -44,6 +45,8 @@ export default function ScheduleSummary({ def, onEdit, isOwner }: ScheduleSummar
     const week = MONTH_WEEKS.find((w) => w.value === def.monthly_week)?.label ?? ''
     const day = DAYS[def.days?.[0] as number] ?? ''
     pattern = t('schedule.monthlyPattern', { week, day })
+  } else if (def.frequency === 'rotation') {
+    pattern = rotationPattern(def.rotation, DAYS, t)
   } else {
     pattern = def.days?.map((d: number) => DAYS[d]).join(' & ') ?? ''
   }
