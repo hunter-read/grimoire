@@ -2278,7 +2278,7 @@ export interface paths {
          *
          *     The resource, its category, visibility and shares stay as they were; only
          *     the picture and its recipe change. Bound by the same upload limits as a new
-         *     campaign image.
+         *     campaign image, the campaign's total counting only what the new picture adds.
          */
         put: operations["update_token_file_api_campaigns__campaign_id__files__file_id__token_put"];
         post?: never;
