@@ -51,10 +51,11 @@ own Grimoire account instead, through OAuth 2.1:
 
 1. Add Grimoire as a connector with the URL `https://grimoire.example.com/mcp`, and leave any
    OAuth client ID and secret fields empty: the client registers itself.
-2. Connecting sends you to Grimoire's consent page; sign in first if you aren't already. The page
-   names the app and, in a box of its own, **the site you go to next**. Any app can call itself
-   "Claude"; only `claude.ai` is Claude. If that isn't the site you expect, choose **Deny**: both
-   buttons send you to that site, but Deny gives it nothing.
+2. Connecting sends you to Grimoire's consent page; sign in first if you aren't already, and finish
+   in the browser the app opened: the request only answers there. The page names the app and, in a
+   box of its own, **the site you go to next**. Any app can call itself "Claude"; only `claude.ai`
+   is Claude. If that isn't the site you expect, choose **Deny**: both buttons send you to that
+   site, but Deny gives it nothing.
 3. Access is **Read only** unless you choose **Customize**, which opens the same permission picker
    as an API key's. Choose **Allow**, and the app calls `/mcp` as you with that access, exactly as
    an API key with those permissions would.
