@@ -22,6 +22,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Changed
 
 - A long description in a content entry keeps its paragraphs when the entry is opened, in the sheet's content browser as well as the compendium
+- **A compendium with large packs is quicker to read.** Opening an entry now looks that one entry up rather than reading every entry of its kind, so it takes about the same time in a pack of thousands of spells as in a pack of ten. Turning a page reads in full only the entries on that page, and just the few values its filters and sort need from the rest
 
 ### Fixed
 
