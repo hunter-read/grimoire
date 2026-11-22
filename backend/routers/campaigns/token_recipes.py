@@ -29,9 +29,11 @@ from ...services.campaigns.token_recipes import (
     replace_recipe,
 )
 from ...services.campaigns.upload_files import remove_after_commit
+from ...services.campaigns.upload_quota import assert_within_campaign_quota
 from ._helpers import assert_can_manage, get_campaign_or_404
 from .uploads import (
     _FILES_DIR,
+    _IMAGE_MEDIA_TYPES,
     _IMAGE_TYPES,
     _MAX_IMAGE_BYTES,
     _get_member_or_404,
@@ -112,7 +114,7 @@ def update_token_file(
 
     The resource, its category, visibility and shares stay as they were; only
     the picture and its recipe change. Bound by the same upload limits as a new
-    campaign image.
+    campaign image, the campaign's total counting only what the new picture adds.
     """
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
@@ -130,6 +132,9 @@ def update_token_file(
     _validate_image(data)
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
+    # Only the growth counts: the old picture's bytes go with it.
+    if not is_admin:
+        assert_within_campaign_quota(db, campaign_id, len(data), replacing=cf.size_bytes or 0)
 
     cf.token_recipe = replace_recipe(f"file-{cf.id}", recipe, source)
 
@@ -140,7 +145,7 @@ def update_token_file(
         f.write(data)
     remove_after_commit(db, [os.path.join(_FILES_DIR, os.path.basename(cf.stored_path))])
     cf.stored_path = stored
-    cf.mime_type = file.content_type
+    cf.mime_type = _IMAGE_MEDIA_TYPES[ext]
     cf.size_bytes = len(data)
     db.commit()
     return {"id": cf.id, "token_editable": cf.token_recipe is not None}
