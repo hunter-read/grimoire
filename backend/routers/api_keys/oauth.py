@@ -15,7 +15,7 @@ exceed what the user's role offers.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -39,24 +39,41 @@ def require_oauth_active(request: Request) -> None:
         raise HTTPException(404, "OAuth sign-in is not enabled on this server")
 
 
-def _pending_or_404(db: Session, request_id: str) -> Any:
+GONE = "This sign-in request has expired or was already answered"
+
+
+def _browser(request: Request, request_id: str) -> Optional[str]:
+    """The cookie ``/authorize`` set in this browser for this request (issue #942)."""
+    from ...auth import cookie_secure
     from ...mcp_oauth import codes
 
-    row = codes.pending(db, request_id)
+    return request.cookies.get(codes.browser_cookie_name(request_id, cookie_secure(request)))
+
+
+def _pending_or_404(db: Session, request_id: str, request: Request) -> Any:
+    """The request, if it waits for an answer and this browser started it.
+
+    A request started in another browser gets the same 404 as an expired one,
+    so a forwarded consent link shows "isn't available" and says nothing more.
+    """
+    from ...mcp_oauth import codes
+
+    row = codes.pending(db, request_id, _browser(request, request_id))
     if row is None:
-        raise HTTPException(404, "This sign-in request has expired or was already answered")
+        raise HTTPException(404, GONE)
     return row
 
 
 def get_request(
     request_id: str,
+    request: Request,
     current_user: CurrentUser = Depends(require_session_user),
     db: Session = Depends(get_db),
 ):
     """What a client is asking for, for the consent page to show."""
     from ...mcp_oauth import clients
 
-    row = _pending_or_404(db, request_id)
+    row = _pending_or_404(db, request_id, request)
     client = db.query(OAuthClient).filter_by(client_id=row.client_id).first()
     info: dict[str, Any] = dict(client.info) if client else {}
     return {
@@ -84,16 +101,16 @@ def approve_request(
 
     if not api_keys.user_keys_allowed(load_user(db, current_user)):
         raise HTTPException(403, "API keys are not enabled for your account")
-    row = _pending_or_404(db, request_id)
+    row = _pending_or_404(db, request_id, request)
     permissions = (
         DEFAULT_PERMISSIONS
         if data.permissions is None
         else validate_permissions(data.permissions, request.app.routes, current_user.role)
     )
     params = dict(row.params)
-    code = codes.approve(db, request_id, current_user.id, permissions)
+    code = codes.approve(db, request_id, _browser(request, request_id), current_user.id, permissions)
     if code is None:
-        raise HTTPException(404, "This sign-in request has expired or was already answered")
+        raise HTTPException(404, GONE)
     return {
         "redirect_to": construct_redirect_uri(
             params["redirect_uri"], code=code, state=params.get("state")
@@ -103,6 +120,7 @@ def approve_request(
 
 def deny_request(
     request_id: str,
+    request: Request,
     current_user: CurrentUser = Depends(require_session_user),
     db: Session = Depends(get_db),
 ):
@@ -111,9 +129,9 @@ def deny_request(
 
     from ...mcp_oauth import codes
 
-    params = codes.deny(db, request_id)
+    params = codes.deny(db, request_id, _browser(request, request_id))
     if params is None:
-        raise HTTPException(404, "This sign-in request has expired or was already answered")
+        raise HTTPException(404, GONE)
     return {
         "redirect_to": construct_redirect_uri(
             params["redirect_uri"],

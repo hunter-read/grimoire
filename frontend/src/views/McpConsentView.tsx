@@ -41,10 +41,12 @@ export interface McpConsentViewProps {
  * The consent page for an MCP client's sign-in (issue #906): `/oauth/consent`.
  *
  * `/authorize` sends the browser here with a request id. The page says which
- * app is asking and, prominently, which host the browser goes to next: a
- * request id isn't tied to the browser that started the sign-in, so anyone can
- * send someone this page, and that host is the one detail a lookalike app
- * calling itself "Claude" can't fake. Access defaults to read-only; Customise
+ * app is asking and, prominently, which host the browser goes to next:
+ * anyone can send someone this page, by sending them an `/authorize` link, and
+ * that host is the one detail a lookalike app calling itself "Claude" can't
+ * fake. (A request also answers only in the browser that called `/authorize`,
+ * by a cookie, issue #942, but that is extra protection, not this page's
+ * defence.) Access defaults to read-only; Customise
  * opens the same picker as the key editor. Deny is offered even to a user who
  * can't approve, so the app hears `access_denied` rather than waiting.
  *
