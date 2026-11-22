@@ -253,6 +253,8 @@ describe('ScheduleEditor', () => {
         timezone: USER_TZ,
         biweekly_reference: null,
         monthly_week: -1,
+        rotation: null,
+        rotation_reference: null,
         custom_dates: null,
       })
     )
@@ -422,5 +424,82 @@ describe('ScheduleEditor day chips', () => {
       'aria-pressed',
       'true'
     )
+  })
+})
+
+describe('ScheduleEditor rotating weeks', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  const week = (n: number) => screen.getByRole('group', { name: new RegExp(`^Week ${n}\\b`) })
+
+  it('alternates Friday and Saturday and sends the rotation', async () => {
+    campaignsMock.setSchedule.mockResolvedValue({})
+    renderEditor()
+    fireEvent.click(screen.getByText('Rotating'))
+    // Two weeks to start with, both empty, so each says it is off.
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Week 1 - off')).toBeInTheDocument()
+    fireEvent.click(within(week(1)).getByRole('button', { name: 'Friday' }))
+    fireEvent.click(within(week(2)).getByRole('button', { name: 'Saturday' }))
+    expect(screen.queryByText(/- off$/)).toBeNull()
+    fireEvent.change(document.getElementById('schedule-rotation-ref')!, {
+      target: { value: '2026-11-20' },
+    })
+    fireEvent.click(screen.getByText('Save Schedule'))
+    await waitFor(() =>
+      expect(campaigns.setSchedule).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({
+          frequency: 'rotation',
+          rotation: [[4], [5]],
+          rotation_reference: '2026-11-20',
+          days: [4, 5],
+          biweekly_reference: null,
+        })
+      )
+    )
+  })
+
+  it('starts from the weekly days and defaults the reference to today', async () => {
+    campaignsMock.setSchedule.mockResolvedValue({})
+    renderEditor({ frequency: 'weekly', days: [2] })
+    fireEvent.click(screen.getByText('Rotating'))
+    expect(within(week(1)).getByRole('button', { name: 'Wednesday' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    fireEvent.click(screen.getByText('Save Schedule'))
+    await waitFor(() => expect(campaigns.setSchedule).toHaveBeenCalled())
+    const payload = campaignsMock.setSchedule.mock.calls[0][1]
+    expect(payload.rotation).toEqual([[2], []])
+    expect(payload.rotation_reference).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('lengthens the cycle with empty weeks and shortens it from the end', () => {
+    renderEditor({ frequency: 'rotation', rotation: [[4], [5]], rotation_reference: '2026-11-20' })
+    fireEvent.click(screen.getByRole('button', { name: '4' }))
+    expect(screen.getByText('Week 4 - off')).toBeInTheDocument()
+    expect(within(week(2)).getByRole('button', { name: 'Saturday' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    expect(screen.queryByText(/^Week 3/)).toBeNull()
+    // A day toggles off again.
+    fireEvent.click(within(week(1)).getByRole('button', { name: 'Friday' }))
+    expect(screen.getByText('Week 1 - off')).toBeInTheDocument()
+    expect(document.getElementById('schedule-rotation-ref')).toHaveValue('2026-11-20')
+  })
+
+  it('alerts instead of saving a rotation with no session day', () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    renderEditor()
+    fireEvent.click(screen.getByText('Rotating'))
+    fireEvent.click(screen.getByText('Save Schedule'))
+    expect(alertSpy).toHaveBeenCalledWith('Select at least one day.')
+    expect(campaigns.setSchedule).not.toHaveBeenCalled()
+    alertSpy.mockRestore()
   })
 })

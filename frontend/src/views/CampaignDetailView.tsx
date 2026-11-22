@@ -34,7 +34,11 @@ import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
 import GuestPanel from '../components/campaigns/GuestPanel'
 import AnchoredPopover from '../components/campaigns/AnchoredPopover'
-import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
+import {
+  formatScheduleTime,
+  rotationPattern,
+  USER_TZ,
+} from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
 import usePageTitle from '../hooks/usePageTitle'
 import useAsyncAction from '../hooks/useAsyncAction'
@@ -51,6 +55,7 @@ interface ScheduleDefinition {
   days?: number[]
   custom_dates?: string[]
   monthly_week?: number | string
+  rotation?: number[][]
   time_local?: string
 }
 
@@ -111,6 +116,7 @@ function scheduleSummary(def: ScheduleDefinition | null | undefined, t: TFunctio
     weekly: t('schedule.frequency.weekly'),
     biweekly: t('schedule.frequency.biweekly'),
     monthly: t('schedule.frequency.monthly'),
+    rotation: t('schedule.frequency.rotation'),
     custom: t('schedule.frequency.custom'),
   }
   const DAY_NAMES = [
@@ -138,6 +144,8 @@ function scheduleSummary(def: ScheduleDefinition | null | undefined, t: TFunctio
       week: WEEKS[String(def.monthly_week)] ?? '',
       day: DAY_NAMES[def.days?.[0] ?? -1] ?? '',
     })
+  } else if (def.frequency === 'rotation') {
+    pattern = rotationPattern(def.rotation, DAY_NAMES, t)
   } else {
     pattern = (def.days ?? []).map((d) => DAY_NAMES[d]).join(' & ')
   }

@@ -16,12 +16,15 @@ from ...services.campaigns.access import is_member
 from ...services.campaigns.schedule import (
     MAX_CUSTOM_DATES,
     MONTHLY_WEEKS,
+    ROTATION_WEEKS,
     compute_next_sessions,
     in_custom_date_window,
     parse_clock,
     parse_iso_date,
 )
 from ._schemas import AvailabilityUpdate, ScheduleUpsert
+
+FREQUENCIES = ("weekly", "biweekly", "monthly", "rotation", "custom")
 
 # Longer than any IANA zone name ("America/Argentina/ComodRivadavia" is 32).
 _MAX_ZONE_NAME = 64
@@ -61,6 +64,23 @@ def _checked_custom_dates(values: list[str] | None) -> list[str]:
         if not in_custom_date_window(day, today):
             raise HTTPException(400, "custom_dates must be within ten years of today")
     return unique
+
+
+def _checked_rotation(weeks: list[list[int]] | None) -> list[list[int]]:
+    """A rotating schedule's weeks, each sorted and de-duplicated, or 400.
+
+    Two to four weeks, each a list of weekday indices; a week may be empty (a
+    week off), but the cycle needs at least one session day.
+    """
+    low, high = ROTATION_WEEKS[0], ROTATION_WEEKS[-1]
+    if weeks is None or not low <= len(weeks) <= high:
+        raise HTTPException(400, f"rotation must list {low} to {high} weeks")
+    if any(d < 0 or d > 6 for week in weeks for d in week):
+        raise HTTPException(400, "rotation days must be weekday indices 0-6")
+    checked = [sorted(set(week)) for week in weeks]
+    if not any(checked):
+        raise HTTPException(400, "rotation needs at least one session day")
+    return checked
 
 
 def _utc_clock_to_local(utc_clock: str, tz_name: str | None) -> str:
@@ -127,8 +147,8 @@ def upsert_schedule(
     assert_can_manage(c, current_user, db)
     if not c.is_gm_campaign:
         raise HTTPException(400, "Schedules are only available on GM-run campaigns")
-    if data.frequency not in ("weekly", "biweekly", "monthly", "custom"):
-        raise HTTPException(400, "frequency must be weekly | biweekly | monthly | custom")
+    if data.frequency not in FREQUENCIES:
+        raise HTTPException(400, f"frequency must be {' | '.join(FREQUENCIES)}")
     days = list(dict.fromkeys(data.days))  # order kept: monthly reads days[0]
     if len(days) > 7 or (data.frequency != "custom" and any(d < 0 or d > 6 for d in days)):
         raise HTTPException(400, "days must be weekday indices 0-6")
@@ -149,6 +169,12 @@ def upsert_schedule(
     if data.monthly_week is not None and data.monthly_week not in MONTHLY_WEEKS:
         raise HTTPException(400, "monthly_week must be 1, 2, 3, 4 or -1")
     custom_dates = _checked_custom_dates(data.custom_dates)
+    if data.rotation_reference is not None and parse_iso_date(data.rotation_reference) is None:
+        raise HTTPException(400, "rotation_reference must be YYYY-MM-DD")
+    rotation = _checked_rotation(data.rotation) if data.frequency == "rotation" else None
+    if rotation is not None:
+        # The days any week of the cycle uses, for whatever reads only ``days``.
+        days = sorted({d for week in rotation for d in week})
 
     # Both halves of the stored pair are local. A legacy client posting only the
     # UTC form is converted here, using the zone it also sends; without a zone
@@ -186,6 +212,11 @@ def upsert_schedule(
         )
     if data.frequency == "monthly":
         definition["monthly_week"] = data.monthly_week if data.monthly_week is not None else 1
+    if data.frequency == "rotation":
+        definition["rotation"] = rotation
+        definition["rotation_reference"] = (
+            data.rotation_reference or datetime.date.today().isoformat()
+        )
     if data.frequency == "custom":
         definition["custom_dates"] = custom_dates
 

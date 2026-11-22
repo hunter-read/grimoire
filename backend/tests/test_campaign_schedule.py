@@ -5,6 +5,7 @@ get/set availability plus cancel_session_date, including the auth and validation
 guard branches. (The recurrence math itself is unit-tested in
 test_campaign_schedule_helpers.py.)
 """
+import datetime
 import uuid
 
 import pytest
@@ -168,6 +169,44 @@ class TestSchedule:
         )
         assert r.json()["definition"]["custom_dates"] == ["2026-01-01", "2026-02-02"]
 
+    def test_upsert_rotation(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        r = client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={
+                "frequency": "rotation",
+                "rotation": [[5, 4, 4], []],
+                "rotation_reference": "2026-11-20",
+                "time_local": "18:00",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        definition = r.json()["definition"]
+        assert definition["rotation"] == [[4, 5], []]
+        assert definition["rotation_reference"] == "2026-11-20"
+        # ``days`` holds every day the cycle uses, for readers of days alone.
+        assert definition["days"] == [4, 5]
+        assert len(r.json()["next_sessions"]) == 10
+        # Saved, and read back the same.
+        got = client.get(f"/api/campaigns/{cid}/schedule", headers=gm_headers).json()
+        assert got["definition"]["rotation"] == [[4, 5], []]
+        # Without a reference, today anchors the first week.
+        r = client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={"frequency": "rotation", "rotation": [[4], [5]], "enabled": True},
+            headers=gm_headers,
+        )
+        assert r.json()["definition"]["rotation_reference"] == datetime.date.today().isoformat()
+        # Another kind drops the rotation fields.
+        r = client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={"frequency": "weekly", "days": [4], "rotation": [[4], [5]], "enabled": True},
+            headers=gm_headers,
+        )
+        assert "rotation" not in r.json()["definition"]
+
     def test_upsert_rejects_bad_frequency_and_days(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         bad_freq = client.put(
@@ -204,6 +243,13 @@ class TestSchedule:
             {"frequency": "custom", "custom_dates": ["2027-01-02", "9998-12-30"]},
             {"frequency": "custom", "custom_dates": ["1900-01-01"]},
             {"days": [1, 2, 3, 4, 5, 6, 0, 7]},
+            {"frequency": "rotation"},
+            {"frequency": "rotation", "rotation": [[4]]},
+            {"frequency": "rotation", "rotation": [[4], [5], [6], [0], [1]]},
+            {"frequency": "rotation", "rotation": [[], []]},
+            {"frequency": "rotation", "rotation": [[4], [7]]},
+            {"frequency": "rotation", "rotation": [[4], [-1]]},
+            {"frequency": "rotation", "rotation": [[4], [5]], "rotation_reference": "soon"},
         ],
     )
     def test_upsert_rejects_out_of_range_values(self, client, gm_headers, gm_campaign, change):

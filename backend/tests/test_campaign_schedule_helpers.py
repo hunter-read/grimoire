@@ -67,6 +67,50 @@ class TestComputeNextSessions:
         )
         assert len(result) == 2
 
+    def test_rotation_alternates_friday_and_saturday(self):
+        # Week 1 (the reference's week) Friday, week 2 Saturday, and so on.
+        ref = datetime.date.today() - datetime.timedelta(weeks=7)
+        ref_monday = ref - datetime.timedelta(days=ref.weekday())
+        result = compute_next_sessions(
+            {"frequency": "rotation", "rotation": [[4], [5]], "rotation_reference": ref.isoformat()},
+            n=6,
+        )
+        assert len(result) == 6
+        for iso in result:
+            day = datetime.date.fromisoformat(iso)
+            week = ((day - ref_monday).days // 7) % 2
+            assert day.weekday() == (4 if week == 0 else 5), iso
+        # One session a week: each a week apart, give or take the day's shift.
+        dates = [datetime.date.fromisoformat(d) for d in result]
+        assert {(b - a).days for a, b in zip(dates, dates[1:])} <= {6, 8}
+
+    def test_rotation_with_a_week_off_and_several_days(self):
+        # Three-week cycle: Tue+Thu, off, Sat. A reference in the future still
+        # anchors the cycle (week arithmetic runs backwards too).
+        ref = datetime.date.today() + datetime.timedelta(weeks=5)
+        ref_monday = ref - datetime.timedelta(days=ref.weekday())
+        rotation = [[1, 3], [], [5]]
+        result = compute_next_sessions(
+            {"frequency": "rotation", "rotation": rotation, "rotation_reference": ref.isoformat()},
+            n=9,
+        )
+        assert len(result) == 9
+        for iso in result:
+            day = datetime.date.fromisoformat(iso)
+            assert day.weekday() in rotation[((day - ref_monday).days // 7) % 3], iso
+
+    def test_rotation_without_a_reference_anchors_on_this_week(self):
+        result = compute_next_sessions({"frequency": "rotation", "rotation": [[0], [0]]}, n=2)
+        assert len(result) == 2
+
+    @pytest.mark.parametrize(
+        "rotation",
+        [None, "fri", [[4]], [[4]] * 5, [[], []], [[9], [4]], [["4"], [5]], [4, 5]],
+    )
+    def test_rotation_the_editor_would_refuse_has_no_dates(self, rotation):
+        definition = {"frequency": "rotation", "rotation": rotation}
+        assert compute_next_sessions(definition) == []
+
     def test_monthly_nth_weekday(self):
         # 2nd Tuesday (weekday 1, week 2) of each month.
         result = compute_next_sessions(

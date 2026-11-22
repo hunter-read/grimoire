@@ -159,7 +159,7 @@ class GMNoteUpdate(BaseModel):
 
 class ScheduleUpsert(BaseModel):
     days: List[int] = []  # weekday indices (0=Mon … 6=Sun), local; empty for custom
-    frequency: str = "weekly"  # weekly | biweekly | monthly | custom
+    frequency: str = "weekly"  # weekly | biweekly | monthly | rotation | custom
     # "HH:MM" in the *local* zone named by `timezone`. Both halves of the pair are
     # local, so an evening session can no longer disagree with its own weekday:
     # storing a UTC clock beside a local weekday is what published Sunday-night
@@ -173,6 +173,10 @@ class ScheduleUpsert(BaseModel):
     timezone: Optional[str] = None
     biweekly_reference: Optional[str] = None  # YYYY-MM-DD anchor for biweekly
     monthly_week: Optional[int] = None  # 1-4 or -1 (last) for monthly
+    # rotation: the weekdays of each week in a 2-4 week cycle, e.g. [[4], [5]]
+    # for Friday one week and Saturday the next; a week may be empty (off).
+    rotation: Optional[List[List[int]]] = None
+    rotation_reference: Optional[str] = None  # YYYY-MM-DD in the cycle's first week
     custom_dates: Optional[List[str]] = None  # ["YYYY-MM-DD", ...] for custom
     enabled: bool = True  # when False the definition is kept but inactive
 
