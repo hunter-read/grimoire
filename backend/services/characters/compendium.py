@@ -39,7 +39,7 @@ from ...models import (
     SystemContentPack,
     User,
 )
-from .. import access_control
+from .. import access_control, json_fields
 from . import catalog_query as query
 from . import rulesets as rs
 from .catalog_query import CatalogRow
@@ -66,6 +66,8 @@ MAX_SEARCH_RESULTS = 50
 MAX_LINKS = 50
 #: Entries sampled to infer a definition for a type nobody declares.
 _INFER_SAMPLE = 50
+#: JSON values one browse reads per entry before it reads whole entries instead.
+_MAX_PROJECTED_KEYS = 64
 _RULESET_ORIGIN = "ruleset:"
 
 
@@ -242,13 +244,20 @@ def load(db: Session, system: GameSystem, user_id: str) -> Compendium:
 def _pack_rows(
     db: Session, comp: Compendium, content_type: Optional[str] = None,
     row_ids: Optional[Iterable[str]] = None,
+    *,
+    entry_id: Optional[str] = None,
+    packs: Optional[Sequence[ContentPack]] = None,
 ) -> list[CatalogRow]:
-    if not comp.packs:
+    """Linked pack entries, whole. ``packs`` narrows to some of the linked packs."""
+    packs = comp.packs if packs is None else packs
+    if not packs:
         return []
     origin = {pack.id: pack.pack_id for pack in comp.packs}
-    q = db.query(ContentEntry).filter(ContentEntry.pack_id.in_(comp.pack_rows))
+    q = db.query(ContentEntry).filter(ContentEntry.pack_id.in_([pack.id for pack in packs]))
     if content_type:
         q = q.filter(ContentEntry.content_type == content_type)
+    if entry_id is not None:
+        q = q.filter(ContentEntry.entry_id == entry_id)
     if row_ids is not None:
         wanted = list(row_ids)
         if not wanted:
@@ -270,7 +279,12 @@ def _pack_rows(
 
 
 def _ruleset_rows(
-    db: Session, comp: Compendium, content_type: Optional[str] = None
+    db: Session,
+    comp: Compendium,
+    content_type: Optional[str] = None,
+    *,
+    entry_id: Optional[str] = None,
+    ruleset_id: Optional[str] = None,
 ) -> list[CatalogRow]:
     """Readable ruleset entries for the compendium's schemas, minus pack copies."""
     if not comp.schema_ids:
@@ -283,6 +297,10 @@ def _ruleset_rows(
     )
     if content_type:
         q = q.filter(RulesetEntry.content_type == content_type)
+    if entry_id is not None:
+        q = q.filter(RulesetEntry.entry_id == entry_id)
+    if ruleset_id is not None:
+        q = q.filter(Ruleset.id == ruleset_id)
     pairs = [(entry, ruleset) for entry, ruleset in q.all()]
     copies = _pack_copies(db, comp, pairs)
     return [
@@ -348,8 +366,88 @@ def _same_data(a: Any, b: Any) -> bool:
     return True
 
 
-def _rows(db: Session, comp: Compendium, content_type: Optional[str] = None) -> list[CatalogRow]:
-    return _pack_rows(db, comp, content_type) + _ruleset_rows(db, comp, content_type)
+def _browse_pack_rows(
+    db: Session, comp: Compendium, content_type: str, keys: Sequence[str]
+) -> tuple[list[CatalogRow], bool]:
+    """Every linked pack entry of one type, and whether each carries its whole data.
+
+    A browse sorts, filters and counts facets over the whole type but shows one
+    page of it, so the rows here carry only the values ``keys`` names - read out
+    of the JSON by the database - and :func:`_whole` reads the page's entries in
+    full. A key that cannot be read that way, or more of them than is sensible,
+    falls back to reading every entry whole.
+    """
+    if not comp.packs:
+        return [], True
+    if not _projectable(keys):
+        return _pack_rows(db, comp, content_type), True
+    origin = {pack.id: pack.pack_id for pack in comp.packs}
+    columns, decode = json_fields.select_keys(db, ContentEntry.data, keys)
+    q = (
+        db.query(
+            ContentEntry.id,
+            ContentEntry.pack_id,
+            ContentEntry.entry_id,
+            ContentEntry.source,
+            ContentEntry.name,
+            ContentEntry.schema_id,
+            *columns,
+        )
+        .filter(ContentEntry.pack_id.in_(comp.pack_rows))
+        .filter(ContentEntry.content_type == content_type)
+    )
+    return [
+        CatalogRow(
+            id=row[0],
+            entry_id=row[2],
+            source=row[3],
+            name=row[4],
+            data=decode(row[6:]),
+            content_type=content_type,
+            schema_id=row[5],
+            origin=origin.get(row[1], ""),
+        )
+        for row in q.all()
+    ], False
+
+
+def _projectable(keys: Sequence[str]) -> bool:
+    return len(keys) <= _MAX_PROJECTED_KEYS and all(json_fields.can_select(key) for key in keys)
+
+
+def _whole(
+    db: Session,
+    comp: Compendium,
+    content_type: str,
+    rows: Sequence[CatalogRow],
+    loaded: dict[str, CatalogRow],
+) -> list[CatalogRow]:
+    """``rows`` in the same order, each pack entry read in full.
+
+    ``loaded`` holds the whole rows read so far, so an entry is read once.
+    Ruleset rows are always whole already.
+    """
+    missing = [row.id for row in rows if not row.ruleset and row.id not in loaded]
+    if missing:
+        for full in _pack_rows(db, comp, content_type, row_ids=missing):
+            loaded[full.id] = full
+    return [row if row.ruleset else loaded.get(row.id, row) for row in rows]
+
+
+def _entry_rows(
+    db: Session, comp: Compendium, content_type: str, entry_id: str, origin: Optional[str]
+) -> list[CatalogRow]:
+    """The entries of one type with one id, from where ``origin`` allows."""
+    packs = [pack for pack in comp.packs if not origin or pack.pack_id == origin]
+    rows = _pack_rows(db, comp, content_type, entry_id=entry_id, packs=packs)
+    if not origin:
+        rows += _ruleset_rows(db, comp, content_type, entry_id=entry_id)
+    elif origin.startswith(_RULESET_ORIGIN):
+        rows += _ruleset_rows(
+            db, comp, content_type, entry_id=entry_id,
+            ruleset_id=origin[len(_RULESET_ORIGIN):],
+        )
+    return rows
 
 
 # --- type definitions --------------------------------------------------------
@@ -370,11 +468,16 @@ def _primary_definition(
     shelf). The list's filters and sort follow the first; each entry still
     renders with its own schema's definition.
     """
+    return _declared_definition(comp, content_type) or _inferred_definition(content_type, rows)
+
+
+def _declared_definition(comp: Compendium, content_type: str) -> Optional[dict]:
+    """The first schema's declaration of a type, if any schema declares it."""
     for schema_id in comp.schema_ids:
         definition = definition_for(comp, schema_id, content_type)
         if definition:
             return definition
-    return _inferred_definition(content_type, rows)
+    return None
 
 
 def _row_definition(comp: Compendium, row: CatalogRow, fallback: dict) -> dict:
@@ -505,13 +608,39 @@ def browse(
     page: int = 1,
     page_size: int = query.DEFAULT_PAGE_SIZE,
 ) -> dict:
-    """One content type: search, filter, sort, paginate - the sheet browser's rules."""
-    rows = _rows(db, comp, content_type)
-    definition = _primary_definition(comp, content_type, rows)
-    filters = filters or {}
+    """One content type: search, filter, sort, paginate - the sheet browser's rules.
 
-    fields = definition.get("filter_fields", []) or []
-    depends = definition.get("filter_depends", {}) or {}
+    Facets, filters and the sort need every entry of the type, but only the few
+    values they name: those are all that is read for each entry, and only the
+    page's entries are read whole.
+    """
+    filters = filters or {}
+    declared = _declared_definition(comp, content_type)
+    # An inferred definition has no filters or sort of its own.
+    shape = declared or {}
+    fields = shape.get("filter_fields", []) or []
+    depends = shape.get("filter_depends", {}) or {}
+    sort_fields = (
+        [name.strip() for name in sort.split(",") if name.strip()]
+        if sort
+        else shape.get("sort_default", []) or []
+    )
+    keys = list(dict.fromkeys([
+        *fields, *depends, *depends.values(), *filters,
+        *([] if search.strip() else sort_fields),
+    ]))
+
+    pack_rows, whole = _browse_pack_rows(db, comp, content_type, keys)
+    rows = pack_rows + _ruleset_rows(db, comp, content_type)
+    loaded: dict[str, CatalogRow] = {}
+    if declared:
+        definition = declared
+    else:
+        sample = rows[:_INFER_SAMPLE]
+        definition = _inferred_definition(
+            content_type, sample if whole else _whole(db, comp, content_type, sample, loaded)
+        )
+
     facets = query.narrowed_facets(rows, fields, filters, depends)
     without_parent = query.unparented_values(rows, depends)
     if filters:
@@ -531,17 +660,14 @@ def browse(
         ]
         rows.sort(key=lambda row: order.get(row.id, len(order)))
     else:
-        sort_fields = (
-            [name.strip() for name in sort.split(",") if name.strip()]
-            if sort
-            else definition.get("sort_default", []) or []
-        )
         rows = query.sort_entries(rows, sort_fields)
 
     total = len(rows)
     size = max(1, min(page_size, query.MAX_PAGE_SIZE))
     current = max(1, page)
     window = rows[(current - 1) * size : current * size]
+    if not whole:
+        window = _whole(db, comp, content_type, window, loaded)
     return {
         "content_type": _summary(content_type, definition, total),
         "entries": [_serialize(comp, row, definition) for row in window],
@@ -565,9 +691,7 @@ def find_entry(
     ``origin`` (a pack id, or ``ruleset:<id>``) picks between two entries with
     the same id; without it, a linked pack's entry wins, in link order.
     """
-    rows = [row for row in _rows(db, comp, content_type) if row.entry_id == entry_id]
-    if origin:
-        rows = [row for row in rows if row.origin == origin]
+    rows = _entry_rows(db, comp, content_type, entry_id, origin)
     if not rows:
         return None
     rank = {pid: index for index, pid in enumerate(comp.pack_ids)}
