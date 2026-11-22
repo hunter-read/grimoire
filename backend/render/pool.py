@@ -93,8 +93,8 @@ class _InProcessRaster:
       quiet one costs a render one nap per band.
 
     Bands cost time of their own: MuPDF decodes a large picture again for each
-    band it crosses, so a cold render of an illustrated page takes up to about
-    twice as long. A render worker has nothing to share the GIL with and draws
+    band it crosses, so a cold render of an illustrated page takes two to three
+    times as long. A render worker has nothing to share the GIL with and draws
     pages whole; this is the price of rendering in-process, paid to keep the
     server answering.
     """
