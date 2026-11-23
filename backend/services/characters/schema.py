@@ -462,6 +462,7 @@ def _validate_write_steps(
     *,
     prompts: set[str],
     prompt_verbs: bool = False,
+    may_open_prompts: bool = True,
 ) -> None:
     """Check a list of writes, as an action's `steps` or a prompt's `apply`.
 
@@ -511,7 +512,13 @@ def _validate_write_steps(
                 raise SchemaError(f"{where} writes {key!r}, which {target!r} does not have")
             _validate_formula(source, f"{where} {key!r}", names_known, images)
 
-    verbs_allowed = ["each", "append", "prompt"] + (["add", "pick"] if prompt_verbs else [])
+    # An `on_skip` only writes: it runs because a prompt was put aside, so it
+    # opens none of its own.
+    verbs_allowed = (
+        ["each", "append"]
+        + (["prompt"] if may_open_prompts else [])
+        + (["add", "pick"] if prompt_verbs else [])
+    )
     for step_index, step in enumerate(steps):
         step = _require_dict(step, f"{what} step {step_index}")
         where = f"{what} step {step_index}"
@@ -755,7 +762,13 @@ def _validate_prompts(
         # a box ticked to open it, unticked again.
         if "on_skip" in prompt:
             _validate_write_steps(
-                prompt["on_skip"], f"{what} 'on_skip'", fields, known, images, prompts=names
+                prompt["on_skip"],
+                f"{what} 'on_skip'",
+                fields,
+                known,
+                images,
+                prompts=names,
+                may_open_prompts=False,
             )
 
 

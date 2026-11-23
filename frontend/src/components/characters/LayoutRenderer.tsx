@@ -616,7 +616,10 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
         if (action) {
           if (action.confirm && !window.confirm(action.confirm)) return
           const patch = planAction(action, { document: schemaDocument, data, context, entries })
-          for (const [field, value] of Object.entries(patch)) onChange?.(field, value)
+          // Marked `written`: the sheet's own writes set off no `on_change`.
+          for (const [field, value] of Object.entries(patch)) {
+            onChange?.(field, value, { written: true })
+          }
         }
         for (const promptName of opens) ctx.openPrompt?.({ prompt: promptName })
       }

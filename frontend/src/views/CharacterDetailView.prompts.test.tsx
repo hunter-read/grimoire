@@ -40,7 +40,7 @@ const ELF = { name: 'Elf', lineages: ['Drow', 'High Elf', 'Wood Elf'] }
 function StubSheet({
   onChange,
 }: {
-  onChange: (field: string, value: unknown, pick?: { entry: unknown }) => void
+  onChange: (field: string, value: unknown, meta?: { entry?: unknown; written?: boolean }) => void
 }) {
   const open = useContext(PromptLauncher)
   return (
@@ -49,6 +49,7 @@ function StubSheet({
       <button onClick={() => open?.({ prompt: 'feat_up' })}>gain a feat</button>
       <button onClick={() => onChange('focused', true)}>focus</button>
       <button onClick={() => onChange('hp', 0)}>drop to 0</button>
+      <button onClick={() => onChange('focused', true, { written: true })}>action focus</button>
       <input aria-label="Gold" onChange={(e) => onChange('gold', Number(e.target.value))} />
       <input aria-label="Hit points" onChange={(e) => onChange('hp', Number(e.target.value))} />
     </div>
@@ -237,6 +238,13 @@ describe('CharacterDetailView — prompts', () => {
     await userEvent.click(screen.getByText('drop to 0'))
     await waitFor(() => expect(lastSaved().data.focused).toBe(false), { timeout: 2000 })
     expect(screen.queryByRole('dialog', { name: 'Focus' })).not.toBeInTheDocument()
+  })
+
+  it("leaves on_change alone for a write the sheet makes, such as an action's", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('action focus'))
+    await waitFor(() => expect(lastSaved().data).toEqual({ focused: true }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it("runs a typed field's on_change once the typing stops, not once per key", async () => {

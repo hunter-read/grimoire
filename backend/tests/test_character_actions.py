@@ -154,6 +154,8 @@ def test_on_change_and_on_skip_are_kept():
         ([{"prompt": "missing"}], None, "unknown prompt"),
         ([{"set": "focus_on", "to": "1 +"}], None, "on_change"),
         ([{"prompt": "focus"}], [{"set": "nowhere", "to": "false"}], "on_skip"),
+        # Putting a prompt aside only writes: it opens no prompt of its own.
+        ([{"prompt": "focus"}], [{"prompt": "focus"}], "on_skip.*exactly one of 'set', 'each', 'append'$"),
     ],
 )
 def test_bad_follow_ups_are_refused(on_change, on_skip, message):
