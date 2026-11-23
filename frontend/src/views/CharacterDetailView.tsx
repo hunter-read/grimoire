@@ -57,6 +57,10 @@ type Entry = Record<string, unknown> | null | undefined
 // filled in field by field over a session, and losing a column of scores to a
 // forgotten click is the kind of thing that stops people trusting the feature.
 const SAVE_DELAY_MS = 600
+// A typed field's `on_change` waits for a pause in the typing, so "12" runs
+// it once, not once for "1" and again for "12".
+const ON_CHANGE_DELAY_MS = 400
+const TYPED_FIELDS = new Set(['text', 'number', 'textarea'])
 
 /**
  * One character's sheet, rendered from its schema.
@@ -94,6 +98,11 @@ export default function CharacterDetailView() {
   const [showingPortrait, setShowingPortrait] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A typed field's `on_change` waiting for the typing to stop, one per field,
+  // and the function that runs it - the latest, so it reads the sheet as it is
+  // when it fires.
+  const followUpTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const followUpRef = useRef<(name: string) => void>(() => {})
   // Saves run one after another. Two in flight at once can land in either
   // order, and the earlier reply would put back what the later edit changed -
   // a moved row moving back, a letter typed vanishing.
@@ -139,6 +148,14 @@ export default function CharacterDetailView() {
   // drop the last thing typed.
   useEffect(
     () => () => {
+      // A typed field's `on_change` still waiting runs now, so its writes go
+      // out with the edit that set it off.
+      const waiting = [...followUpTimersRef.current]
+      followUpTimersRef.current.clear()
+      for (const [name, timer] of waiting) {
+        clearTimeout(timer)
+        followUpRef.current(name)
+      }
       if (timerRef.current) clearTimeout(timerRef.current)
       const data = pendingRef.current
       const unset = [...unsetRef.current]
@@ -220,26 +237,55 @@ export default function CharacterDetailView() {
     [character?.schema_ref]
   )
 
+  // The field's `on_change`: writes and prompts that follow a change, read
+  // against the sheet with the new value - a box ticked that asks what for.
+  // Its writes are saved as they are, without an `on_change` of their own, so
+  // one change cannot set off another.
+  const runFollowUp = useCallback(
+    (name: string) => {
+      const followUp = document?.fields?.[name]?.on_change
+      if (!Array.isArray(followUp) || !followUp.length) return
+      const entries = { ...(character?.entries || {}), ...pickedEntries }
+      const action = { name, label: name, steps: followUp as ActionStep[] }
+      const context = sheetContext(document, dataRef.current, entries)
+      const patch = planAction(action, { document, data: dataRef.current, context, entries })
+      if (Object.keys(patch).length) applyPatch(patch)
+      const opened = actionPrompts(action)
+      if (opened.length) setPrompts((prev) => [...prev, ...opened.map((prompt) => ({ prompt }))])
+    },
+    [applyPatch, document, character?.entries, pickedEntries]
+  )
+  useEffect(() => {
+    followUpRef.current = runFollowUp
+  }, [runFollowUp])
+
   const onChange = useCallback(
     async (name: string, value: unknown, meta?: unknown) => {
-      applyPatch({ [name]: value })
-
-      // The field's `on_change`: writes and prompts that follow this change,
-      // read against the sheet with the new value - a box ticked that asks
-      // what for. Its writes are saved as they are, without an `on_change`
-      // of their own, so one change cannot set off another.
-      const followUp = document?.fields?.[name]?.on_change
-      if (Array.isArray(followUp) && followUp.length) {
-        const entries = { ...(character?.entries || {}), ...pickedEntries }
-        const action = { name, label: name, steps: followUp as ActionStep[] }
-        const context = sheetContext(document, dataRef.current, entries)
-        const patch = planAction(action, { document, data: dataRef.current, context, entries })
-        if (Object.keys(patch).length) applyPatch(patch)
-        const opened = actionPrompts(action)
-        if (opened.length) setPrompts((prev) => [...prev, ...opened.map((prompt) => ({ prompt }))])
+      const definition = document?.fields?.[name]
+      const followUp = definition?.on_change
+      if (
+        Array.isArray(followUp) &&
+        followUp.length &&
+        TYPED_FIELDS.has(definition?.type ?? 'text')
+      ) {
+        // Typed: once the typing stops. Its timer is set before the save's,
+        // so it runs first and its writes join that save.
+        const timers = followUpTimersRef.current
+        const waiting = timers.get(name)
+        if (waiting) clearTimeout(waiting)
+        timers.set(
+          name,
+          setTimeout(() => {
+            timers.delete(name)
+            followUpRef.current(name)
+          }, ON_CHANGE_DELAY_MS)
+        )
+        applyPatch({ [name]: value })
+      } else {
+        applyPatch({ [name]: value })
+        runFollowUp(name)
       }
 
-      const definition = document?.fields?.[name]
       if (definition?.type !== 'content_ref') return
 
       // The picked entry's own properties: from the browser that picked it,
@@ -293,7 +339,7 @@ export default function CharacterDetailView() {
         setError((e as Error).message)
       }
     },
-    [applyPatch, document, lookup, character?.entries, pickedEntries]
+    [applyPatch, document, lookup, runFollowUp]
   )
   // The sheet's change handler. onChange never rejects - a follow-up that
   // fails lands in `error` - so the sheet need not wait on it.
