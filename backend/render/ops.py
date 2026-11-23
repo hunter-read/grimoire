@@ -11,7 +11,7 @@ back, and the parent raises it.
 """
 import io
 import math
-from typing import Any
+from typing import Any, Callable, Optional
 
 import pymupdf
 from PIL import Image
@@ -24,6 +24,10 @@ TILE_SIZE = 1024
 # outside this range is refused here rather than trusted to each caller's bounds.
 MIN_RENDER_WIDTH = 16
 MAX_RENDER_WIDTH = 16384
+
+# A band (``_rasterize``) is never thinner than this: every band runs the
+# page's display list again, so very thin ones cost more than they give back.
+MIN_BAND_ROWS = 16
 
 # An XMP packet is a few kilobytes of RDF; one past this carries embedded
 # thumbnails or worse, and is not worth sending back from a worker.
@@ -104,20 +108,87 @@ def _page(doc: pymupdf.Document, page_num: int) -> pymupdf.Page:
     return doc[page_num - 1]
 
 
-def rasterize_page(doc: pymupdf.Document, page_num: int, width: int) -> Image.Image:
-    """Page ``page_num`` (1-based) as an RGB image ``width`` pixels wide."""
+def _rasterize(
+    page: pymupdf.Page,
+    matrix: pymupdf.Matrix,
+    clip: Optional[pymupdf.Rect],
+    band_pixels: int,
+    between_bands: Optional[Callable[[], None]],
+) -> Image.Image:
+    """``page`` (cut to ``clip``) through ``matrix`` as an RGB image.
+
+    PyMuPDF holds the GIL from the start of a rasterise to its end, so while
+    one runs no other thread in the process runs at all, the event loop
+    included. With ``band_pixels`` the image is drawn instead in horizontal
+    bands of about that many pixels, one MuPDF call each, from a single display
+    list (which is all ``get_pixmap`` does in one go), and ``between_bands`` is
+    called between them, when the GIL can change hands. An image no taller
+    than one band is drawn in one go.
+
+    Banding is for in-process rendering (``RENDER_WORKERS=0``), which shares
+    the interpreter with the API; a render worker has nothing to share it with.
+    A banded image is the same size as an unbanded one, with the same pixels
+    except where a picture is drawn larger than its own resolution: MuPDF then
+    interpolates each band from its own edge, so a row there can come out a
+    pixel off, as it can at the edge of a zoom tile.
+    """
+    # The image's bounds in pixels, worked out as get_pixmap works out its own.
+    box = (((clip if clip is not None else page.rect) & page.rect) * matrix).irect
+    rows = max(MIN_BAND_ROWS, band_pixels // max(1, box.width))
+    if band_pixels <= 0 or box.height <= rows:
+        pix = page.get_pixmap(matrix=matrix, clip=clip, alpha=False)
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        # Drop the pixmap now, so its buffer is part of what a reclaim frees.
+        del pix
+        return img
+    display = page.get_displaylist()
+    img = Image.new("RGB", (box.width, box.height))
+    to_page = ~matrix
+    for top in range(box.y0, box.y1, rows):
+        if top > box.y0 and between_bands is not None:
+            between_bands()
+        band = pymupdf.Rect(box.x0, top, box.x1, min(top + rows, box.y1)) * to_page
+        pix = display.get_pixmap(matrix=matrix, clip=band, alpha=False)
+        # Placed by the band's own bounds: rounding can make one a row taller,
+        # and the next band (or the image's edge) paints over that row again.
+        img.paste(
+            Image.frombytes("RGB", (pix.width, pix.height), pix.samples),
+            (pix.x - box.x0, pix.y - box.y0),
+        )
+        del pix
+    del display
+    return img
+
+
+def rasterize_page(
+    doc: pymupdf.Document,
+    page_num: int,
+    width: int,
+    *,
+    band_pixels: int = 0,
+    between_bands: Optional[Callable[[], None]] = None,
+) -> Image.Image:
+    """Page ``page_num`` (1-based) as an RGB image ``width`` pixels wide.
+
+    ``band_pixels`` and ``between_bands`` draw it in bands (``_rasterize``).
+    """
     _check_width(width)
     page = _page(doc, page_num)
     zoom = width / page.rect.width
-    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
-    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    # Drop the pixmap now, so its buffer is part of what a reclaim frees.
-    del pix, page
+    img = _rasterize(page, pymupdf.Matrix(zoom, zoom), None, band_pixels, between_bands)
+    del page
     return img
 
 
 def rasterize_tile(
-    doc: pymupdf.Document, page_num: int, width: int, col: int, row: int
+    doc: pymupdf.Document,
+    page_num: int,
+    width: int,
+    col: int,
+    row: int,
+    *,
+    band_pixels: int = 0,
+    between_bands: Optional[Callable[[], None]] = None,
 ) -> Image.Image:
     """Tile ``col``/``row`` of the page rendered ``width`` pixels wide."""
     _check_width(width)
@@ -126,13 +197,9 @@ def rasterize_tile(
     if col >= cols or row >= rows:
         raise TileOutOfRange(cols, rows, width)
     scale = width / page.rect.width
-    pix = page.get_pixmap(
-        matrix=pymupdf.Matrix(scale, scale),
-        clip=tile_clip(page.rect, width, col, row),
-        alpha=False,
-    )
-    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    del pix, page
+    clip = tile_clip(page.rect, width, col, row)
+    img = _rasterize(page, pymupdf.Matrix(scale, scale), clip, band_pixels, between_bands)
+    del page
     return img
 
 
