@@ -84,7 +84,13 @@ Four workers fall short of four times one because books are shared out by a hash
 
 Set `RENDER_WORKERS=0` on a host that is very short of memory: rendering then happens inside Grimoire as it used to, without the crash protection. See [Memory use](#memory-use) for the trade-off.
 
-`RENDER_WORKERS=0` also costs render speed, and that cost is what keeps Grimoire answering. The PDF library holds Python's interpreter lock for the whole time it draws a page, so while Grimoire draws a page itself nothing else in it runs - not the web server, and not the health check. So when Grimoire renders in-process, it draws one page at a time (two can't run side by side anyway), in strips of about a quarter of a megapixel, and lets other work go first between strips. During a burst - a deep zoom asking for dozens of tiles at once, or a book opening with the next few pages loading behind it - other requests get at least half of the time, so pages arrive later but the server keeps answering. The strips cost time of their own: the PDF library decodes a large picture again for each strip it crosses, so the first render of a heavily illustrated page can take two to three times as long as it would in a render worker. Where a picture is drawn larger than its own resolution, a strip boundary can leave one row of it a pixel out, the same as at the edge of a zoom tile.
+With `RENDER_WORKERS=0`, Grimoire has to share itself with its own renders. The PDF library holds Python's interpreter lock for the whole time it draws a page, so while Grimoire draws a page itself nothing else in it runs - not the web server, and not the health check. Three things keep it answering:
+
+- **One page at a time.** Two can't be drawn side by side anyway, and this way the rest of Grimoire waits behind one render, not a queue of them.
+- **Other work goes first.** Before each page, Grimoire checks whether anything else wants to run and lets it. A request that is part-way through being answered is let finish, not made to wait again every time it pauses. Other requests get at least half of the time during a burst, such as a deep zoom asking for dozens of tiles at once.
+- **Slow pages are drawn in strips.** A page expected to take much longer than a tenth of a second is drawn in strips of about that long, eight at most, with the same check between strips. Grimoire goes by how long its recent renders took, so a host that draws pages quickly draws them whole, and a slow host, where one page could hold everything up for seconds, cuts them up.
+
+Strips are not free, which is why only slow pages get them: the PDF library decodes a picture again for each strip that crosses it. On a fast machine the difference is within a few percent of drawing every page whole; on a slow one, a heavily illustrated page takes anything from a little longer to about twice as long. Where a picture is drawn larger than its own resolution, a strip boundary can leave one row of it a pixel out, the same as at the edge of a zoom tile. A render worker has none of these costs, and keeps Grimoire more responsive still, so `RENDER_WORKERS=1` remains the better choice wherever its memory can be spared.
 
 ### The burst probe
 
@@ -96,14 +102,16 @@ RENDER_PROBE=1 python3 -m pytest backend/tests/test_render_burst_probe.py -s
 
 It prints what it measured. `RENDER_PROBE_WORKERS` sets the server's `RENDER_WORKERS` (default `0`), `RENDER_PROBE_TILES` sets the size of the burst (default `60`), and `RENDER_PROBE_PDF=/path/to/book.pdf` zooms into a book of your own instead.
 
-Measured on a 10-core Apple M1 Pro that was heavily loaded by other work at the time (load average 9-17), four runs each, alternating:
+Measured on a 10-core Apple M1 Pro that was loaded by other work at the time (load average 7-10), four runs each:
 
 | `RENDER_WORKERS=0` | Slowest health check | Slowest `/api/books` | Burst took |
 |---|---|---|---|
-| Before strips and turns | 2.0-2.4 s | 1.4-2.4 s | 3.5-3.7 s |
-| After | 0.39-1.06 s | 0.95-1.32 s | 4.9-6.0 s |
+| Renders run freely (1.11.1 and earlier) | 1.4-2.3 s | 2.3-2.4 s | 3.4-3.5 s |
+| Turns, strips by the clock | 0.23-0.46 s | 0.40-0.63 s | 3.3-3.8 s |
 
-Each run answered 16 tiles and refused 44 with a 503, and none answered 500. One of the four runs after the change still went past a second, on a machine with more work than cores, so treat the probe's one-second bar as a target to measure on your own hardware, not a guarantee. The same probe with `RENDER_WORKERS=1` gave a slowest health check of 0.25 s, which is why one render worker stays the default.
+Each run answered 16 tiles and refused 44 with a 503, and none answered 500. The slowest check is one sample out of a few dozen on a busy machine, so it moves from run to run; treat the probe's one-second bar as a target to measure on your own hardware, not a guarantee. The same probe with `RENDER_WORKERS=1` gave a slowest health check of 0.12 s and a burst of 2.7 s, which is why one render worker stays the default.
+
+Drawing every page in small fixed strips instead was tried first. It kept the health check at 0.5-0.8 s in this probe but cost far more: the burst took 4.7-4.9 s, and reading four illustrated books in-process took up to 1.8 times as long as drawing their pages and zoom tiles whole. Going by the clock keeps that within a tenth on the same books.
 
 **`RENDER_QUEUE_LIMIT`** (default `16`) caps how many pages and zoom tiles may be rendering or waiting to render at once. Each one ties up a request thread until its render finishes, so without a cap a big book opened or a deep zoom could leave nothing to answer anyone else. Past the cap, a page that isn't rendered yet gets a "busy, try again" answer and the reader asks again a second or two later; pages already rendered are always served. Raise it alongside `RENDER_WORKERS`, but going far past `20` leaves little room for other requests during a burst.
 

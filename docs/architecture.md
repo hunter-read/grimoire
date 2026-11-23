@@ -212,10 +212,13 @@ requests.
 document cache in [`services/books/documents.py`](../backend/services/books/documents.py), as
 rendering worked before: no extra process, no crash isolation. PyMuPDF holds the GIL for
 the whole of a rasterise, so there pages and tiles take turns through
-`pool._InProcessRaster`: one rasterise at a time, each drawn in bands from one display list
-(`ops._rasterize`), with a short nap before each turn and between bands that stretches for
-as long as other threads keep taking the interpreter. The event loop and request threads so
-wait for one band rather than a whole page (issue #975).
+`pool._InProcessRaster`: one rasterise at a time, with a short nap before each turn that
+stretches while other threads keep taking the interpreter, until they have left it alone for
+a few naps in a row. A render expected to take well over `IN_PROCESS_BAND_SECONDS`, going by
+how long a pixel took in the renders before it, is drawn in bands of about that long from
+one display list (`ops._rasterize`, at most `ops.MAX_BANDS`), napping the same way between
+them; a faster one is drawn whole. The event loop and request threads so wait for about a
+band, not a queue of whole pages (issue #975).
 
 ### Change and move detection
 
