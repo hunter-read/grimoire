@@ -701,8 +701,9 @@ def _validate_start_prompt(
     """Check a sheet's `start_prompt`: `{"prompt": name, "when": condition}`.
 
     The prompt the sheet opens by itself when a character is opened and
-    `when` holds - a new character's first level - unless the player put it
-    off, which lists it with the other prompts put off instead.
+    `when` holds - a new character's first level. Put off, it is not kept
+    with the prompts a pick opened: it opens again the next time, while
+    `when` still holds.
     """
     start = _require_dict(start, "'start_prompt'")
     if start.get("prompt") not in prompt_names:
