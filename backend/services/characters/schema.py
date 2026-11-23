@@ -683,7 +683,9 @@ def _validate_prompts(
             if kind == "choose":
                 target = step.get("target")
                 if target is not None and (
-                    target not in fields or (fields[target] or {}).get("type") != "multiselect"
+                    not isinstance(target, str)
+                    or target not in fields
+                    or (fields[target] or {}).get("type") != "multiselect"
                 ):
                     raise SchemaError(f"{where} 'target' must name a multiselect field")
                 if "options" in step:
@@ -712,7 +714,7 @@ def _validate_prompts(
                     )
             elif kind == "entry":
                 content_type = step.get("content_type")
-                if content_type not in content_types:
+                if not isinstance(content_type, str) or content_type not in content_types:
                     raise SchemaError(f"{where} picks from unknown content type {content_type!r}")
                 filters = step.get("filters")
                 if filters is not None and (
@@ -1006,6 +1008,38 @@ DERIVED_LAYOUT_KEYS: frozenset = frozenset(
 )
 
 
+def _check_action_buttons(document: dict, actions: Any, prompts: Any) -> None:
+    """Refuse a `<g-action>` naming an action or a prompt the sheet lacks.
+
+    The client renders nothing for an unknown `name` or `prompt`, so a typo
+    would otherwise leave a missing button and no error anywhere.
+    """
+    prompt_names = set(prompts) if isinstance(prompts, dict) else set()
+    names = {
+        action["name"]
+        for action in actions or []
+        if isinstance(action, dict) and isinstance(action.get("name"), str)
+    }
+    for key, label in (("layout_ast", "layout_html"), ("mobile_layout_ast", "mobile_layout_html")):
+        stack = list(document.get(key) or [])
+        while stack:
+            node = stack.pop()
+            if not isinstance(node, dict):
+                continue
+            if node.get("tag") == "g-action":
+                attrs = node.get("attrs") or {}
+                if "prompt" in attrs:
+                    if attrs["prompt"] not in prompt_names:
+                        raise SchemaError(
+                            f"{label}: <g-action> opens unknown prompt {attrs['prompt']!r}"
+                        )
+                    continue
+                name = attrs.get("name")
+                if name not in names:
+                    raise SchemaError(f"{label}: <g-action> names unknown action {name!r}")
+            stack.extend(node.get("children") or [])
+
+
 def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     """Parse a sheet's HTML layouts and scope their stylesheets.
 
@@ -1207,6 +1241,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         key: value for key, value in document.items() if key not in DERIVED_LAYOUT_KEYS
     }
     normalised.update(_derive_html_layouts(document, scope))
+    _check_action_buttons(normalised, document.get("actions"), document.get("prompts"))
 
     if "layout" not in document and document.get("layout_html") is None:
         # Neither layout given: the renderer falls back to listing fields in

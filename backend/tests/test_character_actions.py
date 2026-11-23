@@ -159,3 +159,28 @@ def test_on_change_and_on_skip_are_kept():
 def test_bad_follow_ups_are_refused(on_change, on_skip, message):
     with pytest.raises(svc.SchemaError, match=message):
         _follow_up_schema(on_change, on_skip)
+
+
+@pytest.mark.parametrize("key", ["layout_html", "mobile_layout_html"])
+def test_g_action_naming_an_unknown_action_is_refused(key):
+    document = {
+        "id": "rest-demo",
+        "name": "Rest Demo",
+        "fields": {"hp": {"type": "number"}},
+        "actions": [{"name": "long_rest", "label": "Long rest", "steps": [{"set": "hp", "to": "1"}]}],
+        key: '<div><g-action name="long_rset"></g-action></div>',
+    }
+    with pytest.raises(svc.SchemaError, match="unknown action 'long_rset'"):
+        svc.validate_schema(document)
+
+
+def test_g_action_without_actions_is_refused():
+    with pytest.raises(svc.SchemaError, match="unknown action 'rest'"):
+        svc.validate_schema(
+            {
+                "id": "rest-demo",
+                "name": "Rest Demo",
+                "fields": {"hp": {"type": "number"}},
+                "layout_html": '<g-action name="rest"></g-action>',
+            }
+        )
