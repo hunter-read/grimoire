@@ -441,8 +441,9 @@ def _validate_actions(
         _validate_condition(source, what, names_known, images)
 
     def _row_keys(target: str, what: str, *, appendable: bool) -> set[str]:
-        definition = fields.get(target)
-        field_type = (definition or {}).get("type", "text") if isinstance(definition, dict) else None
+        found = fields.get(target)
+        definition: dict = found if isinstance(found, dict) else {}
+        field_type = definition.get("type", "text") if isinstance(found, dict) else None
         allowed = ("list",) if appendable else ("list", "content_list")
         if field_type not in allowed:
             kinds = "a list" if appendable else "a list or a content_list"
@@ -768,6 +769,30 @@ DERIVED_LAYOUT_KEYS: frozenset = frozenset(
 )
 
 
+def _check_action_buttons(document: dict, actions: Any) -> None:
+    """Refuse a `<g-action>` whose `name` is not one of the sheet's `actions`.
+
+    The client renders nothing for an unknown name, so a typo would otherwise
+    leave a missing button and no error anywhere.
+    """
+    names = {
+        action["name"]
+        for action in actions or []
+        if isinstance(action, dict) and isinstance(action.get("name"), str)
+    }
+    for key, label in (("layout_ast", "layout_html"), ("mobile_layout_ast", "mobile_layout_html")):
+        stack = list(document.get(key) or [])
+        while stack:
+            node = stack.pop()
+            if not isinstance(node, dict):
+                continue
+            if node.get("tag") == "g-action":
+                name = (node.get("attrs") or {}).get("name")
+                if name not in names:
+                    raise SchemaError(f"{label}: <g-action> names unknown action {name!r}")
+            stack.extend(node.get("children") or [])
+
+
 def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     """Parse a sheet's HTML layouts and scope their stylesheets.
 
@@ -949,6 +974,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         key: value for key, value in document.items() if key not in DERIVED_LAYOUT_KEYS
     }
     normalised.update(_derive_html_layouts(document, scope))
+    _check_action_buttons(normalised, document.get("actions"))
 
     if "layout" not in document and document.get("layout_html") is None:
         # Neither layout given: the renderer falls back to listing fields in
