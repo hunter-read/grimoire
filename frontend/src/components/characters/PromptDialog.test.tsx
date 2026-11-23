@@ -98,6 +98,51 @@ describe('PromptDialog', () => {
     expect(onConfirm).toHaveBeenCalledWith({ hp: 8 })
   })
 
+  it('lets a number below its min be typed on the way to one above it', async () => {
+    const onConfirm = vi.fn()
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'hp', type: 'number', label: 'Hit points', min: 10, max: 20 }],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={SHEET}
+        onConfirm={onConfirm}
+      />
+    )
+    const input = screen.getByLabelText('Hit points')
+    await userEvent.type(input, '12')
+    expect(input).toHaveValue(12)
+    await userEvent.click(confirm())
+    expect(onConfirm).toHaveBeenCalledWith({ hp: 12 })
+  })
+
+  it('brings a number out of bounds back within them when the input loses focus', async () => {
+    const onConfirm = vi.fn()
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'hp', type: 'number', label: 'Hit points', min: 10, max: 20 }],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={SHEET}
+        onConfirm={onConfirm}
+      />
+    )
+    const input = screen.getByLabelText('Hit points')
+    await userEvent.type(input, '35')
+    await userEvent.tab()
+    expect(input).toHaveValue(20)
+    await userEvent.click(confirm())
+    expect(onConfirm).toHaveBeenCalledWith({ hp: 20 })
+  })
+
   it('offers the catalog entries the filters let through', async () => {
     const browse = vi.fn(async () => ({
       entries: [
