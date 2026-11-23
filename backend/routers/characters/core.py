@@ -687,7 +687,10 @@ def _coerce_pending_prompts(document: dict, value: Any) -> list:
         return []
     cleaned: list = []
     for item in value[:_MAX_PENDING_PROMPTS]:
-        if not isinstance(item, dict) or item.get("prompt") not in prompts:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("prompt")
+        if not isinstance(name, str) or name not in prompts:
             continue
         kept: dict = {"prompt": item["prompt"]}
         source = item.get("source")

@@ -130,6 +130,10 @@ def _with_apply(apply_step):
         (_with_step({"key": "x", "type": "distribute", "options": ["a"], "patterns": ["+2"]}), "patterns"),
         (_with_step({"key": "x", "type": "distribute", "options": [], "patterns": ["2"]}), "options"),
         (_with_step({"key": "x", "type": "entry", "content_type": "spell"}), "unknown content type"),
+        (_with_step({"key": "x", "type": "choose", "target": ["skills"]}), "multiselect"),
+        (_with_step({"key": "x", "type": "choose", "target": {}}), "multiselect"),
+        (_with_step({"key": "x", "type": "entry", "content_type": ["feat"]}), "unknown content type"),
+        (_with_step({"key": "x", "type": "entry", "content_type": {}}), "unknown content type"),
         (
             _with_step({"key": "x", "type": "entry", "content_type": "feat", "filter": "nope"}),
             "unknown name",
@@ -230,6 +234,12 @@ def test_g_action_may_name_a_prompt():
     assert "prompt" in str(validated["layout_ast"])
 
 
+def test_g_action_may_not_open_an_unknown_prompt():
+    document = _document(layout_html='<g-action prompt="level_upp" label="Level up"></g-action>')
+    with pytest.raises(svc.SchemaError, match="unknown prompt 'level_upp'"):
+        _validate(document)
+
+
 class TestPendingPrompts:
     document = _document()
 
@@ -243,6 +253,8 @@ class TestPendingPrompts:
         "value",
         [
             [{"prompt": "nowhere"}],
+            [{"prompt": ["lineage"]}],
+            [{"prompt": {"lineage": 1}}],
             [{"source": "species"}],
             ["lineage"],
             "not a list",
