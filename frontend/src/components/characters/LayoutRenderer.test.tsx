@@ -751,3 +751,74 @@ describe('LayoutRenderer — boxes to tick off', () => {
     })
   })
 })
+
+describe('LayoutRenderer — actions', () => {
+  const doc = {
+    ...DOCUMENT,
+    fields: {
+      ...DOCUMENT.fields,
+      hp: { type: 'number' },
+      resources: {
+        type: 'list',
+        columns: [
+          { key: 'used', type: 'number' },
+          { key: 'recovery', type: 'text' },
+        ],
+      },
+    },
+    actions: [
+      {
+        name: 'long_rest',
+        label: 'Long rest',
+        confirm: 'Take a long rest?',
+        steps: [
+          { set: 'hp', to: '20' },
+          { each: 'resources', where: "row.recovery == 'long'", set: { used: '0' } },
+        ],
+      },
+    ],
+  }
+  const data = {
+    hp: 4,
+    resources: [
+      { used: 2, recovery: 'long' },
+      { used: 1, recovery: 'short' },
+    ],
+  }
+  const button = (attrs: Record<string, string> = {}): LayoutNode[] => [
+    { tag: 'g-action', attrs: { name: 'long_rest', ...attrs }, children: [] },
+  ]
+
+  it('runs every step once confirmed, writing each field through onChange', async () => {
+    const onChange = vi.fn()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderLayout(button(), { document: doc, data, onChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Long rest' }))
+    expect(confirm).toHaveBeenCalledWith('Take a long rest?')
+    expect(onChange).toHaveBeenCalledWith('hp', 20)
+    expect(onChange).toHaveBeenCalledWith('resources', [
+      { used: 0, recovery: 'long' },
+      { used: 1, recovery: 'short' },
+    ])
+    confirm.mockRestore()
+  })
+
+  it('does nothing when the confirmation is declined', async () => {
+    const onChange = vi.fn()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderLayout(button({ label: 'Rest' }), { document: doc, data, onChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Rest' }))
+    expect(onChange).not.toHaveBeenCalled()
+    confirm.mockRestore()
+  })
+
+  it('is disabled on a sheet the viewer cannot edit', () => {
+    renderLayout(button(), { document: doc, data, onChange: vi.fn(), readOnly: true })
+    expect(screen.getByRole('button', { name: 'Long rest' })).toBeDisabled()
+  })
+
+  it('draws nothing for an action the sheet does not declare', () => {
+    renderLayout(button({ name: 'nope' }), { document: doc, data, onChange: vi.fn() })
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})

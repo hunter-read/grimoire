@@ -78,6 +78,7 @@ DIRECTIVE_TAGS: frozenset = frozenset(
         "g-tier",       # one value's rung on a ladder of multiselects
         "g-pips",       # a count drawn as boxes, ticked off as it is used
         "g-portrait",   # the character's portrait, framed as the player chose
+        "g-action",     # a button running one of the sheet's `actions`
     }
 )
 
@@ -123,6 +124,8 @@ _TAG_ATTRS: dict[str, frozenset] = {
     # The portrait is the character's, not a field's, so it takes no name. Its
     # size is the sheet's to set, through the `gc-portrait` class.
     "g-portrait": frozenset({"visible_if"}),
+    # `name` is one of the schema's `actions`; `label` replaces its label.
+    "g-action": frozenset({"name", "label", "visible_if"}),
 }
 
 #: Tags dropped with their contents rather than unwrapped. Keeping a <script>'s

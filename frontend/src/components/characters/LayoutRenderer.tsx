@@ -10,6 +10,8 @@ import TierSelect from './TierSelect'
 import Pips from './Pips'
 import { fieldState } from './onPick'
 import SheetPortrait from './SheetPortrait'
+import { findAction, planAction } from './sheetActions'
+import { disabledBtn, ghostBtn } from './characterStyles'
 
 /**
  * Renders a schema's `layout_ast` — the parsed, allowlisted form of its
@@ -168,6 +170,7 @@ const DIRECTIVES = new Set([
   'g-tier',
   'g-pips',
   'g-portrait',
+  'g-action',
 ])
 
 // HTML attribute → React prop, for the few that differ.
@@ -586,6 +589,33 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
           disabled={!editable}
           onChange={editable ? (next: number) => onChange?.(attrs.value, next) : undefined}
         />
+      )
+    }
+
+    case 'g-action': {
+      // A button for one of the sheet's `actions`: a rest, a level gained.
+      // Pressing it works out every step against the sheet as it stands and
+      // writes the result through the same path as an edit by hand, so a
+      // content list's picks and losses are followed up as usual.
+      const action = findAction(schemaDocument, name)
+      if (!action) return null
+      const editable = Boolean(!readOnly && onChange)
+      const run = () => {
+        if (action.confirm && !window.confirm(action.confirm)) return
+        const patch = planAction(action, { document: schemaDocument, data, context, entries })
+        for (const [field, value] of Object.entries(patch)) onChange?.(field, value)
+      }
+      return (
+        <button
+          key={key}
+          type="button"
+          className={['gc-action', attrs.class].filter(Boolean).join(' ')}
+          style={editable ? ghostBtn : { ...ghostBtn, ...disabledBtn }}
+          disabled={!editable}
+          onClick={editable ? run : undefined}
+        >
+          {attrs.label || action.label}
+        </button>
       )
     }
 
