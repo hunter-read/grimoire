@@ -1193,6 +1193,33 @@ def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     return derived
 
 
+def _check_content_pickers(fields: dict, content_types: dict) -> None:
+    """Refuse a content_ref/content_list, or a per-entry one, naming no catalog.
+
+    The picker would otherwise open on nothing, with no way for the player to
+    know why.
+    """
+    for field_name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        if definition.get("type") not in _CONTENT_TYPES_FIELDS:
+            continue
+        pickers = [(f"Field {field_name!r}", definition)] + [
+            (f"Field {field_name!r} per-entry field {per_name!r}", per_definition)
+            for per_name, per_definition in (definition.get("per_entry_fields") or {}).items()
+            if isinstance(per_definition, dict)
+            and per_definition.get("type") in _CONTENT_TYPES_FIELDS
+        ]
+        for what, picker in pickers:
+            wanted = picker.get("content_type")
+            if not isinstance(wanted, str) or wanted not in content_types:
+                declared = ", ".join(sorted(content_types)) or "none declared"
+                raise SchemaError(
+                    f"{what} picks from content type {wanted!r}, "
+                    f"which the schema does not define (has: {declared})"
+                )
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -1282,19 +1309,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     for type_name, type_definition in content_types.items():
         _validate_content_type(type_name, type_definition)
 
-    # A content_ref/content_list must name a catalog that exists, or the picker
-    # would open on nothing with no way for the player to know why.
-    for field_name, definition in fields.items():
-        if not isinstance(definition, dict):
-            continue
-        if definition.get("type") in _CONTENT_TYPES_FIELDS:
-            wanted = definition.get("content_type")
-            if wanted not in content_types:
-                declared = ", ".join(sorted(content_types)) or "none declared"
-                raise SchemaError(
-                    f"Field {field_name!r} picks from content type {wanted!r}, "
-                    f"which the schema does not define (has: {declared})"
-                )
+    _check_content_pickers(fields, content_types)
 
     prompts = document.get("prompts")
     prompt_names = set(prompts) if isinstance(prompts, dict) else set()
