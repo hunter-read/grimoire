@@ -683,7 +683,9 @@ def _validate_prompts(
             if kind == "choose":
                 target = step.get("target")
                 if target is not None and (
-                    target not in fields or (fields[target] or {}).get("type") != "multiselect"
+                    not isinstance(target, str)
+                    or target not in fields
+                    or (fields[target] or {}).get("type") != "multiselect"
                 ):
                     raise SchemaError(f"{where} 'target' must name a multiselect field")
                 if "options" in step:
@@ -712,7 +714,7 @@ def _validate_prompts(
                     )
             elif kind == "entry":
                 content_type = step.get("content_type")
-                if content_type not in content_types:
+                if not isinstance(content_type, str) or content_type not in content_types:
                     raise SchemaError(f"{where} picks from unknown content type {content_type!r}")
                 filters = step.get("filters")
                 if filters is not None and (

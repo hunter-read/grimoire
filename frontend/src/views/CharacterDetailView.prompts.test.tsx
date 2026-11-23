@@ -173,6 +173,15 @@ describe('CharacterDetailView — prompts', () => {
     await waitFor(() => expect(lastSaved().data._pending_prompts).toEqual([]))
   })
 
+  it('lets go of a prompt a button opened when it is put off', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('gain a feat'))
+    await userEvent.click(await screen.findByText('Choose later'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.queryByText('Choices to make:')).not.toBeInTheDocument()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
   it('makes the picks a prompt answers, following each up as a pick by hand', async () => {
     await renderView()
     await userEvent.click(screen.getByText('gain a feat'))
