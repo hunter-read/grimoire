@@ -263,7 +263,15 @@ export default function CharacterDetailView() {
     async (name: string, value: unknown, meta?: unknown) => {
       const definition = document?.fields?.[name]
       const followUp = definition?.on_change
-      if (
+      // `on_change` follows a change the player makes by hand. A write the
+      // sheet makes - an action's, a prompt's pick - comes marked `written`
+      // and is saved as it is.
+      const written = Boolean(
+        meta && typeof meta === 'object' && (meta as { written?: unknown }).written
+      )
+      if (written) {
+        applyPatch({ [name]: value })
+      } else if (
         Array.isArray(followUp) &&
         followUp.length &&
         TYPED_FIELDS.has(definition?.type ?? 'text')
@@ -452,7 +460,9 @@ export default function CharacterDetailView() {
     applyPatch({ ...plan.patch, ...withoutPending(dataRef.current, request) })
     // Each pick goes the way a pick by hand goes, so its own on_pick runs -
     // a feat's prompt joining the queue after this one.
-    for (const pick of plan.picks) await onChange(pick.field, pick.value, { entry: pick.entry })
+    for (const pick of plan.picks) {
+      await onChange(pick.field, pick.value, { entry: pick.entry, written: true })
+    }
     if (plan.prompts.length) {
       setPrompts((prev) => [...prev, ...plan.prompts.map((prompt) => ({ prompt }))])
     }
