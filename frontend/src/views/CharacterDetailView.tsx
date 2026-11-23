@@ -395,10 +395,12 @@ export default function CharacterDetailView() {
     }
   }
 
+  // Put off: kept under «Choices to make» only when a pick opened it. A prompt
+  // a button opened is opened again by pressing the button, so it is let go.
   const skipPrompt = () => {
     const request = prompts[0]
     setPrompts((prev) => prev.slice(1))
-    if (request && !readOnly) {
+    if (request?.source && !readOnly) {
       const patch = withPending(dataRef.current, request)
       if (Object.keys(patch).length) applyPatch(patch)
     }
