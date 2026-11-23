@@ -256,6 +256,33 @@ describe('planPick — changing your mind', () => {
   })
 })
 
+describe('planPick — prompts', () => {
+  it('names the prompts a pick opens, alongside its grants', async () => {
+    const document = {
+      ...DOCUMENT,
+      fields: {
+        ...DOCUMENT.fields,
+        klass: { ...DOCUMENT.fields.klass, on_pick: [{ prompt: 'class_skills' }] },
+      },
+    }
+    const plan = await planPick({ document, data: {}, field: 'klass', entry: { name: 'Wizard' } })
+    expect(plan.prompts).toEqual(['class_skills'])
+    expect(plan.choices).toEqual([])
+  })
+
+  it('opens nothing when the pick is cleared', async () => {
+    const document = {
+      ...DOCUMENT,
+      fields: {
+        ...DOCUMENT.fields,
+        klass: { ...DOCUMENT.fields.klass, on_pick: [{ prompt: 'class_skills' }] },
+      },
+    }
+    const plan = await planPick({ document, data: {}, field: 'klass', entry: null })
+    expect(plan.prompts).toEqual([])
+  })
+})
+
 describe('planPick — choices', () => {
   const WIZARD = { name: 'Wizard', skill_choices: 2, skill_options: ['Arcana', 'History'] }
 

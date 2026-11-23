@@ -24,6 +24,7 @@ export interface ActionStep {
   where?: string
   append?: string
   values?: Record<string, string>
+  prompt?: string
 }
 
 export interface SheetAction {
@@ -55,6 +56,16 @@ export function findAction(
   return (actions as SheetAction[]).find(
     (action) => action && typeof action === 'object' && action.name === name
   )
+}
+
+/**
+ * The prompts an action opens once its writes are made, in order: a level
+ * gained written as a row, then the window that asks for its hit points.
+ */
+export function actionPrompts(action: SheetAction | undefined): string[] {
+  return (Array.isArray(action?.steps) ? action.steps : [])
+    .filter((step) => step && typeof step === 'object' && typeof step.prompt === 'string')
+    .map((step) => step.prompt as string)
 }
 
 function isRow(value: unknown): value is Values {

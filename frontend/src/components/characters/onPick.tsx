@@ -27,6 +27,7 @@ type Grants = Record<string, string[]>
 interface PickRule {
   grant?: string
   choose?: string
+  prompt?: string
   ref?: string
   name?: string
   from?: string
@@ -130,13 +131,15 @@ export async function planPick({
   field,
   entry,
   lookup,
-}: PlanPickArgs): Promise<{ patch: Values; choices: PickChoice[] }> {
+}: PlanPickArgs): Promise<{ patch: Values; choices: PickChoice[]; prompts: string[] }> {
   const fields = document?.fields || {}
   const rules: PickRule[] = Array.isArray(fields[field]?.on_pick)
     ? (fields[field]!.on_pick as PickRule[])
     : []
   const patch: Values = {}
   const choices: PickChoice[] = []
+  // The sheet's prompts this pick opens, reading the picked entry as `row`.
+  const prompts: string[] = []
 
   const granted: Record<string, Grants> = {
     ...((data?.[GRANTED_KEY] || {}) as Record<string, Grants>),
@@ -183,6 +186,10 @@ export async function planPick({
     }
 
     for (const rule of rules) {
+      if (rule.prompt) {
+        prompts.push(rule.prompt)
+        continue
+      }
       if (rule.grant) {
         const target = rule.grant
         const definition = fields[target]
@@ -259,7 +266,7 @@ export async function planPick({
 
   if (Object.keys(recorded).length) granted[field] = recorded
   if (hadGrants || Object.keys(recorded).length) patch[GRANTED_KEY] = granted
-  return { patch, choices }
+  return { patch, choices, prompts }
 }
 
 /**
