@@ -47,6 +47,8 @@ function StubSheet({
     <div>
       <button onClick={() => onChange('species', { _ref: 'elf' }, { entry: ELF })}>pick elf</button>
       <button onClick={() => open?.({ prompt: 'feat_up' })}>gain a feat</button>
+      <button onClick={() => onChange('focused', true)}>focus</button>
+      <button onClick={() => onChange('hp', 0)}>drop to 0</button>
     </div>
   )
 }
@@ -75,8 +77,23 @@ const DOCUMENT = {
     },
     skills: { type: 'multiselect', options: ['Perception', 'Stealth'] },
     level: { type: 'number', default: 4 },
+    focused: {
+      type: 'checkbox',
+      on_change: [{ set: 'focus_on', to: "focused ? focus_on : ''" }, { prompt: 'focus' }],
+    },
+    focus_on: { type: 'text' },
+    hp: {
+      type: 'number',
+      on_change: [{ set: 'focused', to: 'hp > 0 and focused' }],
+    },
   },
   prompts: {
+    focus: {
+      label: 'Focus',
+      steps: [{ key: 'what', type: 'select', options: ['Bless', 'Hex'], visible_if: 'focused' }],
+      apply: [{ set: 'focus_on', to: 'answer.what' }],
+      on_skip: [{ set: 'focused', to: 'false' }],
+    },
     lineage: {
       label: 'Lineage',
       steps: [{ key: 'pick', type: 'select', options: 'row.lineages' }],
@@ -188,5 +205,29 @@ describe('CharacterDetailView — prompts', () => {
       page: 1,
       page_size: 200,
     })
+  })
+
+  it("follows a change by hand with the field's on_change: a box ticked opens its prompt", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('focus'))
+    expect(await screen.findByRole('dialog', { name: 'Focus' })).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Hex'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data.focus_on).toBe('Hex'))
+    expect(lastSaved().data.focused).toBe(true)
+
+    // Hit points at 0 untick it; that write opens nothing of its own.
+    await userEvent.click(screen.getByText('drop to 0'))
+    await waitFor(() => expect(lastSaved().data.focused).toBe(false))
+    expect(screen.queryByRole('dialog', { name: 'Focus' })).not.toBeInTheDocument()
+  })
+
+  it("makes a prompt's on_skip writes when it is put aside, rather than keeping it for later", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('focus'))
+    await userEvent.click(await screen.findByText('Choose later'))
+    await waitFor(() => expect(lastSaved().data.focused).toBe(false))
+    expect(lastSaved().data._pending_prompts).toBeUndefined()
+    expect(screen.queryByText('Choices to make:')).not.toBeInTheDocument()
   })
 })

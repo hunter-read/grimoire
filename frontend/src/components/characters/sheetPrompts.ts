@@ -65,6 +65,8 @@ export interface SheetPrompt {
   label: string
   steps: PromptStep[]
   apply: PromptApplyStep[]
+  // Writes made when the prompt is put aside, in place of keeping it for later.
+  on_skip?: ActionStep[]
 }
 
 /** A prompt waiting to be shown: which one, and the pick that opened it. */

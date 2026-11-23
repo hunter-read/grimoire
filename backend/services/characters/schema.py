@@ -749,6 +749,12 @@ def _validate_prompts(
             prompts=names,
             prompt_verbs=True,
         )
+        # What putting the prompt aside does instead of keeping it for later:
+        # a box ticked to open it, unticked again.
+        if "on_skip" in prompt:
+            _validate_write_steps(
+                prompt["on_skip"], f"{what} 'on_skip'", fields, known, images, prompts=names
+            )
 
 
 def _validate_computed(name: str, definition: Any) -> tuple:
@@ -1176,6 +1182,20 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         _validate_prompts(prompts, fields, known, images, content_types)
     if "actions" in document:
         _validate_actions(document["actions"], fields, known, images, prompt_names)
+
+    # A field's `on_change`: writes, and prompts, that follow a change the
+    # player makes to it by hand - a box ticked that asks what for, hit points
+    # at 0 that end Concentration. They read the sheet with the new value.
+    for field_name, definition in fields.items():
+        if isinstance(definition, dict) and "on_change" in definition:
+            _validate_write_steps(
+                definition["on_change"],
+                f"Field {field_name!r} on_change",
+                fields,
+                known,
+                images,
+                prompts=prompt_names,
+            )
 
     if "layout" in document:
         _validate_layout(document["layout"], known, images)

@@ -33,6 +33,8 @@ import type { Answers, PromptRequest } from '../components/characters/sheetPromp
 import AllValuesDialog from '../components/characters/AllValuesDialog'
 import { planPick, applyChoice, type PickChoice } from '../components/characters/onPick'
 import { OVERRIDES_KEY } from '../components/characters/expressions'
+import { actionPrompts, planAction } from '../components/characters/sheetActions'
+import type { ActionStep } from '../components/characters/sheetActions'
 import RawCharacterData from '../components/characters/RawCharacterData'
 import CharacterPortrait from '../components/characters/CharacterPortrait'
 import PortraitDialog from '../components/characters/PortraitDialog'
@@ -222,6 +224,21 @@ export default function CharacterDetailView() {
     async (name: string, value: unknown, meta?: unknown) => {
       applyPatch({ [name]: value })
 
+      // The field's `on_change`: writes and prompts that follow this change,
+      // read against the sheet with the new value - a box ticked that asks
+      // what for. Its writes are saved as they are, without an `on_change`
+      // of their own, so one change cannot set off another.
+      const followUp = document?.fields?.[name]?.on_change
+      if (Array.isArray(followUp) && followUp.length) {
+        const entries = { ...(character?.entries || {}), ...pickedEntries }
+        const action = { name, label: name, steps: followUp as ActionStep[] }
+        const context = sheetContext(document, dataRef.current, entries)
+        const patch = planAction(action, { document, data: dataRef.current, context, entries })
+        if (Object.keys(patch).length) applyPatch(patch)
+        const opened = actionPrompts(action)
+        if (opened.length) setPrompts((prev) => [...prev, ...opened.map((prompt) => ({ prompt }))])
+      }
+
       const definition = document?.fields?.[name]
       if (definition?.type !== 'content_ref') return
 
@@ -276,7 +293,7 @@ export default function CharacterDetailView() {
         setError((e as Error).message)
       }
     },
-    [applyPatch, document, lookup]
+    [applyPatch, document, lookup, character?.entries, pickedEntries]
   )
   // The sheet's change handler. onChange never rejects - a follow-up that
   // fails lands in `error` - so the sheet need not wait on it.
@@ -398,6 +415,21 @@ export default function CharacterDetailView() {
   const skipPrompt = () => {
     const request = prompts[0]
     setPrompts((prev) => prev.slice(1))
+    // A prompt with `on_skip` is not kept for later: putting it aside makes
+    // those writes instead - the box that opened it, unticked.
+    const onSkip = findPrompt(document, request?.prompt)?.on_skip
+    if (request && !readOnly && Array.isArray(onSkip) && onSkip.length) {
+      const action = { name: request.prompt, label: request.prompt, steps: onSkip }
+      const context = sheetContext(document, dataRef.current, entriesForSheet)
+      const patch = planAction(action, {
+        document,
+        data: dataRef.current,
+        context,
+        entries: entriesForSheet,
+      })
+      if (Object.keys(patch).length) applyPatch(patch)
+      return
+    }
     if (request && !readOnly) {
       const patch = withPending(dataRef.current, request)
       if (Object.keys(patch).length) applyPatch(patch)
