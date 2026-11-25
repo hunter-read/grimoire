@@ -1763,15 +1763,15 @@ The GET (serving) endpoints for banners, art, sheets, and campaign files (`/file
 | `/api/campaigns/:id/members/:member_id/art` | POST | member (own) or owner | Upload/replace character art (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/art` | GET | member or owner | Character art image |
 | `/api/campaigns/:id/members/:member_id/art` | DELETE | member (own) or owner | Remove character art |
-| `/api/campaigns/:id/members/:member_id/token` | POST | member (own) or owner | Upload/replace the character's VTT token (multipart `file`) |
+| `/api/campaigns/:id/members/:member_id/token` | POST | member (own) or owner | Upload/replace the character's VTT token (multipart `file`, optional [token recipe](#token-recipes) `recipe` and `source`). Kept `source` art is bound by the campaign upload limits (admins exempt); the token itself is not |
 | `/api/campaigns/:id/members/:member_id/token` | GET | member or owner | Character token image |
 | `/api/campaigns/:id/members/:member_id/token` | DELETE | member (own) or owner | Remove the character token |
-| `/api/campaigns/:id/owner/token` | POST | owner | Upload/replace the owner's own VTT token (multipart `file`). Returns `{owner_token_path}`. The owner has no membership to hold one, so this is how a player running a personal campaign keeps a token for their character without storing it over their sheet's portrait. 409 while archived |
+| `/api/campaigns/:id/owner/token` | POST | owner | Upload/replace the owner's own VTT token (multipart `file`). Optional [token recipe](#token-recipes) `recipe` and `source`; kept `source` art is bound by the campaign upload limits (admins exempt). Returns `{owner_token_path}`. The owner has no membership to hold one, so this is how a player running a personal campaign keeps a token for their character without storing it over their sheet's portrait. 409 while archived |
 | `/api/campaigns/:id/owner/token` | GET | member or owner | The owner's token image; 404 when none is set |
 | `/api/campaigns/:id/owner/token` | DELETE | owner | Remove the owner's token |
 | `/api/campaigns/:id/token-recipes/:kind/:target_id` | GET | whoever may change the token | The [token recipe](#token-recipes) a stored token was made with. `kind` is `member` (a membership id), `owner` (the campaign id) or `file` (a campaign file id). 404 when the token kept none |
 | `/api/campaigns/:id/token-recipes/:kind/:target_id/source` | GET | whoever may change the token | The device art a recipe kept, as the image itself. 404 for a recipe whose art is a library item |
-| `/api/campaigns/:id/files/:file_id/token` | PUT | owner | Replace a campaign image with a new version of a token (multipart `file`, optional `recipe` and `source`). The resource keeps its id, category, visibility and shares; only the picture and its recipe change. 400 for a file that isn't an image. Bound by the campaign upload limits (admins exempt): `403` while uploads are off, `413` past the per-file cap, and `413` when the new picture would take the campaign past its total - only the growth counts, so a picture no larger than the one it replaces is always accepted. Returns `{id, token_editable}` |
+| `/api/campaigns/:id/files/:file_id/token` | PUT | owner | Replace a campaign image with a new version of a token (multipart `file`, optional `recipe` and `source`). The resource keeps its id, category, visibility and shares; only the picture and its recipe change. 400 for a file that isn't an image. Bound by the campaign upload limits (admins exempt): `403` while uploads are off, `413` when the picture or its `source` art is past the per-file cap, and `413` when the new picture and art would take the campaign past its total - only the growth counts, so a picture and art no larger than the ones they replace are always accepted. Returns `{id, token_editable}` |
 | `/api/campaigns/:id/members/:member_id/sheet` | POST | member (own) or owner | Upload/replace character sheet (multipart `file`) |
 | `/api/campaigns/:id/members/:member_id/sheet` | GET | member or owner | Download character sheet (original filename) |
 | `/api/campaigns/:id/members/:member_id/sheet` | DELETE | member (own) or owner | Remove character sheet |
@@ -1808,6 +1808,12 @@ optional multipart fields:
 - `source` - the art itself, required for an `upload` source (PNG, JPEG, WebP
   or GIF, at most 20 MB). It is kept under
   `DATA_PATH/campaign_uploads/token_sources/` and removed with the token.
+  Kept art is a campaign upload on all four routes, a member's and the owner's
+  token included: it counts towards the campaign's storage total, and for
+  non-admins it is `403` while uploads are off and `413` past the per-file cap
+  or the total. The total counts the art together with the picture when that
+  is a campaign file, and only the growth over the art the token kept before.
+  A refused upload writes nothing.
 
 An upload **without** a recipe clears the one the token had: a recipe describes
 one particular file. The member payload's `token_editable` (also on the owner

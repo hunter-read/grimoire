@@ -20,8 +20,12 @@ from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
 from ...security import INERT_DOCUMENT_HEADERS
 from ...services.books.covers import COVER_MAX_SOURCE_PIXELS
-from ...services.campaigns.token_recipes import clear_recipe, replace_recipe
-from ...services.campaigns.upload_quota import assert_within_campaign_quota, upload_limits
+from ...services.campaigns.token_recipes import clear_recipe, read_recipe, store_recipe
+from ...services.campaigns.upload_quota import (
+    assert_token_upload_allowed,
+    assert_within_campaign_quota,
+    upload_limits,
+)
 from ...services.upload_images import UPLOAD_IMAGE_FORMATS, is_upload_image, open_upload_image
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._file_access import can_read_campaign_file
@@ -469,13 +473,19 @@ def upload_member_token(
 ):
     """Set a member's token. The token editor also sends its ``recipe`` (and the
     ``source`` art, for art from the device) so the token can be reopened; see
-    ``services/campaigns/token_recipes``. An upload without one clears it."""
+    ``services/campaigns/token_recipes``. An upload without one clears it.
+
+    The kept source art is a campaign upload, bound by the admin's limits
+    (admins exempt); the token itself is not."""
     c = get_campaign_or_404(db, campaign_id)
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
     data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
-    member.character_token_recipe = replace_recipe(f"member-{member_id}", recipe, source)
+    pending = read_recipe(f"member-{member_id}", recipe, source)
+    if current_user.role != "admin":
+        assert_token_upload_allowed(db, campaign_id, pending)
+    member.character_token_recipe = store_recipe(pending)
 
     os.makedirs(_TOKEN_DIR, exist_ok=True)
     _remove_existing(_TOKEN_DIR, member_id)
@@ -760,19 +770,21 @@ def upload_campaign_image(
     _validate_image(data)
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
+
+    # A token from the token editor carries its recipe, so the file can be
+    # reopened and updated in place. The id is chosen here because the stored
+    # source art is named for it. The art it keeps counts with the picture.
+    file_id = str(uuid.uuid4())
+    pending = read_recipe(f"file-{file_id}", recipe, source)
     if not is_admin:
-        assert_within_campaign_quota(db, campaign_id, len(data))
+        assert_token_upload_allowed(db, campaign_id, pending, adding=len(data))
 
     # An existing resource category, or a new one created on the spot.
     resolved_category_id = _resolve_resource_category(
         db, campaign_id, category_id, new_category_name
     )
 
-    # A token from the token editor carries its recipe, so the file can be
-    # reopened and updated in place. The id is chosen here because the stored
-    # source art is named for it.
-    file_id = str(uuid.uuid4())
-    token_recipe = replace_recipe(f"file-{file_id}", recipe, source) if recipe else None
+    token_recipe = store_recipe(pending) if recipe else None
 
     stored = f"{uuid.uuid4().hex}{ext}"
     with open(os.path.join(_FILES_DIR, stored), "wb") as f:
