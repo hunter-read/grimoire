@@ -10,6 +10,7 @@ from ...auth import CurrentUser
 from ...services.campaigns.access import is_member
 from ...services.campaigns.schedule import compute_next_sessions
 from ...services.systems import browsable_system_ids, system_browsable
+from ...text.align import map_offsets
 from ...text.wikilinks import FENCE_RE
 
 
@@ -151,20 +152,23 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
     position:
 
     * ``old_visible`` — the exact stripped text the player was shown — is aligned
-      against ``new_body`` (a character diff). Each secret sat at a known boundary
-      in ``old_visible``; that boundary is mapped forward through the diff to the
-      corresponding spot in ``new_body``, and the secret is re-inserted there.
+      against ``new_body`` (``backend.text.align.map_offsets``: common ends, then
+      lines, then a character diff of the changed stretches). Each secret sat at a
+      known boundary in ``old_visible``; that boundary is mapped forward through
+      the alignment to the corresponding spot in ``new_body``, and the secret is
+      re-inserted there.
     * This holds the secret in place when the player edits the text above and/or
       below it — the secret does not drift past later paragraphs.
     * If the text on *both* sides of a secret's boundary was rewritten (the anchor
       is gone), the secret is appended at the end so it is preserved, never lost.
+      So is one in a changed stretch too large to compare character by character
+      within the alignment's budget, which keeps a member's save on a long page
+      fast however much of it they rewrote.
     * If the merged body no longer reads as the same secrets - the player's code
       fences now cut across one - a 400 is raised rather than storing it.
 
     ``new_body`` is returned unchanged when the stored body had no secrets.
     """
-    from difflib import SequenceMatcher
-
     stored = stored_body or ""
     positioned = _secret_positions(stored)
     if not positioned:
@@ -173,22 +177,13 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
     new = new_body if new_body is not None else ""
     old_visible = strip_gm_secrets(stored)
 
-    # Map each offset in old_visible to an offset in new via the diff's matching
-    # blocks. A boundary that falls inside an unchanged run maps exactly; one that
-    # falls in a replaced/deleted region has no stable image → treat as lost.
-    sm = SequenceMatcher(None, old_visible, new, autojunk=False)
-    blocks = sm.get_matching_blocks()  # includes the terminating (len, len, 0)
-
-    def map_offset(old_off):
-        for b in blocks:
-            if b.a <= old_off <= b.a + b.size:
-                return b.b + (old_off - b.a)
-        return None
+    # A boundary that falls inside or at the edge of unchanged text maps exactly;
+    # one with changed text on both sides has no stable image → treat as lost.
+    mapped = map_offsets(old_visible, new, [old_off for _, old_off in positioned])
 
     placed = []
     orphans = []
-    for i, (secret, old_off) in enumerate(positioned):
-        pos = map_offset(old_off)
+    for i, ((secret, _), pos) in enumerate(zip(positioned, mapped)):
         if pos is None:
             orphans.append((i, secret))
             continue
@@ -199,12 +194,16 @@ def merge_gm_secrets(stored_body: str, new_body: str) -> str:
             pos -= 1
         placed.append((pos, i, secret))
 
-    # Insert secrets from last to first so earlier insertions don't shift the
-    # offsets of later ones. Ties (adjacent secrets at one boundary) are broken by
-    # document index so their original order is preserved after insertion.
-    result = new
-    for pos, _, secret in sorted(placed, reverse=True):
-        result = result[:pos] + secret + result[pos:]
+    # Splice the secrets in by position. Ties (adjacent secrets at one boundary)
+    # are broken by document index so their original order is preserved.
+    pieces = []
+    last = 0
+    for pos, _, secret in sorted(placed):
+        pieces.append(new[last:pos])
+        pieces.append(secret)
+        last = pos
+    pieces.append(new[last:])
+    result = "".join(pieces)
 
     if orphans:
         # Restore document order for the appended, position-lost secrets.
