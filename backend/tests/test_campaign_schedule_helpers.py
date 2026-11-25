@@ -7,6 +7,7 @@ and the date arithmetic in nth_weekday_of_month.
 import datetime
 import random
 import re
+import time
 
 import pytest
 from fastapi import HTTPException
@@ -402,6 +403,39 @@ class TestMergeGmSecrets:
         stored = "Public intro\n||\n```mermaid\nflowchart LR\n```\n||\nOutro\n"
         new = "```\ncode\n```\n" + self._seen(stored)
         assert merge_gm_secrets(stored, new) == "```\ncode\n```\n" + stored
+
+    def test_a_long_page_rewritten_whole_saves_quickly_and_keeps_the_secret(self):
+        rng = random.Random(7)
+        half = 100_000
+        stored = (
+            "".join(rng.choice("ab \n") for _ in range(half))
+            + "||the duke is a doppelganger||"
+            + "".join(rng.choice("ab \n") for _ in range(half))
+        )
+        new = "".join(rng.choice("ab \n") for _ in range(2 * half))
+        start = time.perf_counter()
+        merged = merge_gm_secrets(stored, new)
+        assert time.perf_counter() - start < 2
+        assert "||the duke is a doppelganger||" in merged
+        assert strip_gm_secrets(merged).rstrip("\n") == new.rstrip("\n")
+
+    def test_typo_fixes_at_both_ends_of_a_long_page_keep_the_secret_in_place(self):
+        paragraphs = [f"Paragraph {i} of the gazetteer." for i in range(2000)]
+        paragraphs[1000] += " ||the vault code||"
+        stored = "\n\n".join(paragraphs)
+        new = self._seen(stored).replace("Paragraph 0 ", "Paragraph zero ")
+        new = new.replace("Paragraph 1999 ", "Paragraph last ")
+        merged = merge_gm_secrets(stored, new)
+        assert "Paragraph 1000 of the gazetteer. ||the vault code||\n" in merged
+
+    def test_a_rewrite_too_large_to_compare_appends_the_secret(self, monkeypatch):
+        from backend.text import align
+
+        monkeypatch.setattr(align, "CHAR_DIFF_BUDGET", 10)
+        stored = "Start. Old words here ||hidden|| more old words. End."
+        new = "Start. Fresh text that replaced it all, every bit. End."
+        merged = merge_gm_secrets(stored, new)
+        assert merged == new + "\n||hidden||"
 
 
 # Pieces of a random wiki body: markers, fence lines and filler. Each body also
