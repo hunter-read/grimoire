@@ -34,9 +34,33 @@ describe('indexLetter', () => {
     expect(indexLetter('!!!')).toBe('#')
   })
 
-  it('skips leading punctuation to the first letter', () => {
-    expect(indexLetter('"Troika!"')).toBe('T')
-    expect(indexLetter('(The) Black Hack')).toBe('T')
+  it('files a name that opens with a symbol under #, not its first letter', () => {
+    expect(indexLetter('"Troika!"')).toBe('#')
+    expect(indexLetter('(The) Black Hack')).toBe('#')
+    expect(indexLetter('...In Spaaace!')).toBe('#')
+    expect(indexLetter('#birdsecrets')).toBe('#')
+    expect(indexLetter("'45 Psychobilly")).toBe('#')
+    expect(indexLetter('`tick')).toBe('#')
+  })
+
+  it('ignores leading whitespace', () => {
+    expect(indexLetter('  Troika')).toBe('T')
+  })
+
+  it('folds letters NFKD leaves alone onto the letter they sort with', () => {
+    expect(indexLetter('Æther')).toBe('A')
+    expect(indexLetter('œuvre')).toBe('O')
+    expect(indexLetter('Øresund')).toBe('O')
+    expect(indexLetter('Łódź')).toBe('L')
+    expect(indexLetter('Đak')).toBe('D')
+    expect(indexLetter('ßtraße')).toBe('S')
+  })
+
+  it('keeps every symbol and digit name in one run, in sort order', () => {
+    const names = ['...In Spaaace!', "'45", '#birdsecrets', '`tick', '10,000', 'Æther', 'Ab', 'Afa']
+    const sorted = [...names].sort((a, b) => a.localeCompare(b))
+    const runs = buildRuns(sorted, (n) => indexLetter(n))
+    expect(runs.map((r) => r.label)).toEqual(['#', 'A'])
   })
 
   it('keeps a letter from another script', () => {
