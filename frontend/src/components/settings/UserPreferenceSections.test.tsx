@@ -47,6 +47,21 @@ describe('LanguageSection — rendering', () => {
     expect(select.value).toBe('en-US')
   })
 
+  it('shows the detected language when nothing is saved, so English can be picked', () => {
+    const original = i18n.language
+    ;(i18n as { language: string }).language = 'it-IT'
+    try {
+      render(<LanguageSection />)
+      const select = screen.getByRole<HTMLSelectElement>('combobox')
+      expect(select.value).toBe('it-IT')
+      fireEvent.change(select, { target: { value: 'en-US' } })
+      expect(localStorage.getItem('grimoire:language')).toBe('en-US')
+      expect(i18n.changeLanguage).toHaveBeenCalledWith('en-US')
+    } finally {
+      ;(i18n as { language: string }).language = original
+    }
+  })
+
   it('defaults to the saved language from localStorage', () => {
     localStorage.setItem('grimoire:language', 'de-DE')
     render(<LanguageSection />)

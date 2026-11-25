@@ -203,6 +203,62 @@ describe('PromptDialog', () => {
     expect(screen.queryByLabelText('Alert')).not.toBeInTheDocument()
   })
 
+  it('opens each entry below its name to show what it is, without choosing it', async () => {
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'sub', type: 'entry', content_type: 'subclass' }],
+    }
+    const document = {
+      ...DOCUMENT,
+      content_types: {
+        subclass: {
+          fields: {
+            name: { type: 'text', label: 'Name' },
+            description: { type: 'textarea', label: 'Description' },
+          },
+        },
+      },
+    }
+    const browse = async () => ({
+      entries: [
+        { entry_id: 'champion', name: 'Champion', data: { description: 'Crits on 19.' } },
+        { entry_id: 'battle-master', name: 'Battle Master', data: { description: 'Maneuvers.' } },
+      ],
+      total: 2,
+    })
+    render(
+      <PromptDialog prompt={prompt} document={document} data={{}} context={SHEET} browse={browse} />
+    )
+    const show = await screen.findByRole('button', { name: 'Show details of Champion' })
+    expect(show).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Maneuvers.')).not.toBeInTheDocument()
+    await userEvent.click(show)
+    expect(screen.getByText('Crits on 19.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Champion')).not.toBeChecked()
+    // One open at a time, as in the catalog browser.
+    await userEvent.click(screen.getByRole('button', { name: 'Show details of Battle Master' }))
+    expect(screen.getByText('Maneuvers.')).toBeInTheDocument()
+    expect(screen.queryByText('Crits on 19.')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Hide details of Battle Master' }))
+    expect(screen.queryByText('Maneuvers.')).not.toBeInTheDocument()
+  })
+
+  it('has nothing to open when the content type declares no fields', async () => {
+    const prompt: SheetPrompt = {
+      ...LEVEL_UP,
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+    }
+    const browse = async () => ({
+      entries: [{ entry_id: 'alert', name: 'Alert', data: {} }],
+      total: 1,
+    })
+    render(
+      <PromptDialog prompt={prompt} document={DOCUMENT} data={{}} context={SHEET} browse={browse} />
+    )
+    expect(await screen.findByLabelText('Alert')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show details of Alert' })).not.toBeInTheDocument()
+  })
+
   it('shows why the catalog could not be read', async () => {
     const prompt: SheetPrompt = {
       ...LEVEL_UP,

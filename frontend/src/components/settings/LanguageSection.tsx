@@ -7,7 +7,11 @@ import SavedAnnouncement from './SavedAnnouncement'
 
 export default function LanguageSection() {
   const { t } = useTranslation()
-  const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
+  // Start from the language actually in use: with nothing saved it was detected
+  // from the browser, and showing English then made picking English a no-op.
+  const [lang, setLang] = useState(
+    localStorage.getItem('grimoire:language') || i18n.language || 'en-US'
+  )
   const [saved, setSaved] = useState(false)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 

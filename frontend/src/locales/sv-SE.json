@@ -4114,6 +4114,8 @@
     "promptMore": "En mer för {{name}}",
     "promptNoEntries": "Inget att välja bland",
     "promptSearch": "Sök",
+    "promptShowDetails": "Visa detaljer för {{name}}",
+    "promptHideDetails": "Dölj detaljer för {{name}}",
     "promptUseAverage": "Använd genomsnitt ({{value}})",
     "promptPending": "Val att göra:",
     "promptDismiss": "Avfärda {{name}}",

@@ -116,6 +116,53 @@ def test_g_action_is_a_layout_directive():
     assert node["attrs"] == {"name": "long_rest", "label": "Rest", "visible_if": "hp < hp_max"}
 
 
+# --- a field's on_change and a prompt's on_skip ---------------------------------
+
+def _follow_up_schema(on_change, on_skip=None):
+    prompt = {
+        "label": "Focus",
+        "steps": [{"key": "what", "type": "select", "options": ["Bless", "Hex"]}],
+        "apply": [{"set": "focus_on", "to": "answer.what"}],
+    }
+    if on_skip is not None:
+        prompt["on_skip"] = on_skip
+    return svc.validate_schema({
+        "id": "focus-demo",
+        "name": "Focus Demo",
+        "fields": {
+            "hp": {"type": "number", "on_change": [{"set": "focused", "to": "hp > 0 and focused"}]},
+            "focused": {"type": "checkbox", "on_change": on_change},
+            "focus_on": {"type": "text"},
+        },
+        "prompts": {"focus": prompt},
+    })
+
+
+def test_on_change_and_on_skip_are_kept():
+    document = _follow_up_schema(
+        [{"set": "focus_on", "to": "focused ? focus_on : ''"}, {"prompt": "focus"}],
+        [{"set": "focused", "to": "false"}],
+    )
+    assert document["fields"]["focused"]["on_change"][1] == {"prompt": "focus"}
+    assert document["prompts"]["focus"]["on_skip"] == [{"set": "focused", "to": "false"}]
+
+
+@pytest.mark.parametrize(
+    "on_change, on_skip, message",
+    [
+        ([{"set": "nowhere", "to": "1"}], None, "unknown field"),
+        ([{"prompt": "missing"}], None, "unknown prompt"),
+        ([{"set": "focus_on", "to": "1 +"}], None, "on_change"),
+        ([{"prompt": "focus"}], [{"set": "nowhere", "to": "false"}], "on_skip"),
+        # Putting a prompt aside only writes: it opens no prompt of its own.
+        ([{"prompt": "focus"}], [{"prompt": "focus"}], "on_skip.*exactly one of 'set', 'each', 'append'$"),
+    ],
+)
+def test_bad_follow_ups_are_refused(on_change, on_skip, message):
+    with pytest.raises(svc.SchemaError, match=message):
+        _follow_up_schema(on_change, on_skip)
+
+
 @pytest.mark.parametrize("key", ["layout_html", "mobile_layout_html"])
 def test_g_action_naming_an_unknown_action_is_refused(key):
     document = {
