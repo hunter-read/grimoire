@@ -4114,6 +4114,8 @@
     "promptMore": "Eén meer voor {{name}}",
     "promptNoEntries": "Niets om uit te kiezen",
     "promptSearch": "Zoeken",
+    "promptShowDetails": "Details van {{name}} tonen",
+    "promptHideDetails": "Details van {{name}} verbergen",
     "promptUseAverage": "Gemiddelde gebruiken ({{value}})",
     "promptPending": "Nog te kiezen:",
     "promptDismiss": "{{name}} negeren",

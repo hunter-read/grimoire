@@ -796,11 +796,16 @@ describe('LayoutRenderer — actions', () => {
     renderLayout(button(), { document: doc, data, onChange })
     await userEvent.click(screen.getByRole('button', { name: 'Long rest' }))
     expect(confirm).toHaveBeenCalledWith('Take a long rest?')
-    expect(onChange).toHaveBeenCalledWith('hp', 20)
-    expect(onChange).toHaveBeenCalledWith('resources', [
-      { used: 0, recovery: 'long' },
-      { used: 1, recovery: 'short' },
-    ])
+    // Marked as the sheet's own writes, so they set off no `on_change`.
+    expect(onChange).toHaveBeenCalledWith('hp', 20, { written: true })
+    expect(onChange).toHaveBeenCalledWith(
+      'resources',
+      [
+        { used: 0, recovery: 'long' },
+        { used: 1, recovery: 'short' },
+      ],
+      { written: true }
+    )
     confirm.mockRestore()
   })
 

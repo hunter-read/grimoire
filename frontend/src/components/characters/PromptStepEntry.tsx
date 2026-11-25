@@ -1,19 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LuChevronDown, LuChevronUp } from 'react-icons/lu'
 import Spinner from '../Spinner'
-import { fieldInput, helpText } from './characterStyles'
+import ContentEntryDetail from './ContentEntryDetail'
+import type { ContentTypeDefinition } from './ContentEntryDetail'
+import { fieldInput, helpText, iconBtn } from './characterStyles'
 import { loadEntryOptions } from './sheetPrompts'
 import type { EntryAnswer } from './sheetPrompts'
 import { optionLabel, optionList } from './promptStepShared'
 import type { StepControlProps } from './promptStepShared'
 
 // One catalog entry: those the step's `filters` and `filter` let through,
-// searched by name.
-export default function EntryStep({ step, value, context, browse, onAnswer }: StepControlProps) {
+// searched by name. Each opens below its name to show what it is, as in the
+// catalog browser - a subclass is chosen by what it does, not by its name.
+export default function EntryStep({
+  step,
+  value,
+  context,
+  document,
+  browse,
+  onAnswer,
+}: StepControlProps) {
   const { t } = useTranslation()
   const [entries, setEntries] = useState<EntryAnswer[] | null>(null)
   const [failed, setFailed] = useState('')
   const [search, setSearch] = useState('')
+  const [open, setOpen] = useState('')
+  const contentTypes = (document?.content_types || {}) as Record<string, unknown>
+  const typeDefinition = (contentTypes[step.content_type || ''] || {}) as ContentTypeDefinition
+  const describable = Object.keys(typeDefinition.fields || {}).length > 0
   const chosen =
     value && typeof value === 'object' ? String((value as { _ref?: unknown })._ref ?? '') : ''
 
@@ -71,20 +86,48 @@ export default function EntryStep({ step, value, context, browse, onAnswer }: St
           style={fieldInput}
         />
       ) : null}
-      <ul style={{ ...optionList, maxHeight: 240, overflowY: 'auto' }}>
-        {shown.map((entry) => (
-          <li key={`${entry._source || ''}:${entry._ref}`}>
-            <label style={optionLabel(false)}>
-              <input
-                type="radio"
-                name={`prompt-${step.key}`}
-                checked={chosen === entry._ref}
-                onChange={() => onAnswer(entry)}
-              />
-              {entry.name || entry._ref}
-            </label>
-          </li>
-        ))}
+      <ul style={{ ...optionList, maxHeight: 360, overflowY: 'auto' }}>
+        {shown.map((entry) => {
+          const key = `${entry._source || ''}:${entry._ref}`
+          const name = entry.name || entry._ref
+          const expanded = open === key
+          return (
+            <li key={key}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ ...optionLabel(false), flex: 1, minWidth: 0 }}>
+                  <input
+                    type="radio"
+                    name={`prompt-${step.key}`}
+                    checked={chosen === entry._ref}
+                    onChange={() => onAnswer(entry)}
+                  />
+                  {name}
+                </label>
+                {describable ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpen(expanded ? '' : key)}
+                    aria-expanded={expanded}
+                    aria-label={t(
+                      expanded ? 'characters.promptHideDetails' : 'characters.promptShowDetails',
+                      { name }
+                    )}
+                    title={t(
+                      expanded ? 'characters.promptHideDetails' : 'characters.promptShowDetails',
+                      { name }
+                    )}
+                    style={iconBtn}
+                  >
+                    {expanded ? <LuChevronUp size={14} /> : <LuChevronDown size={14} />}
+                  </button>
+                ) : null}
+              </div>
+              {expanded ? (
+                <ContentEntryDetail entry={{ data: entry }} typeDefinition={typeDefinition} />
+              ) : null}
+            </li>
+          )
+        })}
       </ul>
     </>
   )

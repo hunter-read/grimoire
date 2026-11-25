@@ -185,6 +185,33 @@ one's skills and feat come off again. Only what a pick added is taken back, so
 a skill you gave yourself stays put. A choice it asks for can always be put off
 and made by hand later.
 
+### Buttons and questions
+
+A sheet can also carry buttons, and ask you a few questions at once.
+
+- **A button** makes several changes in one press - a long rest that clears
+  every counter it recovers and puts hit points back to their maximum. Some ask
+  you to confirm first. What a button writes is saved like an edit of your own,
+  so anything it changed can be typed over afterwards.
+- **A prompt** is a window of questions whose answers the sheet writes down: a
+  level gained asks for hit points, then an ability increase or a feat picked
+  from the catalog. A pick can open one, and so can a button or a box you tick.
+  Everything is on one page, phone included.
+
+A prompt can always be put off with **Choose later**. One that a pick opened is
+then listed above the sheet under **Choices to make**, to open again or
+dismiss; one a button opened is simply closed, since the button opens it again.
+What a prompt added because of a pick comes off again when you change that
+pick, like the pick's own additions.
+
+A field can react to being changed by hand, too - tick Concentrating and the
+sheet asks which spell. For a field you type in, it waits until you stop
+typing. Changes the sheet makes itself, through a button or a prompt, do not
+set these off.
+
+Which buttons and prompts exist is up to the sheet; a sheet without any works
+as before.
+
 ### You can set any value
 
 Everything a sheet works out is a suggestion. The table is the authority, not

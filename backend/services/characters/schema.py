@@ -463,6 +463,7 @@ def _validate_write_steps(
     prompts: set[str],
     prompt_verbs: bool = False,
     content_types: dict | None = None,
+    may_open_prompts: bool = True,
 ) -> None:
     """Check a list of writes, as an action's `steps` or a prompt's `apply`.
 
@@ -524,8 +525,12 @@ def _validate_write_steps(
                 raise SchemaError(f"{where} writes {key!r}, which {target!r} does not have")
             _validate_formula(source, f"{where} {key!r}", names_known, images)
 
-    verbs_allowed = ["each", "append", "prompt"] + (
-        ["add", "pick", "unpick", "grant"] if prompt_verbs else []
+    # An `on_skip` only writes: it runs because a prompt was put aside, so it
+    # opens none of its own.
+    verbs_allowed = (
+        ["each", "append"]
+        + (["prompt"] if may_open_prompts else [])
+        + (["add", "pick", "unpick", "grant"] if prompt_verbs else [])
     )
     for step_index, step in enumerate(steps):
         step = _require_dict(step, f"{what} step {step_index}")
@@ -848,6 +853,18 @@ def _validate_prompts(
             prompt_verbs=True,
             content_types=content_types,
         )
+        # What putting the prompt aside does instead of keeping it for later:
+        # a box ticked to open it, unticked again.
+        if "on_skip" in prompt:
+            _validate_write_steps(
+                prompt["on_skip"],
+                f"{what} 'on_skip'",
+                fields,
+                known,
+                images,
+                prompts=names,
+                may_open_prompts=False,
+            )
 
 
 def _validate_computed(name: str, definition: Any) -> tuple:
@@ -1309,6 +1326,20 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         _validate_start_prompt(document["start_prompt"], prompt_names, known, images)
     if "actions" in document:
         _validate_actions(document["actions"], fields, known, images, prompt_names)
+
+    # A field's `on_change`: writes, and prompts, that follow a change the
+    # player makes to it by hand - a box ticked that asks what for, hit points
+    # at 0 that end Concentration. They read the sheet with the new value.
+    for field_name, definition in fields.items():
+        if isinstance(definition, dict) and "on_change" in definition:
+            _validate_write_steps(
+                definition["on_change"],
+                f"Field {field_name!r} on_change",
+                fields,
+                known,
+                images,
+                prompts=prompt_names,
+            )
 
     if "layout" in document:
         _validate_layout(document["layout"], known, images)

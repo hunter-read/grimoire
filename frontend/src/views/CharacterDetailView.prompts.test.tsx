@@ -40,7 +40,7 @@ const ELF = { name: 'Elf', lineages: ['Drow', 'High Elf', 'Wood Elf'] }
 function StubSheet({
   onChange,
 }: {
-  onChange: (field: string, value: unknown, pick?: { entry: unknown }) => void
+  onChange: (field: string, value: unknown, meta?: { entry?: unknown; written?: boolean }) => void
 }) {
   const open = useContext(PromptLauncher)
   return (
@@ -48,6 +48,11 @@ function StubSheet({
       <button onClick={() => onChange('species', { _ref: 'elf' }, { entry: ELF })}>pick elf</button>
       <button onClick={() => open?.({ prompt: 'feat_up' })}>gain a feat</button>
       <button onClick={() => open?.({ prompt: 'level_gain' })}>gain a level</button>
+      <button onClick={() => onChange('focused', true)}>focus</button>
+      <button onClick={() => onChange('hp', 0)}>drop to 0</button>
+      <button onClick={() => onChange('focused', true, { written: true })}>action focus</button>
+      <input aria-label="Gold" onChange={(e) => onChange('gold', Number(e.target.value))} />
+      <input aria-label="Hit points" onChange={(e) => onChange('hp', Number(e.target.value))} />
     </div>
   )
 }
@@ -77,8 +82,29 @@ const DOCUMENT = {
     skills: { type: 'multiselect', options: ['Perception', 'Stealth'] },
     level: { type: 'number', default: 4 },
     features: { type: 'content_list', content_type: 'feature' },
+    focused: {
+      type: 'checkbox',
+      on_change: [{ set: 'focus_on', to: "focused ? focus_on : ''" }, { prompt: 'focus' }],
+    },
+    focus_on: { type: 'text' },
+    gold: { type: 'number', on_change: [{ prompt: 'spend' }] },
+    hp: {
+      type: 'number',
+      on_change: [{ set: 'focused', to: 'hp > 0 and focused' }],
+    },
   },
   prompts: {
+    spend: {
+      label: 'Spend',
+      steps: [{ key: 'on', type: 'select', options: ['Rope', 'Torch'] }],
+      apply: [],
+    },
+    focus: {
+      label: 'Focus',
+      steps: [{ key: 'what', type: 'select', options: ['Bless', 'Hex'], visible_if: 'focused' }],
+      apply: [{ set: 'focus_on', to: 'answer.what' }],
+      on_skip: [{ set: 'focused', to: 'false' }],
+    },
     lineage: {
       label: 'Lineage',
       steps: [{ key: 'pick', type: 'select', options: 'row.lineages' }],
@@ -250,5 +276,61 @@ describe('CharacterDetailView — prompts', () => {
       origin_feat: { features: ['action-surge', 'Tactical Mind'] },
     })
     expect(mockResolve).toHaveBeenCalledWith('demo', ['action-surge', 'tactical-mind'])
+  })
+
+  it("follows a change by hand with the field's on_change: a box ticked opens its prompt", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('focus'))
+    expect(await screen.findByRole('dialog', { name: 'Focus' })).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Hex'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data.focus_on).toBe('Hex'))
+    expect(lastSaved().data.focused).toBe(true)
+
+    // Hit points at 0 untick it; that write opens nothing of its own.
+    await userEvent.click(screen.getByText('drop to 0'))
+    await waitFor(() => expect(lastSaved().data.focused).toBe(false), { timeout: 2000 })
+    expect(screen.queryByRole('dialog', { name: 'Focus' })).not.toBeInTheDocument()
+  })
+
+  it("leaves on_change alone for a write the sheet makes, such as an action's", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('action focus'))
+    await waitFor(() => expect(lastSaved().data).toEqual({ focused: true }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it("runs a typed field's on_change once the typing stops, not once per key", async () => {
+    await renderView()
+    await userEvent.type(screen.getByLabelText('Gold'), '125')
+    expect(await screen.findByRole('dialog', { name: 'Spend' })).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Choose later'))
+    // Nothing else was queued behind it.
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(lastSaved().data.gold).toBe(125))
+  })
+
+  it("saves a typed field's on_change writes still waiting when the view goes", async () => {
+    stored = { focused: true }
+    const { unmount } = render(
+      <MemoryRouter>
+        <CharacterDetailView />
+      </MemoryRouter>
+    )
+    await screen.findByText('pick elf')
+    await userEvent.type(screen.getByLabelText('Hit points'), '0')
+    unmount()
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled())
+    expect(lastSaved().data).toEqual({ hp: 0, focused: false })
+  })
+
+  it("makes a prompt's on_skip writes when it is put aside, rather than keeping it for later", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('focus'))
+    await userEvent.click(await screen.findByText('Choose later'))
+    await waitFor(() => expect(lastSaved().data.focused).toBe(false))
+    expect(lastSaved().data._pending_prompts).toBeUndefined()
+    expect(screen.queryByText('Choices to make:')).not.toBeInTheDocument()
   })
 })

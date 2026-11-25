@@ -4114,6 +4114,8 @@
     "promptMore": "Einen mehr für {{name}}",
     "promptNoEntries": "Nichts zur Auswahl",
     "promptSearch": "Suchen",
+    "promptShowDetails": "Details zu {{name}} zeigen",
+    "promptHideDetails": "Details zu {{name}} ausblenden",
     "promptUseAverage": "Durchschnitt nehmen ({{value}})",
     "promptPending": "Offene Entscheidungen:",
     "promptDismiss": "{{name}} verwerfen",
