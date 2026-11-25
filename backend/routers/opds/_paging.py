@@ -9,7 +9,7 @@ setting it once on the root URL pages the whole catalog.
 """
 from dataclasses import dataclass
 from typing import Optional
-from xml.sax.saxutils import escape
+from ._xml import escape
 
 from fastapi import Depends, Query
 
