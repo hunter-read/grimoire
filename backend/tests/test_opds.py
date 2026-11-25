@@ -1051,7 +1051,7 @@ class TestOPDSControlCharacters:
         resp = opds_client.patch(
             f"/api/books/{book_id}",
             json={
-                "title": "T\x0bitle￾",
+                "title": "T\x0bitle\ufffe",
                 "description": "D\x01escription",
                 "authors": ["A\x02uthor"],
                 "tags": ["g\x03enre"],
@@ -1087,7 +1087,7 @@ class TestOPDSControlCharacters:
 def test_xml_safe_keeps_what_xml_allows():
     from backend.routers.opds._xml import escape, quoteattr, xml_safe
 
-    assert xml_safe("tab\tnew\nline\rok é 😀") == "tab\tnew\nline\rok é 😀"
-    assert xml_safe("a\x00b\x08c\x0bd\x1fe\ud800f￾g￿h") == "abcdefgh"
+    assert xml_safe("tab\tnew\nline\rok \u00e9 \U0001f600") == "tab\tnew\nline\rok \u00e9 \U0001f600"
+    assert xml_safe("a\x00b\x08c\x0bd\x1fe\ud800f\ufffeg\uffffh") == "abcdefgh"
     assert escape("<a\x0b>") == "&lt;a&gt;"
     assert quoteattr("x\x03\"y") == "'x\"y'"

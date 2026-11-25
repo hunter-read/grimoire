@@ -10,9 +10,11 @@ metadata, so these drop such characters before escaping.
 import re
 from xml.sax import saxutils
 
-# Everything outside the XML 1.0 ``Char`` production:
-# #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]
-_NOT_XML_CHAR = re.compile("[^\t\n\r\x20-퟿-�\U00010000-\U0010ffff]")
+# Everything outside the XML 1.0 ``Char`` production
+# (#x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]),
+# listed directly: the C0 controls but tab, newline and carriage return, the
+# surrogates, and U+FFFE and U+FFFF. Every character past U+FFFF is allowed.
+_NOT_XML_CHAR = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
 
 def xml_safe(text: str) -> str:
