@@ -681,7 +681,7 @@ def _validate_prompts(
             keys.add(key)
             where = f"{what} step {key!r}"
             kind = step.get("type")
-            if kind not in _PROMPT_STEP_TYPES:
+            if not isinstance(kind, str) or kind not in _PROMPT_STEP_TYPES:
                 allowed = ", ".join(sorted(_PROMPT_STEP_TYPES))
                 raise SchemaError(f"{where} needs a 'type': one of {allowed}")
             _validate_label(step.get("label"), where, MAX_PROMPT_LABEL, required=False)
