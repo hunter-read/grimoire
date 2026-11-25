@@ -60,7 +60,9 @@ frame and its colour, the background, the size, and where you placed and turned 
 **Edit token** (on a character's token, or the wand on a token in the resources list)
 opens the editor exactly as you left it, and saving writes the new version over the old -
 a token in the resources keeps its place, category and visibility. Art from your device is
-kept with the token for this; art from your library is read from the library, and if it
+kept with the token for this, and counts as a campaign upload: it takes up room in the
+campaign's storage limit and follows the admin's other upload limits, so a token whose art
+does not fit is not saved. Art from your library is read from the library, and if it
 has gone since, the editor keeps the frame and colours and asks for new art. While editing
 one destination you can still **Send to a campaign** to save a copy somewhere else.
 Tokens made before this, and tokens only ever downloaded, have nothing to reopen.

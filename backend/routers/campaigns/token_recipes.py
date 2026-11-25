@@ -26,10 +26,11 @@ from ...services.campaigns.token_recipes import (
     SOURCE_MEDIA_TYPES,
     TOKEN_SOURCE_DIR,
     public_recipe,
-    replace_recipe,
+    read_recipe,
+    store_recipe,
 )
 from ...services.campaigns.upload_files import remove_after_commit
-from ...services.campaigns.upload_quota import assert_within_campaign_quota
+from ...services.campaigns.upload_quota import assert_token_upload_allowed
 from ._helpers import assert_can_manage, get_campaign_or_404
 from .uploads import (
     _FILES_DIR,
@@ -114,7 +115,8 @@ def update_token_file(
 
     The resource, its category, visibility and shares stay as they were; only
     the picture and its recipe change. Bound by the same upload limits as a new
-    campaign image, the campaign's total counting only what the new picture adds.
+    campaign image, the campaign's total counting only what the new picture and
+    its source art add.
     """
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
@@ -132,11 +134,15 @@ def update_token_file(
     _validate_image(data)
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
-    # Only the growth counts: the old picture's bytes go with it.
+    # Only the growth counts: the old picture's bytes go with it, and so does
+    # the source art it kept.
+    pending = read_recipe(f"file-{cf.id}", recipe, source)
     if not is_admin:
-        assert_within_campaign_quota(db, campaign_id, len(data), replacing=cf.size_bytes or 0)
+        assert_token_upload_allowed(
+            db, campaign_id, pending, adding=len(data), replacing=cf.size_bytes or 0
+        )
 
-    cf.token_recipe = replace_recipe(f"file-{cf.id}", recipe, source)
+    cf.token_recipe = store_recipe(pending)
 
     # A new name rather than an overwrite: the old file goes only once the row
     # points at the new one, and a changed name is also a changed cache key.
