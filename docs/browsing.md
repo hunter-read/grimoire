@@ -27,7 +27,9 @@ the rail, and the letter you have scrolled to is filled in.
   lift it to jump where it is.
 
 Names file under the letter they read as, whatever the accents: "Mörk Borg" is
-under M and "Élan" under E. Names starting with a digit or a symbol share `#`.
+under M and "Élan" under E. Names starting with a digit or a symbol - a quote,
+`...`, `#` - share `#`, whatever letter follows, since that is where the sort
+puts them.
 
 When the window is too short for a tab per letter, quiet neighbouring letters
 merge into a range - `U–Z` - so every tab stays big enough to hit.
