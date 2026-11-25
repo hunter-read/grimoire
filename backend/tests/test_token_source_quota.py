@@ -171,10 +171,11 @@ class TestCampaignImage:
     def test_picture_and_source_count_together(self, client, gm_headers, limits):
         # Each fits on its own; the two together do not.
         cid = _campaign(client, gm_headers)
-        picture = _png()
-        _fill(cid, MB - len(picture) - 100)
+        picture, source = _png(), _noise_png(4096)
+        # One byte short of room for both, whatever size the PNGs encode to.
+        _fill(cid, MB - (len(picture) + len(source) - 1))
         limits(total_mb=1)
-        resp = _image(client, gm_headers, cid, _png((32, 32), (9, 9, 9)), picture=picture)
+        resp = _image(client, gm_headers, cid, source, picture=picture)
         assert resp.status_code == 413
 
     def test_the_per_file_cap_applies_to_the_source(self, client, gm_headers, limits):
