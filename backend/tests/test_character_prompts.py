@@ -156,6 +156,33 @@ def test_a_broken_prompt_is_refused(prompts, message):
         _validate(_document(prompts))
 
 
+@pytest.mark.parametrize("kind", [[], {}, 1, None, True])
+def test_a_step_type_that_is_not_text_is_refused(kind):
+    with pytest.raises(svc.SchemaError, match="'type'"):
+        _validate(_document(_with_step({"key": "x", "type": kind})))
+
+
+def test_a_step_type_that_is_not_text_is_a_400(client, player_headers):
+    document = {
+        "id": "d",
+        "name": "D",
+        "fields": {"hp": {"type": "number"}},
+        "prompts": {
+            "p": {
+                "label": "P",
+                "steps": [{"key": "k", "type": []}],
+                "apply": [{"set": "hp", "to": "1"}],
+            }
+        },
+    }
+    res = client.post(
+        "/api/characters/schemas",
+        json={"document": document},
+        headers=player_headers,
+    )
+    assert res.status_code == 400
+
+
 def test_two_steps_may_not_share_a_key():
     step = {"key": "x", "type": "number"}
     with pytest.raises(svc.SchemaError, match="two steps keyed"):
