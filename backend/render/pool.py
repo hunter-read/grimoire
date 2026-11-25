@@ -5,7 +5,8 @@ The public API is the module-level functions: ``render_page``, ``render_tile``,
 ``export_page_size``, ``detect_shapes``, ``export`` and ``evict``. With
 ``RENDER_WORKERS`` at 1 or more they run in worker processes
 (``backend.render.worker``); at 0 they run in this process through the
-``open_pdf()`` cache, as rendering always did before.
+``open_pdf()`` cache, as rendering always did before, taking turns with the
+rest of the process (``_InProcessRaster``).
 
 How the pool behaves:
 
@@ -40,8 +41,9 @@ import threading
 import time
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
+from contextlib import contextmanager
 from multiprocessing.connection import Connection
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from .. import config
 from . import ops, worker
@@ -60,6 +62,126 @@ _STOP_GRACE = 5.0
 # Seconds one export may run. An export is capped at 100 images or 200 cut-outs,
 # which at the highest resolution takes minutes, not tens of them.
 EXPORT_TIMEOUT = 600.0
+# Rendering in this process (RENDER_WORKERS=0), a page or tile expected to take
+# well over this long to draw is drawn in bands of about this long
+# (ops._rasterize), and makes way for other threads between them
+# (_InProcessRaster). The API so waits on a render for about this long rather
+# than for a whole page, and a render that about fits in it is drawn in one go.
+IN_PROCESS_BAND_SECONDS = 0.1
+# How long a render naps to see whether another thread wants the interpreter,
+# and how much longer than that the nap must take to say that one did.
+_NAP = 0.0005
+_CONTENDED = 0.001
+# Once a nap has come back late, how many in a row must come back on time
+# before the render carries on. A request lets go of the interpreter several
+# times while it is answered (a query, a hand-over between threads), and a
+# render that took it back at the first of them made the request wait out a
+# band at every one.
+_QUIET_NAPS = 6
+
+
+class _InProcessRaster:
+    """Turns at rasterising in this process, which make way for the rest of it.
+
+    PyMuPDF never lets go of the GIL while it rasterises, so an in-process
+    render stops every other thread until it is done: the event loop, and the
+    request threads behind ``/api/health`` and the rest of the API. A burst of
+    renders stalled them for seconds (issue #975). Three things stop that:
+
+    * One rasterise at a time. The GIL runs only one anyway, so this costs
+      nothing, and the rest of the process contends with one render rather
+      than several. Encoding still runs in parallel: Pillow lets the GIL go.
+    * Bands by the clock. A render is drawn in bands of about
+      IN_PROCESS_BAND_SECONDS each (``bands``), going by how long a pixel took
+      in the renders before it. One expected to take about that long or less
+      is drawn in one go, exactly as a render worker draws it.
+    * Making way. Before each turn, and between bands, the render naps
+      briefly. If another thread took the interpreter during the nap, the nap
+      comes back late, and the render then naps until _QUIET_NAPS in a row
+      come back on time, or for as long as it last held the interpreter,
+      whichever is sooner. A busy API so gets at least half of it, a request
+      is not made to wait again each time it pauses, and a quiet process costs
+      a render one nap per band.
+
+    Bands cost time of their own: MuPDF decodes a picture again for each band
+    it crosses, which on an illustrated page can double the render. That is
+    why they go by the clock and not by size. Where this host draws a page
+    quickly there is no stall worth the price and the page is drawn whole;
+    where it is slow, the page is cut up, and into ``ops.MAX_BANDS`` at most.
+    """
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        # All under ``lock``. How long the last stretch of rasterising held the
+        # GIL, and when the current one started.
+        self.held = 0.0
+        self.since = 0.0
+        # Seconds a pixel has been taking to draw; None until one was drawn.
+        self.rate: Optional[float] = None
+        # What this turn drew: its pixels, and the seconds it rasterised for.
+        self.pixels = 0
+        self.spent = 0.0
+
+    def make_way(self, held: float) -> None:
+        """Nap while other threads want the interpreter, for up to ``held`` seconds.
+
+        One nap that comes back on time is enough when none has come back
+        late; after one has, it takes _QUIET_NAPS in a row.
+        """
+        deadline = time.monotonic() + held
+        quiet, needed = 0, 1
+        while True:
+            napped = time.monotonic()
+            time.sleep(_NAP)
+            now = time.monotonic()
+            if now >= deadline:
+                return
+            if now - napped >= _NAP + _CONTENDED:
+                quiet, needed = 0, _QUIET_NAPS
+                continue
+            quiet += 1
+            if quiet >= needed:
+                return
+
+    def bands(self, pixels: int) -> int:
+        """Bands of about IN_PROCESS_BAND_SECONDS for this many pixels (``ops.Pace``)."""
+        self.pixels = pixels
+        if self.rate is None:
+            return 1  # nothing drawn yet to go by
+        # To the nearest band, not the next one up: a render expected to run a
+        # little over is drawn whole. Banding it would make it slower still,
+        # and being slower is what it would then go on being banded for.
+        return round(self.rate * pixels / IN_PROCESS_BAND_SECONDS)
+
+    def between_bands(self) -> None:
+        """Make way for as long as the band just drawn held the interpreter (``ops.Pace``)."""
+        held = time.monotonic() - self.since
+        self.spent += held
+        self.make_way(held)
+        self.since = time.monotonic()
+
+    @contextmanager
+    def turn(self) -> Iterator["_InProcessRaster"]:
+        """Hold the turn; yields the pace to draw at."""
+        with self.lock:
+            self.make_way(self.held)
+            self.pixels, self.spent = 0, 0.0
+            self.since = time.monotonic()
+            try:
+                yield self
+            finally:
+                self.held = time.monotonic() - self.since
+                self.spent += self.held
+                if self.pixels > 0:
+                    # Halfway to what this render took. A banded one took
+                    # longer than it would have whole, so this errs towards
+                    # bands, by no more than the bands themselves cost.
+                    rate = self.spent / self.pixels
+                    self.rate = rate if self.rate is None else (self.rate + rate) / 2
+
+
+_in_process = _InProcessRaster()
+
 
 
 def _hang_up(conn: Connection) -> None:
@@ -385,8 +507,8 @@ def render_page(
         return pool.call("page", filepath, page_num, width, quality, method, count)
     from ..services.books.documents import note_page_render, open_pdf
 
-    with open_pdf(filepath) as doc:
-        img = ops.rasterize_page(doc, page_num, width)
+    with open_pdf(filepath) as doc, _in_process.turn() as pace:
+        img = ops.rasterize_page(doc, page_num, width, pace=pace)
     # Encoded outside open_pdf() so the book's lock isn't held through it.
     data = ops.encode_webp(img, quality, method)
     del img
@@ -405,8 +527,8 @@ def render_tile(filepath: str, page_num: int, width: int, col: int, row: int) ->
         return pool.call("tile", filepath, page_num, width, col, row)
     from ..services.books.documents import open_pdf
 
-    with open_pdf(filepath) as doc:
-        img = ops.rasterize_tile(doc, page_num, width, col, row)
+    with open_pdf(filepath) as doc, _in_process.turn() as pace:
+        img = ops.rasterize_tile(doc, page_num, width, col, row, pace=pace)
     # Encoded outside open_pdf(): a zoomed view asks for several tiles of one
     # book at once, and their encodes can run in parallel. Not counted toward
     # the reclaim, which would drop the decoded images the next tile needs.
