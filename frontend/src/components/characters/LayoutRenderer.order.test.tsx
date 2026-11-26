@@ -4,7 +4,15 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import LayoutRenderer from './LayoutRenderer'
 import type { LayoutNode } from './LayoutRenderer'
-import { moveKey, sortBlocks, storedOrder, withUniqueKeys } from './sheetOrder'
+import {
+  MAX_HIDDEN_KEYS,
+  mergeOrder,
+  moveKey,
+  renameInOrder,
+  sortBlocks,
+  storedOrder,
+  withUniqueKeys,
+} from './sheetOrder'
 
 vi.mock('../../api', () => ({
   characters: { portraitUrl: () => '', imageUrl: () => '' },
@@ -195,6 +203,124 @@ describe('<g-order>', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it("keeps the focus and the row's place while its first column is typed in", async () => {
+    const onChange = vi.fn()
+    const ast: LayoutNode[] = [
+      {
+        tag: 'g-order',
+        attrs: { field: 'attack_order' },
+        children: [
+          {
+            tag: 'g-repeat',
+            attrs: { over: 'attacks' },
+            children: [{ tag: 'g-field', attrs: { name: 'name' }, children: [] }],
+          },
+          item('unarmed', 'Unarmed strike'),
+        ],
+      },
+    ]
+    const { container } = render(
+      <Controlled
+        ast={ast}
+        onChange={onChange}
+        initial={{
+          attacks: [{ name: 'Sword' }, { name: 'Bow' }],
+          attack_order: 'unarmed\nattacks:Sword\nattacks:Bow',
+        }}
+      />
+    )
+    const input = screen.getByDisplayValue('Bow')
+    await userEvent.click(input)
+    await userEvent.keyboard('XY')
+    expect(screen.getByDisplayValue('BowXY')).toBe(input)
+    expect(document.activeElement).toBe(input)
+    expect(order(container)).toEqual(['unarmed', 'attacks:Sword', 'attacks:BowXY'])
+    // The new key is kept, so the row is known the next time the sheet opens.
+    expect(onChange).toHaveBeenLastCalledWith(
+      'attack_order',
+      'unarmed\nattacks:Sword\nattacks:BowXY'
+    )
+  })
+
+  it('keeps a renamed row in place on a read-only order too', () => {
+    const ast: LayoutNode[] = [
+      {
+        tag: 'g-order',
+        attrs: { field: 'attack_order' },
+        children: [
+          { tag: 'g-repeat', attrs: { over: 'attacks' }, children: [text('row')] },
+          item('unarmed', 'Unarmed strike'),
+        ],
+      },
+    ]
+    const stored = 'unarmed\nattacks:Sword\nattacks:Bow'
+    const props = { ast, document: DOCUMENT, computed: {}, readOnly: true }
+    const { container, rerender } = render(
+      <LayoutRenderer
+        {...props}
+        data={{ attacks: ROWS.slice(0, 1).concat({ name: 'Bow', bonus: 1 }), attack_order: stored }}
+      />
+    )
+    rerender(
+      <LayoutRenderer
+        {...props}
+        data={{ attacks: [ROWS[0], { name: 'Bowl', bonus: 1 }], attack_order: stored }}
+      />
+    )
+    rerender(
+      <LayoutRenderer
+        {...props}
+        data={{ attacks: [ROWS[0], { name: 'Bowls', bonus: 1 }], attack_order: stored }}
+      />
+    )
+    expect(order(container)).toEqual(['unarmed', 'attacks:Sword', 'attacks:Bowls'])
+  })
+
+  it("keeps a hidden block's place when another is moved", async () => {
+    const onChange = vi.fn()
+    const { container, rerender } = render(
+      <Controlled
+        onChange={onChange}
+        initial={{
+          attacks: ROWS,
+          level: 5,
+          attack_order: 'spell\nattacks:Sword\nunarmed\nattacks:Dagger',
+        }}
+      />
+    )
+    expect(order(container)).toEqual(['spell', 'attacks:Sword', 'unarmed', 'attacks:Dagger'])
+    // The spell attack goes out of reach, and Dagger is moved up meanwhile.
+    rerender(
+      <LayoutRenderer
+        ast={ORDER}
+        document={DOCUMENT}
+        computed={{}}
+        data={{
+          attacks: ROWS,
+          level: 1,
+          attack_order: 'spell\nattacks:Sword\nunarmed\nattacks:Dagger',
+        }}
+        onChange={onChange}
+      />
+    )
+    expect(order(container)).toEqual(['attacks:Sword', 'unarmed', 'attacks:Dagger'])
+    screen.getByRole('button', { name: 'Move item 3 of 3' }).focus()
+    await userEvent.keyboard('{ArrowUp}')
+    const written = onChange.mock.lastCall![1] as string
+    expect(written).toBe('spell\nattacks:Sword\nattacks:Dagger\nunarmed')
+    // Back in reach, it is where it was.
+    rerender(
+      <LayoutRenderer
+        ast={ORDER}
+        document={DOCUMENT}
+        computed={{}}
+        data={{ attacks: ROWS, level: 5, attack_order: written }}
+        onChange={onChange}
+      />
+    )
+    expect(order(container)).toEqual(['spell', 'attacks:Sword', 'attacks:Dagger', 'unarmed'])
+  })
+
   it('shows the order without handles on a read-only sheet', () => {
     const { container } = render(
       <Controlled
@@ -249,22 +375,60 @@ describe('<g-order>', () => {
 })
 
 describe('sheetOrder', () => {
+  const block = (key: string, identity = key) => ({ key, id: identity, identity, content: null })
+
   it('reads a stored order once per key, ignoring blank lines', () => {
     expect(storedOrder(' a \n\nb\na\n')).toEqual(['a', 'b'])
     expect(storedOrder(7)).toEqual([])
   })
 
   it('sorts, numbers and moves', () => {
-    const blocks = withUniqueKeys(['x', 'y', 'x'].map((key) => ({ key, content: null }))).map(
-      (block) => block.key
-    )
+    const blocks = withUniqueKeys(['x', 'y', 'x'].map((key) => block(key))).map((b) => b.key)
     expect(blocks).toEqual(['x', 'y', 'x#2'])
     const sorted = sortBlocks(
-      blocks.map((key) => ({ key, content: null })),
-      'x#2\nx'
-    ).map((block) => block.key)
+      blocks.map((key) => block(key)),
+      ['x#2', 'x']
+    ).map((b) => b.key)
     expect(sorted).toEqual(['y', 'x#2', 'x'])
     expect(moveKey(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a'])
     expect(moveKey(['a', 'b'], 5, 0)).toEqual(['a', 'b'])
+  })
+
+  it('keeps the keys not drawn after the key each followed', () => {
+    expect(mergeOrder(['c', 'a'], ['h0', 'a', 'h1', 'h2', 'b', 'c', 'h3'])).toEqual([
+      'h0',
+      'c',
+      'h3',
+      'a',
+      'h1',
+      'h2',
+      'b',
+    ])
+    expect(mergeOrder(['a'], ['a', 'a'])).toEqual(['a'])
+  })
+
+  it('keeps at most so many keys not drawn, the first listed', () => {
+    const gone = Array.from({ length: MAX_HIDDEN_KEYS + 5 }, (_, i) => `gone${i}`)
+    const merged = mergeOrder(['a'], ['a', ...gone])
+    expect(merged).toHaveLength(MAX_HIDDEN_KEYS + 1)
+    expect(merged.at(-1)).toBe(`gone${MAX_HIDDEN_KEYS - 1}`)
+  })
+
+  it("puts a renamed block in its old key's place, only while no block draws that key", () => {
+    const aliases = new Map([['row0', 'r:Bow']])
+    const result = renameInOrder([block('r:BowX', 'row0')], ['u', 'r:Bow'], aliases)
+    expect(result).toEqual({
+      order: ['u', 'r:BowX'],
+      aliases: new Map([['row0', 'r:Bow']]),
+      renamed: true,
+    })
+    // The old key drawn by another block is that block's.
+    const taken = renameInOrder(
+      [block('r:BowX', 'row0'), block('r:Bow', 'row1')],
+      ['r:Bow'],
+      aliases
+    )
+    expect(taken.renamed).toBe(false)
+    expect(taken.order).toEqual(['r:Bow'])
   })
 })

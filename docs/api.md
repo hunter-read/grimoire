@@ -2917,8 +2917,13 @@ its blocks, and one that does not lends none. The order is kept in `field`, a
 `text` or `textarea` field, as block keys one per line: a `<g-order-item>` by
 its `key`, a list row by `<list>:<first column's value>`, a catalog row by
 `<list>:ref:<id>`, and a second block with the same key as `<key>#2`. A block
-the stored order does not know yet comes first; a stored key whose block is
-gone is dropped the next time the order is written. Each block gets a drag
+the stored order does not know yet comes first. A row whose first column is
+typed in keeps its place: its new key takes the old one's place in the order,
+which is written straight away. A move writes the blocks drawn in their new
+order and keeps the stored keys of blocks not drawn now - behind a `<g-if>`
+that does not hold, say - each after the key it followed, so the block is back
+in its place when it shows again. At most 50 such keys are kept (the first
+listed), so keys of rows deleted long ago do not pile up. Each block gets a drag
 handle (mouse, pen or touch, or the arrow keys once it has focus); a read-only
 sheet shows the order without handles. The blocks are drawn as `.gc-order >
 .gc-order-block > .gc-order-handle + .gc-order-content` for the stylesheet to

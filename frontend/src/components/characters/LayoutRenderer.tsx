@@ -16,7 +16,7 @@ import type { PromptRequest } from './sheetPrompts'
 import { disabledBtn, ghostBtn } from './characterStyles'
 import { SheetFormulaContext } from './sheetFormulaContext'
 import OrderedBlocks from './OrderedBlocks'
-import { sortBlocks, withUniqueKeys } from './sheetOrder'
+import { withUniqueKeys } from './sheetOrder'
 import type { OrderBlock } from './sheetOrder'
 import TextMarkdown from '../TextMarkdown'
 
@@ -685,14 +685,14 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       const field = fields[attrs.field]
       if (!field) return <Fragment key={key}>{renderChildren(node.children, ctx)}</Fragment>
       const stored = fieldState(attrs.field, field, data, context).value
-      const blocks = sortBlocks(withUniqueKeys(orderBlocks(node.children, ctx)), stored)
       const editable = !readOnly && Boolean(onChange)
       return (
         <OrderedBlocks
           key={key}
           className={attrs.class}
-          blocks={blocks}
-          onMove={editable ? (keys) => onChange?.(attrs.field, keys.join('\n')) : undefined}
+          blocks={withUniqueKeys(orderBlocks(node.children, ctx))}
+          stored={stored}
+          onWrite={editable ? (text) => onChange?.(attrs.field, text) : undefined}
         />
       )
     }
@@ -709,6 +709,8 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
 // One row of a <g-repeat>: its block key in a <g-order>, and what it is drawn with.
 interface RepeatRow {
   key: string
+  index: number
+  count: number
   ctx: RenderContext
 }
 
@@ -747,6 +749,8 @@ function repeatRows(node: LayoutNode, ctx: RenderContext): RepeatRow[] | null {
     }
     return {
       key: rowBlockKey(listName, row, firstColumn),
+      index,
+      count: rows.length,
       ctx: {
         ...ctx,
         key: `${ctx.key}-${index}`,
@@ -780,9 +784,17 @@ function orderBlocks(children: LayoutNode[] | undefined, ctx: RenderContext): Or
   const blocks: OrderBlock[] = []
   ;(children || []).forEach((child, index) => {
     const childCtx = { ...ctx, key: `${ctx.key}-${index}` }
+    // A block is drawn by where it sits in the layout (and a row by its index),
+    // never by its order key, which typing in a row's first column changes.
+    const place = childCtx.key
     if (child?.tag === 'g-repeat') {
       for (const row of repeatRows(child, childCtx) || []) {
-        blocks.push({ key: row.key, content: renderChildren(child.children, row.ctx) })
+        blocks.push({
+          key: row.key,
+          id: `${place}:${row.index}`,
+          identity: `${place}:${row.count}:${row.index}`,
+          content: renderChildren(child.children, row.ctx),
+        })
       }
     } else if (child?.tag === 'g-if') {
       if (evaluate(child.attrs?.test, ctx.context)) {
@@ -791,10 +803,17 @@ function orderBlocks(children: LayoutNode[] | undefined, ctx: RenderContext): Or
     } else if (child?.tag === 'g-order-item') {
       blocks.push({
         key: foldKey(child.attrs?.key),
+        id: place,
+        identity: place,
         content: renderChildren(child.children, childCtx),
       })
     } else if (child) {
-      blocks.push({ key: `#node:${index}`, content: renderNode(child, childCtx) })
+      blocks.push({
+        key: `#node:${index}`,
+        id: place,
+        identity: place,
+        content: renderNode(child, childCtx),
+      })
     }
   })
   return blocks

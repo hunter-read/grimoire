@@ -215,7 +215,9 @@ as before.
 Some sheets let you put a list in your own order - your attacks, say, with
 your favourite weapon first. Drag a row by the handle beside it, or focus the
 handle and use the arrow keys. Something new, such as a weapon you just added,
-starts at the top.
+starts at the top. Renaming a row keeps it where it is, and something the sheet
+is not showing for now, such as an attack you only get at a higher level, is
+back in its place when it shows again.
 
 ### You can set any value
 
