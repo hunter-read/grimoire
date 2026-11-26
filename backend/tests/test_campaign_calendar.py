@@ -840,3 +840,71 @@ class TestCalendarTokenAtRest:
         r = client.delete("/api/campaigns/calendar/subscription", headers=gm_headers)
         assert r.status_code == 200, r.text
         assert self._row(gm_id) == (None, None)
+
+
+class TestGuestFeed:
+    """A guest's feed lasts only as long as guest access and their invite."""
+
+    @staticmethod
+    def _set_guest_access(client, admin_headers, enabled):
+        r = client.patch(
+            "/api/settings", json={"guest_access_enabled": enabled}, headers=admin_headers
+        )
+        assert r.status_code == 200, r.text
+
+    @pytest.fixture()
+    def guest_feed(self, client, gm_headers, admin_headers, scheduled_campaign):
+        self._set_guest_access(client, admin_headers, True)
+        created = client.post(
+            f"/api/campaigns/{scheduled_campaign['id']}/guests",
+            json={"nickname": "Feed guest"},
+            headers=gm_headers,
+        )
+        assert created.status_code == 201, created.text
+        login = client.post("/api/auth/guest-login", json={"code": created.json()["guest_code"]})
+        assert login.status_code == 200, login.text
+        client.cookies.clear()
+        headers = {"Authorization": f"Bearer {login.json()['token']}"}
+        token = token_of(client, headers)
+        return {
+            "token": token,
+            "campaign_id": scheduled_campaign["id"],
+            "guest_id": created.json()["user_id"],
+        }
+
+    def _urls(self, feed):
+        token, campaign_id = feed["token"], feed["campaign_id"]
+        return (
+            f"/api/campaigns/calendar/{token}/all.ics",
+            f"/api/campaigns/calendar/{token}/{campaign_id}.ics",
+        )
+
+    def test_a_guest_feed_publishes_while_access_is_on(self, client, guest_feed):
+        for url in self._urls(guest_feed):
+            r = client.get(url)
+            assert r.status_code == 200, (url, r.text)
+            assert "BEGIN:VEVENT" in r.text
+
+    def test_turning_guest_access_off_stops_the_feed(self, client, admin_headers, guest_feed):
+        self._set_guest_access(client, admin_headers, False)
+        for url in self._urls(guest_feed):
+            assert client.get(url).status_code == 404, url
+        self._set_guest_access(client, admin_headers, True)
+        for url in self._urls(guest_feed):
+            assert client.get(url).status_code == 200, url
+
+    def test_removing_the_guest_stops_the_feed(self, client, gm_headers, guest_feed):
+        r = client.delete(
+            f"/api/campaigns/{guest_feed['campaign_id']}/members/{guest_feed['guest_id']}",
+            headers=gm_headers,
+        )
+        assert r.status_code in (200, 204), r.text
+        for url in self._urls(guest_feed):
+            assert client.get(url).status_code == 404, url
+
+    def test_a_regular_member_is_unaffected(
+        self, client, gm_headers, admin_headers, scheduled_campaign
+    ):
+        token = token_of(client, gm_headers)
+        self._set_guest_access(client, admin_headers, False)
+        assert client.get(f"/api/campaigns/calendar/{token}/all.ics").status_code == 200

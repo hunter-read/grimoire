@@ -2278,7 +2278,8 @@ export interface paths {
          *
          *     The resource, its category, visibility and shares stay as they were; only
          *     the picture and its recipe change. Bound by the same upload limits as a new
-         *     campaign image, the campaign's total counting only what the new picture adds.
+         *     campaign image, the campaign's total counting only what the new picture and
+         *     its source art add.
          */
         put: operations["update_token_file_api_campaigns__campaign_id__files__file_id__token_put"];
         post?: never;
@@ -2729,6 +2730,9 @@ export interface paths {
          * @description Set a member's token. The token editor also sends its ``recipe`` (and the
          *     ``source`` art, for art from the device) so the token can be reopened; see
          *     ``services/campaigns/token_recipes``. An upload without one clears it.
+         *
+         *     The kept source art is a campaign upload, bound by the admin's limits
+         *     (admins exempt); the token itself is not.
          */
         post: operations["upload_member_token_api_campaigns__campaign_id__members__member_id__token_post"];
         /** Remove a member's character token */
@@ -2769,7 +2773,8 @@ export interface paths {
         /**
          * Upload the campaign owner's token
          * @description Set the owner's token, with the token editor's ``recipe`` when it sends
-         *     one (see ``services/campaigns/token_recipes``).
+         *     one (see ``services/campaigns/token_recipes``). The source art it keeps is
+         *     bound by the campaign upload limits (admins exempt).
          */
         post: operations["upload_owner_token_api_campaigns__campaign_id__owner_token_post"];
         /** Remove the campaign owner's token */

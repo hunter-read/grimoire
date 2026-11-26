@@ -19,7 +19,6 @@ single unpaged document it always was.
 import datetime
 import os
 from typing import Optional
-from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
@@ -27,6 +26,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Query, Session
 
 from .._user_files import serve_user_file
+from ._xml import escape, quoteattr
 from ._paging import (
     OPENSEARCH_NS,
     Paging,
