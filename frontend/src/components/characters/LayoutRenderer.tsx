@@ -14,6 +14,7 @@ import { actionPrompts, findAction, planAction } from './sheetActions'
 import { findPrompt, PromptLauncher } from './sheetPrompts'
 import type { PromptRequest } from './sheetPrompts'
 import { disabledBtn, ghostBtn } from './characterStyles'
+import { SheetFormulaContext } from './sheetFormulaContext'
 
 /**
  * Renders a schema's `layout_ast` — the parsed, allowlisted form of its
@@ -276,24 +277,26 @@ export default function LayoutRenderer({
   if (!Array.isArray(ast)) return null
 
   return (
-    <div className={scope}>
-      {ast.map((node, index) =>
-        renderNode(node, {
-          key: `n${index}`,
-          schemaDocument,
-          data,
-          context,
-          onChange,
-          onReset,
-          onOverride,
-          overrides: computedOverrides(schemaDocument, data),
-          readOnly,
-          entries,
-          schemaId,
-          openPrompt,
-        })
-      )}
-    </div>
+    <SheetFormulaContext.Provider value={context}>
+      <div className={scope}>
+        {ast.map((node, index) =>
+          renderNode(node, {
+            key: `n${index}`,
+            schemaDocument,
+            data,
+            context,
+            onChange,
+            onReset,
+            onOverride,
+            overrides: computedOverrides(schemaDocument, data),
+            readOnly,
+            entries,
+            schemaId,
+            openPrompt,
+          })
+        )}
+      </div>
+    </SheetFormulaContext.Provider>
   )
 }
 

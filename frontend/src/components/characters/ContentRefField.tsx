@@ -269,6 +269,7 @@ export default function ContentRefField({
           contentType={definition.content_type!}
           typeDefinition={typeDefinition}
           chosen={ref && !inline ? [ref] : []}
+          entryNote={definition.entry_note}
           onChoose={(picked, chosenEntry) => {
             setEditingInline(false)
             onChange?.(picked, { entry: chosenEntry })

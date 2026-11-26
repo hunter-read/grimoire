@@ -3051,6 +3051,16 @@ kit); `content_list` takes many (spells known, feats). Both name the
 equipped, uses remaining. They are ordinary field definitions, validated and
 coerced like any other.
 
+`entry_note` is a formula shown beside each entry's name in the catalog
+browser, for the property a player picks by that the name doesn't show - a
+weapon's mastery, a spell's school. It reads the candidate as `entry` (its
+properties, `name` and `_ref`) beside the character's own fields and computed
+values, the names a prompt's `entry` step `filter` sees:
+`"entry_note": "entry.mastery"`. Text or a number is shown; an empty or failed
+result shows nothing. A per-entry field that picks from the catalog may carry
+one too. It is checked at install like any formula, and refused on a field that
+does not pick from the catalog.
+
 **Stored shape.** A reference, never a copy:
 
 ```json

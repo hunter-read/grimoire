@@ -166,6 +166,11 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
         _validate_options(what, {**column, "type": column_type})
     if column_type == "number":
         _validate_bounds(what, column)
+    if "entry_note" in column:
+        raise SchemaError(
+            f"{what} has an entry_note, but only a content_ref or content_list "
+            "picks from the catalog"
+        )
     # Shown to the player but not typed into: a record the sheet writes itself
     # (an action's `append`), which an edit by hand would put out of step. A
     # view setting only - the server still takes what is written there.
@@ -244,6 +249,19 @@ def _validate_definition(
         _validate_options(what, definition)
     if field_type == "number":
         _validate_bounds(what, definition)
+
+    # A note shown beside each entry in the catalog browser - a weapon's
+    # mastery, a spell's school. Its names are checked in `validate_schema`,
+    # which knows the sheet's; here only that there is a catalog to note.
+    if "entry_note" in definition:
+        if field_type not in _CONTENT_TYPES_FIELDS:
+            raise SchemaError(
+                f"{what} has an entry_note, but only a content_ref or content_list "
+                "picks from the catalog"
+            )
+        note = definition["entry_note"]
+        if not isinstance(note, str) or not note.strip():
+            raise SchemaError(f"{what} entry_note must be a non-empty expression")
 
     if field_type in _CONTENT_TYPES_FIELDS:
         content_type = definition.get("content_type")
@@ -1284,6 +1302,26 @@ def _check_content_pickers(fields: dict, content_types: dict, *, per_entry: bool
                 )
 
 
+def _check_entry_notes(fields: dict, known: set[str], images: frozenset) -> None:
+    """Check each catalog picker's `entry_note` formula, its own and its per-entry ones.
+
+    The note reads the candidate as `entry` beside the character's own names -
+    what a prompt's `entry` step `filter` reads.
+    """
+    names = known | {PROMPT_ENTRY_NAME}
+    for field_name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        pickers = [(f"Field {field_name!r}", definition)] + [
+            (f"Field {field_name!r} per-entry field {per_name!r}", per_definition)
+            for per_name, per_definition in (definition.get("per_entry_fields") or {}).items()
+            if isinstance(per_definition, dict)
+        ]
+        for what, picker in pickers:
+            if "entry_note" in picker:
+                _validate_condition(picker["entry_note"], f"{what} entry_note", names, images)
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = False) -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -1381,6 +1419,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = Fa
         _validate_content_type(type_name, type_definition)
 
     _check_content_pickers(fields, content_types, per_entry=not stored)
+    _check_entry_notes(fields, known, images)
 
     prompts = document.get("prompts")
     prompt_names = set(prompts) if isinstance(prompts, dict) else set()

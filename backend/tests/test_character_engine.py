@@ -1258,6 +1258,87 @@ class TestConcat:
         assert svc.evaluate("'2' + 3", {}) == 5
 
 
+class TestEntryNote:
+    """A note beside each entry in the browser, worked out from the entry and the sheet."""
+
+    def test_a_content_list_takes_a_note_reading_the_entry_and_the_sheet(self):
+        document = _pick_schema(
+            feats={
+                "type": "content_list",
+                "content_type": "feat",
+                "entry_note": "concat(entry.name, ' / ', con_mod)",
+            }
+        )
+        assert document["fields"]["feats"]["entry_note"]
+
+    def test_a_content_ref_takes_one(self):
+        assert _pick_schema(
+            species={"type": "content_ref", "content_type": "species", "entry_note": "entry.speed"}
+        )
+
+    def test_a_per_entry_picker_takes_one(self):
+        per = {"type": "content_ref", "content_type": "species", "entry_note": "entry.speed"}
+        assert _pick_schema(
+            feats={
+                "type": "content_list",
+                "content_type": "feat",
+                "per_entry_fields": {"origin": per},
+            }
+        )
+
+    def test_a_note_naming_something_unknown_is_refused(self):
+        with pytest.raises(svc.SchemaError, match="entry_note references unknown name: nope"):
+            _pick_schema(feats={"type": "content_list", "content_type": "feat", "entry_note": "nope"})
+
+    def test_a_per_entry_note_naming_something_unknown_is_refused(self):
+        per = {"type": "content_ref", "content_type": "species", "entry_note": "nope.x"}
+        with pytest.raises(svc.SchemaError, match="per-entry field 'origin' entry_note"):
+            _pick_schema(
+                feats={
+                    "type": "content_list",
+                    "content_type": "feat",
+                    "per_entry_fields": {"origin": per},
+                }
+            )
+
+    def test_a_note_that_does_not_parse_is_refused(self):
+        with pytest.raises(svc.SchemaError, match="not a valid expression"):
+            _pick_schema(
+                feats={"type": "content_list", "content_type": "feat", "entry_note": "entry.("}
+            )
+
+    @pytest.mark.parametrize("note", ["", "  ", 3])
+    def test_an_empty_note_is_refused(self, note):
+        with pytest.raises(svc.SchemaError, match="entry_note must be a non-empty expression"):
+            _pick_schema(feats={"type": "content_list", "content_type": "feat", "entry_note": note})
+
+    @pytest.mark.parametrize(
+        "definition",
+        [
+            {"type": "text", "entry_note": "entry.name"},
+            {"type": "multiselect", "options": ["a"], "entry_note": "entry.name"},
+        ],
+    )
+    def test_a_field_that_does_not_pick_from_the_catalog_is_refused(self, definition):
+        with pytest.raises(svc.SchemaError, match="only a content_ref or content_list"):
+            _pick_schema(notes=definition)
+
+    def test_a_per_entry_field_that_does_not_pick_is_refused(self):
+        with pytest.raises(svc.SchemaError, match="only a content_ref or content_list"):
+            _pick_schema(
+                feats={
+                    "type": "content_list",
+                    "content_type": "feat",
+                    "per_entry_fields": {"note": {"type": "text", "entry_note": "entry.name"}},
+                }
+            )
+
+    def test_a_list_column_is_refused(self):
+        column = {"key": "name", "type": "text", "entry_note": "entry.name"}
+        with pytest.raises(svc.SchemaError, match="only a content_ref or content_list"):
+            _pick_schema(kit={"type": "list", "columns": [column]})
+
+
 class TestOnPickValidation:
     """A typo in a rule would otherwise grant nothing with no sign of why."""
 

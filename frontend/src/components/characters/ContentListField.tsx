@@ -332,6 +332,7 @@ export default function ContentListField({
           typeDefinition={typeDefinition}
           multiple
           chosen={rows}
+          entryNote={definition.entry_note}
           onChoose={add}
           onClose={() => setBrowsing(false)}
         />
