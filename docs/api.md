@@ -2903,7 +2903,11 @@ and returned as derived `layout_ast` / `styles_css`:
 Directives are `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
 `g-if`, and `g-repeat`. Inside a `g-repeat` over a list field, a `g-field`
 naming one of that list's columns addresses **that row's** cell, so a custom
-layout can draw an editable table of its own. Everything else is a closed allowlist of structural
+layout can draw an editable table of its own. `<g-value name="notes" markdown />`
+draws a text value as Markdown - lists, emphasis, tables and links - with the
+same renderer as the GM screen's reference panel: raw HTML is never markup, an
+image shows as its description, and a link opens in a new tab. Only text is
+drawn: an empty value, or one that is not text, draws nothing. Everything else is a closed allowlist of structural
 tags. **The template never becomes markup**: it is parsed to an AST server-side
 and rendered as React elements, so no schema string ever reaches `innerHTML`.
 Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and

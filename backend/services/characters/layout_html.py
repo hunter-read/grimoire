@@ -102,7 +102,8 @@ _TAG_ATTRS: dict[str, frozenset] = {
     ),
     "g-computed": frozenset({"name", "label", "format", "variant", "visible_if"}),
     "g-label": frozenset({"name", "text"}),
-    "g-value": frozenset({"name", "format"}),
+    # `markdown` (boolean) draws a text value as Markdown, text only.
+    "g-value": frozenset({"name", "format", "markdown"}),
     "g-repeat": frozenset({"over", "as"}),
     "g-if": frozenset({"test"}),
     "g-section": frozenset({"title", "name", "visible_if"}),

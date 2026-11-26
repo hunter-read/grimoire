@@ -313,6 +313,65 @@ describe('LayoutRenderer — Phase 2', () => {
     expect(screen.getByDisplayValue('2')).toBeInTheDocument()
   })
 
+  it("draws a row's text as Markdown with g-value markdown, text only", () => {
+    const doc = {
+      ...DOC,
+      fields: {
+        ...DOC.fields,
+        equipment: {
+          type: 'list',
+          columns: [
+            { key: 'name', type: 'text', label: 'Name' },
+            { key: 'notes', type: 'textarea', label: 'Notes' },
+          ],
+        },
+      },
+    }
+    const { container } = render(
+      <LayoutRenderer
+        ast={[
+          {
+            tag: 'g-repeat',
+            attrs: { over: 'equipment' },
+            children: [{ tag: 'g-value', attrs: { name: 'notes', markdown: '' }, children: [] }],
+          },
+        ]}
+        document={doc}
+        data={{
+          equipment: [
+            { name: 'Sword', notes: '**Sharp**, see [the rules](https://example.com)' },
+            { name: 'Rope', notes: '<img src=x onerror=alert(1)><script>bad()</script>plain' },
+            { name: 'Pole', notes: '' },
+          ],
+        }}
+        computed={{}}
+        onChange={vi.fn()}
+        onOverride={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Sharp').tagName).toBe('STRONG')
+    const link = screen.getByRole('link', { name: 'the rules' })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    // Raw HTML is never markup.
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('script')).toBeNull()
+    // An empty value draws nothing: two boxes for three rows, and no dash.
+    expect(container.querySelectorAll('.gc-markdown')).toHaveLength(2)
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
+    // A display only: no button to set it.
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('draws nothing for a markdown value that is not text', () => {
+    const { container } = renderDoc([
+      { tag: 'g-value', attrs: { name: 'spell_dc', markdown: '' }, children: [] },
+      { tag: 'g-value', attrs: { name: 'equipment', markdown: '' }, children: [] },
+    ])
+    expect(container.querySelector('.gc-markdown')).toBeNull()
+    expect(container.textContent).toBe('')
+  })
+
   it('renders nothing for a repeat over a field that is not a list', () => {
     const { container } = renderDoc([
       { tag: 'g-repeat', attrs: { over: 'spell_dc' }, children: [] },

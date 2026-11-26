@@ -15,6 +15,7 @@ import { findPrompt, PromptLauncher } from './sheetPrompts'
 import type { PromptRequest } from './sheetPrompts'
 import { disabledBtn, ghostBtn } from './characterStyles'
 import { SheetFormulaContext } from './sheetFormulaContext'
+import TextMarkdown from '../TextMarkdown'
 
 /**
  * Renders a schema's `layout_ast` — the parsed, allowlisted form of its
@@ -436,6 +437,14 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
 
     case 'g-value': {
       const value = context?.[name]
+      // `markdown` draws text as Markdown - a description kept in a list row -
+      // through the same text-only renderer as the GM screen's rules. Only text
+      // is drawn, and it is a display: nothing to override or edit in place.
+      if (attrs.markdown !== undefined) {
+        return typeof value === 'string' && value.trim() ? (
+          <TextMarkdown key={key} className="gc-markdown" text={value} />
+        ) : null
+      }
       const editable = !readOnly && attrs.readonly === undefined
       const computedField = computedDefinition(schemaDocument, name)
       // A computed value is overridden; a plain text or number field is simply
