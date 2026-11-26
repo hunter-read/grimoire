@@ -431,12 +431,17 @@ MAX_PROMPT_LABEL = 200
 #: The most options a `choose`/`distribute`/`select` step may list by hand.
 MAX_PROMPT_OPTIONS = 100
 #: What a prompt's formulas read besides the sheet: the answers given so far,
-#: the entry whose pick opened the prompt, and - inside an `entry` step's
-#: `filter` - the catalog entry being considered.
+#: the entry whose pick opened the prompt, and - inside an `entry` or
+#: `entries` step's `filter`, and a `pick`'s `values` - the catalog entry
+#: being considered or picked.
 PROMPT_ANSWER_NAME = "answer"
 PROMPT_ROW_NAME = "row"
 PROMPT_ENTRY_NAME = "entry"
-_PROMPT_STEP_TYPES: frozenset = frozenset({"choose", "distribute", "entry", "number", "select"})
+_PROMPT_STEP_TYPES: frozenset = frozenset(
+    {"choose", "distribute", "entry", "entries", "number", "select"}
+)
+#: Steps that pick from the catalog.
+_PROMPT_CATALOG_STEPS: frozenset = frozenset({"entry", "entries"})
 _PATTERN_RE = re.compile(r"^\d{1,2}(,\d{1,2}){0,9}$")
 
 
@@ -482,14 +487,16 @@ def _validate_write_steps(
     - `{"pick": content field, "entry": formula, "values": {field: formula}}`
       put the entry a formula names (an `entry` step's answer) in a content_ref
       or a new row of a content_list, with its per-entry fields, and follow
-      its `on_pick` as a pick by hand;
+      its `on_pick` as a pick by hand. A list of entries (an `entries` step's
+      answer) is picked one by one, each `values` formula reading the entry
+      being picked as `entry`; into a content_ref, its first entry;
     - `{"unpick": content_list, "entry": formula}` take out of a content_list
-      the row of the entry a formula names (an `entry` step's answer) - an
-      option given up for another. A reference is found by its id (the copy
-      from the answer's source first), a freeform row by its name, in any
-      case. The row is found when its turn comes, in the list as the picks
-      before it left it, and is taken out as the sheet's own write, so the
-      list's `on_change` does not follow. Its key leaves every `_granted`
+      the row of the entry a formula names (an `entry` step's answer, or each
+      of an `entries` step's) - an option given up for another. A reference
+      is found by its id (the copy from the answer's source first), a
+      freeform row by its name, in any case. The row is found when its turn
+      comes, in the list as the picks before it left it, and is taken out as
+      the sheet's own write, so the list's `on_change` does not follow. Its key leaves every `_granted`
       record too, unless a row still on the list answers to it, so a pick
       changed later does not take back the same entry added again by hand;
     - `{"grant": field, "from": formula, "names": formula, "carry": {key:
@@ -601,8 +608,12 @@ def _validate_write_steps(
                 )
             _validate_formula(step.get("entry"), f"{where} 'entry'", known, images)
             if "values" in step:
+                # Each value reads the entry being picked as `entry`, so a list
+                # of entries picked at once can carry per-entry values.
                 keys = set((fields[target] or {}).get("per_entry_fields") or {})
-                _cells(step["values"], keys, target, f"{where} 'values'", known)
+                _cells(
+                    step["values"], keys, target, f"{where} 'values'", known | {PROMPT_ENTRY_NAME}
+                )
 
 
 def _refuse_grants_reading_picks(prompts: dict) -> None:
@@ -772,6 +783,130 @@ def _validate_start_prompt(
     _validate_condition(start.get("when"), "'start_prompt' when", known, images)
 
 
+def _validate_prompt_count(count: Any, where: str, base: set[str], images: frozenset) -> None:
+    """A `choose` or `entries` step's `count`: 1-20, or a formula (which may give 0)."""
+    if isinstance(count, str):
+        _validate_formula(count, f"{where} 'count'", base, images)
+    elif isinstance(count, bool) or not isinstance(count, int) or not (
+        1 <= count <= MAX_CHOOSE_COUNT
+    ):
+        raise SchemaError(f"{where} 'count' must be 1-{MAX_CHOOSE_COUNT} or a formula")
+
+
+def _validate_prompt_step(
+    step: dict,
+    kind: str,
+    where: str,
+    fields: dict,
+    base: set[str],
+    images: frozenset,
+    content_types: dict,
+) -> None:
+    """Check one prompt step's own properties, by its `type`."""
+    if kind == "choose":
+        target = step.get("target")
+        if target is not None and (
+            not isinstance(target, str)
+            or target not in fields
+            or (fields[target] or {}).get("type") != "multiselect"
+        ):
+            raise SchemaError(f"{where} 'target' must name a multiselect field")
+        if "options" in step:
+            _validate_prompt_options(step["options"], where, base, images)
+        elif target is None:
+            raise SchemaError(f"{where} needs 'options' or a multiselect 'target'")
+        _validate_prompt_count(step.get("count", 1), where, base, images)
+    elif kind == "distribute":
+        _validate_prompt_options(step.get("options"), where, base, images)
+        patterns = step.get("patterns")
+        if (
+            not isinstance(patterns, list)
+            or not patterns
+            or len(patterns) > 10
+            or not all(isinstance(p, str) and _PATTERN_RE.match(p) for p in patterns)
+        ):
+            raise SchemaError(
+                f"{where} needs 'patterns': the amounts the points may be spread in, "
+                'such as ["2", "1,1"]'
+            )
+    elif kind in _PROMPT_CATALOG_STEPS:
+        content_type = step.get("content_type")
+        if not isinstance(content_type, str) or content_type not in content_types:
+            raise SchemaError(f"{where} picks from unknown content type {content_type!r}")
+        filters = step.get("filters")
+        if filters is not None and (
+            not isinstance(filters, dict)
+            or not all(
+                isinstance(value, (str, int)) and not isinstance(value, bool)
+                for value in filters.values()
+            )
+        ):
+            raise SchemaError(f"{where} 'filters' must map properties to fixed values")
+        if "filter" in step:
+            _validate_formula(
+                step["filter"], f"{where} 'filter'", base | {PROMPT_ENTRY_NAME}, images
+            )
+        if kind == "entries":
+            _validate_prompt_count(step.get("count", 1), where, base, images)
+    elif kind == "number":
+        for formula in ("default", "average"):
+            if formula in step:
+                _validate_formula(step[formula], f"{where} {formula!r}", base, images)
+        for bound in ("min", "max"):
+            value = step.get(bound)
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+            ):
+                raise SchemaError(f"{where} {bound!r} must be a number")
+    else:
+        _validate_prompt_options(step.get("options"), where, base, images)
+
+
+def _validate_prompt_pages(name: str, prompt: dict, prompt_names: set[str]) -> None:
+    """Check a prompt's `paged`, its `pages` and each step's `page`.
+
+    A paged prompt shows one page at a time. A step's `page` names the page it
+    is on; a step without one is alone on its own. `pages` describes them by
+    name: a `label`, and `later`, another of the sheet's prompts - kept among
+    the choices still to make when the player skips that page.
+    """
+    what = f"Prompt {name!r}"
+    paged = prompt.get("paged", False)
+    if not isinstance(paged, bool):
+        raise SchemaError(f"{what} 'paged' must be true or false")
+    steps = [step for step in prompt.get("steps") or [] if isinstance(step, dict)]
+    used: set[str] = set()
+    for step in steps:
+        if "page" not in step:
+            continue
+        page = step["page"]
+        where = f"{what} step {step.get('key')!r}"
+        if not paged:
+            raise SchemaError(f"{where} has a 'page', which only a paged prompt shows")
+        if not isinstance(page, str) or not _NAME_RE.match(page):
+            raise SchemaError(f"{where} 'page' must be a valid identifier")
+        used.add(page)
+    if "pages" not in prompt:
+        return
+    if not paged:
+        raise SchemaError(f"{what} has 'pages', which only a paged prompt shows")
+    pages = _require_dict(prompt["pages"], f"{what} 'pages'")
+    for page_name, page in pages.items():
+        where = f"{what} page {page_name!r}"
+        if not isinstance(page_name, str) or not _NAME_RE.match(page_name):
+            raise SchemaError(f"{where} needs a name that is a valid identifier")
+        if page_name not in used:
+            raise SchemaError(f"{where} is not the 'page' of any of its steps")
+        page = _require_dict(page, where)
+        _validate_label(page.get("label"), where, MAX_PROMPT_LABEL, required=False)
+        if "later" in page:
+            later = page["later"]
+            if not isinstance(later, str) or later not in prompt_names:
+                raise SchemaError(f"{where} 'later' names unknown prompt {later!r}")
+            if later == name:
+                raise SchemaError(f"{where} 'later' must name another prompt, not its own")
+
+
 def _validate_prompts(
     prompts: Any, fields: dict, known: set[str], images: frozenset, content_types: dict
 ) -> None:
@@ -793,11 +928,13 @@ def _validate_prompts(
       allowed, each a comma-separated list of amounts ("2", "1,1").
     - `entry`: one catalog entry of `content_type`, narrowed by fixed
       `filters` and a `filter` formula reading the candidate as `entry`.
+    - `entries`: `count` catalog entries, chosen as `entry` chooses one.
     - `number`: a number, starting from `default`, with a button for `average`.
     - `select`: one of `options`.
 
     A step's `label_formula`, when it works out to some text, is shown in
-    place of its `label` - the kind of option a class replaces.
+    place of its `label` - the kind of option a class replaces. A `paged`
+    prompt shows its steps a page at a time (see `_validate_prompt_pages`).
     """
     prompts = _require_dict(prompts, "'prompts'")
     if len(prompts) > MAX_PROMPTS:
@@ -836,68 +973,8 @@ def _validate_prompts(
             if "label_formula" in step:
                 _validate_formula(step["label_formula"], f"{where} 'label_formula'", base, images)
             _validate_condition(step.get("visible_if"), f"{where} visible_if", base, images)
-
-            if kind == "choose":
-                target = step.get("target")
-                if target is not None and (
-                    not isinstance(target, str)
-                    or target not in fields
-                    or (fields[target] or {}).get("type") != "multiselect"
-                ):
-                    raise SchemaError(f"{where} 'target' must name a multiselect field")
-                if "options" in step:
-                    _validate_prompt_options(step["options"], where, base, images)
-                elif target is None:
-                    raise SchemaError(f"{where} needs 'options' or a multiselect 'target'")
-                count = step.get("count", 1)
-                if isinstance(count, str):
-                    _validate_formula(count, f"{where} 'count'", base, images)
-                elif isinstance(count, bool) or not isinstance(count, int) or not (
-                    1 <= count <= MAX_CHOOSE_COUNT
-                ):
-                    raise SchemaError(f"{where} 'count' must be 1-{MAX_CHOOSE_COUNT} or a formula")
-            elif kind == "distribute":
-                _validate_prompt_options(step.get("options"), where, base, images)
-                patterns = step.get("patterns")
-                if (
-                    not isinstance(patterns, list)
-                    or not patterns
-                    or len(patterns) > 10
-                    or not all(isinstance(p, str) and _PATTERN_RE.match(p) for p in patterns)
-                ):
-                    raise SchemaError(
-                        f"{where} needs 'patterns': the amounts the points may be spread in, "
-                        'such as ["2", "1,1"]'
-                    )
-            elif kind == "entry":
-                content_type = step.get("content_type")
-                if not isinstance(content_type, str) or content_type not in content_types:
-                    raise SchemaError(f"{where} picks from unknown content type {content_type!r}")
-                filters = step.get("filters")
-                if filters is not None and (
-                    not isinstance(filters, dict)
-                    or not all(
-                        isinstance(value, (str, int)) and not isinstance(value, bool)
-                        for value in filters.values()
-                    )
-                ):
-                    raise SchemaError(f"{where} 'filters' must map properties to fixed values")
-                if "filter" in step:
-                    _validate_formula(
-                        step["filter"], f"{where} 'filter'", base | {PROMPT_ENTRY_NAME}, images
-                    )
-            elif kind == "number":
-                for formula in ("default", "average"):
-                    if formula in step:
-                        _validate_formula(step[formula], f"{where} {formula!r}", base, images)
-                for bound in ("min", "max"):
-                    value = step.get(bound)
-                    if value is not None and (
-                        isinstance(value, bool) or not isinstance(value, (int, float))
-                    ):
-                        raise SchemaError(f"{where} {bound!r} must be a number")
-            else:
-                _validate_prompt_options(step.get("options"), where, base, images)
+            _validate_prompt_step(step, kind, where, fields, base, images, content_types)
+        _validate_prompt_pages(name, prompt, names)
 
         _validate_write_steps(
             prompt.get("apply"),

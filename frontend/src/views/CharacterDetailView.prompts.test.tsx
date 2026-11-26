@@ -55,6 +55,12 @@ function StubSheet({
       <button onClick={() => open?.({ prompt: 'origin_up' })}>take an origin</button>
       <button onClick={() => open?.({ prompt: 'swap_feat' })}>swap a feat</button>
       <button onClick={() => open?.({ prompt: 'retrain' })}>retrain</button>
+      <button
+        onClick={() => onChange('klass', { _ref: 'fighter' }, { entry: { name: 'Fighter' } })}
+      >
+        pick fighter
+      </button>
+      <button onClick={() => open?.({ prompt: 'chain_first' })}>start a chain</button>
       <button onClick={() => onChange('features', [{ _inline: true, name: 'Hand' }])}>
         add a feature by hand
       </button>
@@ -102,6 +108,11 @@ const DOCUMENT = {
       on_change: [{ set: 'focus_on', to: "focused ? focus_on : ''" }, { prompt: 'focus' }],
     },
     focus_on: { type: 'text' },
+    klass: {
+      type: 'content_ref',
+      content_type: 'class',
+      on_pick: [{ prompt: 'class_up' }],
+    },
     gold: { type: 'number', on_change: [{ prompt: 'spend' }] },
     hp: {
       type: 'number',
@@ -109,6 +120,30 @@ const DOCUMENT = {
     },
   },
   prompts: {
+    class_up: {
+      label: 'Class level',
+      paged: true,
+      pages: { feat: { label: 'Feat', later: 'feat_up' } },
+      steps: [
+        { key: 'sure', type: 'select', options: ['yes'] },
+        { key: 'feat', type: 'entry', content_type: 'feat', page: 'feat' },
+      ],
+      apply: [
+        { set: 'focus_on', to: "'levelled'" },
+        { pick: 'feats', entry: 'answer.feat' },
+      ],
+    },
+    chain_first: {
+      label: 'First',
+      steps: [{ key: 'n', type: 'select', options: ['Bless', 'Hex'] }],
+      apply: [{ set: 'focus_on', to: 'answer.n' }, { prompt: 'chain_second' }],
+    },
+    chain_second: {
+      label: 'Second',
+      paged: true,
+      steps: [{ key: 'm', type: 'select', options: ['Rope'] }],
+      apply: [{ set: 'gold', to: '7' }],
+    },
     spend: {
       label: 'Spend',
       steps: [{ key: 'on', type: 'select', options: ['Rope', 'Torch'] }],
@@ -565,5 +600,70 @@ describe('CharacterDetailView — prompts', () => {
     await waitFor(() => expect(lastSaved().data.focused).toBe(false))
     expect(lastSaved().data._pending_prompts).toBeUndefined()
     expect(screen.queryByText('Choices to make:')).not.toBeInTheDocument()
+  })
+
+  it("keeps a skipped page's later prompt among the choices, opened from the same pick", async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('pick fighter'))
+    await screen.findByRole('dialog', { name: 'Class level' })
+    await userEvent.click(screen.getByLabelText('yes'))
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByLabelText('Alert')
+    await userEvent.click(screen.getByRole('button', { name: 'Skip, choose later' }))
+
+    await waitFor(() =>
+      expect(lastSaved().data).toMatchObject({
+        focus_on: 'levelled',
+        _pending_prompts: [{ prompt: 'feat_up', source: 'klass', ref: 'fighter' }],
+      })
+    )
+    expect(lastSaved().data.feats).toBeUndefined()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'New feat' })).toBeInTheDocument()
+  })
+
+  it('takes back the prompt before when the player goes back past the first page', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('start a chain'))
+    await screen.findByRole('dialog', { name: 'First' })
+    await userEvent.click(screen.getByLabelText('Hex'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await screen.findByRole('dialog', { name: 'Second' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await screen.findByRole('dialog', { name: 'First' })
+    expect(screen.getByLabelText('Hex')).toBeChecked()
+    // What it wrote is taken back with it.
+    await waitFor(() => expect(lastSaved().unset).toEqual(['focus_on']))
+    expect(lastSaved().data.focus_on).toBeUndefined()
+
+    // Confirmed again, it goes on to the prompt after as before.
+    await userEvent.click(screen.getByLabelText('Bless'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await screen.findByRole('dialog', { name: 'Second' })
+    await userEvent.click(screen.getByLabelText('Rope'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data).toMatchObject({ focus_on: 'Bless', gold: 7 }))
+  })
+
+  it('offers no Back on the first page of a prompt nothing came before', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('pick fighter'))
+    await screen.findByRole('dialog', { name: 'Class level' })
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+  })
+
+  it('ends the chain when a prompt in it is put off', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('start a chain'))
+    await userEvent.click(await screen.findByLabelText('Hex'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await screen.findByRole('dialog', { name: 'Second' })
+    await userEvent.click(screen.getByRole('button', { name: 'Choose later' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    // A prompt opened afterwards starts a chain of its own.
+    await userEvent.click(screen.getByText('pick fighter'))
+    await screen.findByRole('dialog', { name: 'Class level' })
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
   })
 })

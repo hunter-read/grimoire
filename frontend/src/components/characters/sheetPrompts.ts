@@ -24,12 +24,7 @@ type Values = Record<string, unknown>
 
 export const PENDING_PROMPTS_KEY = '_pending_prompts'
 
-// The most catalog entries an `entry` step reads, in pages of the catalog's
-// largest size. A feat list is a few hundred; a filter narrows the rest.
-const ENTRY_PAGE_SIZE = 200
-const ENTRY_MAX_PAGES = 10
-
-export type PromptStepType = 'choose' | 'distribute' | 'entry' | 'number' | 'select'
+export type PromptStepType = 'choose' | 'distribute' | 'entry' | 'entries' | 'number' | 'select'
 
 export interface PromptStep {
   key: string
@@ -39,14 +34,18 @@ export interface PromptStep {
   // of `label` when it is not empty.
   label_formula?: string
   visible_if?: string
+  // In a paged prompt, the page the step is on; a step without one is alone
+  // on its own page.
+  page?: string
   // choose
   target?: string
+  // choose, entries
   count?: number | string
   // choose, distribute, select
   options?: string | (string | number | { value: string | number; label?: string })[]
   // distribute
   patterns?: string[]
-  // entry
+  // entry, entries
   content_type?: string
   filters?: Record<string, string | number>
   filter?: string
@@ -74,12 +73,23 @@ export interface PromptApplyStep extends Omit<ActionStep, 'values'> {
   values?: string | Record<string, string>
 }
 
+/** One page of a paged prompt, as `pages` describes it. */
+export interface PromptPageDefinition {
+  label?: string
+  // Another of the sheet's prompts, kept among the choices still to make when
+  // the player skips this page.
+  later?: string
+}
+
 export interface SheetPrompt {
   label: string
   steps: PromptStep[]
   apply: PromptApplyStep[]
   // Writes made when the prompt is put aside, in place of keeping it for later.
   on_skip?: ActionStep[]
+  // One page at a time, with Back and Next.
+  paged?: boolean
+  pages?: Record<string, PromptPageDefinition>
 }
 
 /** A prompt waiting to be shown: which one, and the pick that opened it. */
@@ -90,6 +100,11 @@ export type PromptRequest = {
   source?: string
   ref?: string
   row?: Values | null
+  // A prompt taken back to be answered again: the answers it was confirmed
+  // with and the pages skipped, opened on its last page. Never stored.
+  answers?: Answers
+  skipped?: string[]
+  atEnd?: boolean
 }
 
 /** An `entry` step's answer: the catalog entry, its id and its properties. */
@@ -302,13 +317,33 @@ export function chooseTarget(
   return Math.min(stepCount(step, context), free.length)
 }
 
-/** Whether a step has an answer the prompt can be confirmed with. */
+/** Whether an `entry` answer, or one of an `entries` answer, is a catalog entry. */
+export function isEntry(value: unknown): value is EntryAnswer {
+  return isObject(value) && typeof value._ref === 'string' && !!value._ref
+}
+
+/**
+ * How many an `entries` step really asks for: its `count`, or as many as the
+ * catalog offers when that is fewer (`available`, once it is known).
+ */
+export function entriesTarget(step: PromptStep, context: ExprContext, available?: number): number {
+  const count = stepCount(step, context)
+  return available === undefined ? count : Math.min(count, available)
+}
+
+/**
+ * Whether a step has an answer the prompt can be confirmed with.
+ *
+ * @param available  for an `entries` step, how many entries the catalog
+ *   offers it; until that is known it needs its whole `count`
+ */
 export function isAnswered(
   step: PromptStep,
   answer: unknown,
   context: ExprContext,
   document: PromptDocument | null | undefined,
-  data: Values | null | undefined
+  data: Values | null | undefined,
+  available?: number
 ): boolean {
   switch (step.type) {
     case 'choose': {
@@ -318,7 +353,13 @@ export function isAnswered(
     case 'distribute':
       return matchesPattern(answer, stepPatterns(step))
     case 'entry':
-      return isObject(answer) && typeof answer._ref === 'string' && !!answer._ref
+      return isEntry(answer)
+    case 'entries': {
+      const wanted = entriesTarget(step, context, available)
+      return (
+        wanted === 0 || (Array.isArray(answer) && answer.length === wanted && answer.every(isEntry))
+      )
+    }
     case 'number':
       return typeof answer === 'number' && Number.isFinite(answer)
     case 'select':
@@ -389,42 +430,6 @@ export function entryAnswer(entry: {
     _ref: entry.entry_id,
     _source: entry.source,
   }
-}
-
-/** Whether an entry passes an `entry` step's `filter`. One that fails to work out is left out. */
-export function passesFilter(step: PromptStep, entry: EntryAnswer, context: ExprContext): boolean {
-  if (!step.filter) return true
-  const value = evaluate<symbol>(step.filter, { ...context, entry }, FAILED)
-  return value !== FAILED && Boolean(value)
-}
-
-/**
- * Every entry an `entry` step offers: the catalog read in pages, with the
- * step's fixed `filters` asked of the server and its `filter` formula worked
- * out here, where the character is known.
- */
-export async function loadEntryOptions(
-  step: PromptStep,
-  context: ExprContext,
-  browse: (
-    page: number,
-    pageSize: number
-  ) => Promise<{
-    entries?: { entry_id: string; source?: string; name?: string; data?: unknown }[]
-    total?: number
-  }>
-): Promise<EntryAnswer[]> {
-  const found: EntryAnswer[] = []
-  for (let page = 1; page <= ENTRY_MAX_PAGES; page += 1) {
-    const result = await browse(page, ENTRY_PAGE_SIZE)
-    const rows = result.entries || []
-    for (const row of rows) {
-      const entry = entryAnswer(row)
-      if (passesFilter(step, entry, context)) found.push(entry)
-    }
-    if (rows.length < ENTRY_PAGE_SIZE || page * ENTRY_PAGE_SIZE >= (result.total ?? 0)) break
-  }
-  return found
 }
 
 /**
@@ -567,32 +572,38 @@ export function planPrompt(
     }
     if (typeof step.unpick === 'string') {
       // The row is found when its turn comes (`listPick`), in the list as the
-      // picks before it left it.
+      // picks before it left it. A list of entries - an `entries` answer - is
+      // taken out one by one.
       const field = step.unpick
       if (fields[field]?.type !== 'content_list') continue
-      const entry = evaluate<symbol>(step.entry, ctx, FAILED)
-      if (!isObject(entry) || !unpickKeys(entry).length) continue
-      picks.push({ field, remove: entry })
+      for (const entry of entriesOf(evaluate<symbol>(step.entry, ctx, FAILED))) {
+        if (unpickKeys(entry).length) picks.push({ field, remove: entry })
+      }
       continue
     }
     if (typeof step.pick === 'string') {
       const field = step.pick
       const definition = fields[field]
-      const entry = evaluate<symbol>(step.entry, ctx, FAILED)
-      if (!definition || !isObject(entry) || typeof entry._ref !== 'string' || !entry._ref) continue
-      const per: Values = {}
-      for (const [key, formula] of Object.entries(isObject(step.values) ? step.values : {})) {
-        const value = evaluate<symbol>(formula, ctx, FAILED)
-        if (value !== FAILED) per[key] = value
-      }
-      const picked: Values = { _ref: entry._ref }
-      if (typeof entry._source === 'string' && entry._source) picked._source = entry._source
-      if (Object.keys(per).length) picked._per = per
-      if (definition.type === 'content_ref') {
-        picks.push({ field, value: picked, entry })
-      } else if (definition.type === 'content_list') {
-        picks.push({ field, add: picked, entry })
-        granted[field] = [...(granted[field] || []), entry._ref]
+      if (!definition) continue
+      // A list of entries is picked one by one; into a content_ref, its first.
+      const chosen = entriesOf(evaluate<symbol>(step.entry, ctx, FAILED)).filter(isEntry)
+      for (const entry of definition.type === 'content_ref' ? chosen.slice(0, 1) : chosen) {
+        // Each value reads the entry being picked as `entry`.
+        const perContext = { ...ctx, entry }
+        const per: Values = {}
+        for (const [key, formula] of Object.entries(isObject(step.values) ? step.values : {})) {
+          const value = evaluate<symbol>(formula, perContext, FAILED)
+          if (value !== FAILED) per[key] = value
+        }
+        const picked: Values = { _ref: entry._ref }
+        if (typeof entry._source === 'string' && entry._source) picked._source = entry._source
+        if (Object.keys(per).length) picked._per = per
+        if (definition.type === 'content_ref') {
+          picks.push({ field, value: picked, entry })
+        } else if (definition.type === 'content_list') {
+          picks.push({ field, add: picked, entry })
+          granted[field] = [...(granted[field] || []), entry._ref]
+        }
       }
     }
   }
@@ -611,6 +622,11 @@ export function planPrompt(
     patch[GRANTED_KEY] = recorded
   }
   return { patch, picks, prompts, grants }
+}
+
+// What a `pick` or `unpick` formula gave, as entries: one, or a list of them.
+function entriesOf(value: unknown): Values[] {
+  return (Array.isArray(value) ? value : [value]).filter(isObject)
 }
 
 // The keys an `unpick` answer is matched by: its id, and its name for a

@@ -50,6 +50,8 @@ const DOCUMENT = {
 const SHEET = { level: 4, hit_die: 10 }
 
 const confirm = () => screen.getByRole('button', { name: 'Confirm' })
+// How a prompt with nothing skipped is confirmed, besides its answers.
+const NO_PAGES_SKIPPED = { later: [], skipped: [] }
 
 describe('PromptDialog', () => {
   it('shows the steps for the answers so far, and confirms once all are answered', async () => {
@@ -78,7 +80,10 @@ describe('PromptDialog', () => {
     // +1/+1 spends every point: no third.
     expect(screen.getByRole('button', { name: 'One more for Strength' })).toBeDisabled()
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({ hp: 6, kind: 'asi', asi: { str: 1, dex: 1 } })
+    expect(onConfirm).toHaveBeenCalledWith(
+      { hp: 6, kind: 'asi', asi: { str: 1, dex: 1 } },
+      NO_PAGES_SKIPPED
+    )
   })
 
   it("names a step's control after the heading its label_formula gives", () => {
@@ -113,7 +118,7 @@ describe('PromptDialog', () => {
     )
     await userEvent.type(screen.getByLabelText('Hit points'), '8')
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({ hp: 8 })
+    expect(onConfirm).toHaveBeenCalledWith({ hp: 8 }, NO_PAGES_SKIPPED)
   })
 
   it('lets a number below its min be typed on the way to one above it', async () => {
@@ -135,7 +140,7 @@ describe('PromptDialog', () => {
     await userEvent.type(input, '12')
     expect(input).toHaveValue(12)
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({ hp: 12 })
+    expect(onConfirm).toHaveBeenCalledWith({ hp: 12 }, NO_PAGES_SKIPPED)
   })
 
   it('brings a number out of bounds back within them when the input loses focus', async () => {
@@ -158,7 +163,7 @@ describe('PromptDialog', () => {
     await userEvent.tab()
     expect(input).toHaveValue(20)
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({ hp: 20 })
+    expect(onConfirm).toHaveBeenCalledWith({ hp: 20 }, NO_PAGES_SKIPPED)
   })
 
   it('offers the catalog entries the filters let through', async () => {
@@ -186,11 +191,14 @@ describe('PromptDialog', () => {
     expect(screen.queryByLabelText('Boon of Speed')).not.toBeInTheDocument()
     expect(browse).toHaveBeenCalledWith('feat', { category: 'G' }, 1, 200)
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({
-      hp: 6,
-      kind: 'feat',
-      feat: { level: 1, name: 'Alert', _ref: 'alert', _source: 'xphb' },
-    })
+    expect(onConfirm).toHaveBeenCalledWith(
+      {
+        hp: 6,
+        kind: 'feat',
+        feat: { level: 1, name: 'Alert', _ref: 'alert', _source: 'xphb' },
+      },
+      NO_PAGES_SKIPPED
+    )
   })
 
   it('searches a long list by name', async () => {
@@ -342,7 +350,7 @@ describe('PromptDialog', () => {
     await userEvent.click(screen.getByLabelText('History'))
     expect(screen.getByLabelText('Insight')).toBeDisabled()
     await userEvent.click(confirm())
-    expect(onConfirm).toHaveBeenCalledWith({ skills: ['History'] })
+    expect(onConfirm).toHaveBeenCalledWith({ skills: ['History'] }, NO_PAGES_SKIPPED)
   })
 
   it('can always be put off, by button or Escape', async () => {

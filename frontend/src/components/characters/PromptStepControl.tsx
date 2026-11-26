@@ -13,6 +13,7 @@ export default function PromptStepControl(props: StepControlProps) {
     case 'distribute':
       return <PromptStepDistribute {...props} />
     case 'entry':
+    case 'entries':
       return <PromptStepEntry {...props} />
     case 'number':
       return <PromptStepNumber {...props} />
