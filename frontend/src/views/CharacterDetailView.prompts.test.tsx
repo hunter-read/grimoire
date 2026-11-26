@@ -61,6 +61,8 @@ function StubSheet({
         pick fighter
       </button>
       <button onClick={() => open?.({ prompt: 'chain_first' })}>start a chain</button>
+      <button onClick={() => open?.({ prompt: 'grant_first' })}>grant then ask</button>
+      <button onClick={() => open?.({ prompt: 'bump' })}>bump</button>
       <button onClick={() => onChange('features', [{ _inline: true, name: 'Hand' }])}>
         add a feature by hand
       </button>
@@ -108,6 +110,7 @@ const DOCUMENT = {
       on_change: [{ set: 'focus_on', to: "focused ? focus_on : ''" }, { prompt: 'focus' }],
     },
     focus_on: { type: 'text' },
+    log: { type: 'list', columns: [{ key: 'what', type: 'text' }] },
     klass: {
       type: 'content_ref',
       content_type: 'class',
@@ -137,6 +140,25 @@ const DOCUMENT = {
       label: 'First',
       steps: [{ key: 'n', type: 'select', options: ['Bless', 'Hex'] }],
       apply: [{ set: 'focus_on', to: 'answer.n' }, { prompt: 'chain_second' }],
+    },
+    grant_first: {
+      label: 'Grant first',
+      steps: [{ key: 'kin', type: 'entry', content_type: 'species' }],
+      apply: [
+        { set: 'focus_on', to: "'Picked'" },
+        // The species' own prompt joins the queue as the pick is made, while
+        // the grant after it still waits on the catalog.
+        { pick: 'species', entry: 'answer.kin' },
+        { grant: 'features', from: "'x'", names: "'X'" },
+      ],
+    },
+    bump: {
+      label: 'Bump',
+      steps: [{ key: 'ok', type: 'select', options: ['yes'] }],
+      apply: [
+        { set: 'level', to: 'level + 1' },
+        { append: 'log', values: { what: "'bump'" } },
+      ],
     },
     chain_second: {
       label: 'Second',
@@ -665,5 +687,37 @@ describe('CharacterDetailView — prompts', () => {
     await userEvent.click(screen.getByText('pick fighter'))
     await screen.findByRole('dialog', { name: 'Class level' })
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+  })
+
+  it('shows the next prompt once the one before has finished', async () => {
+    stored = { focus_on: 'Old' }
+    let answer: (value: unknown) => void = () => {}
+    mockResolve.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    await renderView()
+    await userEvent.click(screen.getByText('grant then ask'))
+    await userEvent.click(await screen.findByLabelText('Alert'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    // The grant waits on the catalog: the species' prompt waits with it.
+    await waitFor(() => expect(mockResolve).toHaveBeenCalled())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await act(async () => answer({ entries: {} }))
+    expect(await screen.findByRole('dialog', { name: 'Lineage' })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(lastSaved().data).toMatchObject({ focus_on: 'Picked', species: { _ref: 'alert' } })
+    )
+  })
+
+  it('confirms a prompt once however fast the button is pressed', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('bump'))
+    await userEvent.click(await screen.findByLabelText('yes'))
+    const button = screen.getByRole('button', { name: 'Confirm' })
+    // Two presses before the dialog can close.
+    act(() => {
+      button.click()
+      button.click()
+    })
+    await waitFor(() => expect(lastSaved().data).toMatchObject({ level: 5 }))
+    expect(lastSaved().data.log).toEqual([{ what: 'bump' }])
   })
 })

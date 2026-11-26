@@ -103,10 +103,13 @@ export default function CharacterDetailView() {
   const [prompts, setPrompts] = useState<PromptRequest[]>([])
   // The prompts confirmed since the queue was last empty, latest last.
   const [chain, setChain] = useState<ConfirmedPrompt[]>([])
-  // Prompts still being confirmed - their picks and grants waiting on the
-  // catalog - and the latest of them, which Back waits for.
-  const [settling, setSettling] = useState(0)
-  const confirmingRef = useRef<Promise<void>>(Promise.resolve())
+  // The characters of the prompts still being confirmed - their picks and
+  // grants waiting on the catalog. The next prompt waits for them, so it
+  // reads, and Back takes back, the sheet as the one before left it.
+  const [settlingFor, setSettlingFor] = useState<string[]>([])
+  // The prompt the player last confirmed, put off or went back from: a second
+  // click before the next one shows does nothing.
+  const handledRef = useRef<PromptRequest | null>(null)
   // Entries the player just picked, overlaid on the resolved ones until the
   // next save brings them back from the server. Without it a derived value -
   // "a wizard casts spells" - would lag the pick by a round trip.
@@ -483,7 +486,8 @@ export default function CharacterDetailView() {
     (request: PromptRequest) => setPrompts((prev) => [...prev, request]),
     []
   )
-  const currentPrompt = choices.length ? undefined : prompts[0]
+  const settling = settlingFor.filter((id) => id === characterId).length
+  const currentPrompt = choices.length || settling ? undefined : prompts[0]
   const currentDefinition = currentPrompt ? findPrompt(document, currentPrompt.prompt) : undefined
   const entriesForSheet = useMemo(
     () => ({ ...(character?.entries || {}), ...pickedEntries }),
@@ -538,11 +542,24 @@ export default function CharacterDetailView() {
     [character?.schema_ref]
   )
 
+  // Taken once per prompt shown: answered, put off or gone back from.
+  const takePrompt = (): PromptRequest | undefined => {
+    const request = prompts[0]
+    if (!request || handledRef.current === request) return undefined
+    handledRef.current = request
+    return request
+  }
+
   const confirmPrompt = (answers: Answers, outcome?: PromptOutcome) => {
-    const confirming = confirmPromptNow(answers, outcome)
-    confirmingRef.current = confirming
-    setSettling((count) => count + 1)
-    void confirming.finally(() => setSettling((count) => count - 1))
+    if (!takePrompt()) return
+    const confirmedFor = characterId
+    setSettlingFor((prev) => [...prev, confirmedFor])
+    void confirmPromptNow(answers, outcome).finally(() =>
+      setSettlingFor((prev) => {
+        const index = prev.indexOf(confirmedFor)
+        return index < 0 ? prev : prev.filter((_, i) => i !== index)
+      })
+    )
   }
 
   const confirmPromptNow = async (answers: Answers, outcome?: PromptOutcome) => {
@@ -626,7 +643,8 @@ export default function CharacterDetailView() {
   // Put off: kept under «Choices to make» only when a pick opened it. A prompt
   // a button opened is opened again by pressing the button, so it is let go.
   const skipPrompt = () => {
-    const request = prompts[0]
+    const request = takePrompt()
+    if (!request) return
     setPrompts((prev) => prev.slice(1))
     // Put off, it breaks the chain: Back from the next prompt does not reach
     // past it.
@@ -654,13 +672,11 @@ export default function CharacterDetailView() {
 
   // Back from a paged prompt's first page: the prompt confirmed before it is
   // taken back - the sheet and the queue as they were - and opened again on
-  // its last page, with its answers. Once it has finished being confirmed.
-  const backPrompt = async () => {
-    const backFor = characterId
-    await confirmingRef.current.catch(() => {})
-    if (liveIdRef.current !== backFor) return
+  // its last page, with its answers. It has finished being confirmed: the
+  // prompt after it shows only then.
+  const backPrompt = () => {
     const entry = chain[chain.length - 1]
-    if (!entry) return
+    if (!entry || !takePrompt()) return
     restoreData(entry.before)
     setChoices([])
     setChain((prev) => prev.slice(0, -1))
@@ -1042,7 +1058,7 @@ export default function CharacterDetailView() {
             startAtEnd={currentPrompt.atEnd}
             onConfirm={confirmPrompt}
             onSkip={skipPrompt}
-            onBack={chain.length && !readOnly ? () => void backPrompt() : undefined}
+            onBack={chain.length && !readOnly ? backPrompt : undefined}
           />
         ) : null}
 

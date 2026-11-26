@@ -2,7 +2,7 @@ import { evaluate } from './expressions'
 import type { ExprContext } from './expressions'
 import { catalogKey, entryKey, filterCatalog } from './promptCatalog'
 import type { CatalogRead } from './promptCatalog'
-import { isAnswered, isEntry, promptContext } from './sheetPrompts'
+import { entriesTarget, isAnswered, isEntry, promptContext } from './sheetPrompts'
 import type {
   Answers,
   EntryAnswer,
@@ -120,7 +120,9 @@ function narrow(
     filterCatalog(step, catalog, promptContext(base, { ...before, [step.key]: own }, row))
   if (step.type === 'entries') {
     let kept = Array.isArray(answer) ? answer.filter(isEntry) : []
-    for (let pass = 0; pass <= kept.length; pass += 1) {
+    // Each pass lets at least one go, so this many passes always settle.
+    const passes = kept.length
+    for (let pass = 0; pass <= passes; pass += 1) {
       const options = read(kept)
       const offered = new Set(options.map(entryKey))
       const next = kept.filter((entry) => offered.has(entryKey(entry)))
@@ -206,9 +208,23 @@ export function promptState(
       state.options = []
       state.failed = read.error
     }
+    // A catalog that could not be read offers nothing, which is not the same
+    // as offering fewer than asked: the step waits for its whole count.
+    const available = state.failed ? undefined : state.options?.length
+    // An `entries` step that now asks for nothing - its count worked out to
+    // 0 once an earlier answer changed - keeps none of what was ticked.
+    if (
+      !isSkipped &&
+      step.type === 'entries' &&
+      answer !== undefined &&
+      entriesTarget(step, stepContext, available) === 0
+    ) {
+      dropped[step.key] = undefined
+      answer = undefined
+    }
     state.answer = answer
     if (!isSkipped) {
-      state.answered = isAnswered(step, answer, stepContext, document, data, state.options?.length)
+      state.answered = isAnswered(step, answer, stepContext, document, data, available)
       if (answer !== undefined) kept[step.key] = answer
     }
     steps.push(state)

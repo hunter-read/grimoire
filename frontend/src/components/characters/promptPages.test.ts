@@ -172,4 +172,36 @@ describe('promptState', () => {
     expect(state.steps.map((s) => s.step.key)).toEqual(['kind'])
     expect(state.answers).toEqual({ kind: 'feat' })
   })
+
+  it('waits for its whole count when the catalog could not be read', () => {
+    const failed = promptState(prompt, {
+      ...base,
+      catalogs: { [catalogKey(FEATS)!]: { error: 'Offline' } },
+      answers: {},
+    })
+    expect(failed.steps[0].answered).toBe(false)
+  })
+
+  it('keeps nothing ticked once its count works out to nothing', () => {
+    const counted: SheetPrompt = {
+      label: 'P',
+      steps: [
+        { key: 'cls', type: 'select', options: ['Wizard', 'Fighter'] },
+        { ...FEATS, filter: undefined, count: "answer.cls == 'Wizard' ? 1 : 0" },
+      ],
+      apply: [],
+    }
+    const wizard = promptState(counted, {
+      ...base,
+      answers: { cls: 'Wizard', feats: [CATALOG[0]] },
+    })
+    expect(wizard.dropped).toEqual({})
+    const fighter = promptState(counted, {
+      ...base,
+      answers: { cls: 'Fighter', feats: [CATALOG[0]] },
+    })
+    expect(fighter.dropped).toEqual({ feats: undefined })
+    expect(fighter.answers).toEqual({ cls: 'Fighter' })
+    expect(fighter.steps[1].answered).toBe(true)
+  })
 })

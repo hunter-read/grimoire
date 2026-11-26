@@ -4112,6 +4112,8 @@
     "promptNext": "Volgende",
     "promptSkipPage": "Overslaan, later kiezen",
     "promptPageOf": "Pagina {{page}} van {{pages}}",
+    "promptTooMany_one": "{{count}} te veel: vink er een uit",
+    "promptTooMany_other": "{{count}} te veel: vink er een paar uit",
     "promptPatterns": "Verdeel {{patterns}} · nog {{count}} punt",
     "promptPatterns_other": "Verdeel {{patterns}} · nog {{count}} punten",
     "promptLess": "Eén minder voor {{name}}",

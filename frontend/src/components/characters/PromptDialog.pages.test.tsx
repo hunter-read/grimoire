@@ -229,4 +229,27 @@ describe('PromptDialog - pages', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Page 1/)).not.toBeInTheDocument()
   })
+
+  it('starts a number it was not given from its default when opened again', () => {
+    const prompt: SheetPrompt = {
+      label: 'Level up',
+      paged: true,
+      steps: [
+        { key: 'kind', type: 'select', options: ['a'] },
+        { key: 'hp', type: 'number', label: 'Hit points', default: '7' },
+      ],
+      apply: [],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={{}}
+        initialAnswers={{ kind: 'a' }}
+        startAtEnd
+      />
+    )
+    expect(screen.getByLabelText('Hit points')).toHaveValue(7)
+  })
 })

@@ -195,4 +195,57 @@ describe('PromptDialog - entries', () => {
     )
     expect(await screen.findByText('Nothing to choose from')).toBeInTheDocument()
   })
+
+  it('asks for an entry to be unticked when an earlier answer lowers the count', async () => {
+    const prompt: SheetPrompt = {
+      label: 'Spells',
+      steps: [
+        { key: 'n', type: 'select', options: ['1', '2'] },
+        { key: 'spells', type: 'entries', content_type: 'spell', count: 'answer.n' },
+      ],
+      apply: [],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={{}}
+        browse={catalog([
+          { id: 'bolt', name: 'Bolt' },
+          { id: 'ward', name: 'Ward' },
+        ])}
+      />
+    )
+    await userEvent.click(screen.getByLabelText('2'))
+    await userEvent.click(await screen.findByLabelText('Bolt'))
+    await userEvent.click(screen.getByLabelText('Ward'))
+    expect(confirm()).toBeEnabled()
+    await userEvent.click(screen.getByLabelText('1'))
+    expect(screen.getByRole('status')).toHaveTextContent('1 too many: untick one')
+    expect(confirm()).toBeDisabled()
+    await userEvent.click(screen.getByLabelText('Ward'))
+    expect(confirm()).toBeEnabled()
+  })
+
+  it('cannot be confirmed when the catalog could not be read', async () => {
+    const prompt: SheetPrompt = {
+      label: 'Spells',
+      steps: [{ key: 'spells', type: 'entries', content_type: 'spell', count: 2 }],
+      apply: [],
+    }
+    render(
+      <PromptDialog
+        prompt={prompt}
+        document={DOCUMENT}
+        data={{}}
+        context={{}}
+        browse={async () => {
+          throw new Error('Offline')
+        }}
+      />
+    )
+    expect(await screen.findByText('Offline')).toBeInTheDocument()
+    expect(confirm()).toBeDisabled()
+  })
 })

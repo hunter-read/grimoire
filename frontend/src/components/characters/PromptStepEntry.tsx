@@ -43,6 +43,9 @@ export default function EntryStep({
   const pickedKeys = new Set(picked.map(entryKey))
   const wanted = multiple ? entriesTarget(step, context, options?.length) : 1
   const remaining = Math.max(0, wanted - picked.length)
+  // More ticked than asked for now - the count fell after an earlier answer
+  // changed: the player unticks the ones to let go.
+  const extra = Math.max(0, picked.length - wanted)
 
   const shown = useMemo(() => {
     const terms = search.trim().toLowerCase()
@@ -78,7 +81,9 @@ export default function EntryStep({
     <>
       {multiple ? (
         <p role="status" style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>
-          {t('characters.chooseRemaining', { count: remaining })}
+          {extra
+            ? t('characters.promptTooMany', { count: extra })
+            : t('characters.chooseRemaining', { count: remaining })}
         </p>
       ) : null}
       {options.length > 8 ? (

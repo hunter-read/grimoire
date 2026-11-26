@@ -4112,6 +4112,8 @@
     "promptNext": "Siguiente",
     "promptSkipPage": "Omitir, elegir más tarde",
     "promptPageOf": "Página {{page}} de {{pages}}",
+    "promptTooMany_one": "{{count}} de más: desmarca una",
+    "promptTooMany_other": "{{count}} de más: desmarca algunas",
     "promptPatterns": "Reparte {{patterns}} · queda {{count}} punto",
     "promptPatterns_other": "Reparte {{patterns}} · quedan {{count}} puntos",
     "promptLess": "Uno menos para {{name}}",

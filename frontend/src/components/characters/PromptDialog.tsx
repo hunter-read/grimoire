@@ -88,11 +88,12 @@ export default function PromptDialog({
 }: PromptDialogProps) {
   const { t } = useTranslation()
   // Numbers start from their worked-out default, which counts as an answer.
+  // A prompt opened again keeps its answers, and a number it lacks - on a
+  // page skipped before - starts from its default too.
   const [answers, setAnswers] = useState<Answers>(() => {
-    if (initialAnswers) return { ...initialAnswers }
-    const start: Answers = {}
+    const start: Answers = { ...(initialAnswers || {}) }
     for (const step of prompt.steps || []) {
-      if (step?.type !== 'number') continue
+      if (step?.type !== 'number' || step.key in start) continue
       const value = numberDefault(step, promptContext(context, start, row))
       if (value !== undefined) start[step.key] = value
     }

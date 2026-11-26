@@ -4112,6 +4112,8 @@
     "promptNext": "Suivant",
     "promptSkipPage": "Passer, choisir plus tard",
     "promptPageOf": "Page {{page}} sur {{pages}}",
+    "promptTooMany_one": "{{count}} de trop : décochez-en une",
+    "promptTooMany_other": "{{count}} de trop : décochez-en quelques-unes",
     "promptPatterns": "Répartir {{patterns}} · reste {{count}} point",
     "promptPatterns_other": "Répartir {{patterns}} · reste {{count}} points",
     "promptLess": "Un de moins pour {{name}}",
