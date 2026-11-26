@@ -19,13 +19,17 @@ one of:
   named for the token it belongs to, and removed with it (the campaign upload
   cleanup in ``upload_files`` collects it through ``source_paths``).
 
-Every token upload passes through ``replace_recipe``: one carrying a recipe
-stores it, and one without clears the old one, since a recipe describes one
-particular file.
+Every token upload passes through ``read_recipe`` and then ``store_recipe``:
+one carrying a recipe stores it, and one without clears the old one, since a
+recipe describes one particular file. Between the two the caller applies the
+campaign upload limits to the kept art (``upload_quota.assert_token_upload_allowed``),
+so a refused upload writes nothing. The kept art counts towards the campaign's
+storage total (``upload_quota.campaign_upload_bytes``).
 """
 
 import json
 import os
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from fastapi import HTTPException, UploadFile
@@ -109,6 +113,20 @@ def _remove_sources(stem: str) -> None:
                 logger.warning("Failed to remove token source %s: %s", name, e)
 
 
+def stored_source_bytes(stem: str) -> int:
+    """The bytes of the art a token named ``stem`` keeps on disk now."""
+    if not os.path.isdir(TOKEN_SOURCE_DIR):
+        return 0
+    total = 0
+    for name in os.listdir(TOKEN_SOURCE_DIR):
+        if name.rsplit(".", 1)[0] == stem:
+            try:
+                total += os.path.getsize(os.path.join(TOKEN_SOURCE_DIR, name))
+            except OSError:
+                pass
+    return total
+
+
 def _read_source(upload: Optional[UploadFile]) -> tuple[bytes, str]:
     if upload is None:
         raise HTTPException(400, "Invalid token recipe: an uploaded source needs its art")
@@ -123,28 +141,52 @@ def _read_source(upload: Optional[UploadFile]) -> tuple[bytes, str]:
     return data, ext
 
 
-def replace_recipe(
-    stem: str, raw: Optional[str], source: Optional[UploadFile]
-) -> Optional[dict[str, Any]]:
-    """Store the recipe a token upload carries, or clear it; returns the column value.
+@dataclass
+class PendingRecipe:
+    """A token upload's recipe and source art, checked and read but not yet written.
+
+    ``replacing`` is the size of the art the token keeps now, which storing
+    this removes, so a limit check counts only ``adding - replacing``.
+    """
+
+    stem: str
+    recipe: Optional[TokenRecipe]
+    data: bytes
+    ext: str
+    replacing: int
+
+    @property
+    def adding(self) -> int:
+        """The bytes of source art storing this will keep."""
+        return len(self.data)
+
+
+def read_recipe(stem: str, raw: Optional[str], source: Optional[UploadFile]) -> PendingRecipe:
+    """Parse the recipe a token upload carries and read its art; writes nothing.
 
     ``stem`` names the token's stored art, unique per token (``member-<id>``,
-    ``owner-<campaign id>``, ``file-<file id>``). Whatever art the token had
-    before is removed first: either a new one replaces it or the token no
-    longer has a recipe. Everything is checked before anything is written.
+    ``owner-<campaign id>``, ``file-<file id>``).
     """
     recipe = parse_recipe(raw) if raw else None
     data, ext = _read_source(source) if recipe and recipe.source.type == "upload" else (b"", "")
+    return PendingRecipe(stem, recipe, data, ext, stored_source_bytes(stem))
 
-    _remove_sources(stem)
-    if recipe is None:
+
+def store_recipe(pending: PendingRecipe) -> Optional[dict[str, Any]]:
+    """Write a read recipe's art, or clear the old one; returns the column value.
+
+    Whatever art the token had before is removed first: either a new one
+    replaces it or the token no longer has a recipe.
+    """
+    _remove_sources(pending.stem)
+    if pending.recipe is None:
         return None
-    stored = recipe.model_dump()
-    if data:
+    stored = pending.recipe.model_dump()
+    if pending.data:
         os.makedirs(TOKEN_SOURCE_DIR, exist_ok=True)
-        name = f"{stem}{ext}"
+        name = f"{pending.stem}{pending.ext}"
         with open(os.path.join(TOKEN_SOURCE_DIR, name), "wb") as handle:
-            handle.write(data)
+            handle.write(pending.data)
         stored["source"] = {"type": "upload", "id": None, "path": name}
     return stored
 

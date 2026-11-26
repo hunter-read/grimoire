@@ -101,9 +101,9 @@ def authorize(c, client_id, challenge, redirect=REDIRECT, **extra):
 class Flow:
     """One client signed in by one user, step by step."""
 
-    def __init__(self, c, headers):
+    def __init__(self, c, headers, **register_extra):
         self.c, self.headers = c, headers
-        resp = register(c)
+        resp = register(c, **register_extra)
         assert resp.status_code == 201, resp.text
         self.client = resp.json()
         self.verifier, self.challenge = _pkce()
@@ -128,18 +128,17 @@ class Flow:
         return query["code"][0]
 
     def exchange(self, code, verifier=None, redirect=REDIRECT):
-        return self.c.post(
-            "/token",
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect,
-                "client_id": self.client_id,
-                "client_secret": self.client["client_secret"],
-                "code_verifier": verifier or self.verifier,
-                "resource": RESOURCE,
-            },
-        )
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect,
+            "client_id": self.client_id,
+            "code_verifier": verifier or self.verifier,
+            "resource": RESOURCE,
+        }
+        if "client_secret" in self.client:  # a public client has none
+            data["client_secret"] = self.client["client_secret"]
+        return self.c.post("/token", data=data)
 
     def tokens(self):
         resp = self.exchange(self.approve())
@@ -657,6 +656,53 @@ class TestRevocation:
             },
         )
         assert resp.status_code == 200
+        assert mcp(oauth_client, tokens["access_token"]).status_code == 401
+
+    def test_a_public_client_revokes_without_a_secret(self, oauth_client, admin_headers):
+        """A client registered without a secret sends none; it can still revoke."""
+        flow = Flow(oauth_client, admin_headers, token_endpoint_auth_method="none")
+        assert "client_secret" not in flow.client
+        tokens = flow.tokens()
+        resp = oauth_client.post(
+            "/revoke", data={"token": tokens["access_token"], "client_id": flow.client_id}
+        )
+        assert resp.status_code == 200, resp.text
+        assert mcp(oauth_client, tokens["access_token"]).status_code == 401
+
+    def test_a_confidential_client_still_needs_its_secret(self, oauth_client, admin_headers):
+        flow = Flow(oauth_client, admin_headers)
+        tokens = flow.tokens()
+        resp = oauth_client.post(
+            "/revoke", data={"token": tokens["access_token"], "client_id": flow.client_id}
+        )
+        assert resp.status_code == 401, resp.text
+        assert mcp(oauth_client, tokens["access_token"]).status_code == 200
+
+    def test_a_basic_auth_client_revokes_without_a_form_secret(self, oauth_client, admin_headers):
+        flow = Flow(oauth_client, admin_headers, token_endpoint_auth_method="client_secret_basic")
+        secret = flow.client["client_secret"]
+        code = flow.approve()
+        basic = base64.b64encode(f"{flow.client_id}:{secret}".encode()).decode()
+        resp = oauth_client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": REDIRECT,
+                "client_id": flow.client_id,
+                "code_verifier": flow.verifier,
+                "resource": RESOURCE,
+            },
+            headers={"Authorization": f"Basic {basic}"},
+        )
+        assert resp.status_code == 200, resp.text
+        tokens = resp.json()
+        resp = oauth_client.post(
+            "/revoke",
+            data={"token": tokens["access_token"], "client_id": flow.client_id},
+            headers={"Authorization": f"Basic {basic}"},
+        )
+        assert resp.status_code == 200, resp.text
         assert mcp(oauth_client, tokens["access_token"]).status_code == 401
 
     def test_revoke_works_while_the_grant_cannot_be_used(

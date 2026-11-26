@@ -20,7 +20,8 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign
-from ...services.campaigns.token_recipes import clear_recipe, replace_recipe
+from ...services.campaigns.token_recipes import clear_recipe, read_recipe, store_recipe
+from ...services.campaigns.upload_quota import assert_token_upload_allowed
 from ._helpers import assert_not_archived, can_view, get_campaign_or_404
 from .uploads import (
     _IMAGE_TYPES,
@@ -55,11 +56,15 @@ def upload_owner_token(
     db: Session = Depends(get_db),
 ):
     """Set the owner's token, with the token editor's ``recipe`` when it sends
-    one (see ``services/campaigns/token_recipes``)."""
+    one (see ``services/campaigns/token_recipes``). The source art it keeps is
+    bound by the campaign upload limits (admins exempt)."""
     c = _owned_campaign_or_403(db, campaign_id, current_user)
     data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
-    c.owner_token_recipe = replace_recipe(_stem(c), recipe, source)
+    pending = read_recipe(_stem(c), recipe, source)
+    if current_user.role != "admin":
+        assert_token_upload_allowed(db, c.id, pending)
+    c.owner_token_recipe = store_recipe(pending)
 
     os.makedirs(_TOKEN_DIR, exist_ok=True)
     _remove_existing(_TOKEN_DIR, _stem(c))

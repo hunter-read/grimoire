@@ -67,6 +67,27 @@ def _basic(headers: dict[bytes, bytes]) -> tuple[Optional[str], Optional[str]]:
     return unquote(user), unquote(secret)
 
 
+def _with_blank_secret(body: bytes, scope: Scope) -> tuple[bytes, Scope]:
+    """A ``/revoke`` form given an empty ``client_secret`` when it has none.
+
+    The SDK's revocation request model declares ``client_secret`` without a
+    default, so a public client (``token_endpoint_auth_method: none``), which
+    has no secret to send, is refused as malformed and its token stays live.
+    The client has already been authenticated by then, from the header or the
+    form, so an empty value changes nothing else.
+    """
+    headers = dict(scope["headers"])
+    content_type = headers.get(b"content-type", b"").decode("latin-1").lower()
+    if not content_type.startswith("application/x-www-form-urlencoded"):
+        return body, scope
+    fields = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=True)
+    if "client_secret" in fields:
+        return body, scope
+    body += b"&client_secret=" if body else b"client_secret="
+    rest = [(k, v) for k, v in scope["headers"] if k != b"content-length"]
+    return body, {**scope, "headers": [*rest, (b"content-length", str(len(body)).encode())]}
+
+
 async def _send_json(send: Send, status: int, body: dict[str, Any]) -> None:
     data = json.dumps(body).encode("utf-8")
     await send(
@@ -236,6 +257,8 @@ class Throttled:
                 status["code"] = message["status"]
             await send(message)
 
+        if scope_name == REVOKE_SCOPE:
+            body, scope = _with_blank_secret(body, scope)
         token = presented_secret.set(form.get("client_secret") or basic_secret)
         try:
             await app(scope, replay, watch)

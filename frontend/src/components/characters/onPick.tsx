@@ -75,10 +75,20 @@ interface PlanPickArgs {
   lookup?: (ids: string[]) => Promise<ResolvedRefs | null | undefined>
 }
 
-// A property read off an entry as a list: a real list, or comma-separated text
-// for content written before lists were declared.
-export function asList(value: unknown): string[] {
-  if (Array.isArray(value)) return value.map((item) => String(item))
+// A property read off an entry as a list: a real list, kept item for item, or
+// comma-separated text for content written before lists were declared - so a
+// value holding a comma needs a list. An object in a list (a content_list's
+// row) is read by `key`: its `_ref` for an id, its `name` for a name.
+export function asList(value: unknown, key: '_ref' | 'name' = '_ref'): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (item && typeof item === 'object') {
+        const read = (item as Values)[key]
+        return read === undefined || read === null ? '' : String(read)
+      }
+      return item === undefined || item === null ? '' : String(item)
+    })
+  }
   if (typeof value === 'string') {
     return value
       .split(',')
@@ -260,7 +270,10 @@ export async function planPick({
         // same order to fall back to).
         const pairs: [string, string][] =
           rule.from || definition.type === 'multiselect'
-            ? asList(entry[rule.from!]).map((id, i) => [id, asList(entry[rule.names!])[i] || ''])
+            ? asList(entry[rule.from!]).map((id, i) => [
+                id,
+                asList(entry[rule.names!], 'name')[i] || '',
+              ])
             : [
                 [
                   rule.ref ? String(entry[rule.ref] ?? '') : '',

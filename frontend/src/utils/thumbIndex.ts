@@ -43,19 +43,46 @@ export const MAX_TAB = 32
 // How many names a tab previews.
 const PREVIEW = 4
 
+// Letters NFKD does not decompose, folded onto the letter the collator files
+// them under: "Æther" sorts among the A's and "Łódź" among the L's, so their
+// tab has to be A and L too, or the letter would split its run in two. (Þ sorts
+// after Z, so it keeps a tab of its own.)
+const BASE_LETTER: Record<string, string> = {
+  Æ: 'A',
+  æ: 'a',
+  Đ: 'D',
+  đ: 'd',
+  Ð: 'D',
+  ð: 'd',
+  ı: 'i',
+  Ł: 'L',
+  ł: 'l',
+  Œ: 'O',
+  œ: 'o',
+  Ø: 'O',
+  ø: 'o',
+  ß: 's',
+  ẞ: 'S',
+}
+
 /**
- * The rail letter for `name`: its first letter or digit, accents folded and
- * upper-cased in `locale`, with digits and symbols together under `#`.
+ * The rail letter for `name`: its first character when that is a letter,
+ * accents folded and upper-cased in `locale`; anything else - a digit, a quote,
+ * "...", "#" or a backtick - files under `#`.
  *
  * "Mörk Borg" files under M and "Élan" under E, which is also where the
- * library's locale-aware sort puts them, so every letter is one contiguous run.
- * A name in another script keeps its own first letter.
+ * library's locale-aware sort puts them. A name that opens with a symbol sorts
+ * before the letters with the digits, whatever letter follows, so it goes under
+ * `#` with them rather than under that letter - otherwise "...In Space!" would
+ * start a stray I run at the top of the list. A name in another script keeps
+ * its own first letter.
  */
 export function indexLetter(name: string | null | undefined, locale?: string): string {
-  const folded = (name || '').normalize('NFKD').replace(/\p{M}/gu, '')
-  const first = folded.match(/[\p{L}\p{N}]/u)?.[0]
-  if (!first || /\p{N}/u.test(first)) return '#'
-  return first.toLocaleUpperCase(locale)
+  const first = (name || '').trimStart().normalize('NFKD')[0]
+  if (!first) return '#'
+  const base = BASE_LETTER[first] || first
+  if (!/\p{L}/u.test(base)) return '#'
+  return base.toLocaleUpperCase(locale)
 }
 
 /** The decade a year falls in, as a rail key ("1990s"); "#" when unknown. */

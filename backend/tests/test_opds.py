@@ -1012,3 +1012,82 @@ class TestOPDSPaging:
     def test_invalid_paging_is_422(self, opds_client, paged_library, query):
         url = f"/opds/v2/{self._token}/system/{paged_library['system']}?{query}"
         assert opds_client.get(url).status_code == 422
+
+
+class TestOPDSControlCharacters:
+    """Characters XML 1.0 cannot hold are dropped, so one book can't break a feed."""
+
+    @pytest.fixture()
+    def control_book(self, opds_client, opds_admin_headers):
+        db = SessionLocal()
+        system = GameSystem(name="OPDS Control System", slug="opds-control-system")
+        db.add(system)
+        db.commit()
+        book = Book(
+            title="Control Book",
+            filename="control.pdf",
+            filepath="/nonexistent/control.pdf",
+            relative_path="control.pdf",
+            game_system_id=system.id,
+            category="core",
+            mime_type="application/pdf",
+            is_missing=False,
+        )
+        db.add(book)
+        db.commit()
+        ids = (book.id, system.id)
+        db.close()
+        yield ids
+        db = SessionLocal()
+        db.query(Book).filter_by(id=ids[0]).delete()
+        db.query(GameSystem).filter_by(id=ids[1]).delete()
+        db.commit()
+        db.close()
+
+    def test_feeds_stay_well_formed(self, opds_client, opds_admin_headers, control_book):
+        from xml.dom import minidom
+
+        book_id, system_id = control_book
+        resp = opds_client.patch(
+            f"/api/books/{book_id}",
+            json={
+                "title": "T\x0bitle\ufffe",
+                "description": "D\x01escription",
+                "authors": ["A\x02uthor"],
+                "tags": ["g\x03enre"],
+            },
+            headers=opds_admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        resp = opds_client.patch(
+            f"/api/systems/{system_id}",
+            json={"name": "Sys\x0bname"},
+            headers=opds_admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        token = _generate_token(opds_client, opds_admin_headers)
+        feeds = {
+            "all": f"/opds/{token}/all",
+            "entry": f"/opds/{token}/entry/{book_id}",
+            "v2 system": f"/opds/v2/{token}/system/{system_id}",
+            "v2 root": f"/opds/v2/{token}",
+        }
+        for name, url in feeds.items():
+            resp = opds_client.get(url)
+            assert resp.status_code == 200, (name, resp.text)
+            minidom.parseString(resp.content)  # raises if the feed is not XML
+
+        entry = opds_client.get(feeds["entry"]).text
+        assert "Title" in entry and "Description" in entry and "Author" in entry
+        assert 'term="genre"' in entry
+        assert "Sysname" in opds_client.get(feeds["v2 root"]).text
+
+
+def test_xml_safe_keeps_what_xml_allows():
+    from backend.routers.opds._xml import escape, quoteattr, xml_safe
+
+    assert xml_safe("tab\tnew\nline\rok \u00e9 \U0001f600") == "tab\tnew\nline\rok \u00e9 \U0001f600"
+    assert xml_safe("a\x00b\x08c\x0bd\x1fe\ud800f\ufffeg\uffffh") == "abcdefgh"
+    assert escape("<a\x0b>") == "&lt;a&gt;"
+    assert quoteattr("x\x03\"y") == "'x\"y'"
