@@ -30,6 +30,7 @@ from ...models import Campaign, CampaignMember, CampaignSchedule, SessionAvailab
 from ._calendar import build_calendar, build_event, session_uid
 from ._helpers import can_view, get_campaign_or_404
 from ...services.campaigns.schedule import compute_next_sessions, parse_clock
+from ...services.guest_access import guest_still_invited
 
 logger = logging.getLogger("grimoire.campaigns")
 
@@ -196,7 +197,9 @@ def _resolve_feed_user(db: Session, token: str) -> User:
         if token
         else None
     )
-    if not user:
+    # A guest's feed lasts only as long as guest access and their invite, as
+    # their session does.
+    if not user or (user.role == "guest" and not guest_still_invited(db, user)):
         raise HTTPException(404, "Calendar feed not found")
     return user
 

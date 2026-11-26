@@ -94,7 +94,7 @@ Existing session notes are automatically rolled into wiki pages (nested under a 
 
 **Resources** - link books, maps, tokens, and audio, or upload campaign files (handouts, images, etc.) the GM keeps with the campaign. Each resource has a visibility: **Public** (all players), **Private** (shared with specific players - e.g. a handout for 2 of 4), or **GM only**. Resources group under their type by default, but the GM can create custom categories (e.g. *Player Handouts*), drag items between categories and reorder them, and delete categories (keeping items uncategorized or unlinking them). Each group can be **collapsed or expanded** (remembered per campaign), and the GM can **reorder all the groups** - custom categories and the built-in Books / Maps / Tokens / Audio / Files groups together - from the category manager.
 
-Uploaded campaign files live in the data directory, separate from the library. Admins can disable these uploads app-wide or cap them by per-file and per-campaign size in **Settings → Access & sharing → Campaign Uploads** (admins themselves are exempt).
+Uploaded campaign files live in the data directory, separate from the library. Admins can disable these uploads app-wide or cap them by per-file and per-campaign size in **Settings → Access & sharing → Campaign Uploads** (admins themselves are exempt). The limits also cover the art from your device that the [token editor](token-editor.md) keeps with a token so it can be reopened - a character's token or your own included - and that art counts towards the campaign's total.
 
 ## Session scheduling
 
@@ -117,7 +117,7 @@ Sessions can go straight into whatever calendar app you already use. The **Calen
 
 The same **Calendar** button sits at the top of the campaigns list, offering just the all-campaigns subscription link.
 
-The subscription link is **personal to you**. It carries its own revocable token - not your password and not your login session - and each event reflects *your* availability: an event reads "Curse of Strahd - Tentative" once you've marked yourself tentative, and a cancelled session shows as cancelled rather than vanishing. Treat the link like a password: anyone holding it can read your session schedule. **Regenerate link** rotates it (instantly breaking the old one, so you'll need to re-subscribe), and **Revoke link** turns the feed off entirely.
+The subscription link is **personal to you**. It carries its own revocable token - not your password and not your login session - and each event reflects *your* availability: an event reads "Curse of Strahd - Tentative" once you've marked yourself tentative, and a cancelled session shows as cancelled rather than vanishing. Treat the link like a password: anyone holding it can read your session schedule. **Regenerate link** rotates it (instantly breaking the old one, so you'll need to re-subscribe), and **Revoke link** turns the feed off entirely. A guest's link stops working while guest access is turned off and once they are removed from the campaign, as their sign-in does.
 
 > **Accepting or declining in your calendar app won't reach Grimoire.** Subscribed calendars are read-only by design - the calendar standard gives them no way to send anything back - so RSVP buttons on these events either don't appear or do nothing. Every event links back to the campaign's schedule tab, where one click sets your availability.
 

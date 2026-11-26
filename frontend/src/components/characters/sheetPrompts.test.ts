@@ -502,6 +502,27 @@ describe('grant', () => {
     })
   })
 
+  it('reads the sheet once the catalog has answered, when given a way to read it', async () => {
+    let data: Record<string, unknown> = { features: [] }
+    const patch = await planGrants(
+      [{ target: 'features', pairs: [['action-surge', 'Action Surge']], carried: {} }],
+      {
+        document,
+        data: () => data,
+        lookup: async () => {
+          data = { features: [{ _inline: true, name: 'Hand' }] }
+          return {}
+        },
+      }
+    )
+    expect(patch).toEqual({
+      features: [
+        { _inline: true, name: 'Hand' },
+        { _inline: true, name: 'Action Surge' },
+      ],
+    })
+  })
+
   it('falls back to named entries when the catalog cannot be asked', async () => {
     const patch = await planGrants(
       [{ target: 'features', pairs: [['action-surge', 'Action Surge']], carried: {} }],

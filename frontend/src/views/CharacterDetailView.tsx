@@ -474,19 +474,25 @@ export default function CharacterDetailView() {
       row: request.row,
       source: request.source,
     })
-    // Grants ask the catalog which ids it has, as a pick's grants do.
-    const granted = plan.grants.length
-      ? await planGrants(plan.grants, {
-          document,
-          data: { ...dataRef.current, ...plan.patch },
-          lookup,
-        })
-      : {}
-    applyPatch({ ...plan.patch, ...granted, ...withoutPending(dataRef.current, request) })
+    // The plain writes land at once, before anything waits on the catalog, so
+    // a change the player makes meanwhile is not overwritten by them.
+    applyPatch({ ...plan.patch, ...withoutPending(dataRef.current, request) })
     // Each pick goes the way a pick by hand goes, so its own on_pick runs -
     // a feat's prompt joining the queue after this one.
     for (const pick of plan.picks) {
       await onChange(pick.field, pick.value, { entry: pick.entry, written: true })
+    }
+    // The grants last, worked out against the sheet as the picks left it: a
+    // pick then neither writes over a grant into its list nor takes back a
+    // grant recorded under the field it picks. Grants ask the catalog which
+    // ids it has, as a pick's grants do, and read the sheet once it answers.
+    if (plan.grants.length) {
+      const granted = await planGrants(plan.grants, {
+        document,
+        data: () => dataRef.current,
+        lookup,
+      })
+      if (Object.keys(granted).length) applyPatch(granted)
     }
     if (plan.prompts.length) {
       setPrompts((prev) => [...prev, ...plan.prompts.map((prompt) => ({ prompt }))])

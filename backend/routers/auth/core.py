@@ -8,6 +8,7 @@ from ... import login_devices, passwords
 from ...api_keys import user_keys_allowed
 from ...services import share_links as share_policy
 from ...services import sidebar_stats
+from ...services.guest_access import guest_still_invited
 from ...auth import (
     AUTH_COOKIE_NAME,
     GUEST_SCOPE_WARGAME,
@@ -24,7 +25,7 @@ from ...auth import (
 )
 from ...config import get_db
 from ...log_context import set_log_user
-from ...models import AuthSession, CampaignMember, LeagueMember, User
+from ...models import AuthSession, LeagueMember, User
 from ...usernames import find_by_username, fold_username
 from ...security import (
     AUTH_RATE_LIMIT,
@@ -126,24 +127,6 @@ def auth_login(
     return issue_login(db, user, response, request)
 
 
-def _guest_still_invited(db: Session, user: User) -> bool:
-    """Whether guest access is on and ``user`` still holds an accepted guest invite.
-
-    A league guest's invite is the code on their account, which outlives the
-    league: they keep reaching their own armies.
-    """
-    if not guest_access_effective(get_raw(db)):
-        return False
-    if user.guest_scope == GUEST_SCOPE_WARGAME:
-        return bool(user.is_guest and user.guest_code_hash)
-    member = (
-        db.query(CampaignMember)
-        .filter_by(user_id=user.id, is_guest=True, status="accepted")
-        .first()
-    )
-    return member is not None
-
-
 @limiter.limit(AUTH_RATE_LIMIT)
 def guest_login(
     request: Request,
@@ -240,7 +223,7 @@ def auth_refresh(
         clear_refresh_cookie(response, request)
         clear_auth_cookie(response, request)
         raise HTTPException(401, "User no longer exists")
-    if user.role == "guest" and not _guest_still_invited(db, user):
+    if user.role == "guest" and not guest_still_invited(db, user):
         # A guest's session lasts only as long as guest access and their invite.
         revoke_session(db, session)
         clear_refresh_cookie(response, request)
