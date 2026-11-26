@@ -7,6 +7,7 @@ import {
   numberAverage,
   numberDefault,
   pendingPrompts,
+  listPick,
   planGrants,
   planPrompt,
   startPrompt,
@@ -271,7 +272,7 @@ describe('planPrompt', () => {
     expect(plan.picks).toEqual([
       {
         field: 'feats',
-        value: [{ _ref: 'tough' }, { _ref: 'alert', _source: 'xphb', _per: { from_level: 4 } }],
+        add: { _ref: 'alert', _source: 'xphb', _per: { from_level: 4 } },
         entry: { _ref: 'alert', _source: 'xphb', name: 'Alert' },
       },
     ])
@@ -326,7 +327,7 @@ describe('planPrompt', () => {
     expect(plan.patch._granted).toEqual({ klass: { skills: ['History', 'insight'] } })
   })
 
-  it('takes a row out of a list, the picks after it seeing the list without it', () => {
+  it('takes a row out of a list and adds one, each made when its turn comes', () => {
     const prompt: SheetPrompt = {
       label: 'Replace a feat',
       steps: [
@@ -338,23 +339,27 @@ describe('planPrompt', () => {
         { pick: 'feats', entry: 'answer.new' },
       ],
     }
+    const data = { feats: [{ _ref: 'tough' }, { _ref: 'alert', _per: { from_level: 4 } }] }
     const plan = planPrompt(prompt, {
       document: DOCUMENT,
-      data: { feats: [{ _ref: 'tough' }, { _ref: 'alert', _per: { from_level: 4 } }] },
+      data,
       context: {},
       answers: { old: { _ref: 'Tough', name: 'Tough' }, new: { _ref: 'lucky', name: 'Lucky' } },
     })
     expect(plan.picks).toEqual([
-      { field: 'feats', value: [{ _ref: 'alert', _per: { from_level: 4 } }] },
-      {
-        field: 'feats',
-        value: [{ _ref: 'alert', _per: { from_level: 4 } }, { _ref: 'lucky' }],
-        entry: { _ref: 'lucky', name: 'Lucky' },
-      },
+      { field: 'feats', remove: { _ref: 'Tough', name: 'Tough' } },
+      { field: 'feats', add: { _ref: 'lucky' }, entry: { _ref: 'lucky', name: 'Lucky' } },
     ])
+    // Made one after another, the pick sees the list without the row.
+    let sheet: Record<string, unknown> = data
+    for (const pick of plan.picks) {
+      if ('value' in pick) continue
+      sheet = { ...sheet, ...listPick(sheet, pick) }
+    }
+    expect(sheet.feats).toEqual([{ _ref: 'alert', _per: { from_level: 4 } }, { _ref: 'lucky' }])
   })
 
-  it('takes out nothing when the entry has no row, or none was answered', () => {
+  it('asks to take out nothing when no entry was answered', () => {
     const prompt: SheetPrompt = {
       label: 'Replace a feat',
       steps: [{ key: 'old', type: 'entry', content_type: 'feat' }],
@@ -367,8 +372,8 @@ describe('planPrompt', () => {
         context: {},
         answers,
       })
-    expect(plan({ old: { _ref: 'lucky' } }).picks).toEqual([])
     expect(plan({}).picks).toEqual([])
+    expect(plan({ old: { name: '  ' } }).picks).toEqual([])
   })
 
   it('records nothing without a source', () => {
@@ -446,6 +451,35 @@ describe('grant', () => {
         carried: {},
         source: 'background',
       },
+    ])
+  })
+
+  it("grants an entry step's answer on its own, and pairs names by position", () => {
+    const plan = planPrompt(
+      {
+        label: 'Gifts',
+        steps: [{ key: 'gift', type: 'entry', content_type: 'feature' }],
+        apply: [
+          { grant: 'features', from: 'answer.gift' },
+          // The empty slot in the names keeps 'C' on 'c'.
+          { grant: 'features', from: 'row.ids', names: "'A,,C'" },
+        ],
+      },
+      {
+        document,
+        data: {},
+        context: {},
+        answers: { gift: { _ref: 'alert', name: 'Alert' } },
+        row: { ids: ['a', 'b', 'c'] },
+      }
+    )
+    expect(plan.grants.map((grant) => grant.pairs)).toEqual([
+      [['alert', '']],
+      [
+        ['a', 'A'],
+        ['b', ''],
+        ['c', 'C'],
+      ],
     ])
   })
 
@@ -605,5 +639,58 @@ describe('pending prompts', () => {
       _pending_prompts: [{ prompt: 'level_up' }],
     })
     expect(withoutPendingFrom(data, 'background')).toEqual({})
+  })
+})
+
+describe('listPick', () => {
+  it('takes out nothing when the entry has no row', () => {
+    expect(
+      listPick({ feats: [{ _ref: 'tough' }] }, { field: 'feats', remove: { _ref: 'lucky' } })
+    ).toEqual({})
+    expect(listPick({}, { field: 'feats', remove: { _ref: 'lucky' } })).toEqual({})
+  })
+
+  it("takes out the copy from the answer's source when the list holds the id twice", () => {
+    const data = {
+      feats: [
+        { _ref: 'alert', _source: 'phb' },
+        { _ref: 'alert', _source: 'xphb' },
+      ],
+    }
+    expect(
+      listPick(data, { field: 'feats', remove: { _ref: 'alert', _source: 'xphb' } }).feats
+    ).toEqual([{ _ref: 'alert', _source: 'phb' }])
+    // An answer from neither source takes the first.
+    expect(
+      listPick(data, { field: 'feats', remove: { _ref: 'alert', _source: 'tce' } }).feats
+    ).toEqual([{ _ref: 'alert', _source: 'xphb' }])
+  })
+
+  it('finds a freeform row by its name, in any case, and a reference only by its id', () => {
+    const data = { feats: [{ _inline: true, name: 'Lucky' }, { _ref: 'tough' }] }
+    expect(listPick(data, { field: 'feats', remove: { _ref: 'x', name: 'lucky' } }).feats).toEqual([
+      { _ref: 'tough' },
+    ])
+    // A name is not a reference's id.
+    expect(listPick(data, { field: 'feats', remove: { name: 'Tough' } })).toEqual({})
+  })
+
+  it('drops the row from its records, unless a row still on the list answers to it', () => {
+    const granted = { _granted: { origin_feat: { feats: ['Tough'] }, klass: { skills: ['x'] } } }
+    // The hand-added reference goes; the granted freeform row stays, and so
+    // does the record standing for it.
+    const both = {
+      feats: [{ _ref: 'tough' }, { _inline: true, name: 'Tough' }],
+      ...granted,
+    }
+    expect(listPick(both, { field: 'feats', remove: { _ref: 'tough', name: 'Tough' } })).toEqual({
+      feats: [{ _inline: true, name: 'Tough' }],
+    })
+    // The only row goes, and its record with it, in any case.
+    const one = { feats: [{ _inline: true, name: 'Tough' }], ...granted }
+    expect(listPick(one, { field: 'feats', remove: { name: 'TOUGH' } })).toEqual({
+      feats: [],
+      _granted: { origin_feat: { feats: [] }, klass: { skills: ['x'] } },
+    })
   })
 })

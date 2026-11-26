@@ -427,9 +427,17 @@ export async function loadEntryOptions(
   return found
 }
 
-/** A pick a prompt makes, followed up as a pick by hand: its `on_pick` runs. */
-// `entry` is the entry picked; a row taken out (`unpick`) has none.
-export type PromptPick = { field: string; value: unknown; entry?: Values }
+/**
+ * A pick a prompt makes, in order. A content_ref's `value` goes the way a pick
+ * by hand goes, so its `on_pick` runs. A content_list's row to `add`, or the
+ * entry whose row to `remove` (`unpick`), is a change made to the list as it
+ * stands when its turn comes (`listPick`), so a pick before it that granted
+ * into the same list keeps what it granted.
+ */
+export type PromptPick =
+  | { field: string; value: Values; entry: Values }
+  | { field: string; add: Values; entry: Values }
+  | { field: string; remove: Values }
 
 /**
  * A `grant` a prompt makes, its formulas worked out: what `planGrants` adds
@@ -444,11 +452,15 @@ export type PromptGrant = {
 
 /**
  * What confirming a prompt does: the patch of plain writes, the picks to make
- * through the sheet's own pick path, and the prompts its `apply` opens next.
+ * through the sheet's own pick path, the grants to make once the catalog has
+ * answered, and the prompts its `apply` opens next.
  *
  * Every formula reads the sheet as it stood when the prompt opened, plus the
- * answers. `set`, `each` and `append` are worked out as an action's steps;
- * `add` and `pick` after them, in order.
+ * answers - a grant's too, so a grant reads the class the prompt picks from
+ * its answer, not from the field (the schema refuses that). `set`, `each` and
+ * `append` are worked out as an action's steps; `add` after them, then `pick`
+ * and `unpick` in order, made one after another; the grants last of all,
+ * wherever they are written, into the lists as the picks left them.
  */
 export function planPrompt(
   prompt: SheetPrompt,
@@ -493,11 +505,6 @@ export function planPrompt(
   const prompts: string[] = []
   const grants: PromptGrant[] = []
   const granted: Record<string, string[]> = {}
-  // The records under `_granted`, cleaned of the rows an `unpick` takes out.
-  const recorded = {
-    ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>),
-  }
-  let cleaned = false
   const current = (name: string): unknown => (name in patch ? patch[name] : data?.[name])
 
   for (const step of steps) {
@@ -509,8 +516,12 @@ export function planPrompt(
     if (typeof step.grant === 'string') {
       // Worked out now, against the sheet as the prompt read it; made by
       // `planGrants`, which asks the catalog first.
-      const ids = listOf(evaluate<symbol>(step.from, ctx, FAILED))
-      const names = step.names ? listOf(evaluate<symbol>(step.names, ctx, FAILED), 'name') : []
+      // Paired by position, so an empty slot in either keeps its place.
+      const slots = { slots: !!step.names }
+      const ids = listOf(evaluate<symbol>(step.from, ctx, FAILED), '_ref', slots)
+      const names = step.names
+        ? listOf(evaluate<symbol>(step.names, ctx, FAILED), 'name', slots)
+        : []
       const carried: Values = {}
       for (const [key, formula] of Object.entries(isObject(step.carry) ? step.carry : {})) {
         const value = evaluate<symbol>(formula, ctx, FAILED)
@@ -518,7 +529,9 @@ export function planPrompt(
           carried[key] = value
         }
       }
-      const pairs = ids.map((id, i): [string, string] => [id, names[i] || ''])
+      const pairs = ids
+        .map((id, i): [string, string] => [id, names[i] || ''])
+        .filter(([id, name]) => id || name)
       if (pairs.length) {
         const recordedUnder = step.source || source
         grants.push({
@@ -553,44 +566,13 @@ export function planPrompt(
       continue
     }
     if (typeof step.unpick === 'string') {
-      // The list less the entry's row, made as a change by hand; the picks
-      // after it see the list without it. A reference is found by its id, a
-      // freeform row by its name (or the id it fell back from).
+      // The row is found when its turn comes (`listPick`), in the list as the
+      // picks before it left it.
       const field = step.unpick
       if (fields[field]?.type !== 'content_list') continue
       const entry = evaluate<symbol>(step.entry, ctx, FAILED)
-      if (!isObject(entry)) continue
-      const keys = [entry._ref, entry.name].filter(
-        (key): key is string => typeof key === 'string' && !!key.trim()
-      )
-      if (!keys.length) continue
-      const before = picks.filter((pick) => pick.field === field).pop()
-      const rows = before
-        ? (before.value as unknown[])
-        : Array.isArray(current(field))
-          ? (current(field) as unknown[])
-          : []
-      const index = rows.findIndex((item) => {
-        const own = rowKey(item)
-        if (own === null) return false
-        return isObject(item) && item._ref !== undefined && item._ref !== null
-          ? sameKey(own, entry._ref)
-          : keys.some((key) => sameKey(own, key))
-      })
-      if (index < 0) continue
-      const removed = rowKey(rows[index])!
-      picks.push({ field, value: rows.filter((_, i) => i !== index) })
-      // No record keeps it, this prompt's or an earlier pick's: a row added
-      // again by hand is not taken back by a later change of that pick.
-      const held = granted[field] || []
-      const at = held.findIndex((key) => sameKey(key, removed))
-      if (at >= 0) granted[field] = held.filter((_, i) => i !== at)
-      for (const [from, targets] of Object.entries(recorded)) {
-        const list = targets?.[field]
-        if (!Array.isArray(list) || !list.some((key) => sameKey(key, removed))) continue
-        recorded[from] = { ...targets, [field]: list.filter((key) => !sameKey(key, removed)) }
-        cleaned = true
-      }
+      if (!isObject(entry) || !unpickKeys(entry).length) continue
+      picks.push({ field, remove: entry })
       continue
     }
     if (typeof step.pick === 'string') {
@@ -609,14 +591,7 @@ export function planPrompt(
       if (definition.type === 'content_ref') {
         picks.push({ field, value: picked, entry })
       } else if (definition.type === 'content_list') {
-        // Each pick into the same list sees the ones before it.
-        const before = picks.filter((pick) => pick.field === field).pop()
-        const rows = before
-          ? (before.value as unknown[])
-          : Array.isArray(current(field))
-            ? (current(field) as unknown[])
-            : []
-        picks.push({ field, value: [...rows, picked], entry })
+        picks.push({ field, add: picked, entry })
         granted[field] = [...(granted[field] || []), entry._ref]
       }
     }
@@ -625,15 +600,84 @@ export function planPrompt(
   // Recorded under the pick that opened the prompt, so picking something
   // else there takes back what the prompt added along with the pick's own.
   if (source && Object.keys(granted).length) {
+    const recorded = {
+      ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>),
+    }
     const fromSource = { ...(recorded[source] || {}) }
     for (const [target, values] of Object.entries(granted)) {
       fromSource[target] = [...(fromSource[target] || []), ...values]
     }
     recorded[source] = fromSource
+    patch[GRANTED_KEY] = recorded
+  }
+  return { patch, picks, prompts, grants }
+}
+
+// The keys an `unpick` answer is matched by: its id, and its name for a
+// freeform row (or the id a grant fell back from).
+function unpickKeys(entry: Values): string[] {
+  return [entry._ref, entry.name].filter(
+    (key): key is string => typeof key === 'string' && !!key.trim()
+  )
+}
+
+function isReference(item: unknown): item is Values {
+  return isObject(item) && item._ref !== undefined && item._ref !== null
+}
+
+/**
+ * Make one of a prompt's content_list picks against the sheet as it is now:
+ * add its row, or take out the row of the entry an `unpick` names.
+ *
+ * An unpick matches the player's answer against the rows, in any case: a
+ * reference by its id (the copy from the answer's source first, when the list
+ * holds the id twice), a freeform row by its name. The row's key then leaves
+ * the `_granted` records, in any case too, so a pick changed later does not
+ * take back the same entry added again by hand - unless a row still on the
+ * list answers to that key, which the record may be standing for. Only
+ * bookkeeping goes, never a row: taking back a grant matches exactly. Taken
+ * out as the sheet writes, so the list's `on_change` does not follow.
+ *
+ * @returns the patch to make, empty when there is nothing to change
+ */
+export function listPick(
+  data: Values | null | undefined,
+  pick: Exclude<PromptPick, { value: Values }>
+): Values {
+  const rows = Array.isArray(data?.[pick.field]) ? (data![pick.field] as unknown[]) : []
+  if ('add' in pick) return { [pick.field]: [...rows, pick.add] }
+
+  const entry = pick.remove
+  const keys = unpickKeys(entry)
+  const id = typeof entry._ref === 'string' ? entry._ref : ''
+  const matches = (item: unknown): boolean => {
+    const own = rowKey(item)
+    if (own === null) return false
+    return isReference(item) ? !!id && sameKey(own, id) : keys.some((key) => sameKey(own, key))
+  }
+  const source = typeof entry._source === 'string' ? entry._source : ''
+  let index = source
+    ? rows.findIndex((item) => matches(item) && isReference(item) && item._source === source)
+    : -1
+  if (index < 0) index = rows.findIndex(matches)
+  if (index < 0) return {}
+
+  const removed = rowKey(rows[index])!
+  const left = rows.filter((_, i) => i !== index)
+  const patch: Values = { [pick.field]: left }
+  if (left.some((item) => sameKey(rowKey(item) ?? '', removed))) return patch
+  const recorded = {
+    ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>),
+  }
+  let cleaned = false
+  for (const [from, targets] of Object.entries(recorded)) {
+    const list = targets?.[pick.field]
+    if (!Array.isArray(list) || !list.some((key) => sameKey(key, removed))) continue
+    recorded[from] = { ...targets, [pick.field]: list.filter((key) => !sameKey(key, removed)) }
     cleaned = true
   }
   if (cleaned) patch[GRANTED_KEY] = recorded
-  return { patch, picks, prompts, grants }
+  return patch
 }
 
 /**

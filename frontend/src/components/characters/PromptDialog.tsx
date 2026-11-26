@@ -84,7 +84,9 @@ export default function PromptDialog({
       <section key={step.key} style={{ display: 'grid', gap: 6 }}>
         {heading ? <h3 style={{ margin: 0, fontSize: 14 }}>{heading}</h3> : null}
         <PromptStepControl
-          step={step}
+          // The heading it shows, so a control named after its step (a
+          // number's input) is announced as it reads.
+          step={heading ? { ...step, label: heading } : step}
           value={answers[step.key]}
           context={stepContext}
           document={document}

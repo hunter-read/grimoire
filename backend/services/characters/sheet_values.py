@@ -29,7 +29,7 @@ def validated_document(row: CharacterSchema) -> dict:
     degrades to its raw fields instead of 500ing.
     """
     try:
-        return validate_schema(row.document or {})
+        return validate_schema(row.document or {}, stored=True)
     except SchemaError:
         logger.warning("Stored schema %s failed re-validation", row.schema_id)
         return {"id": row.schema_id, "name": row.name, "fields": {}, "layout": []}

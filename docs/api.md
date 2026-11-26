@@ -2559,7 +2559,7 @@ rather than stored as sent:
 | Key | Shape | Purpose |
 |---|---|---|
 | `_overrides` | `{computed name: value}` | The player's own value for a computed value. It replaces the formula, and everything depending on it follows. Names must be computed values; values must be short scalars. Sent whole - leaving a name out resets it |
-| `_granted` | `{picking field: {target field: [value, ...]}}` | What each `on_pick` rule added, so changing the pick can take it back off. The source must carry `on_pick` and each target must be a declared field |
+| `_granted` | `{picking field: {target field: [value, ...]}}` | What each pick added, so changing the pick can take it back off: its `on_pick` rules' grants and choices, and what a prompt it opened added (a prompt's `add`, `pick` and `grant` steps, or a `grant` recorded under its own `source`). A prompt's `unpick` takes the row's key out of every record, unless a row still on the list answers to it. The source must carry `on_pick` and each target must be a declared field |
 | `_pending_prompts` | `[{prompt, source?, ref?}, ...]` | The sheet's `prompts` the player put off, shown as choices still to make. `prompt` must be one the sheet declares; `source` (a field) and `ref` (an entry id) name the pick that opened it. At most 20, sent whole |
 
 **Schema fields:** `id`, `schema_id`, `name`, `system`, `description`,

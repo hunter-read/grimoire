@@ -77,23 +77,34 @@ interface PlanPickArgs {
 
 // A property read off an entry as a list: a real list, kept item for item, or
 // comma-separated text for content written before lists were declared - so a
-// value holding a comma needs a list. An object in a list (a content_list's
-// row) is read by `key`: its `_ref` for an id, its `name` for a name.
-export function asList(value: unknown, key: '_ref' | 'name' = '_ref'): string[] {
-  if (Array.isArray(value)) {
-    return value.map((item) => {
-      if (item && typeof item === 'object') {
-        const read = (item as Values)[key]
-        return read === undefined || read === null ? '' : String(read)
-      }
-      return item === undefined || item === null ? '' : String(item)
-    })
+// value holding a comma needs a list. An object (a content_list's row, an
+// `entry` step's answer) is read by `key`: its `_ref` for an id, its `name`
+// for a name; one object on its own is a list of one. A number is not: a
+// formula reads a missing property as 0, which would grant an entry "0".
+//
+// `slots` keeps the empty items of comma-separated text, for a list paired
+// with another by position (`from` with `names`): dropping one there would
+// shift every name after it onto the wrong id.
+export function asList(
+  value: unknown,
+  key: '_ref' | 'name' = '_ref',
+  { slots = false }: { slots?: boolean } = {}
+): string[] {
+  const read = (item: unknown): string => {
+    if (item && typeof item === 'object') {
+      const own = (item as Values)[key]
+      return own === undefined || own === null ? '' : String(own)
+    }
+    return item === undefined || item === null ? '' : String(item)
   }
+  if (Array.isArray(value)) return value.map(read)
   if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
+    const items = value.split(',').map((item) => item.trim())
+    return slots ? (items.some(Boolean) ? items : []) : items.filter(Boolean)
+  }
+  if (value && typeof value === 'object') {
+    const one = read(value)
+    return one ? [one] : []
   }
   return []
 }
@@ -125,10 +136,14 @@ export function rowKey(value: unknown): string | null {
   return item._inline ? String(item.name ?? '') : null
 }
 
-// Whether a content-list item is the one a grant recorded under `key`.
+// Whether a content-list item is the one a grant recorded under `key`. Exact:
+// a record holds the key of the very row it added, so taking it back never
+// reaches a row the player added by hand that differs only in case - a
+// reference `lucky` beside a granted freeform "Lucky". Only `unpick`, which
+// matches a player's answer against the rows, goes through `sameKey`.
 function matchesKey(value: unknown, key: string): boolean {
   const own = rowKey(value)
-  return own !== null && sameKey(own, key)
+  return own !== null && own === key
 }
 
 function currentList(data: Values | null | undefined, patch: Values, target: string): unknown[] {
@@ -162,9 +177,10 @@ export function grantInto({
   record: (key: string) => void
 }): unknown[] | null {
   if (definition.type === 'multiselect') {
+    // A multiselect with no options takes any value, as a prompt's `add` does.
     const allowed = new Set(optionValues(definition))
     for (const [value] of pairs) {
-      if (!allowed.has(value) || list.includes(value)) continue
+      if (!value || (allowed.size && !allowed.has(value)) || list.includes(value)) continue
       list.push(value)
       record(value)
     }
@@ -254,7 +270,7 @@ export async function planPick({
       if (!rule.grant) continue
       if (rule.ref && entry[rule.ref]) wanted.push(String(entry[rule.ref]))
       if (rule.from && fields[rule.grant]?.type === 'content_list') {
-        wanted.push(...asList(entry[rule.from]))
+        wanted.push(...asList(entry[rule.from]).filter(Boolean))
       }
     }
     let resolved: ResolvedRefs = {}
@@ -284,11 +300,12 @@ export async function planPick({
         }
         // One entry (`ref`/`name`) or several (`from`, with `names` in the
         // same order to fall back to).
+        const names = rule.names ? asList(entry[rule.names], 'name', { slots: true }) : []
         const pairs: [string, string][] =
           rule.from || definition.type === 'multiselect'
-            ? asList(entry[rule.from!]).map((id, i) => [
+            ? asList(entry[rule.from!], '_ref', { slots: !!rule.names }).map((id, i) => [
                 id,
-                asList(entry[rule.names!], 'name')[i] || '',
+                names[i] || '',
               ])
             : [
                 [
