@@ -48,6 +48,11 @@ function StubSheet({
       <button onClick={() => onChange('species', { _ref: 'elf' }, { entry: ELF })}>pick elf</button>
       <button onClick={() => open?.({ prompt: 'feat_up' })}>gain a feat</button>
       <button onClick={() => open?.({ prompt: 'level_gain' })}>gain a level</button>
+      <button onClick={() => open?.({ prompt: 'bonus_feat' })}>gain a bonus feat</button>
+      <button onClick={() => open?.({ prompt: 'origin_up' })}>take an origin</button>
+      <button onClick={() => onChange('features', [{ _inline: true, name: 'Hand' }])}>
+        add a feature by hand
+      </button>
       <button onClick={() => onChange('focused', true)}>focus</button>
       <button onClick={() => onChange('hp', 0)}>drop to 0</button>
       <button onClick={() => onChange('focused', true, { written: true })}>action focus</button>
@@ -128,6 +133,22 @@ const DOCUMENT = {
           names: "'Action Surge, Tactical Mind'",
           source: 'origin_feat',
         },
+      ],
+    },
+    bonus_feat: {
+      label: 'Bonus feat',
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+      apply: [
+        { grant: 'feats', from: "'bonus'", names: "'Bonus Feat'" },
+        { pick: 'feats', entry: 'answer.feat' },
+      ],
+    },
+    origin_up: {
+      label: 'Origin',
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+      apply: [
+        { pick: 'origin_feat', entry: 'answer.feat' },
+        { grant: 'features', from: "'x'", names: "'X'", source: 'origin_feat' },
       ],
     },
   },
@@ -259,6 +280,48 @@ describe('CharacterDetailView — prompts', () => {
       origin_feat: { features: ['action-surge', 'Tactical Mind'] },
     })
     expect(mockResolve).toHaveBeenCalledWith('demo', ['action-surge', 'tactical-mind'])
+  })
+
+  it('keeps a grant into the list the same prompt picks into', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('gain a bonus feat'))
+    await userEvent.click(await screen.findByLabelText('Alert'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data.feats).toHaveLength(2))
+    expect(lastSaved().data.feats).toEqual([
+      { _ref: 'alert', _source: 'xphb' },
+      { _inline: true, name: 'Bonus Feat' },
+    ])
+  })
+
+  it('keeps a grant recorded under the field the same prompt picks', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('take an origin'))
+    await userEvent.click(await screen.findByLabelText('Alert'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(lastSaved().data.features).toHaveLength(1))
+    const saved = lastSaved().data
+    expect(saved.origin_feat).toEqual({ _ref: 'alert', _source: 'xphb' })
+    expect(saved.features).toEqual([{ _inline: true, name: 'X' }])
+    expect(saved._granted.origin_feat).toEqual({ skills: ['Perception'], features: ['X'] })
+  })
+
+  it('keeps a change made while a grant waits on the catalog', async () => {
+    let answer: (value: unknown) => void = () => {}
+    mockResolve.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    await renderView()
+    await userEvent.click(screen.getByText('gain a level'))
+    await userEvent.click(await screen.findByLabelText('yes'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(mockResolve).toHaveBeenCalled())
+    await userEvent.click(screen.getByText('add a feature by hand'))
+    answer({ entries: {} })
+    await waitFor(() => expect(lastSaved().data.features).toHaveLength(3))
+    expect(lastSaved().data.features).toEqual([
+      { _inline: true, name: 'Hand' },
+      { _inline: true, name: 'Action Surge' },
+      { _inline: true, name: 'Tactical Mind' },
+    ])
   })
 
   it("follows a change by hand with the field's on_change: a box ticked opens its prompt", async () => {

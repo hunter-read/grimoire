@@ -498,7 +498,7 @@ export function planPrompt(
       // Worked out now, against the sheet as the prompt read it; made by
       // `planGrants`, which asks the catalog first.
       const ids = listOf(evaluate<symbol>(step.from, ctx, FAILED))
-      const names = step.names ? listOf(evaluate<symbol>(step.names, ctx, FAILED)) : []
+      const names = step.names ? listOf(evaluate<symbol>(step.names, ctx, FAILED), 'name') : []
       const carried: Values = {}
       for (const [key, formula] of Object.entries(isObject(step.carry) ? step.carry : {})) {
         const value = evaluate<symbol>(formula, ctx, FAILED)
@@ -589,17 +589,19 @@ export function planPrompt(
  * freeform entry by its name. What is added is recorded under the grant's
  * source, so picking something else there takes it back.
  *
- * @param data  the character's data with the prompt's own patch laid over it
+ * @param data  the character's data with the prompt's own writes and picks
+ *   made, or a function reading it: read once the catalog has answered, so
+ *   what changed while it was asked is kept
  */
 export async function planGrants(
   grants: PromptGrant[],
   {
     document,
-    data,
+    data: readData,
     lookup,
   }: {
     document: PromptDocument | null | undefined
-    data: Values | null | undefined
+    data: Values | null | undefined | (() => Values | null | undefined)
     lookup?: (ids: string[]) => Promise<ResolvedRefs | null | undefined>
   }
 ): Promise<Values> {
@@ -617,6 +619,7 @@ export async function planGrants(
       resolved = {}
     }
   }
+  const data = typeof readData === 'function' ? readData() : readData
   const patch: Values = {}
   const all = { ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>) }
   let recordedAny = false

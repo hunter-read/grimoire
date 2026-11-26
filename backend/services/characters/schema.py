@@ -488,7 +488,11 @@ def _validate_write_steps(
       properties worked out by formulas - a level's class features. `from`
       lists ids (or a multiselect's values); `names`, in the same order, are
       what each falls back to when the catalog has no such id; `carry` sets
-      values on those freeform entries. What it adds is recorded under
+      values on those freeform entries, other than `name`, which `names`
+      sets. A formula giving text is split on its commas, so a name holding
+      a comma must come in a list; a list is taken item for item, and a
+      content_list's rows by their `_ref` (in `from`) or `name` (in
+      `names`). What it adds is recorded under
       `source` (a content_ref with `on_pick`, so picking another class there
       takes it back), or else under the pick that opened the prompt.
     """
@@ -613,6 +617,8 @@ def _validate_prompt_grant(
             or {}
         )
         for key, formula in carry.items():
+            if key == "name":
+                raise SchemaError(f"{where} carries 'name', which 'names' sets")
             if key not in target_fields:
                 raise SchemaError(
                     f"{where} carries into {key!r}, which the target's content type "
