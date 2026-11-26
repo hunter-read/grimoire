@@ -708,6 +708,23 @@ def _validate_prompt_options(options: Any, where: str, known: set[str], images: 
             raise SchemaError(f"{where} options must be text or {{value, label}} objects")
 
 
+def _validate_start_prompt(
+    start: Any, prompt_names: set[str], known: set[str], images: frozenset
+) -> None:
+    """Check a sheet's `start_prompt`: `{"prompt": name, "when": condition}`.
+
+    The prompt the sheet opens by itself when a character is opened and
+    `when` holds - a new character's first level. Put off, it is not kept
+    with the prompts a pick opened: it opens again the next time, while
+    `when` still holds.
+    """
+    start = _require_dict(start, "'start_prompt'")
+    target = start.get("prompt")
+    if not isinstance(target, str) or target not in prompt_names:
+        raise SchemaError(f"'start_prompt' opens unknown prompt {start.get('prompt')!r}")
+    _validate_condition(start.get("when"), "'start_prompt' when", known, images)
+
+
 def _validate_prompts(
     prompts: Any, fields: dict, known: set[str], images: frozenset, content_types: dict
 ) -> None:
@@ -731,6 +748,9 @@ def _validate_prompts(
       `filters` and a `filter` formula reading the candidate as `entry`.
     - `number`: a number, starting from `default`, with a button for `average`.
     - `select`: one of `options`.
+
+    A step's `label_formula`, when it works out to some text, is shown in
+    place of its `label` - the kind of option a class replaces.
     """
     prompts = _require_dict(prompts, "'prompts'")
     if len(prompts) > MAX_PROMPTS:
@@ -766,6 +786,8 @@ def _validate_prompts(
                 allowed = ", ".join(sorted(_PROMPT_STEP_TYPES))
                 raise SchemaError(f"{where} needs a 'type': one of {allowed}")
             _validate_label(step.get("label"), where, MAX_PROMPT_LABEL, required=False)
+            if "label_formula" in step:
+                _validate_formula(step["label_formula"], f"{where} 'label_formula'", base, images)
             _validate_condition(step.get("visible_if"), f"{where} visible_if", base, images)
 
             if kind == "choose":
@@ -1180,6 +1202,33 @@ def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     return derived
 
 
+def _check_content_pickers(fields: dict, content_types: dict) -> None:
+    """Refuse a content_ref/content_list, or a per-entry one, naming no catalog.
+
+    The picker would otherwise open on nothing, with no way for the player to
+    know why.
+    """
+    for field_name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        if definition.get("type") not in _CONTENT_TYPES_FIELDS:
+            continue
+        pickers = [(f"Field {field_name!r}", definition)] + [
+            (f"Field {field_name!r} per-entry field {per_name!r}", per_definition)
+            for per_name, per_definition in (definition.get("per_entry_fields") or {}).items()
+            if isinstance(per_definition, dict)
+            and per_definition.get("type") in _CONTENT_TYPES_FIELDS
+        ]
+        for what, picker in pickers:
+            wanted = picker.get("content_type")
+            if not isinstance(wanted, str) or wanted not in content_types:
+                declared = ", ".join(sorted(content_types)) or "none declared"
+                raise SchemaError(
+                    f"{what} picks from content type {wanted!r}, "
+                    f"which the schema does not define (has: {declared})"
+                )
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -1269,19 +1318,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     for type_name, type_definition in content_types.items():
         _validate_content_type(type_name, type_definition)
 
-    # A content_ref/content_list must name a catalog that exists, or the picker
-    # would open on nothing with no way for the player to know why.
-    for field_name, definition in fields.items():
-        if not isinstance(definition, dict):
-            continue
-        if definition.get("type") in _CONTENT_TYPES_FIELDS:
-            wanted = definition.get("content_type")
-            if wanted not in content_types:
-                declared = ", ".join(sorted(content_types)) or "none declared"
-                raise SchemaError(
-                    f"Field {field_name!r} picks from content type {wanted!r}, "
-                    f"which the schema does not define (has: {declared})"
-                )
+    _check_content_pickers(fields, content_types)
 
     prompts = document.get("prompts")
     prompt_names = set(prompts) if isinstance(prompts, dict) else set()
@@ -1309,6 +1346,8 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 
     if "prompts" in document:
         _validate_prompts(prompts, fields, known, images, content_types)
+    if "start_prompt" in document:
+        _validate_start_prompt(document["start_prompt"], prompt_names, known, images)
     if "actions" in document:
         _validate_actions(document["actions"], fields, known, images, prompt_names)
 

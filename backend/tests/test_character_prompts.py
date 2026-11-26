@@ -192,6 +192,46 @@ def test_an_unpick_step_takes_a_row_out_of_a_content_list():
         _validate(document)
 
 
+def test_a_start_prompt_names_a_prompt_and_a_condition():
+    prompts = {"level_up": LEVEL_UP, "lineage": LINEAGE}
+    _validate(_document(prompts, start_prompt={"prompt": "level_up", "when": "level == 0"}))
+    _validate(_document(prompts, start_prompt={"prompt": "lineage"}))
+    with pytest.raises(svc.SchemaError, match="unknown prompt"):
+        _validate(_document(prompts, start_prompt={"prompt": "nowhere"}))
+    with pytest.raises(svc.SchemaError, match="start_prompt"):
+        _validate(_document(prompts, start_prompt={"prompt": "lineage", "when": "missing + 1"}))
+
+
+@pytest.mark.parametrize("name", [[], {}, 1, None, True])
+def test_a_start_prompt_that_is_not_text_is_refused(name):
+    with pytest.raises(svc.SchemaError, match="unknown prompt"):
+        _validate(_document(start_prompt={"prompt": name}))
+
+
+@pytest.mark.parametrize("per_entry", [False, True])
+def test_a_content_picker_must_pick_from_a_declared_content_type(per_entry):
+    def with_picker(content_type):
+        picker = {"type": "content_ref", "content_type": content_type}
+        document = _document()
+        document["fields"]["x"] = (
+            {"type": "content_list", "content_type": "feat", "per_entry_fields": {"y": picker}}
+            if per_entry
+            else picker
+        )
+        return document
+
+    _validate(with_picker("feat"))
+    with pytest.raises(svc.SchemaError, match="does not define"):
+        _validate(with_picker("spell"))
+
+
+def test_a_step_label_may_be_a_formula():
+    step = {"key": "x", "type": "number", "label": "X", "label_formula": "concat('Level ', level)"}
+    _validate(_document(_with_step(step)))
+    with pytest.raises(svc.SchemaError, match="label_formula"):
+        _validate(_document(_with_step({**step, "label_formula": "missing + 1"})))
+
+
 def test_grant_belongs_to_prompts_only():
     document = _document(
         actions=[{"name": "a", "label": "A", "steps": [{"grant": "skills", "from": "'a'"}]}]

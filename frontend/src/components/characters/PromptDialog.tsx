@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
 import { goldBtn, ghostBtn, scrim, card, helpText } from './characterStyles'
-import { isComplete, numberDefault, promptContext, visibleSteps } from './sheetPrompts'
+import { isComplete, numberDefault, promptContext, stepLabel, visibleSteps } from './sheetPrompts'
 import type { Answers, PromptDocument, SheetPrompt } from './sheetPrompts'
 import PromptStepControl from './PromptStepControl'
 import type { BrowseEntries } from './promptStepShared'
@@ -78,10 +78,11 @@ export default function PromptDialog({
   const before: Answers = {}
   const rendered = steps.map((step) => {
     const stepContext = promptContext(context, { ...before }, row)
+    const heading = stepLabel(step, stepContext)
     before[step.key] = answers[step.key]
     return (
       <section key={step.key} style={{ display: 'grid', gap: 6 }}>
-        {step.label ? <h3 style={{ margin: 0, fontSize: 14 }}>{step.label}</h3> : null}
+        {heading ? <h3 style={{ margin: 0, fontSize: 14 }}>{heading}</h3> : null}
         <PromptStepControl
           step={step}
           value={answers[step.key]}

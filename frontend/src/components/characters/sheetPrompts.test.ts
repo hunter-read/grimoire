@@ -9,6 +9,8 @@ import {
   pendingPrompts,
   planGrants,
   planPrompt,
+  startPrompt,
+  stepLabel,
   stepOptions,
   stepPatterns,
   visibleAnswers,
@@ -533,6 +535,48 @@ describe('grant', () => {
       }
     )
     expect(patch).toEqual({ features: [{ _inline: true, name: 'Action Surge' }] })
+  })
+})
+
+describe('stepLabel', () => {
+  it('shows the label formula worked out, else the label', () => {
+    const step: PromptStep = {
+      key: 'swap',
+      type: 'select',
+      label: 'Replace an option?',
+      label_formula: "kind != '' ? concat('Replace one ', kind, '?') : ''",
+    }
+    expect(stepLabel(step, { kind: 'Metamagic' })).toBe('Replace one Metamagic?')
+    expect(stepLabel(step, { kind: '' })).toBe('Replace an option?')
+    expect(stepLabel({ ...step, label_formula: 'missing(' }, {})).toBe('Replace an option?')
+  })
+
+  it('falls back to the label for anything but text that is not blank', () => {
+    const step: PromptStep = { key: 'swap', type: 'select', label: 'Replace an option?' }
+    for (const formula of ['false', '0', 'level', "'  '"]) {
+      expect(stepLabel({ ...step, label_formula: formula }, { level: 0 })).toBe(
+        'Replace an option?'
+      )
+    }
+  })
+})
+
+describe('startPrompt', () => {
+  const document = {
+    prompts: { level_up: { label: 'Level up', steps: [{ key: 'x', type: 'number' }], apply: [] } },
+    start_prompt: { prompt: 'level_up', when: 'level == 0' },
+  }
+
+  it('names the prompt while its condition holds', () => {
+    expect(startPrompt(document, { level: 0 })).toBe('level_up')
+    expect(startPrompt(document, { level: 1 })).toBeUndefined()
+    expect(startPrompt({ ...document, start_prompt: { prompt: 'level_up' } }, {})).toBe('level_up')
+  })
+
+  it('names nothing for a prompt the sheet lacks', () => {
+    expect(
+      startPrompt({ ...document, start_prompt: { prompt: 'gone' } }, { level: 0 })
+    ).toBeUndefined()
   })
 })
 
