@@ -79,6 +79,8 @@ DIRECTIVE_TAGS: frozenset = frozenset(
         "g-pips",       # a count drawn as boxes, ticked off as it is used
         "g-portrait",   # the character's portrait, framed as the player chose
         "g-action",     # a button running one of the sheet's `actions`
+        "g-order",      # blocks the player drags into their own order
+        "g-order-item", # one fixed block of a <g-order>
     }
 )
 
@@ -128,6 +130,11 @@ _TAG_ATTRS: dict[str, frozenset] = {
     # `name` is one of the schema's `actions`, or `prompt` one of its
     # `prompts`; `label` replaces its label.
     "g-action": frozenset({"name", "prompt", "label", "visible_if"}),
+    # `field` is the text field the order is kept in, one block key per line.
+    # Its blocks are each row a <g-repeat> inside draws, and each
+    # <g-order-item>, whose `key` names it there.
+    "g-order": frozenset({"field"}),
+    "g-order-item": frozenset({"key"}),
 }
 
 #: Tags dropped with their contents rather than unwrapped. Keeping a <script>'s

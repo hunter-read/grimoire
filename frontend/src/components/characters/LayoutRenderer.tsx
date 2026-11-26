@@ -15,6 +15,9 @@ import { findPrompt, PromptLauncher } from './sheetPrompts'
 import type { PromptRequest } from './sheetPrompts'
 import { disabledBtn, ghostBtn } from './characterStyles'
 import { SheetFormulaContext } from './sheetFormulaContext'
+import OrderedBlocks from './OrderedBlocks'
+import { sortBlocks, withUniqueKeys } from './sheetOrder'
+import type { OrderBlock } from './sheetOrder'
 import TextMarkdown from '../TextMarkdown'
 
 /**
@@ -177,6 +180,8 @@ const DIRECTIVES = new Set([
   'g-pips',
   'g-portrait',
   'g-action',
+  'g-order',
+  'g-order-item',
 ])
 
 // HTML attribute → React prop, for the few that differ.
@@ -665,55 +670,134 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
 
     case 'g-repeat': {
       // Iterates a `list` field's rows. A repeat over anything that is not a
-      // list renders nothing rather than erroring — the schema validator has
-      // already checked the field exists.
-      const listName = attrs.over
-      const rows: unknown = data?.[listName]
-      if (!Array.isArray(rows)) return null
-      // The context's copy of the rows has the `default_from` cells worked out.
-      // Conditions inside the repeat read that, so a <g-if test> on `age` sees
-      // the number the cell shows; edits go to the stored rows.
-      const derivedRows: unknown = context?.[listName]
-
-      const listDefinition = fields[listName] || {}
-      const columns = (listDefinition.columns || []) as FieldDefinition[]
-      // Inside a repeat, a <g-field name="qty"/> means *this row's* qty. The
-      // row's columns therefore shadow the character's own fields, and an edit
-      // is written back into the row rather than to a top-level field.
-      const columnsByKey: Record<string, FieldDefinition> = Object.fromEntries(
-        columns.map((column) => [column.key, column])
-      )
-
+      // list renders nothing rather than erroring.
+      const rows = repeatRows(node, ctx)
+      if (!rows) return null
       return (
-        <Fragment key={key}>
-          {rows.map((row: Values | null, index: number) => {
-            const derivedRow = (
-              Array.isArray(derivedRows) &&
-              derivedRows[index] &&
-              typeof derivedRows[index] === 'object'
-                ? derivedRows[index]
-                : row || {}
-            ) as Values
-            const editRow = (columnKey: string, cellValue: unknown) => {
-              const next = rows.map((existing: Values, i: number) =>
-                i === index ? { ...existing, [columnKey]: cellValue } : existing
-              )
-              onChange?.(listName, next)
-            }
-            return renderChildren(node.children, {
-              ...ctx,
-              key: `${key}-${index}`,
-              context: { ...context, ...derivedRow, _index: index },
-              rowScope: { row: row || {}, derivedRow, columns: columnsByKey, edit: editRow },
-            })
-          })}
-        </Fragment>
+        <Fragment key={key}>{rows.map((row) => renderChildren(node.children, row.ctx))}</Fragment>
       )
     }
+
+    case 'g-order': {
+      // Blocks the player drags into their own order, kept in a text field as
+      // their keys, one per line: each row a <g-repeat> inside draws, and each
+      // <g-order-item>. A block the stored order does not know yet comes first.
+      const field = fields[attrs.field]
+      if (!field) return <Fragment key={key}>{renderChildren(node.children, ctx)}</Fragment>
+      const stored = fieldState(attrs.field, field, data, context).value
+      const blocks = sortBlocks(withUniqueKeys(orderBlocks(node.children, ctx)), stored)
+      const editable = !readOnly && Boolean(onChange)
+      return (
+        <OrderedBlocks
+          key={key}
+          className={attrs.class}
+          blocks={blocks}
+          onMove={editable ? (keys) => onChange?.(attrs.field, keys.join('\n')) : undefined}
+        />
+      )
+    }
+
+    case 'g-order-item':
+      // Outside a <g-order> a fixed block is just its contents.
+      return <Fragment key={key}>{renderChildren(node.children, ctx)}</Fragment>
 
     default:
       return null
   }
+}
+
+// One row of a <g-repeat>: its block key in a <g-order>, and what it is drawn with.
+interface RepeatRow {
+  key: string
+  ctx: RenderContext
+}
+
+/**
+ * The rows a `<g-repeat>` draws, each with the context its contents read.
+ *
+ * Inside a repeat, a `<g-field name="qty"/>` means *this row's* qty: the row's
+ * columns shadow the character's own fields, and an edit is written back into
+ * the row. Conditions read the context's copy of the rows, with their
+ * `default_from` cells worked out, so a `<g-if test>` on `age` sees the number
+ * the cell shows; edits go to the stored rows.
+ */
+function repeatRows(node: LayoutNode, ctx: RenderContext): RepeatRow[] | null {
+  const listName = node.attrs?.over || ''
+  const rows: unknown = ctx.data?.[listName]
+  if (!Array.isArray(rows)) return null
+  const derivedRows: unknown = ctx.context?.[listName]
+  const listDefinition = ctx.schemaDocument?.fields?.[listName] || {}
+  const columns = (listDefinition.columns || []) as FieldDefinition[]
+  const columnsByKey: Record<string, FieldDefinition> = Object.fromEntries(
+    columns.map((column) => [column.key, column])
+  )
+  const firstColumn = typeof columns[0]?.key === 'string' ? (columns[0].key as string) : ''
+
+  return rows.map((row: Values | null, index: number) => {
+    const derivedRow = (
+      Array.isArray(derivedRows) && derivedRows[index] && typeof derivedRows[index] === 'object'
+        ? derivedRows[index]
+        : row || {}
+    ) as Values
+    const editRow = (columnKey: string, cellValue: unknown) => {
+      const next = rows.map((existing: Values, i: number) =>
+        i === index ? { ...existing, [columnKey]: cellValue } : existing
+      )
+      ctx.onChange?.(listName, next)
+    }
+    return {
+      key: rowBlockKey(listName, row, firstColumn),
+      ctx: {
+        ...ctx,
+        key: `${ctx.key}-${index}`,
+        context: { ...ctx.context, ...derivedRow, _index: index },
+        rowScope: { row: row || {}, derivedRow, columns: columnsByKey, edit: editRow },
+      },
+    }
+  })
+}
+
+// A row's key in a <g-order>: a catalog reference by its id, a list row by its
+// first column. Whitespace is folded, as the order keeps one key per line.
+function rowBlockKey(listName: string, row: unknown, firstColumn: string): string {
+  const cells = row && typeof row === 'object' ? (row as Values) : {}
+  const ref = cells._ref
+  if (ref !== undefined && ref !== null && ref !== '') return `${listName}:ref:${foldKey(ref)}`
+  return `${listName}:${foldKey(firstColumn ? cells[firstColumn] : cells.name)}`
+}
+
+function foldKey(value: unknown): string {
+  if (value === undefined || value === null || typeof value === 'object') return ''
+  return String(value).replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * A <g-order>'s blocks in layout order: each row of a `<g-repeat>`, each
+ * `<g-order-item>`, and the blocks of a `<g-if>` that holds. Anything else -
+ * which the server refuses - is drawn as a block of its own, so nothing goes.
+ */
+function orderBlocks(children: LayoutNode[] | undefined, ctx: RenderContext): OrderBlock[] {
+  const blocks: OrderBlock[] = []
+  ;(children || []).forEach((child, index) => {
+    const childCtx = { ...ctx, key: `${ctx.key}-${index}` }
+    if (child?.tag === 'g-repeat') {
+      for (const row of repeatRows(child, childCtx) || []) {
+        blocks.push({ key: row.key, content: renderChildren(child.children, row.ctx) })
+      }
+    } else if (child?.tag === 'g-if') {
+      if (evaluate(child.attrs?.test, ctx.context)) {
+        blocks.push(...orderBlocks(child.children, childCtx))
+      }
+    } else if (child?.tag === 'g-order-item') {
+      blocks.push({
+        key: foldKey(child.attrs?.key),
+        content: renderChildren(child.children, childCtx),
+      })
+    } else if (child) {
+      blocks.push({ key: `#node:${index}`, content: renderNode(child, childCtx) })
+    }
+  })
+  return blocks
 }
 
 // The longest a tab's title may be once it comes from a field, so a long name

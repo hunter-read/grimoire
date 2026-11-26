@@ -4106,6 +4106,7 @@
     "chooseRemaining_other": "Ne restano {{count}} da scegliere",
     "alreadyHave": "già posseduto",
     "chooseLater": "Scegli più tardi",
+    "orderMove": "Sposta elemento {{position}} di {{count}}",
     "chooseConfirm": "Aggiungi",
     "promptConfirm": "Conferma",
     "promptPatterns": "Distribuisci {{patterns}} · resta {{count}} punto",

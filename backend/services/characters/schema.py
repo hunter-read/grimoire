@@ -1227,6 +1227,63 @@ def _check_action_buttons(document: dict, actions: Any, prompts: Any) -> None:
             stack.extend(node.get("children") or [])
 
 
+#: What a <g-order> holds: blocks, and conditions lending theirs.
+_ORDER_CHILDREN: frozenset = frozenset({"g-repeat", "g-order-item", "g-if"})
+#: The field types a <g-order> keeps its order in, one block key per line.
+_ORDER_FIELD_TYPES: frozenset = frozenset({"text", "textarea"})
+
+
+def _check_order_blocks(document: dict, fields: dict) -> None:
+    """Refuse a `<g-order>` that would lose what it holds, or keep its order nowhere.
+
+    Its `field` must be a text field. Its children - and a `<g-if>`'s inside
+    it, which lends them when it holds - must be blocks: a `<g-repeat>`, whose
+    every row is one, or a `<g-order-item>` with a `key`. Anything else has no
+    key to keep its place by, so it is refused rather than drawn somewhere
+    the author did not put it. Orders do not nest.
+    """
+
+    def blocks(children: list, label: str) -> None:
+        for child in children:
+            tag = child.get("tag") if isinstance(child, dict) else None
+            if tag not in _ORDER_CHILDREN:
+                what = f"<{tag}>" if tag else "text"
+                raise SchemaError(
+                    f"{label}: <g-order> holds {what}; it takes only <g-repeat>, "
+                    "<g-order-item> and <g-if>"
+                )
+            if tag == "g-if":
+                blocks(child.get("children") or [], label)
+
+    def walk(nodes: list, label: str, inside: bool) -> None:
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            tag = node.get("tag")
+            attrs = node.get("attrs") or {}
+            children = node.get("children") or []
+            if tag == "g-order":
+                if inside:
+                    raise SchemaError(f"{label}: a <g-order> cannot sit inside another")
+                field = attrs.get("field")
+                definition = fields.get(field) if isinstance(field, str) else None
+                if (
+                    not isinstance(definition, dict)
+                    or definition.get("type", "text") not in _ORDER_FIELD_TYPES
+                ):
+                    raise SchemaError(
+                        f"{label}: <g-order> keeps its order in {field!r}, which must be "
+                        "a text or textarea field"
+                    )
+                blocks(children, label)
+            elif tag == "g-order-item" and not str(attrs.get("key") or "").strip():
+                raise SchemaError(f"{label}: <g-order-item> needs a 'key'")
+            walk(children, label, inside or tag == "g-order")
+
+    for key, label in (("layout_ast", "layout_html"), ("mobile_layout_ast", "mobile_layout_html")):
+        walk(list(document.get(key) or []), label, False)
+
+
 def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     """Parse a sheet's HTML layouts and scope their stylesheets.
 
@@ -1479,6 +1536,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = Fa
     }
     normalised.update(_derive_html_layouts(document, scope))
     _check_action_buttons(normalised, document.get("actions"), document.get("prompts"))
+    _check_order_blocks(normalised, fields)
 
     if "layout" not in document and document.get("layout_html") is None:
         # Neither layout given: the renderer falls back to listing fields in

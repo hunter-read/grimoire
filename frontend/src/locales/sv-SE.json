@@ -4106,6 +4106,7 @@
     "chooseRemaining_other": "{{count}} kvar att välja",
     "alreadyHave": "har redan",
     "chooseLater": "Välj senare",
+    "orderMove": "Flytta objekt {{position}} av {{count}}",
     "chooseConfirm": "Lägg till",
     "promptConfirm": "Bekräfta",
     "promptPatterns": "Fördela {{patterns}} · {{count}} poäng kvar",

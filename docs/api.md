@@ -2900,14 +2900,31 @@ and returned as derived `layout_ast` / `styles_css`:
 </div>
 ```
 
-Directives are `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
-`g-if`, and `g-repeat`. Inside a `g-repeat` over a list field, a `g-field`
+Directives include `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
+`g-if`, `g-repeat`, `g-order` and `g-order-item`. Inside a `g-repeat` over a list field, a `g-field`
 naming one of that list's columns addresses **that row's** cell, so a custom
 layout can draw an editable table of its own. `<g-value name="notes" markdown />`
 draws a text value as Markdown - lists, emphasis, tables and links - with the
 same renderer as the GM screen's reference panel: raw HTML is never markup, an
 image shows as its description, and a link opens in a new tab. Only text is
-drawn: an empty value, or one that is not text, draws nothing. Everything else is a closed allowlist of structural
+drawn: an empty value, or one that is not text, draws nothing.
+
+`<g-order field="attack_order">` lets the player drag blocks of the sheet into
+their own order - attacks drawn from several lists, say. Each row a
+`<g-repeat>` inside it draws is one block, whatever it draws;
+`<g-order-item key="unarmed">` is a fixed block; a `<g-if>` that holds lends
+its blocks, and one that does not lends none. The order is kept in `field`, a
+`text` or `textarea` field, as block keys one per line: a `<g-order-item>` by
+its `key`, a list row by `<list>:<first column's value>`, a catalog row by
+`<list>:ref:<id>`, and a second block with the same key as `<key>#2`. A block
+the stored order does not know yet comes first; a stored key whose block is
+gone is dropped the next time the order is written. Each block gets a drag
+handle (mouse, pen or touch, or the arrow keys once it has focus); a read-only
+sheet shows the order without handles. The blocks are drawn as `.gc-order >
+.gc-order-block > .gc-order-handle + .gc-order-content` for the stylesheet to
+place. At install, `field` must be a text field, a `<g-order-item>` needs a
+`key`, a `<g-order>` may hold only `<g-repeat>`, `<g-order-item>` and `<g-if>`
+(and a `<g-if>` inside it the same), and orders do not nest. Everything else is a closed allowlist of structural
 tags. **The template never becomes markup**: it is parsed to an AST server-side
 and rendered as React elements, so no schema string ever reaches `innerHTML`.
 Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and
