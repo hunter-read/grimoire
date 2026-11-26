@@ -280,6 +280,39 @@ describe('LayoutRenderer — Phase 2', () => {
     ])
   })
 
+  it('shows a readonly column inside a repeat without an input', () => {
+    const doc = {
+      ...DOC,
+      fields: {
+        ...DOC.fields,
+        equipment: {
+          type: 'list',
+          columns: [
+            { key: 'name', type: 'text', label: 'Name', readonly: true },
+            { key: 'qty', type: 'number', label: 'Qty' },
+          ],
+        },
+      },
+    }
+    renderDoc(
+      [
+        {
+          tag: 'g-repeat',
+          attrs: { over: 'equipment' },
+          children: [
+            { tag: 'g-field', attrs: { name: 'name' }, children: [] },
+            { tag: 'g-field', attrs: { name: 'qty' }, children: [] },
+          ],
+        },
+      ],
+      { document: doc, onChange: vi.fn() }
+    )
+    expect(screen.getByText('Sword')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Sword')).not.toBeInTheDocument()
+    // The rest of the row is still the player's.
+    expect(screen.getByDisplayValue('2')).toBeInTheDocument()
+  })
+
   it('renders nothing for a repeat over a field that is not a list', () => {
     const { container } = renderDoc([
       { tag: 'g-repeat', attrs: { over: 'spell_dc' }, children: [] },

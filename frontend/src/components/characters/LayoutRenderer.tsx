@@ -355,6 +355,8 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       const rowScope = ctx.rowScope
       const scoped = rowScope?.columns?.[name]
       if (rowScope && scoped) {
+        // A `readonly` column is the sheet's record, shown but not typed into.
+        const columnLocked = readOnly || attrs.readonly !== undefined || scoped.readonly === true
         return (
           <DerivedCell
             key={key}
@@ -362,8 +364,8 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
             definition={{ ...scoped, ...(attrs.label ? { label: attrs.label } : {}) }}
             stored={rowScope.row?.[name]}
             worked={rowScope.derivedRow?.[name]}
-            onChange={readOnly ? undefined : (value) => rowScope.edit(name, value)}
-            readOnly={readOnly || attrs.readonly !== undefined}
+            onChange={columnLocked ? undefined : (value) => rowScope.edit(name, value)}
+            readOnly={columnLocked}
             hideLabel={attrs.label === ''}
           />
         )

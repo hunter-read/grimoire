@@ -694,9 +694,36 @@ def _phase2_schema(**overrides):
     return document
 
 
+def _with_record(columns):
+    document = _phase2_schema()
+    document["fields"] = {**document["fields"], "record": {"type": "list", "columns": columns}}
+    return document
+
+
 class TestListFields:
     def test_accepts_a_list_field(self):
         assert svc.validate_schema(_phase2_schema())
+
+    @pytest.mark.parametrize("flag", [True, False])
+    def test_accepts_a_readonly_column(self, flag):
+        columns = [{"key": "gained", "type": "text", "readonly": flag}]
+        assert svc.validate_schema(
+            _with_record(columns)
+        )
+
+    @pytest.mark.parametrize("flag", ["yes", 1, None])
+    def test_rejects_a_readonly_that_is_not_a_boolean(self, flag):
+        columns = [{"key": "gained", "type": "text", "readonly": flag}]
+        with pytest.raises(svc.SchemaError, match="readonly must be true or false"):
+            svc.validate_schema(
+                _with_record(columns)
+            )
+
+    def test_a_readonly_column_still_takes_what_is_written(self):
+        definition = {"type": "list", "columns": [{"key": "gained", "readonly": True}]}
+        assert svc.coerce_value(definition, [{"gained": "Feat: Alert"}]) == [
+            {"gained": "Feat: Alert"}
+        ]
 
     def test_rejects_a_list_with_no_columns(self):
         with pytest.raises(svc.SchemaError, match="needs a non-empty 'columns'"):

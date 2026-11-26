@@ -166,6 +166,11 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
         _validate_options(what, {**column, "type": column_type})
     if column_type == "number":
         _validate_bounds(what, column)
+    # Shown to the player but not typed into: a record the sheet writes itself
+    # (an action's `append`), which an edit by hand would put out of step. A
+    # view setting only - the server still takes what is written there.
+    if "readonly" in column and not isinstance(column["readonly"], bool):
+        raise SchemaError(f"{what} readonly must be true or false")
 
     if "default_from" in column:
         # The names it reads are checked in `validate_schema`, which knows the

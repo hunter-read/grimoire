@@ -2791,6 +2791,13 @@ Every row is rebuilt from the declared columns on save, so a key the schema does
 not define is dropped - the same rule top-level fields follow. A missing cell
 falls back to its column's `default`. A list is capped at 500 rows.
 
+A column marked `"readonly": true` is shown but not typed into, in the list and
+in a `<g-repeat>` - a record the sheet writes itself through an action's
+`append`, such as what a level gained gave. The rest of the row, and adding,
+moving and removing rows, stay the player's. It is a view setting, not a lock:
+the server still accepts what is written there. Anything but `true` or `false`
+is refused at install.
+
 These functions read across rows, taking the **column name as a string** (a bare
 name would resolve against the character before the function saw it):
 

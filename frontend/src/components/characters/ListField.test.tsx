@@ -88,6 +88,22 @@ describe('ListField', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
+  it('shows a readonly column as values, leaving the rest of the row editable', async () => {
+    const onChange = vi.fn()
+    renderList({
+      onChange,
+      definition: {
+        ...DEFINITION,
+        columns: [{ ...DEFINITION.columns[0], readonly: true }, ...DEFINITION.columns.slice(1)],
+      },
+    })
+    expect(screen.getByText('Sword')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Sword')).not.toBeInTheDocument()
+    expect(screen.getAllByLabelText(/Remove row/i)).toHaveLength(2)
+    await userEvent.click(screen.getByText(/Add row/i))
+    expect(onChange).toHaveBeenCalledWith([...ROWS, { name: '', qty: 1, equipped: false }])
+  })
+
   it('treats a non-list value as empty rather than failing', () => {
     expect(() => renderList({ value: 'nonsense' })).not.toThrow()
     expect(screen.getByText(/Nothing here yet/i)).toBeInTheDocument()
