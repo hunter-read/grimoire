@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -22,6 +22,7 @@ import {
   findPrompt,
   pendingPrompts,
   planPrompt,
+  listPick,
   planGrants,
   PromptLauncher,
   sheetContext,
@@ -118,6 +119,16 @@ export default function CharacterDetailView() {
   useEffect(() => {
     dataRef.current = data
   }, [data])
+  // The character on screen. Work that waited - on the catalog, on a pick's
+  // follow-up - checks it before writing, and drops what it worked out for a
+  // character the player has since left: the route keeps this view mounted,
+  // so `dataRef` and the save queue would otherwise take it into the next one.
+  const liveIdRef = useRef(characterId)
+  useLayoutEffect(() => {
+    liveIdRef.current = characterId
+  }, [characterId])
+  // The character the sheet and queues were last loaded for.
+  const loadedIdRef = useRef(characterId)
 
   useEffect(() => {
     let cancelled = false
@@ -126,9 +137,14 @@ export default function CharacterDetailView() {
       setLoading(true)
       // Nothing of the character before carries over: not its sheet, which
       // another character's start prompt would be read from, nor its queue.
-      setDocument(null)
-      setChoices([])
-      setPrompts([])
+      // Only on a move to another character - the language changing reloads
+      // this one, and its prompts and choices exist nowhere else.
+      if (loadedIdRef.current !== characterId) {
+        loadedIdRef.current = characterId
+        setDocument(null)
+        setChoices([])
+        setPrompts([])
+      }
       try {
         const loaded = await charactersApi.get(characterId)
         if (cancelled) return
@@ -306,6 +322,7 @@ export default function CharacterDetailView() {
       // The picked entry's own properties: from the browser that picked it,
       // from the value itself for a freeform entry, or fetched as a last resort.
       const picked = value as { _inline?: boolean; _ref?: string } | null | undefined
+      const pickedFor = characterId
       let entry: Entry =
         meta && typeof meta === 'object' && 'entry' in meta
           ? ((meta as { entry: Entry }).entry ?? null)
@@ -316,6 +333,7 @@ export default function CharacterDetailView() {
         else if (picked._ref) {
           const resolved: Record<string, { missing?: boolean; data?: Values; name?: string }> =
             await lookup([picked._ref]).catch(() => ({}))
+          if (liveIdRef.current !== pickedFor) return
           const found = resolved[picked._ref]
           entry = found && !found.missing ? { ...(found.data || {}), name: found.name } : null
         }
@@ -333,6 +351,7 @@ export default function CharacterDetailView() {
           entry: entry ?? null,
           lookup,
         })
+        if (liveIdRef.current !== pickedFor) return
         // A new pick replaces the old one's prompts, answered or put off.
         const dropped = withoutPendingFrom(dataRef.current, name)
         if (Object.keys(plan.patch).length || Object.keys(dropped).length) {
@@ -354,7 +373,7 @@ export default function CharacterDetailView() {
         setError((e as Error).message)
       }
     },
-    [applyPatch, document, lookup, runFollowUp]
+    [applyPatch, characterId, document, lookup, runFollowUp]
   )
   // The sheet's change handler. onChange never rejects - a follow-up that
   // fails lands in `error` - so the sheet need not wait on it.
@@ -482,21 +501,31 @@ export default function CharacterDetailView() {
     // The plain writes land at once, before anything waits on the catalog, so
     // a change the player makes meanwhile is not overwritten by them.
     applyPatch({ ...plan.patch, ...withoutPending(dataRef.current, request) })
-    // Each pick goes the way a pick by hand goes, so its own on_pick runs -
-    // a feat's prompt joining the queue after this one.
+    // Each content_ref pick goes the way a pick by hand goes, so its own
+    // on_pick runs - a feat's prompt joining the queue after this one. A
+    // content_list's row added or taken out is made against the list as the
+    // picks before it left it, grants they made into it included.
+    const confirmedFor = characterId
     for (const pick of plan.picks) {
-      await onChange(pick.field, pick.value, { entry: pick.entry, written: true })
+      if ('value' in pick) {
+        await onChange(pick.field, pick.value, { entry: pick.entry, written: true })
+        if (liveIdRef.current !== confirmedFor) return
+      } else {
+        const change = listPick(dataRef.current, pick)
+        if (Object.keys(change).length) applyPatch(change)
+      }
     }
-    // The grants last, worked out against the sheet as the picks left it: a
-    // pick then neither writes over a grant into its list nor takes back a
-    // grant recorded under the field it picks. Grants ask the catalog which
-    // ids it has, as a pick's grants do, and read the sheet once it answers.
+    // The grants last, into the lists as the picks left them: a pick then
+    // neither writes over a grant into its list nor takes back a grant
+    // recorded under the field it picks. Grants ask the catalog which ids it
+    // has, as a pick's grants do, and read the sheet once it answers.
     if (plan.grants.length) {
       const granted = await planGrants(plan.grants, {
         document,
         data: () => dataRef.current,
         lookup,
       })
+      if (liveIdRef.current !== confirmedFor) return
       if (Object.keys(granted).length) applyPatch(granted)
     }
     if (plan.prompts.length) {

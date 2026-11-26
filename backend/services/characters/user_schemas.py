@@ -47,7 +47,7 @@ def user_schema_document(db: Session, user_id: str, schema_id: str) -> Optional[
     if not row:
         return None
     try:
-        return svc.validate_schema(row.document or {})
+        return svc.validate_schema(row.document or {}, stored=True)
     except svc.SchemaError:
         return None
 

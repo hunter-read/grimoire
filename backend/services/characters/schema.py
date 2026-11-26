@@ -484,11 +484,14 @@ def _validate_write_steps(
       or a new row of a content_list, with its per-entry fields, and follow
       its `on_pick` as a pick by hand;
     - `{"unpick": content_list, "entry": formula}` take out of a content_list
-      the row of the entry a formula names (an `entry` step's answer), as a
-      row removed by hand - an option given up for another. A reference is
-      found by its id, a freeform row by its name, in any case; the row is
-      dropped from every `_granted` record too, so a pick changed later does
-      not take back the same entry added again by hand;
+      the row of the entry a formula names (an `entry` step's answer) - an
+      option given up for another. A reference is found by its id (the copy
+      from the answer's source first), a freeform row by its name, in any
+      case. The row is found when its turn comes, in the list as the picks
+      before it left it, and is taken out as the sheet's own write, so the
+      list's `on_change` does not follow. Its key leaves every `_granted`
+      record too, unless a row still on the list answers to it, so a pick
+      changed later does not take back the same entry added again by hand;
     - `{"grant": field, "from": formula, "names": formula, "carry": {key:
       formula}, "source": field}` grant as an `on_pick` rule does, its
       properties worked out by formulas - a level's class features. `from`
@@ -501,6 +504,13 @@ def _validate_write_steps(
       `names`). What it adds is recorded under
       `source` (a content_ref with `on_pick`, so picking another class there
       takes it back), or else under the pick that opened the prompt.
+
+    The writes (`set`, `each`, `append`, `add`) are made first, then the
+    picks and unpicks in the order written, then every `grant`, wherever it is
+    written, into the lists as the picks left them. Every formula reads the
+    sheet as it stood when the prompt opened, plus the answers - so a grant
+    may not read a field the same prompt picks (it would read the value being
+    replaced): it reads the answer that pick takes its entry from instead.
     """
     if not isinstance(steps, list) or not steps:
         raise SchemaError(f"{what} must be a non-empty list of steps")
@@ -593,6 +603,43 @@ def _validate_write_steps(
             if "values" in step:
                 keys = set((fields[target] or {}).get("per_entry_fields") or {})
                 _cells(step["values"], keys, target, f"{where} 'values'", known)
+
+
+def _refuse_grants_reading_picks(prompts: dict) -> None:
+    """Refuse a prompt's grant formula that reads a field the prompt picks.
+
+    Grants are worked out against the sheet as the prompt opened, so such a
+    formula reads the old value - the class being replaced - and grants the
+    wrong features with no sign of why. Run once `_validate_prompts` has
+    checked every formula parses.
+    """
+    for prompt_name, prompt in prompts.items():
+        steps = [step for step in prompt.get("apply") or [] if isinstance(step, dict)]
+        picked = {
+            step[verb]
+            for step in steps
+            for verb in ("pick", "unpick")
+            if isinstance(step.get(verb), str)
+        }
+        for step_index, step in enumerate(steps):
+            if not picked or not isinstance(step.get("grant"), str):
+                continue
+            carry = step.get("carry")
+            formulas = [("from", step.get("from")), ("names", step.get("names"))] + [
+                (f"carry {key!r}", formula)
+                for key, formula in (carry.items() if isinstance(carry, dict) else [])
+            ]
+            for key, formula in formulas:
+                if not isinstance(formula, str):
+                    continue
+                reads = referenced_names(parse(formula)) & picked
+                if reads:
+                    name = sorted(reads)[0]
+                    raise SchemaError(
+                        f"Prompt {prompt_name!r} 'apply' step {step_index} {key!r} reads "
+                        f"{name!r}, which this prompt picks: grants are worked out as the "
+                        f"prompt opened, so read the answer {name!r} is picked from instead"
+                    )
 
 
 def _validate_prompt_grant(
@@ -1202,11 +1249,13 @@ def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     return derived
 
 
-def _check_content_pickers(fields: dict, content_types: dict) -> None:
+def _check_content_pickers(fields: dict, content_types: dict, *, per_entry: bool = True) -> None:
     """Refuse a content_ref/content_list, or a per-entry one, naming no catalog.
 
     The picker would otherwise open on nothing, with no way for the player to
-    know why.
+    know why. `per_entry` False leaves per-entry pickers unchecked: a stored
+    schema installed before they were checked still loads, its picker opening
+    on nothing as it always did, rather than the whole sheet going blank.
     """
     for field_name, definition in fields.items():
         if not isinstance(definition, dict):
@@ -1216,7 +1265,8 @@ def _check_content_pickers(fields: dict, content_types: dict) -> None:
         pickers = [(f"Field {field_name!r}", definition)] + [
             (f"Field {field_name!r} per-entry field {per_name!r}", per_definition)
             for per_name, per_definition in (definition.get("per_entry_fields") or {}).items()
-            if isinstance(per_definition, dict)
+            if per_entry
+            and isinstance(per_definition, dict)
             and per_definition.get("type") in _CONTENT_TYPES_FIELDS
         ]
         for what, picker in pickers:
@@ -1229,8 +1279,15 @@ def _check_content_pickers(fields: dict, content_types: dict) -> None:
                 )
 
 
-def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
+def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = False) -> dict:
     """Validate a schema document, returning it normalised.
+
+    ``stored`` is for a document already installed, checked again on the way
+    out: what a later release began refusing that is no danger to render (a
+    per-entry picker naming no content type, a grant reading a field its own
+    prompt picks) is let through there, so a sheet that saved fine does not
+    come back empty. Everything that guards the rendered markup is checked
+    either way.
 
     The returned document gains two derived keys the renderer uses and the
     author never writes: ``layout_ast`` (the parsed, allowlisted HTML) and
@@ -1318,7 +1375,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     for type_name, type_definition in content_types.items():
         _validate_content_type(type_name, type_definition)
 
-    _check_content_pickers(fields, content_types)
+    _check_content_pickers(fields, content_types, per_entry=not stored)
 
     prompts = document.get("prompts")
     prompt_names = set(prompts) if isinstance(prompts, dict) else set()
@@ -1346,6 +1403,8 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 
     if "prompts" in document:
         _validate_prompts(prompts, fields, known, images, content_types)
+        if not stored:
+            _refuse_grants_reading_picks(prompts)
     if "start_prompt" in document:
         _validate_start_prompt(document["start_prompt"], prompt_names, known, images)
     if "actions" in document:

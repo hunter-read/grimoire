@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { planPick, applyChoice, fieldState, GRANTED_KEY, asList } from './onPick'
+import { planPick, applyChoice, fieldState, GRANTED_KEY, asList, grantInto } from './onPick'
 
 const SKILLS = ['Arcana', 'History', 'Insight', 'Religion', 'Stealth']
 
@@ -232,6 +232,19 @@ describe('planPick — changing your mind', () => {
     expect(patch.feats).toEqual([])
   })
 
+  it('leaves a row added by hand that differs from the grant only in case', async () => {
+    const { patch } = await planPick({
+      document: DOCUMENT,
+      data: {
+        feats: [{ _inline: true, name: 'Lucky' }, { _ref: 'lucky' }],
+        [GRANTED_KEY]: { background: { feats: ['Lucky'] } },
+      },
+      field: 'background',
+      entry: null,
+    })
+    expect(patch.feats).toEqual([{ _ref: 'lucky' }])
+  })
+
   it('copes with a grant the player already removed by hand', async () => {
     const { patch } = await planPick({
       document: DOCUMENT,
@@ -451,5 +464,37 @@ describe('asList', () => {
     const rows = [{ _ref: 'alert', name: 'Alert' }, { _inline: true, name: 'Lucky' }, 'tough']
     expect(asList(rows)).toEqual(['alert', '', 'tough'])
     expect(asList(rows, 'name')).toEqual(['Alert', 'Lucky', 'tough'])
+  })
+
+  it('reads one object as a list of one, and nothing else as a list', () => {
+    expect(asList({ _ref: 'alert', name: 'Alert' })).toEqual(['alert'])
+    expect(asList({ _ref: 'alert', name: 'Alert' }, 'name')).toEqual(['Alert'])
+    expect(asList({ name: 'Alert' })).toEqual([])
+    // A formula reads a missing property as 0: no entry "0".
+    expect(asList(0)).toEqual([])
+    expect(asList(null)).toEqual([])
+  })
+
+  it('keeps the empty slots of text paired by position', () => {
+    expect(asList('A,,C', 'name', { slots: true })).toEqual(['A', '', 'C'])
+    expect(asList(' , ', 'name', { slots: true })).toEqual([])
+  })
+})
+
+describe('grantInto', () => {
+  it('takes any value into a multiselect with no options, as add does', () => {
+    const added: string[] = []
+    const list = grantInto({
+      definition: { type: 'multiselect' },
+      list: ['Common'],
+      pairs: [
+        ['Elvish', ''],
+        ['Common', ''],
+        ['', ''],
+      ],
+      record: (key) => added.push(key),
+    })
+    expect(list).toEqual(['Common', 'Elvish'])
+    expect(added).toEqual(['Elvish'])
   })
 })

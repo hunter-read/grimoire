@@ -377,7 +377,7 @@ def schema_documents_for_packs(db: Session) -> dict:
         rows.sort(key=lambda row: row.user_id is not None)
         for row in rows:
             try:
-                documents[schema_id] = validate_schema(row.document or {})
+                documents[schema_id] = validate_schema(row.document or {}, stored=True)
                 break
             except SchemaError:
                 continue

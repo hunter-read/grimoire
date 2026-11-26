@@ -4,11 +4,12 @@
 // dialog have their own tests.
 import { useContext } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import CharacterDetailView from './CharacterDetailView'
 import { PromptLauncher } from '../components/characters/sheetPrompts'
+import i18n from '../i18n'
 
 const mockGet = vi.fn()
 const mockGetSchema = vi.fn()
@@ -53,6 +54,7 @@ function StubSheet({
       <button onClick={() => open?.({ prompt: 'bonus_feat' })}>gain a bonus feat</button>
       <button onClick={() => open?.({ prompt: 'origin_up' })}>take an origin</button>
       <button onClick={() => open?.({ prompt: 'swap_feat' })}>swap a feat</button>
+      <button onClick={() => open?.({ prompt: 'retrain' })}>retrain</button>
       <button onClick={() => onChange('features', [{ _inline: true, name: 'Hand' }])}>
         add a feature by hand
       </button>
@@ -86,6 +88,11 @@ const DOCUMENT = {
       type: 'content_ref',
       content_type: 'feat',
       on_pick: [{ grant: 'skills', from: 'skills' }],
+    },
+    boon: {
+      type: 'content_ref',
+      content_type: 'feat',
+      on_pick: [{ grant: 'feats', from: 'gifts' }],
     },
     skills: { type: 'multiselect', options: ['Perception', 'Stealth'] },
     level: { type: 'number', default: 4 },
@@ -152,6 +159,14 @@ const DOCUMENT = {
       apply: [
         { pick: 'origin_feat', entry: 'answer.feat' },
         { grant: 'features', from: "'x'", names: "'X'", source: 'origin_feat' },
+      ],
+    },
+    retrain: {
+      label: 'Retrain',
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+      apply: [
+        { pick: 'boon', entry: 'answer.feat' },
+        { unpick: 'feats', entry: 'answer.feat' },
       ],
     },
     swap_feat: {
@@ -262,6 +277,47 @@ describe('CharacterDetailView — prompts', () => {
     expect(await screen.findByDisplayValue('Wren')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('pick elf')).not.toBeInTheDocument())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('keeps the prompts waiting when the language changes', async () => {
+    await renderView()
+    await userEvent.click(screen.getByText('pick elf'))
+    expect(await screen.findByRole('dialog', { name: 'Lineage' })).toBeInTheDocument()
+    try {
+      await act(() => i18n.changeLanguage('de'))
+      await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2))
+      await screen.findByText('pick elf')
+      expect(screen.getByRole('dialog', { name: 'Lineage' })).toBeInTheDocument()
+    } finally {
+      await act(() => i18n.changeLanguage('en'))
+    }
+  })
+
+  it('drops the grants of a prompt confirmed on a character the player has left', async () => {
+    let answer: (value: unknown) => void = () => {}
+    mockResolve.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+    const first = mockGet.getMockImplementation()!
+    mockGet.mockImplementation(async (id: string) =>
+      id === 'c2'
+        ? { id: 'c2', name: 'Wren', schema_ref: 'demo', data: { features: [] } }
+        : first(id)
+    )
+    const { rerender } = await renderView()
+    await userEvent.click(screen.getByText('gain a level'))
+    await userEvent.click(await screen.findByLabelText('yes'))
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(mockResolve).toHaveBeenCalled())
+
+    route.id = 'c2'
+    rerender(view())
+    expect(await screen.findByDisplayValue('Wren')).toBeInTheDocument()
+    await screen.findByText('pick elf')
+    answer({ entries: {} })
+    // Given the time a save would take, none carries the grants anywhere.
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    for (const [, body] of mockUpdate.mock.calls) {
+      expect(body.data?.features).toBeUndefined()
+    }
   })
 
   it('opens the prompt a pick names, reading the picked entry', async () => {
@@ -427,6 +483,22 @@ describe('CharacterDetailView — prompts', () => {
     it('finds a freeform row by its name', async () => {
       stored = { feats: [{ _inline: true, name: 'Tough' }] }
       await swapTough()
+    })
+
+    it("keeps what an earlier pick's on_pick granted into the list", async () => {
+      mockBrowse.mockResolvedValue({
+        entries: [{ entry_id: 'alert', name: 'Alert', data: { gifts: ['gift'] } }],
+        total: 1,
+      })
+      stored = { feats: [{ _ref: 'alert' }, { _ref: 'tough' }] }
+      await renderView()
+      await userEvent.click(screen.getByText('retrain'))
+      await userEvent.click(await screen.findByLabelText('Alert'))
+      await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() => expect(lastSaved().data.feats).toHaveLength(2))
+      const saved = lastSaved().data
+      expect(saved.feats).toEqual([{ _ref: 'tough' }, { _inline: true, name: 'gift' }])
+      expect(saved._granted.boon).toEqual({ feats: ['gift'] })
     })
 
     it('matches the row and its record in any case', async () => {

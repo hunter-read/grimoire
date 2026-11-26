@@ -179,6 +179,35 @@ def test_a_grant_step_reads_formulas_and_records_under_a_pick():
     _validate(_document(_with_apply({"grant": "skills", "from": "answer.skills"})))
 
 
+@pytest.mark.parametrize(
+    "grant",
+    [
+        {"grant": "feats", "from": "origin"},
+        {"grant": "feats", "from": "'a'", "names": "concat(origin, '')"},
+        {"grant": "feats", "from": "'a'", "carry": {"level": "len(feats)"}},
+    ],
+)
+def test_a_grant_may_not_read_a_field_its_prompt_picks(grant):
+    # Worked out as the prompt opened, it would read the entry being replaced.
+    prompts = {
+        "level_up": {
+            **LEVEL_UP,
+            "apply": [
+                grant,
+                {"pick": "origin", "entry": "answer.feat"},
+                {"unpick": "feats", "entry": "answer.feat"},
+            ],
+        },
+        "lineage": LINEAGE,
+    }
+    with pytest.raises(svc.SchemaError, match="which this prompt picks"):
+        _validate(_document(prompts))
+    # A sheet installed before the check still loads.
+    svc.validate_schema(_document(prompts), stored=True)
+    # Another prompt picking the field does not stop this one reading it.
+    _validate(_document({"level_up": {**LEVEL_UP, "apply": [grant]}, "lineage": LINEAGE}))
+
+
 def test_an_unpick_step_takes_a_row_out_of_a_content_list():
     _validate(_document(_with_apply({"unpick": "feats", "entry": "answer.feat"})))
     with pytest.raises(svc.SchemaError, match="not a content_list"):
@@ -223,6 +252,22 @@ def test_a_content_picker_must_pick_from_a_declared_content_type(per_entry):
     _validate(with_picker("feat"))
     with pytest.raises(svc.SchemaError, match="does not define"):
         _validate(with_picker("spell"))
+
+
+def test_a_stored_schema_keeps_a_per_entry_picker_naming_no_content_type():
+    # Installed before per-entry pickers were checked: it still loads, rather
+    # than coming back as an empty sheet. A top-level one was always refused.
+    document = _document()
+    document["fields"]["x"] = {
+        "type": "content_list",
+        "content_type": "feat",
+        "per_entry_fields": {"y": {"type": "content_ref", "content_type": "spell"}},
+    }
+    validated = svc.validate_schema(document, stored=True)
+    assert "x" in validated["fields"]
+    document["fields"]["z"] = {"type": "content_ref", "content_type": "spell"}
+    with pytest.raises(svc.SchemaError, match="does not define"):
+        svc.validate_schema(document, stored=True)
 
 
 def test_a_step_label_may_be_a_formula():

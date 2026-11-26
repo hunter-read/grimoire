@@ -81,6 +81,24 @@ describe('PromptDialog', () => {
     expect(onConfirm).toHaveBeenCalledWith({ hp: 6, kind: 'asi', asi: { str: 1, dex: 1 } })
   })
 
+  it("names a step's control after the heading its label_formula gives", () => {
+    const prompt: SheetPrompt = {
+      label: 'Replace',
+      steps: [
+        {
+          key: 'n',
+          type: 'number',
+          label: 'Replace an option?',
+          label_formula: "concat('Replace one of ', level)",
+        },
+      ],
+      apply: [],
+    }
+    render(<PromptDialog prompt={prompt} document={DOCUMENT} data={{}} context={SHEET} />)
+    expect(screen.getByRole('heading', { name: 'Replace one of 4' })).toBeInTheDocument()
+    expect(screen.getByRole('spinbutton', { name: 'Replace one of 4' })).toBeInTheDocument()
+  })
+
   it('takes a number typed by hand, within its bounds', async () => {
     const onConfirm = vi.fn()
     const prompt: SheetPrompt = { ...LEVEL_UP, steps: [LEVEL_UP.steps[0]] }
