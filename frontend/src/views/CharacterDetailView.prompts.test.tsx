@@ -50,6 +50,7 @@ function StubSheet({
       <button onClick={() => open?.({ prompt: 'level_gain' })}>gain a level</button>
       <button onClick={() => open?.({ prompt: 'bonus_feat' })}>gain a bonus feat</button>
       <button onClick={() => open?.({ prompt: 'origin_up' })}>take an origin</button>
+      <button onClick={() => open?.({ prompt: 'swap_feat' })}>swap a feat</button>
       <button onClick={() => onChange('features', [{ _inline: true, name: 'Hand' }])}>
         add a feature by hand
       </button>
@@ -149,6 +150,14 @@ const DOCUMENT = {
       apply: [
         { pick: 'origin_feat', entry: 'answer.feat' },
         { grant: 'features', from: "'x'", names: "'X'", source: 'origin_feat' },
+      ],
+    },
+    swap_feat: {
+      label: 'Swap a feat',
+      steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+      apply: [
+        { unpick: 'feats', entry: 'answer.feat' },
+        { grant: 'feats', from: "'lucky'", names: "'Lucky'" },
       ],
     },
   },
@@ -322,6 +331,51 @@ describe('CharacterDetailView — prompts', () => {
       { _inline: true, name: 'Action Surge' },
       { _inline: true, name: 'Tactical Mind' },
     ])
+  })
+
+  describe('unpick', () => {
+    const swapTough = async () => {
+      mockBrowse.mockResolvedValue({
+        entries: [{ entry_id: 'tough', source: 'xphb', name: 'Tough', data: {} }],
+        total: 1,
+      })
+      await renderView()
+      await userEvent.click(screen.getByText('swap a feat'))
+      await userEvent.click(await screen.findByLabelText('Tough'))
+      await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+      await waitFor(() =>
+        expect(lastSaved().data.feats).toEqual([{ _inline: true, name: 'Lucky' }])
+      )
+      return lastSaved().data
+    }
+
+    it('takes the row out and keeps a grant into the same list', async () => {
+      stored = { feats: [{ _ref: 'tough', _source: 'xphb' }] }
+      await swapTough()
+    })
+
+    it('drops the row from the records of an earlier pick', async () => {
+      stored = {
+        feats: [{ _ref: 'tough', _source: 'xphb' }],
+        _granted: { origin_feat: { feats: ['tough'], skills: ['Perception'] } },
+      }
+      const saved = await swapTough()
+      expect(saved._granted).toEqual({ origin_feat: { feats: [], skills: ['Perception'] } })
+    })
+
+    it('finds a freeform row by its name', async () => {
+      stored = { feats: [{ _inline: true, name: 'Tough' }] }
+      await swapTough()
+    })
+
+    it('matches the row and its record in any case', async () => {
+      stored = {
+        feats: [{ _ref: 'Tough' }],
+        _granted: { origin_feat: { feats: ['TOUGH'] } },
+      }
+      const saved = await swapTough()
+      expect(saved._granted).toEqual({ origin_feat: { feats: [] } })
+    })
   })
 
   it("follows a change by hand with the field's on_change: a box ticked opens its prompt", async () => {

@@ -485,8 +485,10 @@ def _validate_write_steps(
       its `on_pick` as a pick by hand;
     - `{"unpick": content_list, "entry": formula}` take out of a content_list
       the row of the entry a formula names (an `entry` step's answer), as a
-      row removed by hand, so what its `on_pick` granted goes with it - an
-      option given up for another;
+      row removed by hand - an option given up for another. A reference is
+      found by its id, a freeform row by its name, in any case; the row is
+      dropped from every `_granted` record too, so a pick changed later does
+      not take back the same entry added again by hand;
     - `{"grant": field, "from": formula, "names": formula, "carry": {key:
       formula}, "source": field}` grant as an `on_pick` rule does, its
       properties worked out by formulas - a level's class features. `from`

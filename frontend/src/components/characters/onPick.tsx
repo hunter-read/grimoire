@@ -106,13 +106,29 @@ function optionValues(definition: PickField | undefined): string[] {
   )
 }
 
-// Whether a content-list item is the one a grant recorded under `key`: a
-// reference by its id, a freeform entry by its name.
-function matchesKey(value: unknown, key: string): boolean {
-  if (!value || typeof value !== 'object') return false
+// The one comparison every key a list row is matched by goes through:
+// trimmed, and in any case.
+export function sameKey(a: unknown, b: unknown): boolean {
+  const norm = (value: unknown) =>
+    String(value ?? '')
+      .trim()
+      .toLowerCase()
+  return norm(a) === norm(b)
+}
+
+// The key a content-list row is recorded under: a reference's id, a freeform
+// entry's name; null for anything else.
+export function rowKey(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null
   const item = value as Values
-  if (item._ref !== undefined && item._ref !== null) return String(item._ref) === key
-  return !!item._inline && String(item.name ?? '') === key
+  if (item._ref !== undefined && item._ref !== null) return String(item._ref)
+  return item._inline ? String(item.name ?? '') : null
+}
+
+// Whether a content-list item is the one a grant recorded under `key`.
+function matchesKey(value: unknown, key: string): boolean {
+  const own = rowKey(value)
+  return own !== null && sameKey(own, key)
 }
 
 function currentList(data: Values | null | undefined, patch: Values, target: string): unknown[] {
