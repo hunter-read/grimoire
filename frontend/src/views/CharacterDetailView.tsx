@@ -124,6 +124,11 @@ export default function CharacterDetailView() {
     // Catches its own failure into `error`.
     void (async () => {
       setLoading(true)
+      // Nothing of the character before carries over: not its sheet, which
+      // another character's start prompt would be read from, nor its queue.
+      setDocument(null)
+      setChoices([])
+      setPrompts([])
       try {
         const loaded = await charactersApi.get(characterId)
         if (cancelled) return
@@ -425,19 +430,19 @@ export default function CharacterDetailView() {
     [currentPrompt, document]
   )
   // A sheet's start prompt - a new character's first level - opens by itself,
-  // once each time the character is opened.
+  // once each time the character is opened, and only for its own player: a
+  // GM let into the sheet through a campaign does not get it.
   const startedRef = useRef('')
   useEffect(() => {
-    if (loading || readOnly || !document || !character) return
+    if (loading || readOnly || !owned || !document || !character) return
     if (startedRef.current === character.id) return
     startedRef.current = character.id
     const name = startPrompt(
       document,
-      sheetContext(document, dataRef.current, character.entries || {}),
-      dataRef.current
+      sheetContext(document, dataRef.current, character.entries || {})
     )
     if (name) openPrompt({ prompt: name })
-  }, [loading, readOnly, document, character, openPrompt])
+  }, [loading, readOnly, owned, document, character, openPrompt])
 
   // A prompt the sheet no longer has, or with no question for this character,
   // is passed over rather than shown empty.

@@ -15,6 +15,8 @@ const mockGetSchema = vi.fn()
 const mockUpdate = vi.fn()
 const mockResolve = vi.fn()
 const mockBrowse = vi.fn()
+// The character the route names; a test may move to another.
+const route = vi.hoisted(() => ({ id: 'c1' }))
 
 vi.mock('../api', () => ({
   campaigns: { list: () => Promise.resolve([]) },
@@ -32,7 +34,7 @@ vi.mock('../api', () => ({
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
-  return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ characterId: 'c1' }) }
+  return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ characterId: route.id }) }
 })
 
 const ELF = { name: 'Elf', lineages: ['Drow', 'High Elf', 'Wood Elf'] }
@@ -166,6 +168,7 @@ const DOCUMENT = {
 let stored: Record<string, unknown>
 beforeEach(() => {
   vi.clearAllMocks()
+  route.id = 'c1'
   stored = {}
   mockGet.mockImplementation(async () => ({
     id: 'c1',
@@ -191,14 +194,26 @@ beforeEach(() => {
   })
 })
 
+const view = () => (
+  <MemoryRouter>
+    <CharacterDetailView />
+  </MemoryRouter>
+)
 const renderView = async () => {
-  render(
-    <MemoryRouter>
-      <CharacterDetailView />
-    </MemoryRouter>
-  )
+  const result = render(view())
   await screen.findByText('pick elf')
+  return result
 }
+
+// The start prompt, had it opened, would be first in the queue: another
+// prompt showing proves the effect ran and left it shut.
+const expectNoStartPrompt = async () => {
+  await userEvent.click(screen.getByText('gain a feat'))
+  expect(await screen.findByRole('dialog', { name: 'New feat' })).toBeInTheDocument()
+  expect(screen.queryByRole('dialog', { name: 'Level gained' })).not.toBeInTheDocument()
+}
+
+const START = { ...DOCUMENT, start_prompt: { prompt: 'level_gain', when: 'len(feats) == 0' } }
 
 const lastSaved = () => mockUpdate.mock.calls.at(-1)![1]
 
@@ -212,11 +227,40 @@ describe('CharacterDetailView — prompts', () => {
   })
 
   it('leaves the start prompt shut once its condition fails', async () => {
-    mockGetSchema.mockResolvedValue({
-      document: { ...DOCUMENT, start_prompt: { prompt: 'level_gain', when: 'len(feats) == 0' } },
-    })
+    mockGetSchema.mockResolvedValue({ document: START })
     stored = { feats: [{ _ref: 'alert' }] }
     await renderView()
+    await expectNoStartPrompt()
+  })
+
+  it('leaves the start prompt shut for a GM let into the sheet', async () => {
+    mockGetSchema.mockResolvedValue({ document: START })
+    mockGet.mockImplementation(async () => ({
+      id: 'c1',
+      name: 'Vex',
+      schema_ref: 'demo',
+      data: stored,
+      owned: false,
+      editable: true,
+    }))
+    await renderView()
+    await expectNoStartPrompt()
+  })
+
+  it("does not open one character's start prompt on the next one's data", async () => {
+    mockGetSchema.mockResolvedValue({ document: START })
+    stored = { feats: [{ _ref: 'alert' }] }
+    const first = mockGet.getMockImplementation()!
+    mockGet.mockImplementation(async (id: string) =>
+      id === 'c2'
+        ? { id: 'c2', name: 'Wren', schema_ref: 'gone', schema_missing: true, data: {} }
+        : first(id)
+    )
+    const { rerender } = await renderView()
+    route.id = 'c2'
+    rerender(view())
+    expect(await screen.findByDisplayValue('Wren')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('pick elf')).not.toBeInTheDocument())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 

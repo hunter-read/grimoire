@@ -710,31 +710,32 @@ function samePrompt(a: PromptRequest, b: PromptRequest): boolean {
   )
 }
 
-/** A step's heading: its `label_formula` worked out, or else its `label`. */
+/**
+ * A step's heading: its `label_formula` worked out, when that gives text that
+ * is not blank, or else its `label` - so `false` or `0` from a formula such
+ * as `kind != '' && concat(...)` falls back rather than showing.
+ */
 export function stepLabel(step: PromptStep, context: ExprContext): string {
   if (step.label_formula) {
     const value = evaluate<symbol>(step.label_formula, context, FAILED)
-    if (value !== FAILED && value !== null && value !== undefined && String(value).trim()) {
-      return String(value)
-    }
+    if (typeof value === 'string' && value.trim()) return value
   }
   return step.label || ''
 }
 
 /**
  * The prompt a sheet opens by itself when a character is opened: its
- * `start_prompt`, when its `when` holds and the player has not put it off.
+ * `start_prompt`, when its `when` holds. Put off, it is not kept (it has no
+ * pick as its source), so it opens again the next time while `when` holds.
  */
 export function startPrompt(
   document: PromptDocument | null | undefined,
-  context: Values,
-  data: Values | null | undefined
+  context: Values
 ): string | undefined {
   const start = document?.start_prompt
   if (!isObject(start) || typeof start.prompt !== 'string') return undefined
   const prompt = findPrompt(document, start.prompt)
   if (!prompt) return undefined
-  if (pendingPrompts(data).some((item) => item.prompt === start.prompt)) return undefined
   if (typeof start.when === 'string' && start.when.trim()) {
     const value = evaluate<symbol>(start.when, context, FAILED)
     if (value === FAILED || !value) return undefined

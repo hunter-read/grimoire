@@ -202,6 +202,29 @@ def test_a_start_prompt_names_a_prompt_and_a_condition():
         _validate(_document(prompts, start_prompt={"prompt": "lineage", "when": "missing + 1"}))
 
 
+@pytest.mark.parametrize("name", [[], {}, 1, None, True])
+def test_a_start_prompt_that_is_not_text_is_refused(name):
+    with pytest.raises(svc.SchemaError, match="unknown prompt"):
+        _validate(_document(start_prompt={"prompt": name}))
+
+
+@pytest.mark.parametrize("per_entry", [False, True])
+def test_a_content_picker_must_pick_from_a_declared_content_type(per_entry):
+    def with_picker(content_type):
+        picker = {"type": "content_ref", "content_type": content_type}
+        document = _document()
+        document["fields"]["x"] = (
+            {"type": "content_list", "content_type": "feat", "per_entry_fields": {"y": picker}}
+            if per_entry
+            else picker
+        )
+        return document
+
+    _validate(with_picker("feat"))
+    with pytest.raises(svc.SchemaError, match="does not define"):
+        _validate(with_picker("spell"))
+
+
 def test_a_step_label_may_be_a_formula():
     step = {"key": "x", "type": "number", "label": "X", "label_formula": "concat('Level ', level)"}
     _validate(_document(_with_step(step)))

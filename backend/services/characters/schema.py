@@ -719,7 +719,8 @@ def _validate_start_prompt(
     `when` still holds.
     """
     start = _require_dict(start, "'start_prompt'")
-    if start.get("prompt") not in prompt_names:
+    target = start.get("prompt")
+    if not isinstance(target, str) or target not in prompt_names:
         raise SchemaError(f"'start_prompt' opens unknown prompt {start.get('prompt')!r}")
     _validate_condition(start.get("when"), "'start_prompt' when", known, images)
 
