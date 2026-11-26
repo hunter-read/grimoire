@@ -483,6 +483,12 @@ def _validate_write_steps(
       put the entry a formula names (an `entry` step's answer) in a content_ref
       or a new row of a content_list, with its per-entry fields, and follow
       its `on_pick` as a pick by hand;
+    - `{"unpick": content_list, "entry": formula}` take out of a content_list
+      the row of the entry a formula names (an `entry` step's answer), as a
+      row removed by hand - an option given up for another. A reference is
+      found by its id, a freeform row by its name, in any case; the row is
+      dropped from every `_granted` record too, so a pick changed later does
+      not take back the same entry added again by hand;
     - `{"grant": field, "from": formula, "names": formula, "carry": {key:
       formula}, "source": field}` grant as an `on_pick` rule does, its
       properties worked out by formulas - a level's class features. `from`
@@ -530,7 +536,7 @@ def _validate_write_steps(
     verbs_allowed = (
         ["each", "append"]
         + (["prompt"] if may_open_prompts else [])
-        + (["add", "pick", "grant"] if prompt_verbs else [])
+        + (["add", "pick", "unpick", "grant"] if prompt_verbs else [])
     )
     for step_index, step in enumerate(steps):
         step = _require_dict(step, f"{what} step {step_index}")
@@ -570,6 +576,10 @@ def _validate_write_steps(
             if field_type != "multiselect":
                 raise SchemaError(f"{where} adds to {target!r}, which is not a multiselect")
             _validate_formula(step.get("values"), f"{where} 'values'", known, images)
+        elif verb == "unpick":
+            if field_type != "content_list":
+                raise SchemaError(f"{where} takes out of {target!r}, which is not a content_list")
+            _validate_formula(step.get("entry"), f"{where} 'entry'", known, images)
         elif verb == "grant":
             _validate_prompt_grant(
                 step, target, field_type, where, fields, known, images, content_types or {}

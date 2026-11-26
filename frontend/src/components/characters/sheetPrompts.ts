@@ -1,7 +1,7 @@
 import { createContext } from 'react'
 import { buildContext, computeValues, evaluate, toNumber } from './expressions'
 import type { ExprContext, ExpressionDocument } from './expressions'
-import { GRANTED_KEY, asList as listOf, grantInto } from './onPick'
+import { GRANTED_KEY, asList as listOf, grantInto, rowKey, sameKey } from './onPick'
 import type { ResolvedRefs } from './onPick'
 import { planAction } from './sheetActions'
 import type { ActionStep } from './sheetActions'
@@ -57,6 +57,8 @@ export interface PromptStep {
 export interface PromptApplyStep extends Omit<ActionStep, 'values'> {
   add?: string
   pick?: string
+  // unpick: the content_list a row is taken out of, the row of `entry`.
+  unpick?: string
   entry?: string
   // grant: formulas for the ids, the names they fall back to, and the values
   // carried onto a freeform entry; `source` is the pick it is recorded under.
@@ -423,7 +425,8 @@ export async function loadEntryOptions(
 }
 
 /** A pick a prompt makes, followed up as a pick by hand: its `on_pick` runs. */
-export type PromptPick = { field: string; value: unknown; entry: Values }
+// `entry` is the entry picked; a row taken out (`unpick`) has none.
+export type PromptPick = { field: string; value: unknown; entry?: Values }
 
 /**
  * A `grant` a prompt makes, its formulas worked out: what `planGrants` adds
@@ -473,6 +476,7 @@ export function planPrompt(
         typeof step.set === 'string') &&
       typeof step.add !== 'string' &&
       typeof step.pick !== 'string' &&
+      typeof step.unpick !== 'string' &&
       typeof step.grant !== 'string' &&
       typeof step.prompt !== 'string'
   )
@@ -486,6 +490,11 @@ export function planPrompt(
   const prompts: string[] = []
   const grants: PromptGrant[] = []
   const granted: Record<string, string[]> = {}
+  // The records under `_granted`, cleaned of the rows an `unpick` takes out.
+  const recorded = {
+    ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>),
+  }
+  let cleaned = false
   const current = (name: string): unknown => (name in patch ? patch[name] : data?.[name])
 
   for (const step of steps) {
@@ -540,6 +549,47 @@ export function planPrompt(
       patch[target] = list
       continue
     }
+    if (typeof step.unpick === 'string') {
+      // The list less the entry's row, made as a change by hand; the picks
+      // after it see the list without it. A reference is found by its id, a
+      // freeform row by its name (or the id it fell back from).
+      const field = step.unpick
+      if (fields[field]?.type !== 'content_list') continue
+      const entry = evaluate<symbol>(step.entry, ctx, FAILED)
+      if (!isObject(entry)) continue
+      const keys = [entry._ref, entry.name].filter(
+        (key): key is string => typeof key === 'string' && !!key.trim()
+      )
+      if (!keys.length) continue
+      const before = picks.filter((pick) => pick.field === field).pop()
+      const rows = before
+        ? (before.value as unknown[])
+        : Array.isArray(current(field))
+          ? (current(field) as unknown[])
+          : []
+      const index = rows.findIndex((item) => {
+        const own = rowKey(item)
+        if (own === null) return false
+        return isObject(item) && item._ref !== undefined && item._ref !== null
+          ? sameKey(own, entry._ref)
+          : keys.some((key) => sameKey(own, key))
+      })
+      if (index < 0) continue
+      const removed = rowKey(rows[index])!
+      picks.push({ field, value: rows.filter((_, i) => i !== index) })
+      // No record keeps it, this prompt's or an earlier pick's: a row added
+      // again by hand is not taken back by a later change of that pick.
+      const held = granted[field] || []
+      const at = held.findIndex((key) => sameKey(key, removed))
+      if (at >= 0) granted[field] = held.filter((_, i) => i !== at)
+      for (const [from, targets] of Object.entries(recorded)) {
+        const list = targets?.[field]
+        if (!Array.isArray(list) || !list.some((key) => sameKey(key, removed))) continue
+        recorded[from] = { ...targets, [field]: list.filter((key) => !sameKey(key, removed)) }
+        cleaned = true
+      }
+      continue
+    }
     if (typeof step.pick === 'string') {
       const field = step.pick
       const definition = fields[field]
@@ -572,14 +622,14 @@ export function planPrompt(
   // Recorded under the pick that opened the prompt, so picking something
   // else there takes back what the prompt added along with the pick's own.
   if (source && Object.keys(granted).length) {
-    const all = { ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, string[]>>) }
-    const fromSource = { ...(all[source] || {}) }
+    const fromSource = { ...(recorded[source] || {}) }
     for (const [target, values] of Object.entries(granted)) {
       fromSource[target] = [...(fromSource[target] || []), ...values]
     }
-    all[source] = fromSource
-    patch[GRANTED_KEY] = all
+    recorded[source] = fromSource
+    cleaned = true
   }
+  if (cleaned) patch[GRANTED_KEY] = recorded
   return { patch, picks, prompts, grants }
 }
 

@@ -324,6 +324,51 @@ describe('planPrompt', () => {
     expect(plan.patch._granted).toEqual({ klass: { skills: ['History', 'insight'] } })
   })
 
+  it('takes a row out of a list, the picks after it seeing the list without it', () => {
+    const prompt: SheetPrompt = {
+      label: 'Replace a feat',
+      steps: [
+        { key: 'old', type: 'entry', content_type: 'feat' },
+        { key: 'new', type: 'entry', content_type: 'feat' },
+      ],
+      apply: [
+        { unpick: 'feats', entry: 'answer.old' },
+        { pick: 'feats', entry: 'answer.new' },
+      ],
+    }
+    const plan = planPrompt(prompt, {
+      document: DOCUMENT,
+      data: { feats: [{ _ref: 'tough' }, { _ref: 'alert', _per: { from_level: 4 } }] },
+      context: {},
+      answers: { old: { _ref: 'Tough', name: 'Tough' }, new: { _ref: 'lucky', name: 'Lucky' } },
+    })
+    expect(plan.picks).toEqual([
+      { field: 'feats', value: [{ _ref: 'alert', _per: { from_level: 4 } }] },
+      {
+        field: 'feats',
+        value: [{ _ref: 'alert', _per: { from_level: 4 } }, { _ref: 'lucky' }],
+        entry: { _ref: 'lucky', name: 'Lucky' },
+      },
+    ])
+  })
+
+  it('takes out nothing when the entry has no row, or none was answered', () => {
+    const prompt: SheetPrompt = {
+      label: 'Replace a feat',
+      steps: [{ key: 'old', type: 'entry', content_type: 'feat' }],
+      apply: [{ unpick: 'feats', entry: 'answer.old' }],
+    }
+    const plan = (answers: Record<string, unknown>) =>
+      planPrompt(prompt, {
+        document: DOCUMENT,
+        data: { feats: [{ _ref: 'tough' }] },
+        context: {},
+        answers,
+      })
+    expect(plan({ old: { _ref: 'lucky' } }).picks).toEqual([])
+    expect(plan({}).picks).toEqual([])
+  })
+
   it('records nothing without a source', () => {
     const prompt: SheetPrompt = {
       label: 'Skills',
