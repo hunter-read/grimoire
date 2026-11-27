@@ -156,15 +156,21 @@ More workers than CPU cores never helps. With more than one worker, set `VALKEY_
 
 ## Memory after a backup or a large upload
 
-`docker stats` and most dashboards count more than the memory Grimoire itself is using. Linux keeps files that were recently read or written in memory (the page cache) until something else needs the room, and charges them to the container that touched them. It is given back the moment anything on the host asks for memory, so it cannot cause an out-of-memory kill by itself, but it can make Grimoire look several gigabytes larger than it is.
+`docker stats` and most dashboards count more than the memory Grimoire itself is using. Linux keeps files that were recently read or written in memory (the system's file cache) until something else needs the room, and charges them to the container that touched them. It is given back the moment anything on the host asks for memory, so it cannot cause an out-of-memory kill by itself, but it can make Grimoire look several gigabytes larger than it is. This is the operating system's cache, not Grimoire's own cache of rendered pages described under [Caching](#caching).
 
-- **Backups** release what they touched as they run: the archive, and each file copied into it. The database is left cached, since Grimoire reads it all the time.
+- **Backups** release what they touched as they run: the archive, and each file of 4 MB or more copied into it. Smaller files - covers, portraits, branding - stay cached, since Grimoire serves them on every page. On SQLite the database stays cached too: the backup reads all of it, but Grimoire reads it all the time, so a large database still shows up in the figure after a backup.
 - **Uploads** are not released, because the scan reads each new file again straight away to index it. After uploading several gigabytes, expect the figure to stay up until the system reclaims it.
 
-To see what the figure is made of, compare `anon` (what the processes hold) with `file` (the cache):
+To see what the figure is made of, compare what the processes hold with what is cache. On cgroup v2 hosts (most current Docker and Podman installs) the two are `anon` and `file`:
 
 ```bash
 docker exec grimoire grep -E "^(anon|file) " /sys/fs/cgroup/memory.stat
+```
+
+On older cgroup v1 hosts, including some NAS systems, the file is `/sys/fs/cgroup/memory/memory.stat` and the two are `rss` and `cache`:
+
+```bash
+docker exec grimoire grep -E "^(rss|cache) " /sys/fs/cgroup/memory/memory.stat
 ```
 
 To keep the cache bounded, give the container a memory limit (`mem_limit: 2g` in Compose, `--memory 2g` on the command line). The system then reclaims the cache at that ceiling instead of letting it grow into free memory.
