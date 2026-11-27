@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react'
 import type { ExprContext } from './expressions'
-import type { PromptDocument, PromptStep } from './sheetPrompts'
+import type { EntryAnswer, PromptDocument, PromptStep } from './sheetPrompts'
 
 type Values = Record<string, unknown>
 
-/** Reads the catalog for an `entry` step: one page of one content type. */
+/** Reads the catalog for an `entry` or `entries` step: one page of one content type. */
 export type BrowseEntries = (
   contentType: string,
   filters: Record<string, string | number>,
@@ -22,7 +22,10 @@ export interface StepControlProps {
   context: ExprContext
   document: PromptDocument | null | undefined
   data: Values | null | undefined
-  browse?: BrowseEntries
+  // A catalog step's entries, its `filter` worked out for the answers as they
+  // stand; undefined while the catalog is read. `failed` says why it could not be.
+  options?: EntryAnswer[]
+  failed?: string
   onAnswer: (value: unknown) => void
 }
 

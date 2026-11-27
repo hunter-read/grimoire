@@ -17,7 +17,7 @@ import Spinner from '../components/Spinner'
 import CharacterSheet from '../components/characters/CharacterSheet'
 import ChoiceDialog from '../components/characters/ChoiceDialog'
 import PromptDialog from '../components/characters/PromptDialog'
-import type { BrowseEntries } from '../components/characters/PromptDialog'
+import type { BrowseEntries, PromptOutcome } from '../components/characters/PromptDialog'
 import {
   findPrompt,
   pendingPrompts,
@@ -55,6 +55,16 @@ type Values = Record<string, unknown>
 type Choice = PickChoice
 // A picked entry's own properties, or a freeform entry's values.
 type Entry = Record<string, unknown> | null | undefined
+// A prompt confirmed in the chain the one on screen belongs to, kept so Back
+// can take it back: the request, how it was answered, and the sheet and the
+// queue as they stood before it.
+interface ConfirmedPrompt {
+  request: PromptRequest
+  answers: Answers
+  skipped: string[]
+  before: Values
+  rest: PromptRequest[]
+}
 
 // Edits are saved on a short debounce rather than on a Save button: a sheet is
 // filled in field by field over a session, and losing a column of scores to a
@@ -91,6 +101,15 @@ export default function CharacterDetailView() {
   // The sheet's prompts waiting to be shown, after any choice: a level's hit
   // points and feat, a background's ability increases.
   const [prompts, setPrompts] = useState<PromptRequest[]>([])
+  // The prompts confirmed since the queue was last empty, latest last.
+  const [chain, setChain] = useState<ConfirmedPrompt[]>([])
+  // The characters of the prompts still being confirmed - their picks and
+  // grants waiting on the catalog. The next prompt waits for them, so it
+  // reads, and Back takes back, the sheet as the one before left it.
+  const [settlingFor, setSettlingFor] = useState<string[]>([])
+  // The prompt the player last confirmed, put off or went back from: a second
+  // click before the next one shows does nothing.
+  const handledRef = useRef<PromptRequest | null>(null)
   // Entries the player just picked, overlaid on the resolved ones until the
   // next save brings them back from the server. Without it a derived value -
   // "a wizard casts spells" - would lag the pick by a round trip.
@@ -144,6 +163,7 @@ export default function CharacterDetailView() {
         setDocument(null)
         setChoices([])
         setPrompts([])
+        setChain([])
       }
       try {
         const loaded = await charactersApi.get(characterId)
@@ -398,6 +418,36 @@ export default function CharacterDetailView() {
     [schedule]
   )
 
+  // Put the sheet back as it was: what changed since set back, what was added
+  // since handed back to nothing. Saved like any edit.
+  const restoreData = useCallback(
+    (before: Values) => {
+      const now = dataRef.current
+      const patch: Values = {}
+      const gone: string[] = []
+      for (const name of new Set([...Object.keys(now), ...Object.keys(before)])) {
+        if (!(name in before)) gone.push(name)
+        else if (JSON.stringify(before[name]) !== JSON.stringify(now[name])) {
+          patch[name] = before[name]
+        }
+      }
+      if (Object.keys(patch).length) applyPatch(patch)
+      if (!gone.length) return
+      const next = { ...dataRef.current }
+      const pending = { ...pendingRef.current }
+      for (const name of gone) {
+        delete next[name]
+        delete pending[name]
+        unsetRef.current.add(name)
+      }
+      dataRef.current = next
+      pendingRef.current = pending
+      setData(next)
+      schedule()
+    },
+    [applyPatch, schedule]
+  )
+
   // Overrule a computed value, or with `undefined` return it to its formula.
   // Saved whole, the way the server expects it: leaving a name out is the reset.
   const onOverride = useCallback(
@@ -436,7 +486,8 @@ export default function CharacterDetailView() {
     (request: PromptRequest) => setPrompts((prev) => [...prev, request]),
     []
   )
-  const currentPrompt = choices.length ? undefined : prompts[0]
+  const settling = settlingFor.filter((id) => id === characterId).length
+  const currentPrompt = choices.length || settling ? undefined : prompts[0]
   const currentDefinition = currentPrompt ? findPrompt(document, currentPrompt.prompt) : undefined
   const entriesForSheet = useMemo(
     () => ({ ...(character?.entries || {}), ...pickedEntries }),
@@ -475,6 +526,12 @@ export default function CharacterDetailView() {
     }
   }, [currentPrompt, currentDefinition, promptSheet])
 
+  // A chain ends once nothing is left to ask: a prompt opened after that is
+  // the start of another, and Back from it has nothing to take back.
+  useEffect(() => {
+    if (!settling && !prompts.length && !choices.length && chain.length) setChain([])
+  }, [settling, prompts.length, choices.length, chain.length])
+
   const browseEntries = useCallback<BrowseEntries>(
     (contentType, filters, page, pageSize) =>
       contentApi.browse(character?.schema_ref || '', contentType, {
@@ -485,11 +542,48 @@ export default function CharacterDetailView() {
     [character?.schema_ref]
   )
 
-  const confirmPrompt = async (answers: Answers) => {
+  // Taken once per prompt shown: answered, put off or gone back from.
+  const takePrompt = (): PromptRequest | undefined => {
+    const request = prompts[0]
+    if (!request || handledRef.current === request) return undefined
+    handledRef.current = request
+    return request
+  }
+
+  const confirmPrompt = (answers: Answers, outcome?: PromptOutcome) => {
+    if (!takePrompt()) return
+    const confirmedFor = characterId
+    setSettlingFor((prev) => [...prev, confirmedFor])
+    void confirmPromptNow(answers, outcome).finally(() =>
+      setSettlingFor((prev) => {
+        const index = prev.indexOf(confirmedFor)
+        return index < 0 ? prev : prev.filter((_, i) => i !== index)
+      })
+    )
+  }
+
+  const confirmPromptNow = async (answers: Answers, outcome?: PromptOutcome) => {
     const request = prompts[0]
     const definition = findPrompt(document, request?.prompt)
     setPrompts((prev) => prev.slice(1))
     if (!request || !definition) return
+    // Kept so Back from the prompt after it can take it back.
+    const asked: PromptRequest = {
+      prompt: request.prompt,
+      source: request.source,
+      ref: request.ref,
+      row: request.row,
+    }
+    // Built here, not in the updater, which React runs later - once this
+    // prompt's writes are already in `dataRef`.
+    const confirmed: ConfirmedPrompt = {
+      request: asked,
+      answers,
+      skipped: outcome?.skipped || [],
+      before: dataRef.current,
+      rest: prompts.slice(1),
+    }
+    setChain((prev) => [...prev, confirmed])
     const plan = planPrompt(definition, {
       document,
       data: dataRef.current,
@@ -499,8 +593,21 @@ export default function CharacterDetailView() {
       source: request.source,
     })
     // The plain writes land at once, before anything waits on the catalog, so
-    // a change the player makes meanwhile is not overwritten by them.
-    applyPatch({ ...plan.patch, ...withoutPending(dataRef.current, request) })
+    // a change the player makes meanwhile is not overwritten by them. A page
+    // skipped leaves its `later` prompt among the choices to make, opened
+    // from the same pick, so what it adds is recorded where this prompt's is.
+    const patch: Values = { ...plan.patch, ...withoutPending(dataRef.current, request) }
+    for (const later of outcome?.later || []) {
+      if (!findPrompt(document, later)) continue
+      Object.assign(
+        patch,
+        withPending(
+          { ...dataRef.current, ...patch },
+          { prompt: later, source: request.source, ref: request.ref }
+        )
+      )
+    }
+    applyPatch(patch)
     // Each content_ref pick goes the way a pick by hand goes, so its own
     // on_pick runs - a feat's prompt joining the queue after this one. A
     // content_list's row added or taken out is made against the list as the
@@ -536,8 +643,12 @@ export default function CharacterDetailView() {
   // Put off: kept under «Choices to make» only when a pick opened it. A prompt
   // a button opened is opened again by pressing the button, so it is let go.
   const skipPrompt = () => {
-    const request = prompts[0]
+    const request = takePrompt()
+    if (!request) return
     setPrompts((prev) => prev.slice(1))
+    // Put off, it breaks the chain: Back from the next prompt does not reach
+    // past it.
+    setChain([])
     // A prompt with `on_skip` is not kept for later: putting it aside makes
     // those writes instead - the box that opened it, unticked.
     const onSkip = findPrompt(document, request?.prompt)?.on_skip
@@ -557,6 +668,22 @@ export default function CharacterDetailView() {
       const patch = withPending(dataRef.current, request)
       if (Object.keys(patch).length) applyPatch(patch)
     }
+  }
+
+  // Back from a paged prompt's first page: the prompt confirmed before it is
+  // taken back - the sheet and the queue as they were - and opened again on
+  // its last page, with its answers. It has finished being confirmed: the
+  // prompt after it shows only then.
+  const backPrompt = () => {
+    const entry = chain[chain.length - 1]
+    if (!entry || !takePrompt()) return
+    restoreData(entry.before)
+    setChoices([])
+    setChain((prev) => prev.slice(0, -1))
+    setPrompts([
+      { ...entry.request, answers: entry.answers, skipped: entry.skipped, atEnd: true },
+      ...entry.rest,
+    ])
   }
 
   // A prompt put off, opened again: with the entry its pick read, fetched anew.
@@ -912,8 +1039,9 @@ export default function CharacterDetailView() {
 
         {currentPrompt && currentDefinition ? (
           <PromptDialog
-            // Keyed so the next prompt starts with no answers.
-            key={`${currentPrompt.prompt}:${currentPrompt.source || ''}:${prompts.length}`}
+            // Keyed so the next prompt starts with no answers, and one taken
+            // back starts again with its own.
+            key={`${currentPrompt.prompt}:${currentPrompt.source || ''}:${prompts.length}:${chain.length}`}
             prompt={currentDefinition}
             document={document}
             data={dataRef.current}
@@ -925,8 +1053,12 @@ export default function CharacterDetailView() {
                 : undefined
             }
             browse={browseEntries}
-            onConfirm={(answers) => void confirmPrompt(answers)}
+            initialAnswers={currentPrompt.answers}
+            initialSkipped={currentPrompt.skipped}
+            startAtEnd={currentPrompt.atEnd}
+            onConfirm={confirmPrompt}
             onSkip={skipPrompt}
+            onBack={chain.length && !readOnly ? backPrompt : undefined}
           />
         ) : null}
 

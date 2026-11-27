@@ -196,13 +196,26 @@ A sheet can also carry buttons, and ask you a few questions at once.
 - **A prompt** is a window of questions whose answers the sheet writes down: a
   level gained asks for hit points, then an ability increase or a feat picked
   from the catalog. A pick can open one, and so can a button or a box you tick.
-  Everything is on one page, phone included.
+  A short prompt shows everything on one page; a long one can come a page at a
+  time, with **Back** and **Next**. Next waits until the page is answered, and
+  Back keeps what you answered.
 
 A prompt can always be put off with **Choose later**. One that a pick opened is
 then listed above the sheet under **Choices to make**, to open again or
 dismiss; one a button opened is simply closed, since the button opens it again.
 What a prompt added because of a pick comes off again when you change that
 pick, like the pick's own additions.
+
+Some pages can be put off on their own: **Skip, choose later** leaves the rest
+of the prompt to finish, and lists that page's question under **Choices to
+make**. A level's subclass may have to be chosen now while its feat waits, say.
+Going back to a page you skipped asks it again. When one prompt leads straight
+to another, **Back** on the second one's first page takes the first back - what
+it wrote comes off the sheet - and opens it again with your answers.
+
+A list of catalog entries in a prompt follows your answers as you give them. A
+feat that needs another one shows once you tick that one, and goes if you untick
+it again.
 
 A field can react to being changed by hand, too - tick Concentrating and the
 sheet asks which spell. For a field you type in, it waits until you stop

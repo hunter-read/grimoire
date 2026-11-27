@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   findPrompt,
+  isAnswered,
   isComplete,
-  loadEntryOptions,
   matchesPattern,
   numberAverage,
   numberDefault,
@@ -223,24 +223,22 @@ describe('isComplete', () => {
   })
 })
 
-describe('loadEntryOptions', () => {
-  it('reads every page and keeps what the filter lets through', async () => {
-    const pages: Record<number, { entry_id: string; name: string; data: { level: number } }[]> = {
-      1: Array.from({ length: 200 }, (_, i) => ({
-        entry_id: `f${i}`,
-        name: `F${i}`,
-        data: { level: i % 2 ? 1 : 8 },
-      })),
-      2: [{ entry_id: 'alert', name: 'Alert', data: { level: 1 } }],
-    }
-    const asked: number[] = []
-    const found = await loadEntryOptions(LEVEL_UP.steps[3], SHEET, async (page) => {
-      asked.push(page)
-      return { entries: pages[page] || [], total: 201 }
-    })
-    expect(asked).toEqual([1, 2])
-    expect(found).toHaveLength(101)
-    expect(found.at(-1)).toMatchObject({ _ref: 'alert', name: 'Alert', level: 1 })
+describe('entries answers', () => {
+  const step: PromptStep = { key: 'spells', type: 'entries', content_type: 'spell', count: 'n' }
+  const spell = (id: string) => ({ _ref: id, name: id })
+
+  it('needs exactly its count, or as many as the catalog offers when fewer', () => {
+    const two = [spell('a'), spell('b')]
+    expect(isAnswered(step, two, { n: 2 }, DOCUMENT, {})).toBe(true)
+    expect(isAnswered(step, two, { n: 3 }, DOCUMENT, {})).toBe(false)
+    expect(isAnswered(step, two, { n: 3 }, DOCUMENT, {}, 2)).toBe(true)
+    expect(isAnswered(step, [spell('a'), { name: 'loose' }], { n: 2 }, DOCUMENT, {})).toBe(false)
+  })
+
+  it('needs no answer when its count works out to nothing', () => {
+    expect(isAnswered(step, undefined, { n: 0 }, DOCUMENT, {})).toBe(true)
+    expect(isAnswered(step, undefined, { n: 1 }, DOCUMENT, {}, 0)).toBe(true)
+    expect(isAnswered(step, undefined, { n: 1 }, DOCUMENT, {})).toBe(false)
   })
 })
 
@@ -389,6 +387,85 @@ describe('planPrompt', () => {
       answers: { s: ['History'] },
     })
     expect(plan.patch).toEqual({ skills: ['History'] })
+  })
+})
+
+describe('planPrompt with an entries answer', () => {
+  const SPELLS = [
+    { _ref: 'bolt', _source: 'phb', name: 'Bolt', level: 1 },
+    { _ref: 'ward', name: 'Ward', level: 2 },
+  ]
+  const prompt = (apply: SheetPrompt['apply']): SheetPrompt => ({
+    label: 'Spells',
+    steps: [{ key: 'spells', type: 'entries', content_type: 'feat', count: 2 }],
+    apply,
+  })
+
+  it('picks each entry into a content_list, each value reading the entry picked', () => {
+    const plan = planPrompt(
+      prompt([
+        {
+          pick: 'feats',
+          entry: 'answer.spells',
+          values: { from_level: 'level + entry.level' },
+        },
+      ]),
+      {
+        document: DOCUMENT,
+        data: SHEET,
+        context: SHEET,
+        answers: { spells: SPELLS },
+        source: 'origin',
+      }
+    )
+    expect(plan.picks).toEqual([
+      {
+        field: 'feats',
+        add: { _ref: 'bolt', _source: 'phb', _per: { from_level: 4 } },
+        entry: SPELLS[0],
+      },
+      { field: 'feats', add: { _ref: 'ward', _per: { from_level: 5 } }, entry: SPELLS[1] },
+    ])
+    expect(plan.patch._granted).toEqual({ origin: { feats: ['bolt', 'ward'] } })
+  })
+
+  it('picks the first entry of a list into a content_ref', () => {
+    const plan = planPrompt(prompt([{ pick: 'origin', entry: 'answer.spells' }]), {
+      document: DOCUMENT,
+      data: SHEET,
+      context: SHEET,
+      answers: { spells: SPELLS },
+    })
+    expect(plan.picks).toEqual([
+      { field: 'origin', value: { _ref: 'bolt', _source: 'phb' }, entry: SPELLS[0] },
+    ])
+  })
+
+  it('takes each entry of a list out of a content_list', () => {
+    const plan = planPrompt(prompt([{ unpick: 'feats', entry: 'answer.spells' }]), {
+      document: DOCUMENT,
+      data: SHEET,
+      context: SHEET,
+      answers: { spells: [...SPELLS, 'not an entry'] },
+    })
+    expect(plan.picks).toEqual([
+      { field: 'feats', remove: SPELLS[0] },
+      { field: 'feats', remove: SPELLS[1] },
+    ])
+  })
+
+  it("reads a single entry step's answer as entry too", () => {
+    const plan = planPrompt(
+      {
+        label: 'Feat',
+        steps: [{ key: 'feat', type: 'entry', content_type: 'feat' }],
+        apply: [{ pick: 'feats', entry: 'answer.feat', values: { from_level: 'entry.level' } }],
+      },
+      { document: DOCUMENT, data: SHEET, context: SHEET, answers: { feat: SPELLS[1] } }
+    )
+    expect(plan.picks).toEqual([
+      { field: 'feats', add: { _ref: 'ward', _per: { from_level: 2 } }, entry: SPELLS[1] },
+    ])
   })
 })
 
