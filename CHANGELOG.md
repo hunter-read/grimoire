@@ -23,6 +23,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Changed
 
 - A long description in a content entry keeps its paragraphs when the entry is opened, in the sheet's content browser as well as the compendium
+- **A backup no longer leaves gigabytes counted against Grimoire's memory.** Linux keeps files a program has just read or written in memory until something else needs the room, so after a large backup `docker stats` showed Grimoire holding about the size of the archive, sometimes for hours. Grimoire now tells the system it is done with the archive and the files it copied as the backup runs. See [Performance](docs/performance.md#memory-after-a-backup-or-a-large-upload)
 - **A compendium with large packs is quicker to read.** Opening an entry now looks that one entry up rather than reading every entry of its kind, so it takes about the same time in a pack of thousands of spells as in a pack of ten. Turning a page reads in full only the entries on that page, and just the few values its filters and sort need from the rest
 
 ### Fixed

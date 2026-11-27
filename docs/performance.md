@@ -154,6 +154,21 @@ Raise it to `2` when all of these hold:
 
 More workers than CPU cores never helps. With more than one worker, set `VALKEY_URL` too: otherwise each worker keeps its own page cache, sign-in rate limits and scan progress, and the scan status can look stuck while the other worker runs the scan. **Stop** still reaches the startup scan whichever worker runs it, but a rescan started from the app can be stopped only through the worker running it. Grimoire does not scale workers on its own - a new worker takes seconds and 125-190 MB to start, so it would arrive after a burst had passed.
 
+## Memory after a backup or a large upload
+
+`docker stats` and most dashboards count more than the memory Grimoire itself is using. Linux keeps files that were recently read or written in memory (the page cache) until something else needs the room, and charges them to the container that touched them. It is given back the moment anything on the host asks for memory, so it cannot cause an out-of-memory kill by itself, but it can make Grimoire look several gigabytes larger than it is.
+
+- **Backups** release what they touched as they run: the archive, and each file copied into it. The database is left cached, since Grimoire reads it all the time.
+- **Uploads** are not released, because the scan reads each new file again straight away to index it. After uploading several gigabytes, expect the figure to stay up until the system reclaims it.
+
+To see what the figure is made of, compare `anon` (what the processes hold) with `file` (the cache):
+
+```bash
+docker exec grimoire grep -E "^(anon|file) " /sys/fs/cgroup/memory.stat
+```
+
+To keep the cache bounded, give the container a memory limit (`mem_limit: 2g` in Compose, `--memory 2g` on the command line). The system then reclaims the cache at that ceiling instead of letting it grow into free memory.
+
 ## Caching
 
 Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an in-memory Redis-compatible cache instead for faster repeat loads.

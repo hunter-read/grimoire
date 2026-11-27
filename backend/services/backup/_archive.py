@@ -28,6 +28,7 @@ from ...config import (
     logger,
 )
 from ._config import backup_settings
+from ._page_cache import ArchiveCacheRelease, drop_cached
 from ._store import BackupRecord, prune_backups, record_for
 
 MANIFEST_NAME = "details.json"
@@ -74,8 +75,17 @@ def snapshot_database(destination: str) -> None:
         source.close()
 
 
-def _add_directory(zf: zipfile.ZipFile, source: str, arc_root: str) -> int:
-    """Add a directory tree to the archive. Returns the number of files added."""
+def _add_directory(
+    zf: zipfile.ZipFile,
+    source: str,
+    arc_root: str,
+    cache: Optional[ArchiveCacheRelease] = None,
+) -> int:
+    """Add a directory tree to the archive. Returns the number of files added.
+
+    ``cache`` is told about each file as it goes in, so the backup does not
+    leave the files it read sitting in memory (see ``_page_cache``).
+    """
     if not os.path.isdir(source):
         return 0
     added = 0
@@ -94,6 +104,8 @@ def _add_directory(zf: zipfile.ZipFile, source: str, arc_root: str) -> int:
                 logger.warning(f"Backup: skipping unreadable file {full}: {exc}")
                 continue
             added += 1
+            if cache is not None:
+                cache.added(full)
     return added
 
 
@@ -135,6 +147,7 @@ def _create_backup(db: Any, trigger: str) -> BackupRecord:
         with zipfile.ZipFile(
             temp_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
         ) as zf:
+            cache = ArchiveCacheRelease(zf)
             postgres = is_postgres(db)
             if not postgres:
                 # The database goes through a temp file rather than straight
@@ -143,9 +156,12 @@ def _create_backup(db: Any, trigger: str) -> BackupRecord:
                     snapshot = os.path.join(snap_dir, DB_ARCHIVE_NAME)
                     snapshot_database(snapshot)
                     zf.write(snapshot, DB_ARCHIVE_NAME)
+                    # The live database is left alone: the app reads it all
+                    # the time and is better off with it cached.
+                    cache.added(snapshot)
 
             for source, arc_root in ASSET_DIRS:
-                counts[arc_root] = _add_directory(zf, source, arc_root)
+                counts[arc_root] = _add_directory(zf, source, arc_root, cache)
 
             manifest = {
                 "app": "grimoire",
@@ -174,6 +190,9 @@ def _create_backup(db: Any, trigger: str) -> BackupRecord:
             zf.writestr(MANIFEST_NAME, json.dumps(manifest, indent=2))
 
         os.replace(temp_path, final_path)
+        # The app never reads the archive back, so nothing gains from it
+        # staying in memory. Flushing first also means it is on disk.
+        drop_cached(final_path, flush=True)
     except BaseException:
         # Includes KeyboardInterrupt/SystemExit: a half-written archive must
         # never survive, whatever ended the run.
