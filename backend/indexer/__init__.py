@@ -126,6 +126,7 @@ from ._db import DatabaseBusyError, _db_call  # noqa: E402,F401
 # --- Isolated extraction / OCR -------------------------------------------------
 from ._subprocess import (  # noqa: E402,F401
     OCR_PAGE_ABANDONED,
+    FailedPage,
     PdfExtractionCrashError,
     _book_page_count,
     _commit,
@@ -135,6 +136,7 @@ from ._subprocess import (  # noqa: E402,F401
     ocr_book,
     ocr_book_page_isolated_wrapper,
     ocr_page_isolated,
+    is_abandoned,
 )
 
 # --- PyMuPDF work in the scan's helper process ----------------------------------

@@ -296,6 +296,68 @@ class TestEffectiveLanguages:
             assert ocr.effective_languages() == "eng+deu"
 
 
+class TestCheckLanguages:
+    """OCR_LANGUAGES entries Tesseract can't load are named at startup (#1010)."""
+
+    def _errors(self, caplog, configured, installed):
+        import logging
+
+        with patch.object(config, "OCR_LANGUAGES", configured), \
+             patch.object(ocr, "installed_languages", return_value=frozenset(installed)), \
+             caplog.at_level(logging.ERROR, logger="grimoire.ocr"):
+            ocr._check_languages()
+        return " ".join(r.message for r in caplog.records if r.levelno >= logging.ERROR)
+
+    def test_silent_when_all_are_installed(self, caplog):
+        assert self._errors(caplog, "eng+deu", {"eng", "deu", "osd"}) == ""
+
+    def test_silent_when_the_list_is_unknown(self, caplog):
+        assert self._errors(caplog, "eng,deu", set()) == ""
+
+    def test_names_a_missing_language_and_what_is_used(self, caplog):
+        logged = self._errors(caplog, "eng+deu+fra", {"eng", "fra", "osd"})
+        assert "names deu, but Tesseract has no language data for it," in logged
+        assert "read with eng+fra only" in logged
+        assert "Installed: eng+fra" in logged
+
+    def test_several_missing_are_them(self, caplog):
+        logged = self._errors(caplog, "eng+deu+fra", {"eng", "osd"})
+        assert "names deu+fra, but Tesseract has no language data for them," in logged
+
+    def test_none_usable_says_nothing_can_be_read(self, caplog):
+        logged = self._errors(caplog, "eng,deu", {"eng", "deu", "osd"})
+        assert "any of OCR_LANGUAGES (eng,deu)" in logged
+        assert "joined with +" in logged
+
+    def test_runs_when_ocr_first_comes_on(self):
+        ocr.reset_availability_cache()
+        try:
+            with patch.object(config, "OCR_ENABLED", True), \
+                 patch.object(config, "OCR_CONCURRENCY", 1), \
+                 patch.object(ocr, "_probe_tesseract", return_value=True), \
+                 patch.object(ocr, "_check_languages") as check:
+                assert ocr.ocr_available() is True
+                assert ocr.ocr_available() is True
+            check.assert_called_once()
+        finally:
+            ocr.reset_availability_cache()
+
+
+class TestLanguagesUsable:
+    def _usable(self, languages, installed):
+        with patch.object(ocr, "installed_languages", return_value=frozenset(installed)):
+            return ocr.languages_usable(languages)
+
+    def test_one_loadable_language_is_enough(self):
+        assert self._usable("deu+eng", {"eng", "osd"}) is True
+
+    def test_none_loadable(self):
+        assert self._usable("deu+fra", {"eng", "osd"}) is False
+
+    def test_unknown_install_leaves_tesseract_to_try(self):
+        assert self._usable("deu", set()) is True
+
+
 class TestInstalledLanguages:
     def teardown_method(self):
         ocr.reset_availability_cache()
@@ -317,6 +379,28 @@ class TestInstalledLanguages:
 
         with patch.dict(sys.modules, {"pytesseract": types.SimpleNamespace(get_languages=broken)}):
             assert ocr.installed_languages() == frozenset()
+
+
+class TestOcrLanguagesConfig:
+    """Commas, semicolons and spaces separate languages like + does (#1010)."""
+
+    def test_comma_is_read_as_plus(self, monkeypatch):
+        monkeypatch.setenv("OCR_LANGUAGES", "eng,deu")
+        assert config._read_ocr_languages() == "eng+deu"
+
+    def test_mixed_separators_and_repeats(self, monkeypatch):
+        monkeypatch.setenv("OCR_LANGUAGES", " eng, deu ;fra+eng  chi_sim ")
+        assert config._read_ocr_languages() == "eng+deu+fra+chi_sim"
+
+    def test_plus_list_is_unchanged(self, monkeypatch):
+        monkeypatch.setenv("OCR_LANGUAGES", "eng+deu")
+        assert config._read_ocr_languages() == "eng+deu"
+
+    def test_blank_falls_back_to_english(self, monkeypatch):
+        monkeypatch.setenv("OCR_LANGUAGES", " , ")
+        assert config._read_ocr_languages() == "eng"
+        monkeypatch.delenv("OCR_LANGUAGES")
+        assert config._read_ocr_languages() == "eng"
 
 
 class TestOcrConcurrencyConfig:

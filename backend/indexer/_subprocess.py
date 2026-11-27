@@ -16,6 +16,7 @@ import signal
 import logging
 import tempfile
 import threading
+from contextvars import ContextVar
 from typing import Any, Callable, Optional
 
 import pymupdf
@@ -52,8 +53,49 @@ class _AbandonedPage(str):
 
 
 # Singleton returned by ``ocr_page_isolated`` when a page times out or its
-# worker crashes. Compare with ``is``, never ``==`` (it equals "").
+# worker crashes. Compare with ``is``, never ``==`` (it equals ""); ask
+# ``is_abandoned`` to include pages Tesseract failed on.
 OCR_PAGE_ABANDONED = _AbandonedPage()
+
+
+class FailedPage(_AbandonedPage):
+    """A page Tesseract failed on (issue #1010): abandoned, with its own text.
+
+    The text is whatever the page held before OCR - a running header, say -
+    so a failure costs the page nothing it went in with. It may be empty.
+    ``error`` is Tesseract's message, folded onto one line.
+    """
+
+    def __new__(cls, text: str, error: str) -> "FailedPage":
+        page = super().__new__(cls, text)
+        page.error = error
+        return page
+
+    error: str
+
+
+def is_abandoned(text: str) -> bool:
+    """Whether an OCR result is a page that was skipped rather than read."""
+    return isinstance(text, _AbandonedPage)
+
+
+# The errors already logged for the book being read in this thread. A setting
+# Tesseract can't use fails every page the same way, and one line per page
+# buried the message that says why; ``ocr_book`` starts each book afresh.
+_logged_failures: ContextVar[Optional[set[str]]] = ContextVar("_logged_failures", default=None)
+
+
+def _log_page_failure(page_index: int, filepath: str, error: str) -> None:
+    seen = _logged_failures.get()
+    if seen is not None and error in seen:
+        logger.debug(f"OCR page {page_index + 1} failed for {filepath} the same way: {error}")
+        return
+    if seen is not None:
+        seen.add(error)
+    logger.error(
+        f"OCR page {page_index + 1} failed for {filepath} - skipping it: {error}"
+        + (" (later pages failing the same way are logged at debug level)" if seen is not None else "")
+    )
 
 
 class PdfExtractionCrashError(Exception):
@@ -267,10 +309,13 @@ def ocr_page_isolated(
     """OCR a single page in a spawned child, bounded by ``config.OCR_PAGE_TIMEOUT``.
 
     Returns the recognised text, or "" when the page is blank or the run was
-    cancelled; never raises.  A page abandoned because it exceeded the budget or
-    because its worker crashed comes back as ``OCR_PAGE_ABANDONED`` — an empty,
-    falsy string subclass, so callers that just want the text are unaffected,
-    while ``ocr_book`` can tell a skipped page from a blank one and count it.
+    cancelled; never raises.  A page abandoned because it exceeded the budget,
+    because its worker crashed, or because Tesseract failed on it (a language
+    it can't load, issue #1010) comes back abandoned: ``OCR_PAGE_ABANDONED``, an
+    empty, falsy string subclass, or for a Tesseract failure a ``FailedPage``
+    holding the page's own text. Callers that just want the text are
+    unaffected, while ``ocr_book`` can tell a skipped page from a blank one
+    (``is_abandoned``) and count it.
 
     Isolation means a native OCR/MuPDF crash or a wedged page kills only this
     throwaway process; the caller checkpoints the page as done and moves on
@@ -316,7 +361,12 @@ def ocr_page_isolated(
             )
             return OCR_PAGE_ABANDONED
         with open(result_path, "rb") as fh:
-            return pickle.load(fh)
+            result = pickle.load(fh)
+        if isinstance(result, dict):  # pdf_worker.ocr_failure
+            error = str(result.get("error") or "unknown error")
+            _log_page_failure(page_index, filepath, error)
+            return FailedPage(str(result.get("text") or ""), error)
+        return result
     finally:
         if proc.is_alive():
             _kill_worker(proc)
@@ -343,10 +393,24 @@ def ocr_book(
     a multi-hour scanned book makes steady, durable progress.
 
     Returns one of: ``"done"`` (all pages processed, book indexed), ``"stopped"``
-    (cancelled via ``should_stop`` — resumable), or ``"error"`` (page count
-    unreadable).  ``on_page(done, total)`` is called after each page for live
-    status.
+    (cancelled via ``should_stop`` — resumable), ``"waiting"`` (Tesseract can't
+    read it as things stand, so it is left queued untouched for the next run),
+    or ``"error"`` (page count unreadable).  ``on_page(done, total)`` is called
+    after each page for live status.
     """
+    token = _logged_failures.set(set())
+    try:
+        return _ocr_book(book, session, should_stop, on_page)
+    finally:
+        _logged_failures.reset(token)
+
+
+def _ocr_book(
+    book: Book,
+    session: Session,
+    should_stop: Optional[Callable[[], bool]],
+    on_page: Optional[Callable[..., None]],
+) -> str:
     try:
         page_count = indexer._book_page_count(book.filepath)
     except Exception as e:
@@ -361,6 +425,17 @@ def ocr_book(
     from . import ocr_language, ocr_probe
 
     languages = ocr_language.book_languages(book)
+    name = book.title or book.filename
+
+    # Reading with no language Tesseract can load fails on every page, and the
+    # book would be marked read with all of them skipped. Left queued, it is
+    # read on its own once the setting or the language data is fixed.
+    if not ocr.languages_usable(languages):
+        logger.warning(
+            f"Leaving '{name}' queued: Tesseract has no language data for {languages}. "
+            f"It is read on the next run after OCR_LANGUAGES is fixed or the data is added."
+        )
+        return "waiting"
 
     # A thin text layer may be artwork rather than a scan: sample it first.
     if ocr_probe.should_sample(book):
@@ -369,6 +444,12 @@ def ocr_book(
             return "stopped"
         if verdict == "artwork":
             return "done"
+        if verdict == "unreadable":
+            logger.warning(
+                f"Leaving '{name}' queued: Tesseract failed on every page sampled from it "
+                f"(the error is above). It is tried again on the next run."
+            )
+            return "waiting"
 
     start = book.ocr_pages_done or 0
     # Resuming keeps the skips already recorded, so the count is for the whole
@@ -401,13 +482,14 @@ def ocr_book(
             logger.debug(f"OCR: stop requested during '{book.filename}' at page {i + 1}")
             return "stopped"
 
-        if text_out is OCR_PAGE_ABANDONED:
-            # Timed out or the worker crashed — already logged there. Counted so
+        if is_abandoned(text_out):
+            # Timed out, crashed or failed — already logged there. Counted so
             # the book can report how much of its text is actually missing
             # instead of claiming a clean read (issue #450).
             skipped += 1
             book.ocr_pages_skipped = skipped
-        elif text_out:
+        if text_out:
+            # A failed page still keeps the text it had before OCR.
             session.execute(
                 text(
                     "INSERT INTO book_pages (book_id, page_number, content) "
@@ -434,7 +516,6 @@ def ocr_book(
     book.index_error = "ocr"
     book.ocr_pages_skipped = skipped
     _commit(session, f"ocr done '{book.filepath}'")
-    name = book.title or book.filename
     if skipped:
         # Say plainly that the book is only partly readable. Reporting a book as
         # searchable when most of its pages were abandoned is the failure mode
@@ -442,13 +523,35 @@ def ocr_book(
         # knew it had fired at all, and nothing but container logs said so.
         logger.warning(
             f"Finished reading '{name}' - but {skipped} of {page_count} page(s) were skipped "
-            f"(they exceeded OCR_PAGE_TIMEOUT, currently {config.OCR_PAGE_TIMEOUT:g}s, or their "
-            f"worker crashed), so that text is not searchable. If the pages timed out, raise "
-            f"OCR_PAGE_TIMEOUT and re-read the book to recover them."
+            f"(they exceeded OCR_PAGE_TIMEOUT, currently {config.OCR_PAGE_TIMEOUT:g}s, their "
+            f"worker crashed, or Tesseract failed on them - the log above says which), so that "
+            f"text is not searchable. If the pages timed out, raise OCR_PAGE_TIMEOUT and re-read "
+            f"the book to recover them."
+        )
+    elif not _has_text(session, book.id):
+        # Every page read, none of them holding a word: usually a scan too
+        # coarse for Tesseract. "Now searchable" would promise what search
+        # can't deliver (issue #1010).
+        logger.warning(
+            f"Finished reading '{name}', but no text was found on any of its {page_count} "
+            f"page(s), so search won't find it. If it is a low-resolution scan, Re-OCR it "
+            f"at a higher DPI."
         )
     else:
         logger.info(f"Finished reading '{name}' - it's now searchable.")
     return "done"
+
+
+def _has_text(session: Session, book_id: str) -> bool:
+    """Whether any page of the book is in the search index.
+
+    Asked of the table rather than counted during the pass, since a resumed
+    pass didn't see the pages an earlier one indexed.
+    """
+    row = session.execute(
+        text("SELECT 1 FROM book_pages WHERE book_id = :bid LIMIT 1"), {"bid": book_id}
+    ).first()
+    return row is not None
 
 
 # Indirection so tests can stub the isolated call without spawning subprocesses.

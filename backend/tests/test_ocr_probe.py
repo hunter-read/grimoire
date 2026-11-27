@@ -15,7 +15,7 @@ from sqlalchemy import text
 from backend import indexer
 from backend.config import SessionLocal
 from backend.indexer import ocr_probe, reocr_applies, text_too_thin
-from backend.indexer._subprocess import OCR_PAGE_ABANDONED, PdfExtractionCrashError
+from backend.indexer._subprocess import OCR_PAGE_ABANDONED, FailedPage, PdfExtractionCrashError
 from backend.models import Book
 
 SCANNED_PAGE = " ".join(["Dungeon masters describe the corridor"] * 20)
@@ -250,6 +250,25 @@ class TestProbe:
         bid = _thin_book()
         ocr, _ = _ocr_returning(OCR_PAGE_ABANDONED)
         assert self._probe(bid, ocr)[0] == "scan"
+
+    def test_failed_pages_make_the_book_unreadable(self):
+        """Tesseract failing on every sample isn't artwork: nothing was read (#1010)."""
+        bid = _thin_book()
+        ocr, seen = _ocr_returning(FailedPage("", "Failed loading language 'deu'"))
+        verdict, book = self._probe(bid, ocr)
+        assert verdict == "unreadable"
+        assert seen
+        assert book.ocr_pending is True
+        assert _search_pages(bid) == []
+
+    def test_one_page_read_is_enough_to_judge(self):
+        bid = _thin_book()
+        results = iter([FailedPage("", "boom"), MAP_LABELS, MAP_LABELS])
+
+        def ocr(fp, i, should_stop=None, dpi=None, languages=None):
+            return next(results)
+
+        assert self._probe(bid, ocr)[0] == "artwork"
 
     def test_an_extraction_crash_errs_towards_ocr(self):
         bid = _thin_book()

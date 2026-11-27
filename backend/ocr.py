@@ -64,9 +64,54 @@ def ocr_available() -> bool:
         _available = _probe_tesseract()
         if _available:
             logger.info(f"Text recognition for scanned books is on (languages: {config.OCR_LANGUAGES}).")
+            _check_languages()
         else:
             logger.info("Text recognition for scanned books is off - Tesseract isn't installed.")
     return _available
+
+
+def _check_languages() -> None:
+    """Log an error for each ``OCR_LANGUAGES`` entry Tesseract has no data for.
+
+    Tesseract drops a language it can't load and reads with the rest, and with
+    none left it reads nothing at all. Either way nothing else would say so,
+    since a page it failed on looks just like a blank one (issue #1010).
+    Silent when the installed list can't be had: there is nothing to check
+    against.
+    """
+    installed = installed_languages()
+    if not installed:
+        return
+    configured = [c for c in config.OCR_LANGUAGES.split("+") if c]
+    missing = [c for c in configured if c not in installed]
+    if not missing:
+        return
+    usable = [c for c in configured if c in installed]
+    have = "+".join(sorted(installed - {"osd"})) or "none"
+    it = "it" if len(missing) == 1 else "them"
+    if usable:
+        logger.error(
+            f"OCR_LANGUAGES names {'+'.join(missing)}, but Tesseract has no language data "
+            f"for {it}, so scanned books are read with {'+'.join(usable)} only. Installed: "
+            f"{have}. Add the missing traineddata, or take it out of OCR_LANGUAGES."
+        )
+    else:
+        logger.error(
+            f"Tesseract has no language data for any of OCR_LANGUAGES ({config.OCR_LANGUAGES}), "
+            f"so scanned books can't be read. Installed: {have}. Codes are joined with +, "
+            f"e.g. eng+deu."
+        )
+
+
+def languages_usable(languages: str) -> bool:
+    """Whether Tesseract can load at least one of the ``+``-joined ``languages``.
+
+    It reads with whichever of them it can load and fails outright only when
+    there are none. True when the installed list can't be had: Tesseract is
+    left to try, as it always was.
+    """
+    installed = installed_languages()
+    return not installed or any(c in installed for c in languages.split("+") if c)
 
 
 def reset_availability_cache() -> None:
@@ -137,7 +182,7 @@ def _ocr_task(image: Image.Image, result: list, exc: list) -> None:
     try:
         import pytesseract
 
-        result[0] = pytesseract.image_to_string(image, lang=config.OCR_LANGUAGES)
+        result[0] = pytesseract.image_to_string(image, lang=effective_languages())
     except Exception as e:
         exc[0] = e
 

@@ -95,7 +95,7 @@ def scan_in_progress() -> bool:
 def _ocr_one_book(book_id: str) -> str:
     """Drain a single queued book on its own DB session (thread-pool unit).
 
-    Returns ocr_book's result ("done"/"stopped"/"error"). Each book gets a fresh
+    Returns ocr_book's result ("done"/"stopped"/"waiting"/"error"). Each book gets a fresh
     session so concurrent OCR workers don't share a Session across threads.
 
     An unexpected exception from ``ocr_book`` is contained here: the book is
