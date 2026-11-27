@@ -4106,6 +4106,7 @@
     "chooseRemaining_other": "Noch {{count}} zu wählen",
     "alreadyHave": "bereits vorhanden",
     "chooseLater": "Später wählen",
+    "orderMove": "Eintrag {{position}} von {{count}} verschieben",
     "chooseConfirm": "Hinzufügen",
     "promptConfirm": "Bestätigen",
     "promptBack": "Zurück",

@@ -11,6 +11,8 @@ interface ListColumn extends FieldDefinition {
   flex?: number
   default?: unknown
   default_from?: unknown
+  // Shown but not typed into: a record the sheet writes itself.
+  readonly?: boolean
 }
 
 interface ListFieldDefinition extends FieldDefinition {
@@ -134,8 +136,12 @@ export default function ListField({
                     definition={{ ...column, label: column.label || column.key }}
                     stored={row?.[column.key]}
                     worked={cellOf(derived[index], column.key)}
-                    onChange={readOnly ? undefined : (v) => setRow(index, column.key, v)}
-                    readOnly={readOnly}
+                    onChange={
+                      readOnly || column.readonly === true
+                        ? undefined
+                        : (v) => setRow(index, column.key, v)
+                    }
+                    readOnly={readOnly || column.readonly === true}
                     hideLabel
                   />
                 </div>

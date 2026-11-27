@@ -166,6 +166,16 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
         _validate_options(what, {**column, "type": column_type})
     if column_type == "number":
         _validate_bounds(what, column)
+    if "entry_note" in column:
+        raise SchemaError(
+            f"{what} has an entry_note, but only a content_ref or content_list "
+            "picks from the catalog"
+        )
+    # Shown to the player but not typed into: a record the sheet writes itself
+    # (an action's `append`), which an edit by hand would put out of step. A
+    # view setting only - the server still takes what is written there.
+    if "readonly" in column and not isinstance(column["readonly"], bool):
+        raise SchemaError(f"{what} readonly must be true or false")
 
     if "default_from" in column:
         # The names it reads are checked in `validate_schema`, which knows the
@@ -239,6 +249,19 @@ def _validate_definition(
         _validate_options(what, definition)
     if field_type == "number":
         _validate_bounds(what, definition)
+
+    # A note shown beside each entry in the catalog browser - a weapon's
+    # mastery, a spell's school. Its names are checked in `validate_schema`,
+    # which knows the sheet's; here only that there is a catalog to note.
+    if "entry_note" in definition:
+        if field_type not in _CONTENT_TYPES_FIELDS:
+            raise SchemaError(
+                f"{what} has an entry_note, but only a content_ref or content_list "
+                "picks from the catalog"
+            )
+        note = definition["entry_note"]
+        if not isinstance(note, str) or not note.strip():
+            raise SchemaError(f"{what} entry_note must be a non-empty expression")
 
     if field_type in _CONTENT_TYPES_FIELDS:
         content_type = definition.get("content_type")
@@ -1281,6 +1304,63 @@ def _check_action_buttons(document: dict, actions: Any, prompts: Any) -> None:
             stack.extend(node.get("children") or [])
 
 
+#: What a <g-order> holds: blocks, and conditions lending theirs.
+_ORDER_CHILDREN: frozenset = frozenset({"g-repeat", "g-order-item", "g-if"})
+#: The field types a <g-order> keeps its order in, one block key per line.
+_ORDER_FIELD_TYPES: frozenset = frozenset({"text", "textarea"})
+
+
+def _check_order_blocks(document: dict, fields: dict) -> None:
+    """Refuse a `<g-order>` that would lose what it holds, or keep its order nowhere.
+
+    Its `field` must be a text field. Its children - and a `<g-if>`'s inside
+    it, which lends them when it holds - must be blocks: a `<g-repeat>`, whose
+    every row is one, or a `<g-order-item>` with a `key`. Anything else has no
+    key to keep its place by, so it is refused rather than drawn somewhere
+    the author did not put it. Orders do not nest.
+    """
+
+    def blocks(children: list, label: str) -> None:
+        for child in children:
+            tag = child.get("tag") if isinstance(child, dict) else None
+            if tag not in _ORDER_CHILDREN:
+                what = f"<{tag}>" if tag else "text"
+                raise SchemaError(
+                    f"{label}: <g-order> holds {what}; it takes only <g-repeat>, "
+                    "<g-order-item> and <g-if>"
+                )
+            if tag == "g-if":
+                blocks(child.get("children") or [], label)
+
+    def walk(nodes: list, label: str, inside: bool) -> None:
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            tag = node.get("tag")
+            attrs = node.get("attrs") or {}
+            children = node.get("children") or []
+            if tag == "g-order":
+                if inside:
+                    raise SchemaError(f"{label}: a <g-order> cannot sit inside another")
+                field = attrs.get("field")
+                definition = fields.get(field) if isinstance(field, str) else None
+                if (
+                    not isinstance(definition, dict)
+                    or definition.get("type", "text") not in _ORDER_FIELD_TYPES
+                ):
+                    raise SchemaError(
+                        f"{label}: <g-order> keeps its order in {field!r}, which must be "
+                        "a text or textarea field"
+                    )
+                blocks(children, label)
+            elif tag == "g-order-item" and not str(attrs.get("key") or "").strip():
+                raise SchemaError(f"{label}: <g-order-item> needs a 'key'")
+            walk(children, label, inside or tag == "g-order")
+
+    for key, label in (("layout_ast", "layout_html"), ("mobile_layout_ast", "mobile_layout_html")):
+        walk(list(document.get(key) or []), label, False)
+
+
 def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     """Parse a sheet's HTML layouts and scope their stylesheets.
 
@@ -1354,6 +1434,26 @@ def _check_content_pickers(fields: dict, content_types: dict, *, per_entry: bool
                     f"{what} picks from content type {wanted!r}, "
                     f"which the schema does not define (has: {declared})"
                 )
+
+
+def _check_entry_notes(fields: dict, known: set[str], images: frozenset) -> None:
+    """Check each catalog picker's `entry_note` formula, its own and its per-entry ones.
+
+    The note reads the candidate as `entry` beside the character's own names -
+    what a prompt's `entry` step `filter` reads.
+    """
+    names = known | {PROMPT_ENTRY_NAME}
+    for field_name, definition in fields.items():
+        if not isinstance(definition, dict):
+            continue
+        pickers = [(f"Field {field_name!r}", definition)] + [
+            (f"Field {field_name!r} per-entry field {per_name!r}", per_definition)
+            for per_name, per_definition in (definition.get("per_entry_fields") or {}).items()
+            if isinstance(per_definition, dict)
+        ]
+        for what, picker in pickers:
+            if "entry_note" in picker:
+                _validate_condition(picker["entry_note"], f"{what} entry_note", names, images)
 
 
 def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = False) -> dict:
@@ -1453,6 +1553,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = Fa
         _validate_content_type(type_name, type_definition)
 
     _check_content_pickers(fields, content_types, per_entry=not stored)
+    _check_entry_notes(fields, known, images)
 
     prompts = document.get("prompts")
     prompt_names = set(prompts) if isinstance(prompts, dict) else set()
@@ -1512,6 +1613,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet", stored: bool = Fa
     }
     normalised.update(_derive_html_layouts(document, scope))
     _check_action_buttons(normalised, document.get("actions"), document.get("prompts"))
+    _check_order_blocks(normalised, fields)
 
     if "layout" not in document and document.get("layout_html") is None:
         # Neither layout given: the renderer falls back to listing fields in

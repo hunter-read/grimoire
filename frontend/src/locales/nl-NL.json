@@ -4106,6 +4106,7 @@
     "chooseRemaining_other": "Nog {{count}} te kiezen",
     "alreadyHave": "heb je al",
     "chooseLater": "Later kiezen",
+    "orderMove": "Item {{position}} van {{count}} verplaatsen",
     "chooseConfirm": "Toevoegen",
     "promptConfirm": "Bevestigen",
     "promptBack": "Terug",

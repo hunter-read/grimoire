@@ -105,3 +105,13 @@ class TestTiersAndPips:
     def test_they_take_no_handlers(self, html):
         with pytest.raises(LayoutHtmlError):
             parse_layout_html(html)
+
+
+class TestValueMarkdown:
+    def test_a_value_may_be_drawn_as_markdown(self):
+        ast = parse_layout_html('<g-value name="description" markdown />')
+        assert ast[0]["attrs"] == {"name": "description", "markdown": ""}
+
+    def test_it_takes_no_handlers(self):
+        with pytest.raises(LayoutHtmlError):
+            parse_layout_html('<g-value name="description" markdown onclick="x()" />')

@@ -2791,6 +2791,13 @@ Every row is rebuilt from the declared columns on save, so a key the schema does
 not define is dropped - the same rule top-level fields follow. A missing cell
 falls back to its column's `default`. A list is capped at 500 rows.
 
+A column marked `"readonly": true` is shown but not typed into, in the list and
+in a `<g-repeat>` - a record the sheet writes itself through an action's
+`append`, such as what a level gained gave. The rest of the row, and adding,
+moving and removing rows, stay the player's. It is a view setting, not a lock:
+the server still accepts what is written there. Anything but `true` or `false`
+is refused at install.
+
 These functions read across rows, taking the **column name as a string** (a bare
 name would resolve against the character before the function saw it):
 
@@ -2893,10 +2900,36 @@ and returned as derived `layout_ast` / `styles_css`:
 </div>
 ```
 
-Directives are `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
-`g-if`, and `g-repeat`. Inside a `g-repeat` over a list field, a `g-field`
+Directives include `g-field`, `g-computed`, `g-label`, `g-value`, `g-section`,
+`g-if`, `g-repeat`, `g-order` and `g-order-item`. Inside a `g-repeat` over a list field, a `g-field`
 naming one of that list's columns addresses **that row's** cell, so a custom
-layout can draw an editable table of its own. Everything else is a closed allowlist of structural
+layout can draw an editable table of its own. `<g-value name="notes" markdown />`
+draws a text value as Markdown - lists, emphasis, tables and links - with the
+same renderer as the GM screen's reference panel: raw HTML is never markup, an
+image shows as its description, and a link opens in a new tab. Only text is
+drawn: an empty value, or one that is not text, draws nothing.
+
+`<g-order field="attack_order">` lets the player drag blocks of the sheet into
+their own order - attacks drawn from several lists, say. Each row a
+`<g-repeat>` inside it draws is one block, whatever it draws;
+`<g-order-item key="unarmed">` is a fixed block; a `<g-if>` that holds lends
+its blocks, and one that does not lends none. The order is kept in `field`, a
+`text` or `textarea` field, as block keys one per line: a `<g-order-item>` by
+its `key`, a list row by `<list>:<first column's value>`, a catalog row by
+`<list>:ref:<id>`, and a second block with the same key as `<key>#2`. A block
+the stored order does not know yet comes first. A row whose first column is
+typed in keeps its place: its new key takes the old one's place in the order,
+which is written straight away. A move writes the blocks drawn in their new
+order and keeps the stored keys of blocks not drawn now - behind a `<g-if>`
+that does not hold, say - each after the key it followed, so the block is back
+in its place when it shows again. At most 50 such keys are kept (the first
+listed), so keys of rows deleted long ago do not pile up. Each block gets a drag
+handle (mouse, pen or touch, or the arrow keys once it has focus); a read-only
+sheet shows the order without handles. The blocks are drawn as `.gc-order >
+.gc-order-block > .gc-order-handle + .gc-order-content` for the stylesheet to
+place. At install, `field` must be a text field, a `<g-order-item>` needs a
+`key`, a `<g-order>` may hold only `<g-repeat>`, `<g-order-item>` and `<g-if>`
+(and a `<g-if>` inside it the same), and orders do not nest. Everything else is a closed allowlist of structural
 tags. **The template never becomes markup**: it is parsed to an AST server-side
 and rendered as React elements, so no schema string ever reaches `innerHTML`.
 Event handlers, `<script>`, `<style>`, `<iframe>`, `<input>` and friends, and
@@ -3043,6 +3076,16 @@ kit); `content_list` takes many (spells known, feats). Both name the
 `per_entry_fields` are the **character's own** notes on an entry - prepared,
 equipped, uses remaining. They are ordinary field definitions, validated and
 coerced like any other.
+
+`entry_note` is a formula shown beside each entry's name in the catalog
+browser, for the property a player picks by that the name doesn't show - a
+weapon's mastery, a spell's school. It reads the candidate as `entry` (its
+properties, `name` and `_ref`) beside the character's own fields and computed
+values, the names a prompt's `entry` step `filter` sees:
+`"entry_note": "entry.mastery"`. Text or a number is shown; an empty or failed
+result shows nothing. A per-entry field that picks from the catalog may carry
+one too. It is checked at install like any formula, and refused on a field that
+does not pick from the catalog.
 
 **Stored shape.** A reference, never a copy:
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX, LuCheck, LuPlus } from 'react-icons/lu'
 import { content as contentApi } from '../../api'
@@ -7,6 +7,12 @@ import Spinner from '../Spinner'
 import ContentEntryDetail from './ContentEntryDetail'
 import type { ContentTypeDefinition } from './ContentEntryDetail'
 import { goldBtn, ghostBtn, iconBtn, fieldInput, fieldLabel, card } from './characterStyles'
+import {
+  entryNoteText,
+  noteEntry,
+  parseEntryNote,
+  SheetFormulaContext,
+} from './sheetFormulaContext'
 
 type CatalogEntry = Schema<'CatalogEntry'>
 type Facets = NonNullable<Schema<'CatalogResponse'>['filters_available']>
@@ -31,6 +37,9 @@ export interface ContentBrowserProps {
   typeDefinition?: ContentTypeDefinition
   multiple?: boolean
   chosen?: (ContentRefValue | null | undefined)[]
+  // The field's `entry_note`: a formula shown beside each entry's name,
+  // reading the entry as `entry` beside the character.
+  entryNote?: unknown
   // The reference to store, and the picked entry's own properties.
   onChoose?: (ref: { _ref: string; _source: string }, entry: Record<string, unknown>) => void
   onClose?: () => void
@@ -53,10 +62,13 @@ export default function ContentBrowser({
   typeDefinition = {},
   multiple = false,
   chosen = [],
+  entryNote,
   onChoose,
   onClose,
 }: ContentBrowserProps) {
   const { t } = useTranslation()
+  const sheet = useContext(SheetFormulaContext)
+  const note = useMemo(() => parseEntryNote(entryNote), [entryNote])
   const [entries, setEntries] = useState<CatalogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -274,6 +286,7 @@ export default function ContentBrowser({
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
                 {entries.map((entry) => {
                   const picked = chosenIds.has(entry.entry_id)
+                  const noted = entryNoteText(note, noteEntry(entry), sheet)
                   return (
                     <li key={`${entry.source}:${entry.entry_id}`}>
                       <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -292,7 +305,22 @@ export default function ContentBrowser({
                             minWidth: 0,
                           }}
                         >
-                          <div style={{ fontWeight: 600 }}>{entry.name}</div>
+                          <div style={{ fontWeight: 600 }}>
+                            {entry.name}
+                            {noted ? (
+                              <span
+                                className="gc-entry-note"
+                                style={{
+                                  marginLeft: 8,
+                                  fontWeight: 400,
+                                  fontSize: 12,
+                                  color: 'var(--text-dim)',
+                                }}
+                              >
+                                {noted}
+                              </span>
+                            ) : null}
+                          </div>
                           {entry.display ? (
                             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                               {entry.display}

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import FieldRenderer from './FieldRenderer'
 import type { FieldDefinition } from './FieldRenderer'
 import LayoutRenderer from './LayoutRenderer'
+import { SheetFormulaContext } from './sheetFormulaContext'
 import type { SheetDocument } from './LayoutRenderer'
 import {
   computeValues,
@@ -154,104 +155,108 @@ export default function CharacterSheet({
   const computedDefs = (schemaDocument.computed || {}) as Record<string, ComputedDefinition>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <ValidatorMessages results={validators} />
-      {layout.map((section, index) => {
-        // A whole section can hinge on a condition — a spellcasting block for
-        // casters only — so it is checked before anything in it is drawn.
-        if (!isVisible(section.visible_if, context)) return null
-        return (
-          <section key={section.title || index}>
-            {section.title ? <h3 style={sectionHeading}>{section.title}</h3> : null}
+    <SheetFormulaContext.Provider value={context}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <ValidatorMessages results={validators} />
+        {layout.map((section, index) => {
+          // A whole section can hinge on a condition — a spellcasting block for
+          // casters only — so it is checked before anything in it is drawn.
+          if (!isVisible(section.visible_if, context)) return null
+          return (
+            <section key={section.title || index}>
+              {section.title ? <h3 style={sectionHeading}>{section.title}</h3> : null}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {(section.fields || section.rows || []).map((entry) => {
+                  const name = entryName(entry)
+                  if (!name) return null
+                  const definition = fields[name]
+                  if (definition) {
+                    if (!isVisible(definition.visible_if, context)) return null
+                    // A list wants the full width; a score box does not.
+                    const spanAll =
+                      definition.type === 'list' ||
+                      definition.type === 'textarea' ||
+                      definition.type === 'content_list'
+                    const state = fieldState(name, definition, data, context)
+                    return (
+                      <div key={name} style={spanAll ? { gridColumn: '1 / -1' } : undefined}>
+                        <FieldRenderer
+                          name={name}
+                          definition={definition}
+                          value={state.value}
+                          derivedValue={context[name]}
+                          derived={!readOnly && state.derived}
+                          onReset={
+                            !readOnly && state.overridden && onReset
+                              ? () => onReset(name)
+                              : undefined
+                          }
+                          onChange={
+                            readOnly
+                              ? undefined
+                              : (...args: [unknown, unknown?]) => onChange?.(name, ...args)
+                          }
+                          readOnly={readOnly}
+                          entries={entries}
+                          schemaId={schemaId || schemaDocument.id}
+                          contentTypes={schemaDocument.content_types || {}}
+                        />
+                      </div>
+                    )
+                  }
+                  // A computed value may be placed in the layout too.
+                  if (computedDefs[name]) {
+                    return (
+                      <FieldRenderer
+                        key={name}
+                        name={name}
+                        definition={{ type: 'text', label: computedDefs[name].label || name }}
+                        value={computed[name]}
+                        readOnly
+                        {...overrideProps(name)}
+                      />
+                    )
+                  }
+                  return null
+                })}
+              </div>
+            </section>
+          )
+        })}
+
+        {showUnplacedComputed &&
+        Object.keys(computedDefs).length > 0 &&
+        !layoutMentionsComputed(layout, computedDefs) ? (
+          <section>
+            <h3 style={sectionHeading}>{t('characters.derived')}</h3>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
                 gap: 12,
               }}
             >
-              {(section.fields || section.rows || []).map((entry) => {
-                const name = entryName(entry)
-                if (!name) return null
-                const definition = fields[name]
-                if (definition) {
-                  if (!isVisible(definition.visible_if, context)) return null
-                  // A list wants the full width; a score box does not.
-                  const spanAll =
-                    definition.type === 'list' ||
-                    definition.type === 'textarea' ||
-                    definition.type === 'content_list'
-                  const state = fieldState(name, definition, data, context)
-                  return (
-                    <div key={name} style={spanAll ? { gridColumn: '1 / -1' } : undefined}>
-                      <FieldRenderer
-                        name={name}
-                        definition={definition}
-                        value={state.value}
-                        derivedValue={context[name]}
-                        derived={!readOnly && state.derived}
-                        onReset={
-                          !readOnly && state.overridden && onReset ? () => onReset(name) : undefined
-                        }
-                        onChange={
-                          readOnly
-                            ? undefined
-                            : (...args: [unknown, unknown?]) => onChange?.(name, ...args)
-                        }
-                        readOnly={readOnly}
-                        entries={entries}
-                        schemaId={schemaId || schemaDocument.id}
-                        contentTypes={schemaDocument.content_types || {}}
-                      />
-                    </div>
-                  )
-                }
-                // A computed value may be placed in the layout too.
-                if (computedDefs[name]) {
-                  return (
-                    <FieldRenderer
-                      key={name}
-                      name={name}
-                      definition={{ type: 'text', label: computedDefs[name].label || name }}
-                      value={computed[name]}
-                      readOnly
-                      {...overrideProps(name)}
-                    />
-                  )
-                }
-                return null
-              })}
+              {Object.entries(computedDefs).map(([name, definition]) => (
+                <FieldRenderer
+                  key={name}
+                  name={name}
+                  definition={{ type: 'text', label: definition.label || name }}
+                  value={computed[name]}
+                  readOnly
+                  {...overrideProps(name)}
+                />
+              ))}
             </div>
           </section>
-        )
-      })}
-
-      {showUnplacedComputed &&
-      Object.keys(computedDefs).length > 0 &&
-      !layoutMentionsComputed(layout, computedDefs) ? (
-        <section>
-          <h3 style={sectionHeading}>{t('characters.derived')}</h3>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: 12,
-            }}
-          >
-            {Object.entries(computedDefs).map(([name, definition]) => (
-              <FieldRenderer
-                key={name}
-                name={name}
-                definition={{ type: 'text', label: definition.label || name }}
-                value={computed[name]}
-                readOnly
-                {...overrideProps(name)}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </SheetFormulaContext.Provider>
   )
 }
 

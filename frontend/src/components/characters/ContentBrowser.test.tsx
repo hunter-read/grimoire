@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ContentBrowser from './ContentBrowser'
+import { SheetFormulaContext } from './sheetFormulaContext'
 
 const mockBrowse = vi.fn()
 vi.mock('../../api', () => ({
@@ -270,5 +271,51 @@ describe('ContentBrowser', () => {
     mockBrowse.mockRejectedValue(new Error('catalog down'))
     renderBrowser()
     expect(await screen.findByRole('alert')).toHaveTextContent('catalog down')
+  })
+})
+
+describe('ContentBrowser entry_note', () => {
+  const renderNoted = (entryNote: unknown, sheet: Record<string, unknown> | null = { level: 5 }) =>
+    render(
+      <SheetFormulaContext.Provider value={sheet}>
+        <ContentBrowser
+          schemaId="demo"
+          contentType="spell"
+          typeDefinition={TYPE}
+          entryNote={entryNote}
+          onChoose={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SheetFormulaContext.Provider>
+    )
+
+  it('shows the note beside each entry, read from the entry and the sheet', async () => {
+    renderNoted("concat(entry.school, ' ', entry.level <= level)")
+    expect(await screen.findByText('evocation true')).toHaveClass('gc-entry-note')
+    expect(screen.getByText('abjuration true')).toBeInTheDocument()
+  })
+
+  it('reads the entry name and a number result', async () => {
+    renderNoted('entry.level * 2')
+    expect(await screen.findByText('6')).toHaveClass('gc-entry-note')
+    expect(screen.getByText('2')).toHaveClass('gc-entry-note')
+  })
+
+  it('shows nothing for an empty result', async () => {
+    const { container } = renderNoted("entry.level > 2 ? entry.school : ''")
+    expect(await screen.findByText('evocation')).toHaveClass('gc-entry-note')
+    expect(container.querySelectorAll('.gc-entry-note')).toHaveLength(1)
+  })
+
+  it('shows nothing for a formula that fails or does not parse', async () => {
+    const { container } = renderNoted('entry.(')
+    expect(await screen.findByText('Fireball')).toBeInTheDocument()
+    expect(container.querySelector('.gc-entry-note')).toBeNull()
+  })
+
+  it('shows nothing for a result that is not text', async () => {
+    const { container } = renderNoted('entry.level > 2', null)
+    expect(await screen.findByText('Fireball')).toBeInTheDocument()
+    expect(container.querySelector('.gc-entry-note')).toBeNull()
   })
 })
