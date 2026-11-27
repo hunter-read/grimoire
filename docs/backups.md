@@ -33,6 +33,12 @@ in it are hashed and encrypted with your `SECRET_KEY`, which is not in the backu
 [Security](security.md#feed-and-share-tokens-at-rest). Database writes are paused for the
 duration of the snapshot - brief for a typical library, but not instant.
 
+A file that cannot be opened (deleted mid-backup, or not readable by Grimoire) is left out
+and named in the log. A file that fails partway through being copied, or an archive that
+cannot be written out to disk, stops the backup instead: no archive appears, rather than
+one holding a cut-off copy that a restore would put back damaged. A backup is written out
+to disk in full before it appears in the list.
+
 ## Your library is not backed up
 
 **Backups do not include your PDFs, maps, tokens, or audio files.** The library is
