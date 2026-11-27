@@ -13,12 +13,28 @@ OCR fallback).  ``tests/test_pdf_worker.py`` guards against drift by asserting
 the two produce the same output.
 """
 
+import logging
 import os
 import pickle
 
 import pymupdf
 
 from . import config
+
+logger = logging.getLogger("grimoire.ocr")
+
+
+class OcrPageFailed(Exception):
+    """OCR failed on a page; ``text`` is what the page held before it was read.
+
+    Carried back so a page whose only text is a running header keeps it even
+    when Tesseract fails, as it did when a failure read as blank.
+    """
+
+    def __init__(self, cause: BaseException, text: str = "") -> None:
+        super().__init__(str(cause))
+        self.cause = cause
+        self.text = text
 
 
 def _ocr_settings() -> tuple[bool, str]:
@@ -78,7 +94,13 @@ def run(filepath: str, text_only: bool = False) -> tuple[list[dict], bool]:
             # one - but its own text is kept when OCR manages less, so a page
             # can never come out of this with less text than it went in with.
             if ocr_on and text_is_thin(page_text):
-                ocr_text = _ocr_page(page, languages)
+                try:
+                    ocr_text = _ocr_page(page, languages)
+                except Exception as exc:
+                    # As ``ocr.ocr_image`` does in the in-process reference: say
+                    # so, and the page keeps its own text.
+                    logger.warning(f"Couldn't read text from page {i + 1}: {exc}")
+                    ocr_text = ""
                 if len(ocr_text) > len(content):
                     content = ocr_text
                     used_ocr = True
@@ -94,8 +116,10 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
 
     Used by the deferred-OCR worker's isolated subprocess so a native crash or
     hang while OCRing one page can't take down the server or the whole book —
-    the parent checkpoints progress and resumes at the next page.  Returns "" on
-    failure (render error, OCR error) or for a page holding nothing at all.
+    the parent checkpoints progress and resumes at the next page.  Returns ""
+    for a page holding nothing at all, and raises ``OcrPageFailed`` (carrying
+    the page's own text) when it can't be rendered or Tesseract fails on it, so
+    the caller can tell a failed page from a blank one (issue #1010).
 
     Returns the text to index for the page, which is the better of the page's
     own text and what OCR reads from it:
@@ -122,7 +146,10 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
         embedded = page.get_text().strip()
         if not text_is_thin(embedded):
             return embedded
-        ocr_text = _ocr_page(page, languages, dpi=dpi)
+        try:
+            ocr_text = _ocr_page(page, languages, dpi=dpi)
+        except Exception as exc:
+            raise OcrPageFailed(exc, embedded) from exc
         return ocr_text if len(ocr_text) > len(embedded) else embedded
     finally:
         doc.close()
@@ -151,17 +178,31 @@ def _ocr_scale(dpi: int | None = None) -> float:
 
 
 def _ocr_page(page: "pymupdf.Page", languages: str, dpi: int | None = None) -> str:
-    """Render a page to an image and OCR it, returning stripped text ("" on failure)."""
-    try:
-        from PIL import Image
-        import pytesseract
+    """Render a page to an image and OCR it, returning stripped text.
 
-        scale = _ocr_scale(dpi)
-        pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
-        image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-        return pytesseract.image_to_string(image, lang=languages).strip()
-    except Exception:
-        return ""
+    Raises when rendering or Tesseract fails - a language it can't load, say.
+    Swallowing that made a failed page look exactly like a blank one.
+    """
+    from PIL import Image
+    import pytesseract
+
+    scale = _ocr_scale(dpi)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+    image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+    return pytesseract.image_to_string(image, lang=languages).strip()
+
+
+def ocr_failure(exc: BaseException) -> dict[str, str]:
+    """What ``ocr_page_main`` pickles in place of text for a page that failed.
+
+    ``error`` is the message: Tesseract's runs over several lines (which file it
+    couldn't open, which language that was), so it is folded onto one and
+    capped, to read as one log line in the parent. ``text`` is the page's own
+    text, from an ``OcrPageFailed``.
+    """
+    cause = exc.cause if isinstance(exc, OcrPageFailed) else exc
+    message = " ".join(str(cause).split()) or type(cause).__name__
+    return {"error": message[:500], "text": getattr(exc, "text", "")}
 
 
 def _prepare_worker() -> None:
@@ -215,11 +256,17 @@ def ocr_page_main(
 ) -> None:
     """Subprocess entry point for OCRing a single page (deferred-OCR worker).
 
-    Pickles the recognised text to ``result_path``.  A crash leaves the file
-    empty, which the parent treats as a failed page and skips. ``dpi`` overrides
-    the rasterization resolution (per-book re-OCR); None uses the global default.
+    Pickles the recognised text to ``result_path``, or ``ocr_failure``'s dict
+    when the page couldn't be read, so the parent can log why and count the
+    page as skipped.  A crash leaves the file empty, which the parent treats as
+    a failed page too. ``dpi`` overrides the rasterization resolution (per-book
+    re-OCR); None uses the global default.
     """
     _prepare_worker()
-    text = ocr_page(filepath, page_index, languages, dpi=dpi)
+    result: str | dict[str, str]
+    try:
+        result = ocr_page(filepath, page_index, languages, dpi=dpi)
+    except Exception as exc:
+        result = ocr_failure(exc)
     with open(result_path, "wb") as fh:
-        pickle.dump(text, fh)
+        pickle.dump(result, fh)

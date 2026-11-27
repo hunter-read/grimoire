@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from backend import indexer  # package namespace, for patch-sensitive calls
 from .. import pdf_worker
 from ..models import Book
-from ._subprocess import OCR_PAGE_ABANDONED, PdfExtractionCrashError, _commit
+from ._subprocess import FailedPage, PdfExtractionCrashError, _commit, is_abandoned
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -37,7 +37,7 @@ MIN_WORDS_PER_PAGE = 25
 # from the texture of an illustration don't count.
 _WORD = re.compile(r"[^\W\d_]{3,}")
 
-Verdict = Literal["scan", "artwork", "stopped"]
+Verdict = Literal["scan", "artwork", "stopped", "unreadable"]
 
 
 def should_sample(book: Book) -> bool:
@@ -81,9 +81,11 @@ def probe(
     pass would use; None means ``OCR_LANGUAGES``.
 
     Returns ``"scan"`` to go on with the full OCR pass, ``"artwork"`` when the
-    book has been indexed from its own text (and taken off the queue), or
-    ``"stopped"`` when a stop arrived mid-sample. Anything that stops the sample
-    from being taken - an extraction crash, every sampled page abandoned - errs
+    book has been indexed from its own text (and taken off the queue),
+    ``"stopped"`` when a stop arrived mid-sample, or ``"unreadable"`` when
+    Tesseract failed on every sampled page - a full pass would fail the same
+    way, so the book is left as it is. Anything else that stops the sample from
+    being taken - an extraction crash, every sampled page timing out - errs
     towards OCR, which is what the book was queued for.
     """
     try:
@@ -108,7 +110,9 @@ def probe(
     with_text = {p["page"] for p in pages if not pdf_worker.text_is_thin(p["content"])}
     image_only = [i for i in range(page_count) if i + 1 not in with_text]
     words: list[int] = []
-    for index in sample_pages(image_only):
+    sampled = sample_pages(image_only)
+    failed = 0
+    for index in sampled:
         if should_stop and should_stop():
             return "stopped"
         content = indexer.ocr_book_page_isolated_wrapper(
@@ -116,8 +120,14 @@ def probe(
         )
         if should_stop and should_stop():
             return "stopped"
-        if content is not OCR_PAGE_ABANDONED:
+        if isinstance(content, FailedPage):
+            failed += 1
+        elif not is_abandoned(content):
             words.append(count_words(content or ""))
+    if sampled and failed == len(sampled):
+        # Not one page read. Before issue #1010 these came back blank and the
+        # book was filed as artwork, never to be OCR'd once the cause was fixed.
+        return "unreadable"
     if not words or sum(words) / len(words) >= MIN_WORDS_PER_PAGE:
         return "scan"
 

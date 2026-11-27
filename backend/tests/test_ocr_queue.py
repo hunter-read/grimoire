@@ -790,3 +790,176 @@ class TestOcrPagesSkipped:
         assert "2 of 3" in warned
         assert "OCR_PAGE_TIMEOUT" in warned
         assert "it's now searchable" not in warned
+
+
+class TestOcrPageFailures:
+    """A page Tesseract failed on is a skipped page, not a blank one (#1010)."""
+
+    def test_worker_failure_is_abandoned_and_logged(self, caplog):
+        import logging
+
+        failure = {"error": "Failed loading language 'eng,deu'"}
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch("backend.indexer.pickle.load", return_value=failure), \
+             patch("backend.indexer.os.path.getsize", return_value=10), \
+             patch("builtins.open"), \
+             caplog.at_level(logging.ERROR, logger="grimoire.indexer"):
+            proc = MockProc.return_value
+            proc.is_alive.return_value = False
+            proc.exitcode = 0
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 4)
+        assert indexer.is_abandoned(out)
+        assert isinstance(out, indexer.FailedPage)
+        assert out == "" and out.error == "Failed loading language 'eng,deu'"
+        logged = " ".join(r.message for r in caplog.records)
+        assert "OCR page 5 failed" in logged
+        assert "eng,deu" in logged
+
+    def test_worker_failure_keeps_the_pages_own_text(self):
+        failure = {"error": "no deu", "text": "Chapter 3"}
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch("backend.indexer.pickle.load", return_value=failure), \
+             patch("backend.indexer.os.path.getsize", return_value=10), \
+             patch("builtins.open"):
+            MockProc.return_value.is_alive.return_value = False
+            out = indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+        assert out == "Chapter 3" and indexer.is_abandoned(out)
+
+    def test_a_repeated_error_is_logged_once_per_book(self, caplog):
+        import logging
+
+        from backend.indexer import _subprocess
+
+        token = _subprocess._logged_failures.set(set())
+        try:
+            with caplog.at_level(logging.DEBUG, logger="grimoire.indexer"):
+                for i in range(3):
+                    _subprocess._log_page_failure(i, "/tmp/x.pdf", "no deu")
+                _subprocess._log_page_failure(3, "/tmp/x.pdf", "other")
+        finally:
+            _subprocess._logged_failures.reset(token)
+        errors = [r.message for r in caplog.records if r.levelno == logging.ERROR]
+        assert len(errors) == 2
+        assert "OCR page 1 failed" in errors[0] and "OCR page 4 failed" in errors[1]
+        repeats = [r.message for r in caplog.records if r.levelno == logging.DEBUG]
+        assert len(repeats) == 2 and all("failed" in m and "the same way" in m for m in repeats)
+
+    def test_outside_a_book_every_failure_is_an_error(self, caplog):
+        import logging
+
+        from backend.indexer import _subprocess
+
+        with caplog.at_level(logging.ERROR, logger="grimoire.indexer"):
+            _subprocess._log_page_failure(0, "/tmp/x.pdf", "no deu")
+            _subprocess._log_page_failure(1, "/tmp/x.pdf", "no deu")
+        assert len(caplog.records) == 2
+
+    def test_a_failed_page_is_skipped_but_keeps_its_header(self):
+        bid = _queued_book(page_count=2)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
+                return indexer.FailedPage("Chapter 3" if i == 0 else "", "no deu")
+
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=_ocr):
+                assert indexer.ocr_book(book, db) == "done"
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 2
+        finally:
+            db.close()
+        assert _search_pages(bid) == [1]
+        # The book's record of logged errors goes with it.
+        from backend.indexer import _subprocess
+
+        assert _subprocess._logged_failures.get() is None
+
+    def test_no_loadable_language_leaves_the_book_queued(self, caplog):
+        import logging
+
+        bid = _queued_book(page_count=2)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(config, "OCR_LANGUAGES", "deu"), \
+                 patch.object(ocr, "installed_languages", return_value=frozenset({"eng"})), \
+                 patch.object(indexer, "ocr_book_page_isolated_wrapper") as page, \
+                 caplog.at_level(logging.WARNING, logger="grimoire.indexer"):
+                assert indexer.ocr_book(book, db) == "waiting"
+            page.assert_not_called()
+            db.refresh(book)
+            assert book.ocr_pending is True
+            assert (book.ocr_pages_done or 0) == 0
+        finally:
+            db.close()
+        assert "Leaving 'Scan-" in caplog.text and "no language data for deu" in caplog.text
+
+    def test_a_sample_that_all_failed_leaves_the_book_queued(self):
+        from backend.indexer import ocr_probe
+
+        bid = _queued_book(page_count=2)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(ocr_probe, "should_sample", return_value=True), \
+                 patch.object(ocr_probe, "probe", return_value="unreadable"):
+                assert indexer.ocr_book(book, db) == "waiting"
+            db.refresh(book)
+            assert book.ocr_pending is True
+        finally:
+            db.close()
+
+    def test_book_with_no_text_is_not_called_searchable(self, caplog):
+        """Every page read cleanly, none held a word: say so."""
+        import logging
+
+        bid = _queued_book(page_count=2)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "",
+                 ), \
+                 caplog.at_level(logging.INFO, logger="grimoire.indexer"):
+                assert indexer.ocr_book(book, db) == "done"
+            db.refresh(book)
+            assert book.ocr_pages_skipped == 0
+        finally:
+            db.close()
+        warned = " ".join(r.message for r in caplog.records if r.levelno >= logging.WARNING)
+        assert "no text was found on any of its 2 page(s)" in warned
+        assert "now searchable" not in caplog.text
+
+    def test_text_from_an_earlier_pass_still_counts(self, caplog):
+        """A resumed book whose new pages are blank keeps the earlier pass's text."""
+        import logging
+
+        bid = _queued_book(pages_done=1, page_count=2)
+        db = SessionLocal()
+        try:
+            db.execute(
+                text(
+                    "INSERT INTO book_pages (book_id, page_number, content) "
+                    "VALUES (:b, 1, 'first pass')"
+                ),
+                {"b": bid},
+            )
+            db.commit()
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "",
+                 ), \
+                 caplog.at_level(logging.INFO, logger="grimoire.indexer"):
+                indexer.ocr_book(book, db)
+        finally:
+            db.close()
+        assert "it's now searchable" in caplog.text
+        assert "no text was found" not in caplog.text

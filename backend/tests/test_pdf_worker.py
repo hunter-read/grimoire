@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pymupdf
+import pytest
 
 from backend import config, indexer, pdf_worker
 
@@ -108,20 +109,86 @@ def test_ocr_page_runs_tesseract(tmp_path):
     assert fake_tess.image_to_string.called
 
 
-def test_ocr_page_swallows_errors(tmp_path):
-    """_ocr_page returns "" if rendering or OCR raises."""
+def test_ocr_page_raises_on_tesseract_errors(tmp_path):
+    """_ocr_page lets a Tesseract error out, so a failed page isn't a blank one."""
     pdf = tmp_path / "scan.pdf"
     _make_image_only_pdf(pdf)
     doc = pymupdf.open(str(pdf))
     page = doc[0]
 
     fake_tess = MagicMock()
-    fake_tess.image_to_string.side_effect = RuntimeError("boom")
-    with patch.dict(sys.modules, {"pytesseract": fake_tess}):
-        text = pdf_worker._ocr_page(page, "eng")
-    doc.close()
+    fake_tess.image_to_string.side_effect = RuntimeError("Failed loading language 'eng,deu'")
+    try:
+        with patch.dict(sys.modules, {"pytesseract": fake_tess}), \
+             pytest.raises(RuntimeError, match="eng,deu"):
+            pdf_worker._ocr_page(page, "eng,deu")
+    finally:
+        doc.close()
 
-    assert text == ""
+
+def test_run_keeps_a_page_whose_ocr_failed(tmp_path):
+    """The whole-document pass still treats a failed OCR as no OCR text."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+
+    with patch.object(pdf_worker, "_ocr_settings", return_value=(True, "eng")):
+        with patch.object(pdf_worker, "_ocr_page", side_effect=RuntimeError("boom")):
+            pages, used_ocr = pdf_worker.run(str(pdf))
+
+    assert (pages, used_ocr) == ([], False)
+
+
+def test_run_logs_a_failed_ocr(tmp_path, caplog):
+    import logging
+
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    with patch.object(pdf_worker, "_ocr_settings", return_value=(True, "eng")), \
+         patch.object(pdf_worker, "_ocr_page", side_effect=RuntimeError("no eng")), \
+         caplog.at_level(logging.WARNING, logger="grimoire.ocr"):
+        pdf_worker.run(str(pdf))
+    assert "Couldn't read text from page 1: no eng" in caplog.text
+
+
+def test_ocr_failure_folds_the_message_onto_one_line():
+    exc = RuntimeError("Error opening data file eng,deu.traineddata\nFailed loading language")
+    assert pdf_worker.ocr_failure(exc) == {
+        "error": "Error opening data file eng,deu.traineddata Failed loading language",
+        "text": "",
+    }
+    assert pdf_worker.ocr_failure(RuntimeError())["error"] == "RuntimeError"
+    assert len(pdf_worker.ocr_failure(RuntimeError("x" * 900))["error"]) == 500
+
+
+def test_ocr_failure_carries_the_pages_own_text():
+    failed = pdf_worker.OcrPageFailed(RuntimeError("no deu"), "Chapter 3")
+    assert pdf_worker.ocr_failure(failed) == {"error": "no deu", "text": "Chapter 3"}
+
+
+def test_ocr_page_failure_keeps_a_header(tmp_path, monkeypatch):
+    """A header-only page Tesseract fails on hands its header back with the error."""
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 50)
+    pdf = tmp_path / "header.pdf"
+    _make_text_pdf(pdf, ["Chapter 3"])
+    with patch.object(pdf_worker, "_ocr_page", side_effect=RuntimeError("no deu")), \
+         pytest.raises(pdf_worker.OcrPageFailed) as caught:
+        pdf_worker.ocr_page(str(pdf), 0, "deu")
+    assert caught.value.text == "Chapter 3"
+    assert str(caught.value.cause) == "no deu"
+
+
+def test_ocr_page_main_pickles_a_failure(tmp_path):
+    """A page OCR failed on reaches the parent as the error, not as ""."""
+    pdf = tmp_path / "scan.pdf"
+    _make_image_only_pdf(pdf)
+    result_path = tmp_path / "out.pkl"
+
+    with patch.object(pdf_worker, "_prepare_worker"), \
+         patch.object(pdf_worker, "_ocr_page", side_effect=RuntimeError("no eng,deu")):
+        pdf_worker.ocr_page_main(str(pdf), 0, "eng,deu", str(result_path))
+
+    with open(result_path, "rb") as fh:
+        assert pickle.load(fh) == {"error": "no eng,deu", "text": ""}
 
 
 def test_main_writes_pickled_result(tmp_path):

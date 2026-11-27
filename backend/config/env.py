@@ -21,6 +21,7 @@ because the variable is not a Grimoire setting:
 import datetime
 import logging
 import os
+import re
 import sys
 import urllib.parse
 from typing import Any, Callable, Optional, overload
@@ -186,6 +187,9 @@ VALKEY_URL = _str_env("VALKEY_URL", "")
 #   OCR_LANGUAGES — Tesseract language codes, e.g. "eng" or "eng+deu+fra".
 #                   Extra languages need their tessdata files present (bundle
 #                   them by mounting a tessdata dir and setting TESSDATA_PREFIX).
+#                   Commas, semicolons and spaces are read as "+" (issue #1010):
+#                   Tesseract takes "eng,deu" as one language it can't find and
+#                   loads nothing, so every scanned page came out blank.
 #   OCR_CONCURRENCY — number of scanned books OCR'd in parallel by the deferred
 #                     OCR worker. Defaults to 1 (serial) to keep small self-hosted
 #                     boxes responsive; raise it on multi-core hosts with spare CPU.
@@ -194,7 +198,14 @@ VALKEY_URL = _str_env("VALKEY_URL", "")
 #                     repeated OCR errors or OOMs, without pulling the slim image.
 #   OCR_PAGE_TIMEOUT — per-page OCR budget in seconds (see _read_ocr_page_timeout).
 OCR_ENABLED = _bool_env("OCR_ENABLED", True)
-OCR_LANGUAGES = _str_env("OCR_LANGUAGES", "eng").strip() or "eng"
+
+
+def _read_ocr_languages() -> str:
+    codes = [c for c in re.split(r"[\s,;+]+", _str_env("OCR_LANGUAGES", "eng")) if c]
+    return "+".join(dict.fromkeys(codes)) or "eng"
+
+
+OCR_LANGUAGES = _read_ocr_languages()
 
 # Set false to skip the library scan that otherwise runs on every start (issue
 # #651). A scan already skips unchanged files, but on a very large library even
